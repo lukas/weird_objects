@@ -1143,3 +1143,50 @@ validity, on video. Speed obedience is secondary throughout.
   stagea-slip1 absorbing-state lesson) and BC-kickstart gets flagged
   to the operator as the named last resort in the same verdict, no
   further park_duty dose variants after this one.
+
+## Now (updated 08-24 ~01:3x — actbias1-pdw05-pdx15 FAIL: park_duty-class CLOSED at every combination; 9 mechanisms now refuted)
+
+- **`cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15` FAIL, verdicted (exactly
+  the pre-registered prediction-if-false).** 1.5x `k_park_duty`
+  (0.08->0.12) stacked with BOTH the `park_duty_window_s=0.5` confound
+  fix AND the action-bias fix still does not dislodge the clean
+  park-stand: DR-0 gate det 0/6 gait_valid, **5/6 legs sacrificed**
+  (even tighter than plain actbias1-pdw05's own 5/6), prog 0.00, fwd
+  0.01m/25s, slip/m 1.20 (low — near-zero motion, not skating); sto
+  5/6 gait_valid but slip/m 44.4 (in-place thrashing). Contact sheet
+  visually identical to actbias1/actbias1-pdw05: level, static stand,
+  10/10 frames. `ep_rew_mean` quarters 45.1/40.4/25.9/8.9 (falling,
+  final negative) — aligned FAIL, not undertrained. **This closes the
+  park_duty-class charge completely**: no combination of confound-fix
+  x dose x action-bias unlocks rung-1 discovery. Tally of independently
+  refuted mechanism classes on this track: RND (dose+budget), rung-0
+  swing-income, `--gru`, `--use-sde`, reward-scale (dose+continuations),
+  height-gate (loose/tight dose), park_duty (confound+dose,
+  confound+dose+actbias) — **9 classes closed**, all aligned FAILs
+  (reward flat-or-falling, eval flat/bad, healthy optimizer, adequate
+  2M-6M budgets).
+  **TRACK DECISION POINT:** per the fork rule pinned in the 01:0x
+  banner above, the next step is EITHER (a) design+build+bank-prove
+  the direct minimum-total-foot-contact charge (a new mechanism that
+  prices "too few legs cycling in a trailing window" directly, cannot
+  be dodged by finding a new static duty *pattern* the way tripod-lock
+  -> splayed-sink did, MUST ship with a hard termination per the
+  stagea-slip1 absorbing-state lesson, and needs its own scripted
+  "park-stand"/"splayed-sink" twins + bank proof before any training
+  spend) or (b) escalate BC-kickstart to the operator as the track's
+  own named last resort. This is genuine design+build DIG-IN work
+  (not a coefficient tweak) — flagged here for the next cycle with
+  capacity to own it end-to-end, rather than rushed. A same-cycle
+  attempt this pass to find a cheap existing-mechanism substitute
+  (`reward.walk_kernel_prog_gate`, the WALK/joystick-lineage fix for
+  "absolute-error kernel pays a parked robot near-full income") was
+  checked and RULED OUT before any launch: `walk_task.py`'s own code
+  comment says explicitly not to combine it with `k_walk_freeprog`
+  (the active pricing mechanism on every fwd6 arm) because freeprog
+  already scores a truly parked robot's positive term at ~0 by
+  construction (`walk_freeprog_score`: `along=0` -> `a=0` -> no
+  income) — the transient `env/reward_walk` values seen early in
+  training (~2.0/tick) are settle-phase (`s_ref~0`) ticks hitting the
+  OLD un-replaced Gaussian kernel, not evidence of a live parked-robot
+  exploit under the active reward. No new lever found this way;
+  recorded so no future cycle re-derives and wastes a launch on it.

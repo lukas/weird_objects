@@ -2810,6 +2810,69 @@ class SimHexapodBalanceEnv(_GymBase):
             status.ok = False
             status.terminate = True
             status.reason = "walk_low_height"
+        # Sustained-idle termination (2026-08-24, walkcurr park_duty-
+        # class closure dig-in): every anti-park PRICE tried so far
+        # (idle charge, park_duty, up to bank-legal 1.5x dose) left a
+        # clean, non-colliding static stand as PPO's cheapest optimum
+        # for the entire episode -- an absorbing state the stagea-
+        # slip1 lesson says a soft price alone cannot evict (op ruling
+        # 08-24: "absorbing states beat prices; must come WITH a
+        # termination, never instead of one"). This is that boundary
+        # for the FROZEN-POLICY-OUTPUT absorbing state, mirroring
+        # walk_max_height_drop_mm's structure exactly: if mean
+        # |joint velocity| across the 18 actuated joints (own EMA,
+        # _walk_qvel_ema) stays below
+        # safety.walk_idle_terminate_qvel_deg_s for
+        # safety.walk_idle_terminate_s consecutive seconds (after an
+        # initial grace window), the episode ends with
+        # reward.walk_idle_terminate_penalty (falls back to the usual
+        # reward.term_penalty if unset). Joint velocity, not body
+        # speed, is the deliberate choice: a body-speed version also
+        # flagged a real dragging/skating gait (near-zero BODY speed,
+        # legs cycling hard) and genuine wrong-direction travel
+        # (reverse/sideways -- near-zero ALONG-command speed, real
+        # total speed) as "idle", cutting both short and robbing them
+        # of the full-episode loadslip/heading charges the
+        # WALKCURR_PF bank relies on to rank them below a plain park
+        # -- measured to invert that ranking in bank probes. Mean
+        # |qvel| cleanly separates a literally FROZEN policy output
+        # (~5e-5 rad/s, pure settle jitter) from every other scripted
+        # behavior (>=0.1 rad/s, ~35x higher) regardless of whether
+        # the legs' motion translates into body progress, wrong-way
+        # progress, or slip -- see the WALKCURR_PF_IDLE_TERM bank.
+        # Default walk_idle_terminate_s=0.0 = off, bit-exact legacy
+        # (no new state read, no behavior change) -- every existing
+        # task/cfg is unaffected until a walkcurr rung explicitly arms
+        # this.
+        walk_idle_term_s = float(cfg_get(
+            self.cfg, "safety", "walk_idle_terminate_s", default=0.0))
+        if (not terminated and walk_idle_term_s > 0.0
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "walk"):
+            idle_grace_s = float(cfg_get(
+                self.cfg, "safety", "walk_idle_terminate_grace_s",
+                default=0.0))
+            idle_floor = max(float(cfg_get(
+                self.cfg, "safety", "walk_idle_terminate_qvel_deg_s",
+                default=2.0)) * DEG2RAD, 1e-9)
+            idle_tau = max(float(cfg_get(
+                self.cfg, "safety", "walk_idle_terminate_tau_s",
+                default=0.25)), self.dt)
+            qvel_now = float(np.mean(np.abs(self.data.qvel[self._vadr])))
+            self._walk_qvel_ema += (self.dt / idle_tau) * (
+                qvel_now - self._walk_qvel_ema)
+            if self._step_i * self.dt < idle_grace_s:
+                self._walk_idle_low_s = 0.0
+            else:
+                if self._walk_qvel_ema < idle_floor:
+                    self._walk_idle_low_s += self.dt
+                else:
+                    self._walk_idle_low_s = 0.0
+                if self._walk_idle_low_s >= walk_idle_term_s:
+                    terminated = True
+                    status.ok = False
+                    status.terminate = True
+                    status.reason = "walk_idle_terminate"
         unload_f = None
         if goal is not None:
             # GETUP mode has no height reference at all: its staged

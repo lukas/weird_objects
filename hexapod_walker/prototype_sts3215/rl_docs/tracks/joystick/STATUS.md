@@ -1,6 +1,64 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~00:1x (**`cw-arch-hist16-dep1-c1-joyfullcurr6`
+Last updated: 2026-08-24 ~02:0x (**`cw-arch-hist16-dep1-c1-joyfullcurr7`
+FAIL, verdicted — the stop-charge fix (landed for joyfullcurr7, see
+banner below) is a REAL PARTIAL fix, not a no-op, but plateaus short
+of the cert bar and trades away actuator safety margin.** Plain
+English: last cycle's fix (charge the robot for still moving when
+told to stop) DID reduce the creep speed a lot (0.045 -> ~0.026-0.031
+m/s by ~40% of the run, vs joyfullcurr6's flat 0.041-0.047 the whole
+way) but PLATEAUED there for the remaining ~35M steps, never reaching
+the 0.015 m/s cert bar — `walkcurr/frontier` stayed pinned at 1 (b1),
+identical to joyfullcurr6, so buckets b2-b9 (side90/rear/full-circle,
+the actual point of the operator's order) were never practiced again.
+Worse, the held-out randomized joygate got WORSE than joyfullcurr6
+(13/48 falls vs 8/48; dir_err med 45.67 vs allow 40); newly
+root-caused via per-episode `term_reason`: **every single fall in
+both passes is `over_current`** (an actuator current-limit safety
+trip), not roll/tilt — the per-tick linear stop-charge creates
+pressure to decelerate hard the instant a stop is commanded, and the
+joygate's harder, more frequent stop transitions turn that pressure
+into current spikes that trip the safety limit. The standard
+non-adversarial DR-0/own-DR walk gate stayed healthy and
+video-comparable to joyfullcurr6 (6/6 det gait_valid 0 term, clean
+six-leg gait) — this is a narrow, specific regression on the harder
+panel, not a general walking collapse. ep_rew_mean quarters
+828/928/898/864 (peaks Q2, declines) = aligned FAIL per 08-21, not a
+keep-training case (the plateau, not still-descending, says
+dose-insufficient-at-equilibrium).
+**NEXT (specified, not yet built — flagged for a cycle with a clean
+`walk_task.py`, see Now-banner note)**: do NOT blindly raise
+`k_walk_stop_charge` dose — the over-current finding says more dose
+intensifies the hard-brake incentive and likely worsens falls, not
+the plateau. Build a **settle-grace** on the stop charge instead:
+exempt or linearly ramp-in the charge over the first
+`reward.walk_stop_grace_s` (~0.3-0.5s, new cfg key, default 0 =
+off/bit-exact) after a stop command begins — the physically-necessary
+deceleration transient pays nothing or a fraction, only SUSTAINED
+post-transient creep pays the full charge. This addresses both
+findings at once: removes the hard-brake pressure that's tripping
+over_current, while keeping (or strengthening) the pricing on the
+actual cert-bar violation (sustained creep). Needs: a small
+`_walk_stop_grace_s` timer/EMA analogous to the existing
+`_walk_idle_ema` state, a `test_task_semantics.py` bank addition
+(stopcharge-with-grace: still_charged>creep_charged still holds,
+grace window itself pays less than an equal-duration sustained creep
+at the same speed), then relaunch `cw-arch-hist16-dep1-c1-joyfullcurr8`
+from the SAME base parent (`ppo_goal_cw_arch_hist16_dep1_c1.zip`, not
+this regressed checkpoint) with the grace mechanism replacing the
+plain charge. NOT attempted this cycle: `rl_move/sim/walk_task.py`
+had a live uncommitted concurrent edit in flight (a different
+mechanism, walkcurr's foot-contact/idle-termination work) at
+triage time — editing the same file simultaneously risked losing
+either change; check `git diff --stat walk_task.py` is clean before
+starting. Champion unchanged (`stotight45-seed13`); the joystick
+DONE gate itself stays met per the 08-23 declaration — this V6
+full-circle ladder is operator-ordered hardening
+(`fb_20260823T220651_5c66e3`), not a re-open of the core mission gate.
+Evidence: `logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr7_{gate,
+owncfg,joygate}/`, W&B run `6l0afxr1`. Prior banner below.)
+
+Previous entry (2026-08-24 ~00:1x (**`cw-arch-hist16-dep1-c1-joyfullcurr6`
 VERDICTED FAIL (dig-in complete) — root cause CORRECTED, stop-charge
 fix landed, relaunch queued.** The dig-in finalized the flagged run:
 joygate FAIL (8 falls/48, 5 at DR-0, dir_err 40.69>40, gait_valid

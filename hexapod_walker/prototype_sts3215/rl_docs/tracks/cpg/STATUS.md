@@ -1,6 +1,19 @@
 # cpg - Berkeley-style parameter gait search
 
-Last updated: 2026-08-23 ~21:1x UTC (**SECOND independent adoption
+Last updated: 2026-08-24 ~01:3x UTC (**THIRD independent adoption
+data point in (pre-registered 8M matched pair that was found stuck
+REFUSED and fixed/launched by an earlier cycle) — same result again,
+no story change.** `cw-cpg-teacherfork-ab8m-cpgv1r` (PASS) vs
+`cw-cpg-teacherfork-ab8m-teacherr` (PASS, baseline): cpg_v1 det prog
+1.29/slip 2.68 vs teacher 1.22/slip 2.69, sto prog 0.97/slip 3.27 vs
+0.90/3.27; gait_valid 6/6 both arms both modes, zero terms/sacrificed
+legs, video-clean. Confirms the already-CLOSED co-equal-style-source
+ruling a third time; no new action taken (remaining items stay
+maintenance/[operator] only). Evidence:
+`logs/ckpt_eval/cw_cpg_teacherfork_ab8m_cpgv1r_gate/`,
+`..._teacherr_gate/`. Prior banner below.)
+
+Previous entry (2026-08-23 ~21:1x UTC (**SECOND independent adoption
 data point in — gate stays GREEN, adoption answer strengthened.**
 Fresh matched-6M A/B pair `cw-cpg-ab6m-cpglib` (PASS) vs
 `cw-cpg-ab6m-teachlib` (INFORMATIVE control): cpg_v1 parity-or-better

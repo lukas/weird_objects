@@ -7380,3 +7380,180 @@ def test_stopcharge_repricing_makes_stillness_win(stopcharge_returns):
     # ~0 by construction).
     assert abs(r["still_charged"] - r["still_base"]) < 60.0, (
         f"the stop charge taxes genuine stillness: {r}")
+
+
+def test_stopcharge_dose3_widens_margin_without_taxing_stillness():
+    """2026-08-24 joyfullcurr7 dig-in: the k=1.0 dose measurably
+    dropped the trained stop-tick creep (0.045->0.029 m/s over 40M
+    steps) but PLATEAUED well above the 0.015 cert bar for ~95% of
+    training — a converged, not undertrained, outcome. Before
+    launching a k=3.0 dose escalation arm, prove in the bank that 3x
+    (a) widens the still-vs-creep margin further (the lever has
+    headroom, this is not already saturated) and (b) still does not
+    tax genuine stillness (the mechanism's own invariant)."""
+    still1 = [_stopcharge_rollout("still", s, k_stop=1.0) for s in SEEDS]
+    creep1 = [_stopcharge_rollout("creep", s, k_stop=1.0) for s in SEEDS]
+    still3 = [_stopcharge_rollout("still", s, k_stop=3.0) for s in SEEDS]
+    creep3 = [_stopcharge_rollout("creep", s, k_stop=3.0) for s in SEEDS]
+    m_still1 = float(np.mean([r[0] for r in still1]))
+    m_creep1 = float(np.mean([r[0] for r in creep1]))
+    m_still3 = float(np.mean([r[0] for r in still3]))
+    m_creep3 = float(np.mean([r[0] for r in creep3]))
+    margin1 = m_still1 - m_creep1
+    margin3 = m_still3 - m_creep3
+    assert margin3 > margin1 + 100.0, (
+        f"3x dose does not widen the still-vs-creep margin: "
+        f"k1={margin1:.1f} k3={margin3:.1f}")
+    assert abs(m_still3 - m_still1) < 90.0, (
+        f"3x dose taxes genuine stillness (should be ~0 at any dose): "
+        f"still1={m_still1:.1f} still3={m_still3:.1f}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR_PF_IDLE_TERM bank (2026-08-24, park_duty-class closure
+# dig-in). Plain English: every anti-park PRICE tried on the walkcurr
+# rung-1 diet (idle charge, park_duty up to bank-legal 1.5x, combined
+# with the actbias1 zero-point fix) left a clean, non-colliding static
+# stand as PPO's cheapest optimum for the whole episode -- an
+# absorbing state the stagea-slip1 lesson says a soft price alone
+# cannot evict ("absorbing states beat prices; must come WITH a
+# termination, never instead of one"). safety.walk_idle_terminate_s
+# ends the episode once mean |joint velocity| (NOT body speed) sits
+# below safety.walk_idle_terminate_qvel_deg_s for that many
+# consecutive seconds, past an initial safety.walk_idle_terminate_grace_s
+# settle window, charging reward.walk_idle_terminate_penalty (falls
+# back to reward.term_penalty if unset).
+#
+# WHY JOINT VELOCITY, NOT BODY SPEED (measured this cycle, two
+# rejected designs): (1) an along-COMMAND speed EMA also flags real
+# wrong-direction travel (reverse/sideways) as "idle" -- both have
+# ~zero along-command component despite genuinely walking -- cutting
+# them short before their full-episode heading/loadslip charges
+# accrue, which was measured to INVERT the required park > sideways
+# ranking (park fell to within 20 of sideways, sometimes below it).
+# (2) a TOTAL body-speed EMA still misclassifies "skate" (feet drag,
+# body barely translates by construction) as idle, cutting it short
+# before its designed loadslip charge bites -- measured to drop skate
+# from the bank's floor to BETTER than reverse/sideways, also an
+# inversion. Mean |qvel| across the 18 actuated joints does not have
+# either failure: an honest gait/stall/reverse/sideways/skate twin all
+# sit >=0.1 rad/s (legs are actually being commanded to move) while a
+# literally FROZEN policy output sits ~5e-5 rad/s (pure contact-solver
+# settle jitter) -- a ~2000x gap, not a tuning-sensitive threshold.
+# Measured effect: at a sane dose (qvel floor 2 deg/s, 3 s grace, 3 s
+# duration, dedicated penalty 150 -- much smaller than
+# WALKCURR_PF_OVERRIDES' anti-suicide term_penalty=1200, deliberately,
+# see the dedicated-penalty test below), ONLY "park" terminates early
+# (149/375 steps); gait/stall/reverse/sideways/skate/topple are
+# bit-for-bit UNCHANGED from the unarmed WALKCURR_PF bank -- this
+# mechanism is a surgical fix for the one pathology it targets, not a
+# blanket anti-stillness tax.
+
+WALKCURR_PF_IDLE_TERM_OVERRIDES = dict(WALKCURR_PF_OVERRIDES)
+WALKCURR_PF_IDLE_TERM_OVERRIDES.update({
+    ("safety", "walk_idle_terminate_s"): 3.0,
+    ("safety", "walk_idle_terminate_grace_s"): 3.0,
+    ("safety", "walk_idle_terminate_qvel_deg_s"): 2.0,
+    ("reward", "walk_idle_terminate_penalty"): 150.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_pf_idle_term_returns() -> dict[str, float]:
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_PF_IDLE_TERM_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_idle_term_ranking_holds(walkcurr_pf_idle_term_returns):
+    """The operator's required ranking must survive arming the idle
+    boundary on top of the full WALKCURR_PF stack: clean walking >
+    park/stall > reverse/sideways > skate/topple, exactly as the
+    unarmed bank requires."""
+    r = walkcurr_pf_idle_term_returns
+    for still in ("park", "stall"):
+        assert r["gait"] > r[still] + 300.0, (
+            f"stationary '{still}' is competitive with real walking "
+            f"once idle-terminate is armed: {r}")
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 50.0, (
+            f"wrong-way '{wrong}' out-earns (or ties) standing still "
+            f"once idle-terminate is armed: {r}")
+    tier3 = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < tier3 - 50.0, (
+            f"'{worst}' is not the floor once idle-terminate is "
+            f"armed: {r}")
+    assert r["stall"] > r["park"], (
+        f"refusal out-earns stepping once idle-terminate is armed: {r}")
+
+
+def test_walkcurr_idle_term_only_cuts_the_frozen_twin(
+        walkcurr_pf_idle_term_returns):
+    """The mechanism's whole point: it must be surgical. Only "park"
+    (the one genuinely frozen-policy-output twin) may terminate early;
+    every other scripted behavior -- including skate and stall, whose
+    BODY barely moves -- must run the full episode untouched, because
+    their legs are genuinely being commanded to move."""
+    r = walkcurr_pf_idle_term_returns
+    assert r["park_steps"] < 200, (
+        f"park did not terminate early: {r['park_steps']} steps")
+    for pol in ("gait", "fast", "creep", "stall", "reverse", "sideways",
+                "skate"):
+        assert r[f"{pol}_steps"] > 300, (
+            f"'{pol}' terminated early under idle-terminate -- the "
+            f"qvel discriminator is not surgical: {r[pol + '_steps']} "
+            f"steps")
+
+
+def test_walkcurr_idle_term_matches_unarmed_bank_off_the_frozen_twin(
+        walkcurr_pf_returns, walkcurr_pf_idle_term_returns):
+    """Every behavior the mechanism does NOT cut short must return the
+    bit-exact unarmed value -- arming safety.walk_idle_terminate_s must
+    not perturb any reward path for a policy that keeps its joints
+    moving, by construction (the termination check adds no reward
+    term of its own; it only ends the episode)."""
+    base, armed = walkcurr_pf_returns, walkcurr_pf_idle_term_returns
+    for pol in ("gait", "fast", "creep", "stall", "reverse", "sideways",
+                "skate", "topple"):
+        assert armed[pol] == pytest.approx(base[pol]), (
+            f"'{pol}' changed once idle-terminate is armed but did "
+            f"not terminate early -- unexpected side effect: "
+            f"base={base[pol]} armed={armed[pol]}")
+
+
+def test_walkcurr_idle_term_dedicated_penalty_is_smaller_than_term_penalty(
+        walkcurr_pf_idle_term_returns):
+    """The lever that makes the ranking work: a SMALL dedicated
+    reward.walk_idle_terminate_penalty (150), not the full anti-
+    suicide reward.term_penalty (1200) reused verbatim. Reusing the
+    full term_penalty was measured to collapse the fine per-tick
+    ranking among the non-progressing behaviors -- once every one of
+    them ALSO pays the ~1200 lump, only their few pre-termination
+    ticks of charge differ, which can invert park vs. sideways or let
+    a slow idle death undercut the fast topple death. Pin the
+    park return is nowhere near as catastrophic as a term_penalty=1200
+    reading would be (roughly -1200 or worse)."""
+    r = walkcurr_pf_idle_term_returns
+    assert r["park"] > -400.0, (
+        f"park's armed return looks like it paid the full term_penalty "
+        f"rather than the dedicated walk_idle_terminate_penalty: {r}")

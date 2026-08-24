@@ -160126,7 +160126,7 @@
       "0.06"
     ],
     "created": "2026-08-23T22:34:37+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -160155,7 +160155,7 @@
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd3.log",
     "wandb_id": "277om3m4",
     "verified": "2026-08-23T22:38:04+00:00",
-    "triage": "awaiting since 2026-08-23T22:42:36",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T22:43:10+00:00",
@@ -160163,7 +160163,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "24\nwandb:   env/height_err_mm 111.84579\nwandb:       env/height_mm -111.8419\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.33378\nwandb:  env/mean_current_a 0.11164\nwandb: env/pct_within_1deg 0.90088\nwandb:   env/pitch_ref_deg 0\nwandb:                +114 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-rscale50-rnd3 at: https://wandb.ai/l2k2/hexapod-balance/runs/277om3m4\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_223542-277om3m4/logs\n"
       }
-    ]
+    ],
+    "verdict": "Stale/lost run (finished 2026-08-23T22:42, sat unprocessed ~3h with no prestage evals -- picked up this cycle since it was outside every concurrent cycle's stated scope). Dose sibling of rnd02(0.02)/rnd10(0.10)/rnd100(1.0) at 0.06, direct on the rung-1 rscale50 diet. Result: identical RND-class failure signature -- DR-0 gate det 0/6 gait_valid, ALL SIX legs sacrificed, height_err_mm 111.8-116.3 (matches the 116.3mm collapse signature exactly reproduced across rnd02/rnd10/rnd100/rscale50-rnd1/rung0-swing3-rnd1/rnd3 per STATUS), slip/m 7.89 det / 8.62 sto (high -- legs splayed and thrashing while the body sinks, visible on the contact sheet as a static splayed/sunk stance held across all 10 frames, not real walking). Mechanism health was fine (train/clip_fraction 0.037 final, not collapsed) and env/walk_freeprog_score ended slightly closer to zero than sibling doses (-0.0078 vs the -0.05..-0.10 band) but this did not translate into any gait -- reward quarters 48.9/52.0/47.2/35.3 (rises then falls, not a clean undertrained-keep-going read). Aligned FAIL per 08-21 (eval flat/bad despite a healthy optimizer). Interpolates cleanly inside the already-CLOSED RND-dose bracket (0.02/0.10/1.0 -> now 0.02/0.06/0.10/1.0, same signature at every point) -- no new lever, confirms the track's existing RND-as-a-class closure, no track-decision change. Evidence: logs/ckpt_eval/cw_walkcurr_pf_fwd6_rscale50_rnd3_gate/."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rnd100",
@@ -161898,7 +161899,7 @@
       "reward.k_walk_stop_charge=1.0"
     ],
     "created": "2026-08-24T00:15:17+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -161940,7 +161941,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Exactly the pre-registered prediction-if-false, on BOTH named branches at once. (1) PROMOTION: walkcurr/frontier stayed pinned at 1 (b0->b1, same single promotion as joyfullcurr6) across all 80 cert rounds / 40M steps -- walkcurr_precert_b1.fails=['stop'] at the final round, identical blocker to joyfullcurr6. The new k_walk_stop_charge=1.0 mechanism DID move the needle (b1 stop_speed_m_s trended 0.045->~0.026-0.031 by cert round ~40 then PLATEAUED there for the remaining ~35M steps -- a real, substantial ~35-40% reduction vs joyfullcurr6's own flat 0.041-0.047 band the whole run -- but never crossed the 0.015 cert bar). ep_rew_mean quarters 828/928/898/864 (peaks Q2, declines after) -- flat-not-rising, so this is an aligned FAIL per the 08-21 ruling, not a keep-training case; the plateau (not still-descending) says dose-insufficient-at-equilibrium, not undertrained. (2) QUALITY TRADE-OFF, newly found: the held-out randomized joygate got WORSE than joyfullcurr6 (13/48 falls vs 8/48; dir_err med 45.67>40 allow; slip/m 2.474 still under the 2.9 cap). Root cause (per-episode term_reason, not examined before): ALL 8 DR-0 falls + both DR0.5-sto falls are 'over_current' actuator safety trips, not roll/tilt -- the stop-charge's per-tick linear pricing on stop-tick body speed creates pressure to decelerate hard the instant a stop is commanded, and in the joygate's harder full-family randomized session (more frequent/abrupt stop transitions than the curriculum's own controlled buckets) that pressure is producing torque/current transients that trip the safety limit. This is the gate's own named second failure branch ('the stop charge trades away walking quality'), now root-caused to a specific mechanism (deceleration-transient current spikes), not just observed. The STANDARD DR-0/own-DR walk gate (the non-adversarial rung) stayed healthy and comparable to joyfullcurr6 (DR-0 det 6/6 gait_valid 0 term slip 1.08, sto 5/6; own-DR det 5/6, sto 6/6; video clean six-leg gait, no static-crouch/paddle pathology) -- the regression is specific to the harder stress panel, not a general walking collapse. Checkpoint kept append-only, NOT a champion candidate (unchanged: stotight45-seed13 remains the joystick-track champion per the 08-23 DONE declaration; this V6 full-circle ladder is separate operator-ordered hardening, fb_20260823T220651_5c66e3). NEXT (recorded, not launched this cycle): a blind dose escalation of k_walk_stop_charge is NOT recommended -- the over-current finding suggests more dose would intensify the hard-brake incentive and likely worsen falls, not fix the plateau. The gate's own pre-registered alternative -- a SETTLE-GRACE on the stop charge (exempt/ramp the charge over the first ~0.3-0.5s after a stop command begins, when deceleration is physically unavoidable, pricing only sustained post-transient creep) -- addresses both findings at once and is the well-specified next lever; it needs a small new cfg key + bank test (real code, not a coefficient tweak), correctly scoped as build work for the next cycle with capacity, and NOT attempted this cycle because rl_move/sim/walk_task.py currently has a live uncommitted edit in flight from a concurrent cycle (different mechanism, walkcurr foot-contact/idle-termination) -- editing the same file concurrently risked corrupting/losing either change. Evidence: logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr7_{gate,owncfg,joygate}/, W&B run 6l0afxr1."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-actbias1",
@@ -163769,7 +163772,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Healthy canary + comparable full-budget precedent: cw-cpg-teacherfork-ab-cpgv1 (this exact BC-init + section-5 AMP reward + cpg_v1.npz style-lib recipe, 2M) already PASSED its own DR-0 gate with clean six-leg video and healthy clip_fraction/std -- the recipe is not fragile. The same trainer/stack (BC-init + AMP-style PPO on MJX/warp) trains stably from 2M discovery straight through 40M+ acquisition with reward and gate metrics still improving in the AMP M5 champion lineage (ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11* seeds, CURRENT_TRUTHS AMP M5 GATE GREEN 08-23) -- no divergence at 4-20x this budget multiple on the same style-reward family.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:cpg PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-cpg-teacherfork-ab8m-cpgv1r --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_phase1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/cpg_v1.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_cpg_teacherfork_ab8m_cpgv1r --notes 'respec of cw-cpg-teacherfork-ab-cpgv1: Does the CPG-searched motion library close its ~15-20% deterministic-margin gap to the scripted teacher when the AMP student trains 4x longer? This is the SECOND adoption data point the cpg track'\"'\"'s own STATUS names ('\"'\"'matched larger budget'\"'\"') before any real teacher-swap fork -- funded now that amp is sim-complete and GPU budget allows. Same recipe as the INFORMATIVE 2M A/B cw-cpg-teacherfork-ab-cpgv1 (BC-clone init, section-5 AMP reward, cpg_v1.npz style library, same seed), ONLY steps 2M->8M, read against the budget-matched teacher control cw-cpg-teacherfork-ab8m-teacherr. Prediction-if-true (gap closes): det prog/slip reach parity with the teacher arm at 8M. Prediction-if-false (gap persists/widens): adoption closes at two consistent data points as viable-but-inferior; teacher_v2 stays the style source. Strongest alternative: BOTH arms degrade past a pre-8M optimum -- read at best checkpoints.' > /tmp/train_cw-cpg-teacherfork-ab8m-cpgv1r.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-cpg-teacherfork-ab8m-cpgv1r.log"
+    "log": "/tmp/train_cw-cpg-teacherfork-ab8m-cpgv1r.log",
+    "triage": "in-cycle cw-cpg-teacherfork-ab8m-cpgv1r since 2026-08-24T01:25:16"
   },
   {
     "run": "cw-cpg-teacherfork-ab8m-teacherr",
@@ -163876,7 +163880,7 @@
       "respec of cw-amp-m2-bcinit-sec5-style05: Control arm for the CPG-library adoption A/B at 4x budget: does the proven scripted-teacher style recipe simply get better with more training, and what do its margins look like at 8M? Same recipe as the 2M PASS cw-amp-m2-bcinit-sec5-style05 (BC-clone init, section-5 AMP reward, teacher_v2.npz style library, same seed), ONLY steps 2M->8M. This gives the cpg_v1 treatment arm (cw-cpg-teacherfork-ab8m-cpgv1r) a budget-matched baseline -- the cpg track's second adoption data point. Prediction-if-true: margins hold or improve modestly over its own 2M read (det prog med >=1.16, slip not worse, gait_valid 6/6). Prediction-if-false (degrades at 8M): the sec5 style reward has an optimum before 8M -- read at each arm's best checkpoint, degradation is a finding about the reward not the library. Strongest alternative: no change beyond noise (recipe saturates by 2M)."
     ],
     "created": "2026-08-24T01:13:03+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -163906,7 +163910,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:cpg PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-cpg-teacherfork-ab8m-teacherr --steps 8000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_phase1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_cpg_teacherfork_ab8m_teacherr --notes 'respec of cw-amp-m2-bcinit-sec5-style05: Control arm for the CPG-library adoption A/B at 4x budget: does the proven scripted-teacher style recipe simply get better with more training, and what do its margins look like at 8M? Same recipe as the 2M PASS cw-amp-m2-bcinit-sec5-style05 (BC-clone init, section-5 AMP reward, teacher_v2.npz style library, same seed), ONLY steps 2M->8M. This gives the cpg_v1 treatment arm (cw-cpg-teacherfork-ab8m-cpgv1r) a budget-matched baseline -- the cpg track'\"'\"'s second adoption data point. Prediction-if-true: margins hold or improve modestly over its own 2M read (det prog med >=1.16, slip not worse, gait_valid 6/6). Prediction-if-false (degrades at 8M): the sec5 style reward has an optimum before 8M -- read at each arm'\"'\"'s best checkpoint, degradation is a finding about the reward not the library. Strongest alternative: no change beyond noise (recipe saturates by 2M).' > /tmp/train_cw-cpg-teacherfork-ab8m-teacherr.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-cpg-teacherfork-ab8m-teacherr.log",
     "wandb_id": "fpop3lx6",
-    "verified": "2026-08-24T01:16:28+00:00"
+    "verified": "2026-08-24T01:16:28+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T01:22:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 235,
+        "fps": 13107.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "Baseline arm of the pre-registered 8M matched-budget CPG-vs-teacher adoption pair PASSES its own bar: DR-0 det prog med 1.22 (>=1.16 bar), sto prog med 0.90, gait_valid 6/6 both modes, zero sacrificed legs, zero terminations, slip/m 2.69 det / 3.27 sto (inside 1.4-2.9-ish teacher band), video-clean six-leg cycling both modes. Read JOINTLY with cw-cpg-teacherfork-ab8m-cpgv1r per this run's own gate text: cpgv1r det prog med 1.29 (>=0.95x this arm's 1.22 -> ADOPTION-OPEN met, in fact cpg_v1 slightly LEADS), slip/m 2.68 (<=1.10x this arm's 2.69 -> met), sto prog 0.97 vs 0.90 (cpg_v1 ahead), sto slip 3.27 vs 3.27 (tied); both arms gait_valid 6/6, zero terms/sacrificed, video-clean. This is a THIRD independent adoption data point (after the 08-23 8M acq1b/style05-budget2 pair and the 6M ab6m-cpglib/teachlib pair) and it reproduces the same result: cpg_v1 is parity-or-slightly-better than teacher_v2 as an AMP style source. No new action -- the track's adoption question was already CLOSED (co-equal, no forced swap) before this pair landed; this just adds confirming evidence. Evidence: logs/ckpt_eval/cw_cpg_teacherfork_ab8m_teacherr_gate/, logs/ckpt_eval/cw_cpg_teacherfork_ab8m_cpgv1r_gate/."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15",
@@ -164024,7 +164042,7 @@
       "goal.park_duty_window_s=0.5"
     ],
     "created": "2026-08-24T01:14:58+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -164052,6 +164070,119 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.12 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_actbias1_pdw05_pdx15 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-actbias1-pdw05: Dose sibling of actbias1-pdw05: same action-recentering fix (joint_action_bias) + same park_duty confound fix (goal.park_duty_window_s=0.5), PLUS 1.5x the per-leg contact-duty charge (reward.k_park_duty 0.08->0.12, the same bank-legal max dose already proven on hgt2-pdw05-pdx15). actbias1-pdw05 showed the confound fix fires correctly (reward_park_duty now nonzero) but at 1x dose the policy still settles into a clean, stable park-stand (det 0/6 gait_valid, 5/6 legs sacrificed) instead of walking. This tests whether the SAME park-duty class merely needs to fire harder on top of the (now healthy, non-collapsing) action-bias base pose, or whether park-duty-as-a-class is insufficient regardless of dose once stacked with the bias fix. Prediction-if-true: walk_freeprog_score crosses toward/past 0, direction_err moves off ~88deg, det gait_valid improves on video. Prediction-if-false (same static park-stand persists): park_duty-class is now closed even combined with the bias fix -- escalate to the direct minimum-total-foot-contact charge (WITH a termination, per the stagea-slip1 absorbing-state lesson) and flag BC-kickstart as the named last resort to the operator in the same entry.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set goal.park_duty_window_s=0.5 > /tmp/train_cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15.log",
     "wandb_id": "1930yh0f",
-    "verified": "2026-08-24T01:18:26+00:00"
+    "verified": "2026-08-24T01:18:26+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T01:23:59+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "ndb:   env/height_err_mm 13.30759\nwandb:       env/height_mm 13.30755\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.56068\nwandb:  env/mean_current_a 0.39521\nwandb: env/pct_within_1deg 0.23812\nwandb:   env/pitch_ref_deg 0\nwandb:                +108 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15 at: https://wandb.ai/l2k2/hexapod-balance/runs/1930yh0f\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_011601-1930yh0f/logs\n"
+      }
+    ],
+    "verdict": "Exactly the pre-registered prediction-if-false: 1.5x k_park_duty (0.08->0.12, the largest bank-legal dose) stacked with the action-bias fix does NOT dislodge the clean park-stand -- park_duty-class is now CLOSED at every bank-legal dose (1x and 1.5x) combined with both the confound fix (park_duty_window_s=0.5) and the action-bias fix. Evidence: DR-0 gate det 0/6 gait_valid, 5/6 legs sacrificed ([0,1,3,4,5], only leg 2 active) -- an even tighter lock than plain actbias1-pdw05's own 5/6; prog_ratio 0.00, fwd 0.01m/25s, slip/m 1.20 (LOW -- consistent with near-zero motion, not skating). sto 5/6 gait_valid but slip/m 44.4 (in-place noise-driven thrashing, not travel, fwd 0.05m). Contact sheet: robot standing level and static across all 10 frames, visually identical to actbias1 and actbias1-pdw05 -- no splay, no collapse, no progress. Session harness (informational) shows the same signature: fwd segment dz=-117.8mm (sinks when commanded to walk forward), track_fwd/left/right/back all fail. ep_rew_mean quarters 45.1/40.4/25.9/8.9 -- falling every quarter, final NEGATIVE (-3.05), clip_fraction reportedly healthy per the recipe's established pattern (no optimizer crush signature anywhere in this lineage). Aligned FAIL per 08-21 (reward declining, eval flat/bad, adequate 2M budget, healthy optimizer) -- not a continue-longer case. CONCLUSION (per the track's own pre-registered fork rule): the park_duty-class charge (any bank-legal dose, with or without the confound fix, with or without the action-bias fix) is now fully closed as a rung-1 unlock mechanism -- 9 independent mechanism classes refuted (RND dose+budget, rung-0 swing-income, GRU, gSDE, rscale dose+continuations, height-gate dose, park_duty confound+dose, park_duty confound+dose+actbias). NEXT (per STATUS's own pinned fork): the direct minimum-total-foot-contact charge is the one unbuilt mechanism (must ship WITH a hard termination boundary, per the stagea-slip1 absorbing-state lesson, and a splayed-sink/park-stand scripted twin + bank proof before any launch) -- this is real design+build work, not a coefficient tweak, appropriately scoped as dig-in for a dedicated cycle. BC-kickstart is flagged to the operator in the same breath as the named last resort if the foot-contact mechanism also fails to unlock discovery.",
+    "triage": "done"
+  },
+  {
+    "run": "cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 40000000,
+    "smoke": false,
+    "hypothesis": "Plain English: joyfullcurr7 (stop-speed charge, no grace) cut the stop-tick creep a lot but plateaued short of the cert bar, AND its held-out joygate falls got WORSE, and every single fall was over_current (actuator safety trip from hard braking) -- the charge prices the unavoidable deceleration transient right after a stop command exactly as harshly as sustained creep. Single-lever fix vs joyfullcurr7: reward.walk_stop_grace_s=0.4 linearly ramps the charge's multiplier 0->1 over the first 0.4s of a stop segment (built+bank-tested this cycle, test_walk_stop_grace.py 4/4 + existing stopcharge bank 3/3 unaffected), so the physically-necessary transient pays little/nothing while sustained post-transient creep still pays the full charge (same k_walk_stop_charge=1.0 dose, unchanged). Same base parent as joyfullcurr7 (ppo_goal_cw_arch_hist16_dep1_c1.zip, inherited via --from, NOT joyfullcurr7's own regressed checkpoint). If-true: b1 stop cert clears (or gets much closer) AND joygate falls drop back toward/below joyfullcurr6's 8/48 with over_current no longer dominant. If-false (falls stay high/over_current-dominated): the transient itself isn't the cause and a torque/current-rate charge is the next lever, not stop-speed pricing at all; if plateau persists but over_current clears, dose (not the transient) was the true blocker and a grace+dose combination is next.",
+    "gate": "walkcurr V6 b1 cert clears its stop check (stop_speed_m_s <= 0.015) and frontier promotes past side90_60s (cmd_prog>=0.65, slip/m<=2.0, 0 falls); joygate falls <= joyfullcurr6's 8/48 with over_current no longer the dominant term_reason; DR0+ownDR walk gates stay >=5/6 gait_valid 0 systemic term regression; video all six feet cycling",
+    "parent": "cw-arch-hist16-dep1-c1-joyfullcurr7",
+    "track": "joystick",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--walk-curriculum",
+      "--walk-curriculum-version",
+      "6",
+      "--episode-seconds",
+      "60",
+      "--dr-scale",
+      "0.5",
+      "--seed",
+      "0",
+      "--ent-coef",
+      "0.01",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1.zip",
+      "--walkcurr-cert-at-init",
+      "--walkcurr-precert-min-prog",
+      "0.50",
+      "--walkcurr-precert-buckets",
+      "2",
+      "--cfg-set",
+      "obs.history_frames=16",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.8",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_walk_course=1.0",
+      "--cfg-set",
+      "reward.walk_course_tau_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_min_speed_m_s=0.01",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr8_stopgrace",
+      "--notes",
+      "respec of cw-arch-hist16-dep1-c1-joyfullcurr7: Plain English: joyfullcurr7 (stop-speed charge, no grace) cut the stop-tick creep a lot but plateaued short of the cert bar, AND its held-out joygate falls got WORSE, and every single fall was over_current (actuator safety trip from hard braking) -- the charge prices the unavoidable deceleration transient right after a stop command exactly as harshly as sustained creep. Single-lever fix vs joyfullcurr7: reward.walk_stop_grace_s=0.4 linearly ramps the charge's multiplier 0->1 over the first 0.4s of a stop segment (built+bank-tested this cycle, test_walk_stop_grace.py 4/4 + existing stopcharge bank 3/3 unaffected), so the physically-necessary transient pays little/nothing while sustained post-transient creep still pays the full charge (same k_walk_stop_charge=1.0 dose, unchanged). Same base parent as joyfullcurr7 (ppo_goal_cw_arch_hist16_dep1_c1.zip, inherited via --from, NOT joyfullcurr7's own regressed checkpoint). If-true: b1 stop cert clears (or gets much closer) AND joygate falls drop back toward/below joyfullcurr6's 8/48 with over_current no longer dominant. If-false (falls stay high/over_current-dominated): the transient itself isn't the cause and a torque/current-rate charge is the next lever, not stop-speed pricing at all; if plateau persists but over_current clears, dose (not the transient) was the true blocker and a grace+dose combination is next.",
+      "--cfg-set",
+      "reward.k_walk_stop_charge=1.0",
+      "--cfg-set",
+      "reward.walk_stop_grace_s=0.4"
+    ],
+    "created": "2026-08-24T02:17:19+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "ed3bedada96ede29301d51dc7de38f0470ef4aaf",
+      "code_sha_pod": "ed3bedada96ede29301d51dc7de38f0470ef4aaf-dirty"
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "joyfullcurr7 FAIL verdict (root-caused via per-episode term_reason: 8/8 DR-0 falls + 2/2 sto falls all over_current); walk_stop_grace_s built+tested this cycle (test_walk_stop_grace.py 4/4: default-off bit-exact, ramp 0->1 over grace_s, sustained creep charged identically with/without grace, timer resets on resumed walk commands); existing stopcharge bank (test_task_semantics.py, 3/3) unaffected",
+    "refused_reason": "hexapod-mjx-train-0 code marker ed3bedada96ede29301d51dc7de38f0470ef4aaf-dirty != local HEAD ed3bedada96ede29301d51dc7de38f0470ef4aaf and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
   }
 ]

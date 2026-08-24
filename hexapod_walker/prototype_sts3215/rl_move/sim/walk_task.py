@@ -864,7 +864,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
-                          "_walk_idle_ema", "_walk_course_ema",
+                          "_walk_idle_ema", "_walk_idle_low_s",
+                          "_walk_stop_cmd_s",
+                          "_walk_qvel_ema", "_walk_course_ema",
                           "_walk_kernel_vema", "_walk_kernel_wz_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
@@ -963,6 +965,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
+        # Sustained-idle termination counter + its OWN mean-
+        # |joint-velocity| EMA (safety.walk_idle_terminate_s):
+        # deliberately NOT body speed (a real dragging/skating
+        # gait can sit near-zero BODY speed while its legs
+        # cycle hard, and cutting that short was measured to
+        # rob it of the full-episode loadslip charge the bank
+        # relies on; a body-speed version also flagged genuine
+        # wrong-direction travel as "idle"). Mean |qvel| across
+        # the 18 actuated joints cleanly separates a literally
+        # FROZEN policy output (park/belly-sit/tripod-lock:
+        # ~5e-5 rad/s, pure settle jitter) from every other
+        # scripted behavior including skate/stall (>=0.1 rad/s,
+        # ~35x higher) -- see the WALKCURR_PF_IDLE_TERM bank.
+        # Seconds low, consecutively; reset to 0 the instant
+        # the EMA clears the floor.
+        self._walk_idle_low_s = 0.0
+        self._walk_qvel_ema = 0.0
+        # Seconds since the current commanded-stop segment began
+        # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
+        # (walking commanded), increments by dt each stop tick.
+        # Used only to ramp the stop-speed charge in over the
+        # unavoidable deceleration transient -- see the charge
+        # site below. Same lifecycle as _walk_idle_ema.
+        self._walk_stop_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
         # Stride-EMA velocity for the tracking kernel
@@ -1513,6 +1539,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
+        # Sustained-idle termination counter + its OWN mean-
+        # |joint-velocity| EMA (safety.walk_idle_terminate_s):
+        # deliberately NOT body speed (a real dragging/skating
+        # gait can sit near-zero BODY speed while its legs
+        # cycle hard, and cutting that short was measured to
+        # rob it of the full-episode loadslip charge the bank
+        # relies on; a body-speed version also flagged genuine
+        # wrong-direction travel as "idle"). Mean |qvel| across
+        # the 18 actuated joints cleanly separates a literally
+        # FROZEN policy output (park/belly-sit/tripod-lock:
+        # ~5e-5 rad/s, pure settle jitter) from every other
+        # scripted behavior including skate/stall (>=0.1 rad/s,
+        # ~35x higher) -- see the WALKCURR_PF_IDLE_TERM bank.
+        # Seconds low, consecutively; reset to 0 the instant
+        # the EMA clears the floor.
+        self._walk_idle_low_s = 0.0
+        self._walk_qvel_ema = 0.0
+        # Seconds since the current commanded-stop segment began
+        # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
+        # (walking commanded), increments by dt each stop tick.
+        # Used only to ramp the stop-speed charge in over the
+        # unavoidable deceleration transient -- see the charge
+        # site below. Same lifecycle as _walk_idle_ema.
+        self._walk_stop_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
         # Stride-EMA velocity for the tracking kernel
@@ -3211,6 +3261,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
+        # Sustained-idle termination counter + its OWN mean-
+        # |joint-velocity| EMA (safety.walk_idle_terminate_s):
+        # deliberately NOT body speed (a real dragging/skating
+        # gait can sit near-zero BODY speed while its legs
+        # cycle hard, and cutting that short was measured to
+        # rob it of the full-episode loadslip charge the bank
+        # relies on; a body-speed version also flagged genuine
+        # wrong-direction travel as "idle"). Mean |qvel| across
+        # the 18 actuated joints cleanly separates a literally
+        # FROZEN policy output (park/belly-sit/tripod-lock:
+        # ~5e-5 rad/s, pure settle jitter) from every other
+        # scripted behavior including skate/stall (>=0.1 rad/s,
+        # ~35x higher) -- see the WALKCURR_PF_IDLE_TERM bank.
+        # Seconds low, consecutively; reset to 0 the instant
+        # the EMA clears the floor.
+        self._walk_idle_low_s = 0.0
+        self._walk_qvel_ema = 0.0
+        # Seconds since the current commanded-stop segment began
+        # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
+        # (walking commanded), increments by dt each stop tick.
+        # Used only to ramp the stop-speed charge in over the
+        # unavoidable deceleration transient -- see the charge
+        # site below. Same lifecycle as _walk_idle_ema.
+        self._walk_stop_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
         # Stride-EMA velocity for the tracking kernel
@@ -4089,9 +4163,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # an explicit stop command and must never loosen). Default
             # 0 = off, legacy bit-exact (no new info keys).
             # cfg: reward.k_walk_stop_charge, reward.walk_stop_scale_m_s,
-            # reward.walk_stop_charge_cap.
+            # reward.walk_stop_charge_cap, reward.walk_stop_grace_s.
             k_stopc = float(cfg_get(self.cfg, "reward",
                                     "k_walk_stop_charge", default=0.0))
+            if k_stopc > 0.0:
+                # Elapsed time since the current stop segment began
+                # (reset the instant translation is commanded again).
+                # Tracked whenever the charge is active at all so the
+                # ramp below is correct from the very first stop tick,
+                # independent of the turn-in-place exemption.
+                if s_ref > 1e-3:
+                    self._walk_stop_cmd_s = 0.0
+                else:
+                    self._walk_stop_cmd_s += self.dt
             if (k_stopc > 0.0 and s_ref <= 1e-3
                     and not (self._yaw_cmd
                              and abs(float(getattr(goal, "wz_ref", 0.0)
@@ -4102,11 +4186,35 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 cap_sc = float(cfg_get(self.cfg, "reward",
                                        "walk_stop_charge_cap",
                                        default=4.0))
+                # Settle-grace (2026-08-24, joyfullcurr7 dig-in): the
+                # plain charge above priced the UNAVOIDABLE physical
+                # deceleration transient right after a stop command as
+                # harshly as sustained creep, and joyfullcurr7 (k=1.0,
+                # no grace) measured the consequence directly — every
+                # fall in its held-out joygate session was an
+                # over_current safety trip, not roll/tilt: the policy
+                # was braking hard enough to spike actuator current.
+                # grace_s > 0 linearly ramps the charge's MULTIPLIER
+                # from 0 at the instant a stop begins to 1.0 at
+                # grace_s seconds in (then holds at 1.0) so the
+                # transient pays little/nothing while SUSTAINED creep
+                # past the grace window still pays the full charge —
+                # the actual cert-bar violation. Default 0 = off,
+                # bit-exact (grace_mult stays exactly 1.0, identical
+                # to the pre-grace formula).
+                grace_s = float(cfg_get(self.cfg, "reward",
+                                        "walk_stop_grace_s", default=0.0))
+                grace_mult = 1.0
+                if grace_s > 1e-6:
+                    grace_mult = min(max(
+                        self._walk_stop_cmd_s / grace_s, 0.0), 1.0)
                 sp_sc = float(np.hypot(float(v[0]), float(v[1])))
-                r_stopc = -k_stopc * min(sp_sc / scale_sc, cap_sc)
+                r_stopc = -k_stopc * grace_mult * min(sp_sc / scale_sc,
+                                                       cap_sc)
                 reward = float(reward) + r_stopc
                 info["walk_stop_speed_m_s"] = sp_sc
                 info["reward_walk_stop"] = r_stopc
+                info["walk_stop_grace_mult"] = grace_mult
             # Commanded-COURSE charge (operator reward-alignment order
             # 2026-08-22, fb_20260822T032514 item 3 — the phasedir1
             # fix): price wrong-way / off-heading TRAVEL on the
@@ -4704,6 +4812,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             else:
                 _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
                                     default=0.0))
+            # reward.walk_idle_terminate_penalty (2026-08-24): the
+            # sustained-idle boundary (safety.walk_idle_terminate_s)
+            # fires on the SAME code path as every other termination,
+            # which by default pays the full anti-suicide term_penalty
+            # (sized, correctly, to make a fast tilt-death the worst
+            # outcome in the bank). Reusing that same large lump for
+            # idle-eviction was measured to collapse the fine per-tick
+            # ranking the WALKCURR_PF bank requires among the
+            # non-progressing behaviors (park/stall/reverse/sideways/
+            # skate) -- once ALL of them also pay the ~1200 lump, only
+            # their few pre-termination ticks of charge differ, and
+            # a slow idle death can end up cheaper than the fast
+            # topple death purely by paying fewer accumulated ticks,
+            # inverting the required floor. A distinct, independently
+            # sized penalty (default -1 sentinel = fall back to
+            # reward.term_penalty, bit-exact unless set) lets a
+            # walkcurr rung price "keep failing to progress" as
+            # strictly worse than every live behavior WITHOUT
+            # swamping the graded ranking among the live ones.
+            if info.get("termination_reason") == "walk_idle_terminate":
+                _tp_idle = float(cfg_get(
+                    self.cfg, "reward", "walk_idle_terminate_penalty",
+                    default=-1.0))
+                if _tp_idle >= 0.0:
+                    _tp = _tp_idle
             if _tp > 0.0:
                 reward = float(reward) - _tp
         if self.walk_probe_on and self._wp is not None:
