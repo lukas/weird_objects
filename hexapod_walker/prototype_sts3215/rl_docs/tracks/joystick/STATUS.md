@@ -1,6 +1,68 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~23:0x (**certfreeze-v8 PARTIAL: the bucket-
+Last updated: 2026-08-24 ~22:5x (**hz100-r2 FAIL, CONFOUNDED by the
+already-fixed V7 diet-scope bug -- bit-for-bit match to certfreeze-
+v7's frontier-stuck-at-b1/leg-3-lock signature, not a rate-conversion
+finding; relaunched clean at V8+100Hz as -joyfullcurr15-v8-hz100-r2.**
+Plain English: the 100 Hz rate-conversion arm
+(`cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-r2`, `--walk-
+curriculum-version 7`) trained a full healthy 40M steps (ep_rew_mean
+2317, quarters 1740/2785/2347/2952, GPU fps 6067 -- the 100 Hz control
+loop itself trains stably) but `walkcurr/frontier` shows only 1
+promotion (stuck at b1 the whole run, `b1/stop_speed_m_s` pinned
+0.033-0.055 vs the 0.015 cert bar) and video is bimodal: some episodes
+walk cleanly (det_0 prog 0.83, det_3 prog 1.48) while most others lock
+leg index 3 rigid (DR-0 gait_valid 2/6 det 1/6 sto; own-DR(0.5) 2/6
+det 3/6 sto). Held-out 60s joygate FAILs with real falls: 8/48 (cap
+<=2/48), dir_err med 45.2deg (allow 40), slip/m 2.732 OK (cap 2.9).
+This is the EXACT signature already root-caused on
+`...certfreeze-v7` (25 Hz): the `WALKCURR_BUCKETS_V7` diet-scope bug
+(turn/reversal stress extras leak into the still-front-cone b1 entry
+cert bucket, poisoning it) applies its extras from `front45_20s`
+instead of `side90_20s` -- already fixed as V8, but AFTER this 100 Hz
+run had launched with the stale V7 diet. Verdicted FAIL (ledger),
+not informative about the 100 Hz rate itself. **Note found DURING
+this same cycle's pod-eval infra fix (see below): `pod_eval.py`'s
+2700s/3600s pass timeouts were calibrated for the 25 Hz/15s baseline
+and SILENTLY LOSE THE ENTIRE gate pass (no report.json at all, `rc=
+-1`) for any control.hz=100+episode-seconds=60 run -- fixed via
+`eval_timeout_scale()` (scales both timeouts by hz/episode-seconds
+vs baseline, 5 unit tests, `test_pod_eval_timeout.py`), snapshot
+`podeval-timeout-scale-fix`. `hz100-r2`'s gate pass was manually
+re-run + copied back after the fix landed (the original attempt was
+silently lost mid-run); `cw-arch-hist64-joyfullcurr13-v7-hz100-
+scratch-s0-r1` and `cw-arch-tf64-joyfullcurr13-v7-hz100-canary2`
+launched before the fix and are at the same risk -- check for a
+missing/thin gate report before trusting their triage.** Relaunched
+the identical warm-start/reward/100Hz stack with the single lever
+`--walk-curriculum-version 7->8` as
+`cw-arch-hist16-dep1-c1-joyfullcurr15-v8-hz100-r2` (VERIFIED RUNNING
+train-1; first attempt without a pod pin landed on a legacy-64M-shm
+pod and was correctly refused by `_check_shm_budget`, no wasted GPU
+budget). **CAVEAT ON THIS NEW ARM'S OWN READ (found by a CONCURRENT
+cycle's `certfreeze-v8` verdict, same cycle window)**: V8's diet-scope
+fix does let the frontier clear b1/b2 but then plateaus at b3 with an
+UNRELATED, deeper freeze<->cert semantics bug (`_sample_walk_curr`
+draws stop and wz independently, so ~half of "stop" segments in any
+wz-carrying bucket are correctly exempted from the cert-time freeze
+supervisor while the cert's own accumulator still counts them,
+capping `stop_speed_m_s` around 0.023-0.042 regardless of policy
+quality) -- DIG-IN flagged, fix unbuilt. Since `joyfullcurr15-v8-
+hz100-r2` inherits the SAME `--walkcurr-cert-cfg-set goal.walk_stop_
+freeze_s=0.4` mechanism, expect it to ALSO plateau at b3 for this
+same reason -- that part of its own pre-registered gate text will
+likely read as an uninformative repeat, not new 100 Hz evidence. The
+part of its read that STAYS informative regardless: whether V8's
+diet-placement fix (not the cert-freeze mechanism) removes the
+leg-3 lock at 100 Hz too, i.e. DR-0 det gait_valid and held-out
+joygate fall-count vs `hz100-r2`'s own 2/6 and 8/48 -- triage on
+THOSE numbers, not the frontier/b3 cert reading, until the freeze<->
+cert semantics fix lands. Champion unchanged (`stotight45-seed13`);
+DONE gate stays met per 08-23. Evidence: `logs/ckpt_eval/
+cw_arch_hist16_dep1_c1_joyfullcurr13_v7_hz100_r2_{gate,owncfg,
+joygate}/`, W&B `a7aanvq3`; `rl_move/tests/test_pod_eval_timeout.py`.)
+
+Previous entry (2026-08-24 ~23:0x (**certfreeze-v8 PARTIAL: the bucket-
 scope fix works exactly as designed (frontier leaves b1, reaches b3,
 side90 opens) but then plateaus AT b3 with the IDENTICAL stuck-stop-
 cert signature v7 showed at b1 -- ROOT-CAUSED to a freeze/cert

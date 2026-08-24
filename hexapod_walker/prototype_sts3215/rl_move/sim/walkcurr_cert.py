@@ -101,7 +101,23 @@ def walkcurr_bucket_pass(m: dict, spec: dict,
             "command_changes_min", float(min_changes))
     stop_gate = spec.get("stop_gate")
     if stop_gate is not None:
-        v = m.get("stop_speed_m_s")
+        # stop_metric (default "stop_speed_m_s", bit-exact when absent
+        # — every V1-V8 bucket table): certfreeze-v8 dig-in (2026-08-24)
+        # root-caused the V7+ wz/reversal-diet buckets' permanent
+        # stop-cert stall to a semantics mismatch, not a policy-quality
+        # gap — the cert-time hold supervisor (walk_task.py
+        # _walk_stop_freeze_override) exempts any tick with
+        # wz_ref != 0, but stop_frac/wz_zero_frac are independent
+        # draws on the same resampled segment, so ~half of a wz-diet
+        # bucket's nominal "stop" ticks also carry wz != 0 and are
+        # therefore exempt from the very freeze meant to clear this
+        # bar — while the legacy stop_speed_m_s counts them anyway.
+        # A bucket spec may opt into "stop_speed_pure_m_s" (same
+        # threshold the freeze uses, |wz_ref|<=1e-3) to make the cert
+        # agree with the freeze about what counts as "commanded
+        # still."
+        metric = spec.get("stop_metric", "stop_speed_m_s")
+        v = m.get(metric)
         v = float(v) if v is not None else float("nan")
         # nan = the fixed held-out seeds drew no stop segment this
         # round — nothing to gate (possible but rare at n>=8).
@@ -153,6 +169,7 @@ WALK_PROBE_KEYS = (
     "dh_m", "vx_rmse", "vy_rmse", "wz_rmse_dps", "cmd_prog_m",
     "cmd_prog_frac", "slip_per_m", "cross_track_frac", "wrong_way",
     "stop_speed_m_s", "stop_speed_settled_m_s", "stop_ticks_settled_frac",
+    "stop_speed_pure_m_s", "stop_ticks_pure_frac",
     "foot_sw_min_per_s", "duty_factor",
     # Body height vs the reward gate's own anchor (z0 + height_ref) and
     # the Gaussian income factor a walk_height_gate run keeps at the
@@ -164,7 +181,8 @@ WALK_PROBE_KEYS = (
 # nan = "not measurable this episode" for the command-conditional keys
 # (same set + reasoning as eval_task's _nan_ok).
 _NAN_OK = {"cross_track_frac", "wrong_way", "stop_speed_m_s",
-           "stop_speed_settled_m_s", "stop_ticks_settled_frac"}
+           "stop_speed_settled_m_s", "stop_ticks_settled_frac",
+           "stop_speed_pure_m_s", "stop_ticks_pure_frac"}
 
 
 def failed_probe_row() -> dict:

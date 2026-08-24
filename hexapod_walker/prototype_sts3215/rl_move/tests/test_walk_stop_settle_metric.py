@@ -145,6 +145,53 @@ def test_settle_window_longer_than_episode_yields_nan():
     assert probe["stop_speed_settled_m_s"] != probe["stop_speed_settled_m_s"]
 
 
+def test_stop_speed_pure_matches_legacy_when_wz_stays_zero():
+    """stop_speed_pure_m_s (2026-08-24, certfreeze-v8 dig-in) must be
+    bit-identical to the legacy stop_speed_m_s whenever wz is never
+    commanded nonzero during a stop -- true for every V1-V8 walkcurr
+    table and for this plain (non-curriculum) FC_GOAL scenario."""
+    probe = _run_to_probe()
+    assert probe["stop_ticks_pure_frac"] == pytest.approx(1.0)
+    assert probe["stop_speed_pure_m_s"] == pytest.approx(
+        probe["stop_speed_m_s"], abs=1e-12)
+
+
+def test_stop_speed_pure_excludes_wz_nonzero_ticks_the_freeze_would_exempt():
+    """A commanded stop segment that ALSO carries a nonzero wz for part
+    of its duration (the certfreeze-v8 dig-in scenario: a V7+
+    walkcurr bucket's stop_frac and wz_zero_frac draws are independent)
+    must have those ticks excluded from stop_speed_pure_m_s/
+    stop_ticks_pure -- the same |wz_ref|<=1e-3 threshold
+    _walk_stop_freeze_override uses -- while the legacy
+    stop_speed_m_s/stop_ticks accumulator (unrelated accumulator,
+    purely additive) stays completely unaffected."""
+    env = _walk_env(episode_seconds=8.0)
+    env.reset(seed=0)
+    _command_stop(env)
+    traj = env._goal_traj
+    # Give the trajectory a real wz channel and turn it on for the
+    # back half of the episode -- mirrors a wz-diet bucket's
+    # independent-draw stop+turn overlap.
+    traj.wz = np.zeros_like(traj.vx)
+    traj.wz[len(traj.wz) // 2:] = 0.25
+    probe = None
+    for step in range(env.episode_steps + 2):
+        act = _creep_action(step * env.dt)
+        _o, _r, term, trunc, info = env.step(act)
+        if "walk_probe" in info:
+            probe = info["walk_probe"]
+        if term or trunc:
+            break
+    env.close()
+    assert probe is not None
+    assert probe["stop_ticks_pure_frac"] < 1.0
+    assert probe["stop_ticks_pure_frac"] > 0.0
+    # legacy accumulator must be untouched by the wz mutation.
+    p_baseline = _run_to_probe()
+    assert probe["stop_speed_m_s"] == pytest.approx(
+        p_baseline["stop_speed_m_s"], abs=1e-9)
+
+
 def test_walking_segment_resets_the_settle_timer():
     """A resumed walk command mid-episode must start a FRESH stop
     segment (fresh settle clock) the next time a stop is commanded --

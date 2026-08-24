@@ -735,6 +735,36 @@ WALKCURR_BUCKETS_V8 = tuple(
     for b in WALKCURR_BUCKETS_V6
 )
 
+# WALKCURR_BUCKETS_V9 (08-24, certfreeze-v8 dig-in — cert-metric fix,
+# NOT another bucket-scope respec): certfreeze-v8 confirmed the V8
+# scope fix works (frontier leaves b1, reaches b3/side90) but then
+# plateaus AT b3 for the rest of the run with the identical stuck-
+# stop-cert signature v7 showed at b1 — root-caused to a semantics
+# mismatch, not a bucket-placement or policy-quality gap: the
+# cert-time hold supervisor (_walk_stop_freeze_override) exempts any
+# tick with wz_ref != 0, but a wz-diet bucket's stop_frac and
+# wz_zero_frac draws are independent rng calls on the SAME resampled
+# segment, so ~half of its nominal "stop" segments also carry wz != 0
+# and are exempt from the very freeze meant to clear the bar, while
+# the legacy stop_speed_m_s counts every such tick anyway — the
+# freeze/cert-off average is bracketed almost exactly by b1's known
+# frozen (0.0133) / unfrozen (0.0326) numbers. V9 is byte-identical to
+# V8 (same wz_max/wz_zero_frac/reversal_frac diet, same scope) except
+# every bucket also carries `stop_metric="stop_speed_pure_m_s"`, the
+# purely-additive metric (walk_task._walk_probe_tick) that excludes
+# ticks where |wz_ref| exceeds the SAME 1e-3 threshold the freeze
+# uses — bit-exact equal to stop_speed_m_s for any bucket that never
+# commands wz during a stop (bridge_10s, front45_20s/60s, and every
+# V1-V8 table with no wz key at all), differing only where a stop
+# segment can also carry a turn. `walkcurr_cert.walkcurr_bucket_pass`
+# reads `spec.get("stop_metric", "stop_speed_m_s")`, so omitting the
+# key (every pre-V9 table) is bit-exact unchanged.
+WALKCURR_BUCKETS_V9 = tuple(
+    dict(b, stop_metric="stop_speed_pure_m_s")
+    if b.get("stop_gate") is not None else b
+    for b in WALKCURR_BUCKETS_V8
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -1293,9 +1323,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0,
+                                     9.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V8 if self._wc_version == 8
+        self._wc_table = (WALKCURR_BUCKETS_V9 if self._wc_version == 9
+                          else WALKCURR_BUCKETS_V8 if self._wc_version == 8
                           else WALKCURR_BUCKETS_V7 if self._wc_version == 7
                           else WALKCURR_BUCKETS_V6
                           if self._wc_version == 6
@@ -1308,7 +1340,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version in (4, 5, 6, 7, 8):
+        if self._wc_version in (4, 5, 6, 7, 8, 9):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt
@@ -1785,6 +1817,32 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         w["stop_v_sum_settled"] += float(
                             np.hypot(vx_meas, vy_meas))
                         w["stop_ticks_settled"] += 1
+                    # stop_speed_pure_m_s (2026-08-24, certfreeze-v8
+                    # dig-in): the cert-time hold supervisor
+                    # (_walk_stop_freeze_override) EXEMPTS any tick
+                    # with wz_ref != 0 ("a nonzero turn IS the
+                    # commanded motion") -- but a V7+ walkcurr bucket's
+                    # stop_frac and wz_zero_frac draws are independent
+                    # rng calls on the SAME resampled segment, so a
+                    # "stop" segment (vx=vy=0) can also carry wz != 0
+                    # about half the time in any bucket that trains
+                    # the wz diet. The legacy stop_v_sum/stop_ticks
+                    # above count every such tick uniformly, so the
+                    # freeze can never bring their average under a
+                    # cert bar the freeze itself only ever half-
+                    # applies. This purely-additive metric (bit-exact
+                    # equal to stop_speed_m_s whenever wz is never
+                    # commanded nonzero during a stop, i.e. every
+                    # pre-V7 table and every V7+ bucket with
+                    # wz_max=0) excludes ticks where |wz_ref| exceeds
+                    # the SAME 1e-3 threshold the freeze override
+                    # uses, so a cert wired to this field agrees with
+                    # the freeze about what counts as "commanded
+                    # still."
+                    if abs(wz_c) <= 1e-3:
+                        w["stop_v_sum_pure"] += float(
+                            np.hypot(vx_meas, vy_meas))
+                        w["stop_ticks_pure"] += 1
         if term or trunc:
             info["walk_probe"] = self._walk_probe_summary(bool(term))
 
@@ -1848,6 +1906,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if w["stop_ticks_settled"] else nan),
             "stop_ticks_settled_frac": (
                 w["stop_ticks_settled"] / w["stop_ticks"]
+                if w["stop_ticks"] else nan),
+            "stop_speed_pure_m_s": (
+                w["stop_v_sum_pure"] / w["stop_ticks_pure"]
+                if w["stop_ticks_pure"] else nan),
+            "stop_ticks_pure_frac": (
+                w["stop_ticks_pure"] / w["stop_ticks"]
                 if w["stop_ticks"] else nan),
             "foot_sw_min_per_s": (min(w["sw_foot"])
                                   / max(w["n"] * self.dt, 1e-9)),

@@ -1823,7 +1823,7 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3, 4, 5, 6, 7, 8),
+                    choices=(1, 2, 3, 4, 5, 6, 7, 8, 9),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
@@ -1853,7 +1853,20 @@ def main(argv: list[str] | None = None) -> int:
                          "B1 for a full 40M-step run; 8 starts the "
                          "diet at side90_20s, the first heading-"
                          "WIDENED rung, leaving both front45 rungs "
-                         "byte-identical to 6)")
+                         "byte-identical to 6), 9 = WALKCURR_BUCKETS_V9 "
+                         "cert-metric fix of 8 (certfreeze-v8 dig-in: "
+                         "8's own scope fix works (frontier reaches "
+                         "b3/side90) but then plateaus there with the "
+                         "same stuck-stop-cert signature, root-caused "
+                         "to the cert-time freeze exempting wz!=0 "
+                         "ticks while the legacy stop_speed_m_s metric "
+                         "does not, so a wz-diet bucket's stop cert "
+                         "can never fall under the freeze's own "
+                         "half-frozen/half-unfrozen average regardless "
+                         "of policy quality; 9 is byte-identical to 8 "
+                         "except every gated bucket reads "
+                         "stop_speed_pure_m_s instead, which excludes "
+                         "the same wz!=0 ticks the freeze does)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -2074,7 +2087,7 @@ def main(argv: list[str] | None = None) -> int:
                 "latest); drop --best-ckpt/--ev-stop-min")
         if (args.init_from is not None and not args.init_from_actor_only
                 and not args.init_from_policy_backbone
-                and args.walk_curriculum_version not in (5, 6, 7, 8)):
+                and args.walk_curriculum_version not in (5, 6, 7, 8, 9)):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
@@ -2095,8 +2108,10 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
-        if args.walk_curriculum_version in (4, 5, 6, 7, 8):
-            if args.walk_curriculum_version == 8:
+        if args.walk_curriculum_version in (4, 5, 6, 7, 8, 9):
+            if args.walk_curriculum_version == 9:
+                from .walk_task import WALKCURR_BUCKETS_V9 as _wc_tbl
+            elif args.walk_curriculum_version == 8:
                 from .walk_task import WALKCURR_BUCKETS_V8 as _wc_tbl
             elif args.walk_curriculum_version == 7:
                 from .walk_task import WALKCURR_BUCKETS_V7 as _wc_tbl
@@ -2804,9 +2819,10 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS_V6 as _WC6
         from .walk_task import WALKCURR_BUCKETS_V7 as _WC7
         from .walk_task import WALKCURR_BUCKETS_V8 as _WC8
+        from .walk_task import WALKCURR_BUCKETS_V9 as _WC9
         _tbl = {1: _WC1, 2: _WC2, 3: _WC3, 4: _WC4,
                 5: _WC5, 6: _WC6, 7: _WC7,
-                8: _WC8}[args.walk_curriculum_version]
+                8: _WC8, 9: _WC9}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -4454,7 +4470,8 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
                                 WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4,
                                 WALKCURR_BUCKETS_V5, WALKCURR_BUCKETS_V6,
-                                WALKCURR_BUCKETS_V7, WALKCURR_BUCKETS_V8)
+                                WALKCURR_BUCKETS_V7, WALKCURR_BUCKETS_V8,
+                                WALKCURR_BUCKETS_V9)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
@@ -4462,8 +4479,8 @@ def main(argv: list[str] | None = None) -> int:
         wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
                     3: WALKCURR_BUCKETS_V3, 4: WALKCURR_BUCKETS_V4,
                     5: WALKCURR_BUCKETS_V5, 6: WALKCURR_BUCKETS_V6,
-                    7: WALKCURR_BUCKETS_V7,
-                    8: WALKCURR_BUCKETS_V8}[args.walk_curriculum_version]
+                    7: WALKCURR_BUCKETS_V7, 8: WALKCURR_BUCKETS_V8,
+                    9: WALKCURR_BUCKETS_V9}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"
@@ -4731,6 +4748,10 @@ def main(argv: list[str] | None = None) -> int:
                             m["stop_speed_settled_m_s"],
                         f"{pfx}/stop_ticks_settled_frac":
                             m["stop_ticks_settled_frac"],
+                        f"{pfx}/stop_speed_pure_m_s":
+                            m["stop_speed_pure_m_s"],
+                        f"{pfx}/stop_ticks_pure_frac":
+                            m["stop_ticks_pure_frac"],
                         f"{pfx}/return": m["return"],
                         # Body height + income factor vs the reward
                         # gate's anchor, and the DR the bucket REALIZES
@@ -4906,6 +4927,8 @@ def main(argv: list[str] | None = None) -> int:
                       f" stop={_f(m_b.get('stop_speed_m_s'), -1):.4f}"
                       f" stop_settled={_f(m_b.get('stop_speed_settled_m_s'), -1):.4f}"
                       f" settled_frac={_f(m_b.get('stop_ticks_settled_frac'), -1):.2f}"
+                      f" stop_pure={_f(m_b.get('stop_speed_pure_m_s'), -1):.4f}"
+                      f" pure_frac={_f(m_b.get('stop_ticks_pure_frac'), -1):.2f}"
                       + ("" if bi == 0 else "  [informational]"))
                 if run is not None:
                     import wandb
@@ -4924,7 +4947,9 @@ def main(argv: list[str] | None = None) -> int:
                                      "height_factor_p10",
                                      "stop_speed_m_s",
                                      "stop_speed_settled_m_s",
-                                     "stop_ticks_settled_frac")
+                                     "stop_ticks_settled_frac",
+                                     "stop_speed_pure_m_s",
+                                     "stop_ticks_pure_frac")
                            if m_b.get(k) is not None
                            and float(m_b[k]) == float(m_b[k])}
                     wandb.log({"global_step": 0,

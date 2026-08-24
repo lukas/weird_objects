@@ -1063,3 +1063,75 @@ def test_v8_requires_a_real_60_second_training_horizon():
         _env(seed=0, extra=CURR_V8_ON, episode_seconds=10.0)
     env = _env(seed=0, extra=CURR_V8_ON, episode_seconds=60.0)
     env.close()
+
+
+# -- walkcurr9 (08-24, certfreeze-v8 dig-in): V8's own scope fix works
+# (frontier reaches b3/side90) but then plateaus there with the
+# identical stuck-stop-cert signature v7 showed at b1 — root-caused to
+# the cert-time freeze (_walk_stop_freeze_override) exempting any tick
+# with wz_ref != 0 while a wz-diet bucket's stop_frac/wz_zero_frac
+# draws are independent, so ~half its nominal "stop" ticks also carry
+# wz != 0 and dodge the freeze the legacy stop_speed_m_s still counts
+# them against. V9 is byte-identical to V8 except every gated bucket
+# reads stop_speed_pure_m_s (excludes the same wz!=0 ticks the freeze
+# does) instead of stop_speed_m_s. See walk_task.py
+# WALKCURR_BUCKETS_V9 banner.
+CURR_V9_ON = {("goal", "walk_curriculum"): 9.0}
+
+
+def test_v9_selects_the_v9_table_and_v8_untouched():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V8, WALKCURR_BUCKETS_V9
+    env = _env(seed=7, extra=CURR_V9_ON, episode_seconds=60.0)
+    assert env._wc_version == 9
+    assert env._wc_table is WALKCURR_BUCKETS_V9
+    env.close()
+    env8 = _env(seed=7, extra=CURR_V8_ON, episode_seconds=60.0)
+    assert env8._wc_version == 8
+    assert env8._wc_table is WALKCURR_BUCKETS_V8
+    env8.close()
+
+
+def test_v9_identical_to_v8_except_stop_metric_on_gated_buckets():
+    """V9 must be a pure cert-measurement respec of V8: every field
+    except `stop_metric` matches exactly, and `stop_metric` only
+    differs (is added) on buckets that actually carry a stop_gate —
+    the bridge rung (stop_gate=None) is untouched."""
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V8, WALKCURR_BUCKETS_V9
+    assert len(WALKCURR_BUCKETS_V9) == len(WALKCURR_BUCKETS_V8)
+    for b8, b9 in zip(WALKCURR_BUCKETS_V8, WALKCURR_BUCKETS_V9):
+        for k in b8:
+            if k == "stop_metric":
+                continue
+            assert b8[k] == b9[k], (b9["name"], k)
+        if b8.get("stop_gate") is not None:
+            assert b9["stop_metric"] == "stop_speed_pure_m_s", b9["name"]
+        else:
+            assert "stop_metric" not in b9, b9["name"]
+
+
+def test_v9_requires_a_real_60_second_training_horizon():
+    with pytest.raises(ValueError):
+        _env(seed=0, extra=CURR_V9_ON, episode_seconds=10.0)
+    env = _env(seed=0, extra=CURR_V9_ON, episode_seconds=60.0)
+    env.close()
+
+
+def test_cert_gate_reads_stop_metric_override():
+    """walkcurr_bucket_pass must read spec["stop_metric"] when present
+    (default "stop_speed_m_s" — every V1-V8 table, bit-exact) so a
+    bucket can be gated on stop_speed_pure_m_s instead without
+    touching any other check."""
+    from rl_move.sim.walkcurr_cert import walkcurr_bucket_pass
+    good = dict(early_term_rate=0.0, contact_sw_per_s=5.0,
+                foot_sw_min_per_s=0.8, cmd_prog_frac=0.85,
+                wrong_way=0.0, cross_track_frac=0.10, slip_per_m=1.2,
+                peak_roll_deg=3.0, slew_sat=0.2,
+                stop_speed_m_s=0.05, stop_speed_pure_m_s=0.01)
+    # default metric (absent key) reads the legacy field -> FAILs at
+    # the bad 0.05 raw value even though the pure value would pass.
+    ok, checks = walkcurr_bucket_pass(good, {"stop_gate": 0.015})
+    assert not ok and not checks["stop"]
+    # opting into the pure metric flips the same round to a pass.
+    ok, checks = walkcurr_bucket_pass(
+        good, {"stop_gate": 0.015, "stop_metric": "stop_speed_pure_m_s"})
+    assert ok and checks["stop"]
