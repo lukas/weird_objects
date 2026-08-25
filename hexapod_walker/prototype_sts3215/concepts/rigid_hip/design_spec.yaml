@@ -478,10 +478,10 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, corridors + cradle shells flattened (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, corridors + cradle shells flattened, tower flanks smoothed (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
-      The production chassis_bottom with five variant edits (user,
+      The production chassis_bottom with seven variant edits (user,
       Aug 24: "round the corners on the chassis bottom below where the
       bearings go"; rev 2: "the multiple curves should all match";
       rev 3: "remove the wago slots"; rev 4: "the bearing should be
@@ -535,7 +535,19 @@ parts:
       registered by the sheet-level well (0.75 mm/side), the
       belly-bolted retainer and the in-keep shell (which also
       carries the 6805 seat's inboard arc).  Net -67 cm3 (268 vs
-      335).
+      335).  (7) TOWER FLANK SMOOTHED (rev 7 user, Aug 25: "remove
+      this weird bump outside the bottom chassis in the part that
+      holds the bearing and make it vertically smooth"): the
+      production +X swing relief spares a protect cylinder 1.5 mm
+      fatter than the tower (r 23.5), which left two phi 47
+      ring-sector arcs per leg on the outboard flank across the
+      mount-plate band (z 6.25..10.25) after the ear/flatten cuts.
+      They carry nothing (working wall, seat and deck all inside
+      r 22; the cap bolts that justified r 23.5 are deleted here),
+      so they are shaved to the corner-trim cylinder: the tower
+      outer profile is ONE vertical cylinder (r 22.00..22.02) from
+      the sheet top to the rim, asserted per rebuild on all six
+      legs.
       The Aug-25 lowered pocket makes a stock-print bench mod
       impractical (it needs the shoulder relief bored out and the
       tower cut 5 mm shorter); reprint for this variant.
@@ -589,6 +601,30 @@ parts:
             label: "Hole diameter (M3 clearance)"
             value: 3.4
             code_name: HOLE_D
+      flank_shave:
+        label: "Tower-flank bump shave (x6, rev 7)"
+        kind: "cut"
+        purpose: >-
+          Removes the production swing-relief protect ring's leftover
+          arcs (r up to 23.5, z 6.25..10.25) from the tower's
+          outboard flank so the outer profile is one vertical
+          cylinder from the sheet top to the rim.  Same trim radius
+          as the corner trim; the working wall (r <= 22), seat ledge
+          and deck are untouched.  Cylindricity asserted per rebuild
+          (check_chassis_variant, all six legs).
+        dimensions:
+          trim_radius:
+            label: "Flank radius after the shave (= corner trim)"
+            value: 22.02
+            code_name: CHB_TRIM_R
+          band_z0:
+            label: "Bump band bottom (world z, mount-plate underside)"
+            value: 6.25
+            code_name: CHB_PLATE_TOP
+          band_z1:
+            label: "Bump band top (world z, servo-mount deck top)"
+            value: 10.25
+            code_name: CHB_DECK_TOP
       corridor_flatten:
         label: "Wire-corridor + cradle-shell flatten (x6, box minus tower keep)"
         kind: "cut"

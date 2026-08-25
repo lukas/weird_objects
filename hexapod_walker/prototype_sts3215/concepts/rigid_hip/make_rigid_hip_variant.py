@@ -968,7 +968,7 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
     return trimesh.boolean.intersection([body, keep], engine="manifold")
 
 
-def make_chassis_bottom_rigid() -> trimesh.Trimesh:
+def make_chassis_bottom_rigid(bump_shave: bool = True) -> trimesh.Trimesh:
     """The production chassis_bottom with the CHB_* variant edits (see
     the constant block above):
 
@@ -1033,7 +1033,10 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         live below the sheet top, untouched.
 
     This makes chassis_bottom the variant's second reprinted
-    production part (chassis_bottom_rigid.stl)."""
+    production part (chassis_bottom_rigid.stl).
+
+    ``bump_shave=False`` skips only the rev-7 flank cut (i) -- used by
+    make_tower_flank_figure.py to rebuild the BEFORE geometry."""
     cb = hp.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0                        # 23.5
     cutters = []
@@ -1069,17 +1072,19 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
             CHB_KEEP_R, CHB_FLAT_Z0 - 0.5, CHB_FLAT_Z1 + 0.5,    # the shell
             x=APOTHEM, y=0.0, sections=192)]))               # inside it
         # carries the 6805 seat's inboard arc -- never cut it
-        bump = _box((23.5, 45.0,                             # (i) tower-flank
-                     (CHB_DECK_TOP + 0.25) - (CHB_PLATE_TOP - 0.25)),  # bump
-                    (APOTHEM + 23.5 / 2.0, 0.0,              # shave (rev 7)
-                     (CHB_PLATE_TOP - 0.25 + CHB_DECK_TOP + 0.25) / 2.0))
-        leg_cuts.append(_diff(bump, [_cyl_z(
-            CHB_TRIM_R, CHB_PLATE_TOP - 1.0, CHB_DECK_TOP + 1.0,
-            x=APOTHEM, y=0.0, sections=192)]))
-        # the production swing-relief protect ring (r 23.5) bulged the
-        # outboard flank across the mount-plate band; nothing lives out
-        # there (rev-7 constant-block note) -- shave flush to the same
-        # trim cylinder as (a)
+        if bump_shave:
+            bump = _box((23.5, 45.0,                         # (i) tower-flank
+                         (CHB_DECK_TOP + 0.25) - (CHB_PLATE_TOP - 0.25)),
+                        (APOTHEM + 23.5 / 2.0, 0.0,          # bump shave
+                         (CHB_PLATE_TOP - 0.25                # (rev 7)
+                          + CHB_DECK_TOP + 0.25) / 2.0))
+            leg_cuts.append(_diff(bump, [_cyl_z(
+                CHB_TRIM_R, CHB_PLATE_TOP - 1.0, CHB_DECK_TOP + 1.0,
+                x=APOTHEM, y=0.0, sections=192)]))
+            # the production swing-relief protect ring (r 23.5) bulged
+            # the outboard flank across the mount-plate band; nothing
+            # lives out there (rev-7 constant-block note) -- shave
+            # flush to the same trim cylinder as (a)
         leg_cuts.append(_cyl_z(CHB_TOWER_R + 0.1,            # (h) tower band
                                CHB_SEAT_W, CHB_RIM_OLD_W + 1.5,   # rebuild:
                                x=APOTHEM, y=0.0, sections=192))   # everything

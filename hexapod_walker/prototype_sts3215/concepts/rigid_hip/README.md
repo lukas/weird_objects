@@ -199,6 +199,11 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   pillar) are cut back to the bare sheet, one box per leg (leg-frame
   x 50 → 100, |y| ≤ 20.5, sheet top → over the deck) minus the tower
   keep cylinder (r 21.95).  See "The flattened corner" below.
+* **Tower flanks smoothed** (user, Aug 25 rev 7): the swing-relief
+  protect-ring bulge on each tower's outboard flank (r up to 23.5,
+  z 6.25–10.25) is shaved to the trim cylinder — see "The tower-flank
+  bump" below.  The tower outer profile is now ONE vertical cylinder
+  from the sheet top to the rim (asserted per rebuild, all six legs).
 * Net: −67 cm³ (268 vs 335).  **On an existing stock chassis print**
   the cosmetic edits are still a bench mod (saw/sand the corners back
   to the tower barrel, shave the ear lugs and corridor walls, drill
@@ -277,6 +282,42 @@ boss, and the servo case itself standing 4.25 mm proud of the sheet —
 the thing that was hiding behind the stubs.  (`corner_flat_owners.png`
 — a z=8 section of the pre-flatten corner with per-part colours —
 remains as the ownership reference for what the walls were.)
+
+### The tower-flank bump (user, Aug 25 rev 7)
+
+After rev 6 the user's viewer close-up showed a stepped bulge still
+riding each tower's outboard flank under the bearing: *"remove this
+weird bump outside the bottom chassis in the part that hols the
+bearing and make it vertically smooth"*.  Probing the shipped STL
+(radius vs z vs azimuth about each yaw axis): from the sheet top the
+flank is the clean trim cylinder (r 22.02) up to z 6.25, then two
+arcs per leg step out to **exactly r 23.5** across z 6.25–10.25
+(leg-frame az ~17–55° and ~300–314°, identical on all six legs), then
+back to r 22.00 up to the rim.
+
+Code origin: production's `_chassis_yaw_cradle_solid` clears the horn
+with a +X swing relief, but protects a cylinder **1.5 mm fatter than
+the tower** (`tower_protect`, r = 37/2 + 3.5 + 1.5 = 23.5), so the
+rectangular cradle-shell box survives out to r 23.5 across the
+mount-plate band (front face z 6.25 → plate top z 10.25).  In
+production that margin ring carried the roots of the cap-bolt ear
+bosses; in this variant the cap and its bolts are deleted, the ears
+are shaved, and the ear/flatten cuts already removed most of the ring
+— the two arcs were pure leftovers.  Verified before cutting: the
+working wall (Φ44 hoop, r ≤ 22), the Φ34/Φ37.15 seat ledge (r ≤ 18.6)
+and the deck all live inside the trim radius, and nothing mates with
+the flank.
+
+Rev 7 adds one ring cutter per leg (the corner-trim box footprint,
+z 6.0–10.5, minus the same `CHB_TRIM_R` cylinder).  Result: the tower
+outer profile reads r 22.00–22.02 at every z from the sheet top to
+the rim — one vertical cylinder, nothing removed inside r 22, hoop
+thickness around the race unchanged, rotating-part clearances only
+grew.  `check_chassis_variant` now asserts per-leg cylindricity over
+the whole sheet-top → rim band (the assert was verified to reject the
+pre-shave STL).  Before/after from roughly the user's camera angle:
+`tower_flank_smoothed.png` (regenerate with
+`make_tower_flank_figure.py`).
 
 ### The joint column: horn → bearing → coxa (Aug 24, dropped to the deck Aug 25)
 
@@ -745,7 +786,9 @@ full-wrap ring complete on all six towers, foot holes open where the
 pillar feet expect them, all six Wago tray wall sets gone with the
 sheet still solid underneath, the whole rev 5+6 flatten band proven
 air outside the tower keep with the sheet intact below it and the
-in-keep shell + pocket floor still standing), full 360° yaw sweep vs
+in-keep shell + pocket floor still standing, and the rev-7 flank
+cylindricity: no vertex within 45 mm of any yaw axis pokes past the
+trim cylinder anywhere between the sheet top and the rim), full 360° yaw sweep vs
 the plate,
 straight-down plate descent over all six bearings, pillar clearances
 (seated robot, ±45° operating yaw with margin, and an informational
