@@ -1,24 +1,31 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
 Last updated: 2026-08-25 ~12:4x (**rung-7 dose read COMPLETE (3/3):
-`bcanchor0p5` (dose 0.5) is ALSO a CANARY PASS — the BC-anchor
-mechanism is dose-robust across a 6x coefficient range, not a narrow
-coefficient hit.** DR-0 det gate 6/6 valid_plant (h_err_end
-1.1-1.5mm, cur_p95 0.67-0.73A, roll clean, video matches bcanchor1/
-bcanchor3 frame-for-frame). Own-DR(0.2) det 5/6 valid_plant (one
-episode noise-tipped, h_err 6.2mm/cur_p95 1.89A but not OC) — slightly
-weaker than doses 1.0/3.0 (6/6 own-DR det each) but not disqualifying.
-Sto 0/6 at every dose, same un-annealed-`policy_std` signature
-already named for the other two. **No further dose-axis action
-needed**: the concurrent cycle already launched the pre-registered
-ONE 8M acquisition arm off the strongest dose
-(`cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal`,
-log-std 0->-4.0 over the run, running on train-1) before this read
-landed; this result confirms that pick was sound, not a reason to
-fork. NEXT: triage `bcanchor3-stdanneal` when it finishes (gate: DR-0
-det AND sto >=5/6 valid_plant, cur_p95<=1.5A, zero hold_min_load in
-det) — that answers whether std-annealing closes the sto robustness
-gap and stage-1 hold can move to rise/lower. Evidence:
+`bcanchor0p5` (dose 0.5) letter-of-gate PASSES (6/6 det valid_plant,
+cur_p95 0.67A<=1.5A) but is a REAL, weaker dose floor, not an equal
+third passer — CORRECTED after an initial mis-read.** DR-0 det: all
+6/6 episodes terminate early via `hold_min_load` at t~3.5s (return
+~57.8, not the full 15s) — geometrically fine at the termination
+instant (height/posture/current all still nominal), but this cycle's
+first-pass verdict wrongly said video "held to truncation"; it does
+not. Contrast with `bcanchor1`/`bcanchor3` (doses 1.0/3.0), whose
+DR-0 det gate has ZERO terminations, full 15s hold, clean margin.
+Own-DR(0.2) det: 5/6 valid_plant but only 1 of those 6 episodes runs
+untermimated to truncation; sto 0/6 at every dose (same un-annealed-
+`policy_std` signature named for the other two). Revised read: the
+BC-anchor mechanism is real and generalizes 0.5-3.0x, but has a dose
+floor around 0.5-1.0x — 1.0x/3.0x are clean passers, 0.5x is
+marginal (would likely need more dose or budget to sustain, not a
+flat failure). **No dose-axis action needed regardless**: the
+concurrent cycle already launched the pre-registered ONE 8M
+acquisition arm off dose 3.0 (the cleanest of the three,
+`cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal`,
+log-std 0->-4.0, running on train-1) before this read landed — still
+the right pick either way. NEXT: triage `bcanchor3-stdanneal` when it
+finishes (gate: DR-0 det AND sto >=5/6 valid_plant, cur_p95<=1.5A,
+zero hold_min_load in det) — that answers whether std-annealing
+closes the sto robustness gap and stage-1 hold can move to
+rise/lower. Evidence:
 `logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40_bcanchor0p5_{gate,owncfg}/`,
 W&B `vggrigsq`.)
 

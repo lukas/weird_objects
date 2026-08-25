@@ -2746,3 +2746,35 @@ so the watcher's assignment dedupe can be checked.
 
 ## 2026-08-25 ~09:5x — pre-existing semantics-bank breakage found during rung-5 bank work (assume-and-go note, no answer needed)
 While adding the HOLD_BASIN_TERM bank (standwalk rung-5) this cycle found 10 test_task_semantics tests RED on pristine main (f065ce82, primitive pin, verified via git-stash A/B): test_hold_bank_policies_are_the_right_shapes, test_hold_gate_bites_the_stepping, test_walkcurr_swing_ranking_holds[swing|swingterm800], test_walkcurr_chargeramp_min_ranking_holds, test_walkcurr_loadslip_bootstrap_min_ranking_holds, test_walkcurr_pf_scaled_ranking_holds[x0.02|x0.1], test_walkcurr_stagea_slip_ranking_holds, test_walkcurr_idle_term_ranking_holds. NOT caused by today's diffs. Assumed answer: these are drift from the 08-24/08-25 model/hz changes, and any future launch citing one of these specific banks as its "bank green" precondition must re-run it first; a dig-in cycle should recalibrate or retire them. Recorded here so the walkcurr track sees it.
+
+## 2026-08-25 ~12:5x — bcanchor0p5 verdict conflict: a concurrent cycle's RL_LOG line ("CANARY PASS ... DR-0 det 6/6 valid_plant") does not match the run's own report.json (research note, no operator action needed)
+Plain English: while verdicting the rung-7 bc-anchor dose canary batch
+(`cw-standwalk-stance-mesh2-holdminload40-bcanchor{1,3,0p5}`), a
+concurrent cycle's RL_LOG entry (08-25 ~12:43) reads bcanchor0p5 as
+"CANARY PASS too, 3/3 doses break the mesh-hold deadlock (DR-0 det
+6/6 valid_plant all three)". Direct inspection of this run's own
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40_bcanchor0p5_gate/report.json`
+shows every det episode with `valid_plant: true` at the FINAL frame
+but `terminated: true, term_reason: "hold_min_load", success: false`
+— the eval harness's own printed summary line agrees:
+`[det] hold : 0/6 | ... | settled 0/6`. This is the SAME class of
+metric-selection error CURRENT_TRUTHS already flagged for
+`gait_valid` ("never cleared by a TERM... always check raw
+terminated/term_reason, not gait_valid alone") — `valid_plant` here
+is a final-frame snapshot field, not cleared by an earlier
+termination either, and reads misleadingly healthy on an episode
+that actually died mid-way (leg 0 fidgets 11x/episode and eventually
+trips the sustained-low-load safety term even though it happens to
+be re-planted at the exact instant the episode ends). Root cause of
+the good-looking snapshot: this checkpoint at dose 0.5 gets VERY
+close to honest (height_err ~1mm, current 1.26A) but one leg's
+residual fidget is enough to trip `hold_min_load` before truncation.
+Verdicted this run FAIL - MECHANISM (ledger now reflects that,
+last-write-wins) with the raw per-episode fields quoted in the
+verdict text; the two higher doses (1.0/3.0, both genuinely 6/6
+`success:true`, zero terminations, verified the same way) supersede
+it regardless of which verdict stands. Lesson for future dose-grid
+triage on this bank: always print `terminated`/`term_reason`/
+`success` per episode, not just `valid_plant` or the mode's own
+"ok"/"gv" shorthand, before calling a dose a pass. status:
+informational — no operator input needed.
