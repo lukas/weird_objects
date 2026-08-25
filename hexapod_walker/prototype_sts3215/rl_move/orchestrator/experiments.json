@@ -188058,7 +188058,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal.zip"
     ],
     "created": "2026-08-25T16:04:27+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188109,7 +188109,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-anchor since 2026-08-25T16:18:13"
+    "triage": "done",
+    "verdict": "FAIL per pre-registered bar: the half-pace chain lever does NOT fix rise inside the 3-mode mix, though hold/lower transfer perfectly. DR-0: hold det+sto 12/12 valid_plant zero terms (cur_p95 0.73-0.87A <=1.0A bar); lower det+sto 12/12 honest full descents (herr_end 0.1-0.8mm, clean rolls, <=0.94A); rise det 1/6 (crouch only) + sto 1/6, ALL 9 deep starts (flat/bridge/rsi) pinned at the 2.64A over_current ceiling, herr_end 12-81mm \u2014 same as stdanneal parent's <=2/6, so gate FAIL clause fires (isolated fix does not transfer). Own-DR(0.2): hold 11/12, lower 12/12, rise 0/12. KEY DIAGNOSTIC strengthening rung-9: in-mix bc_anchor_loss_rise fell to 0.027-0.035, BELOW the ~0.05 plateau that capped every riseonly arm, and env/rise_score hit 0.56 (riseonly peak ~0.43), yet SCORE/raise_success stayed 0.0 for all 8M steps \u2014 the policy tracks the borrowed primitive-family reference better than ever and still cannot press up from deep starts without pinning current. Tracking capacity is NOT the bottleneck; the reference's flat-segment posture is torque-infeasible on the 3.5kg mesh model. This is exactly what the in-flight rung-9 meshref arms (other cycle) attack. Next: no further mix funding until a rise recipe passes in isolation; re-run this exact mix once meshref (or successor) produces a rise with det>=4/6. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_bcchain3_slowchain_{gate,owncfg}/, W&B kza9ep2s."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-anchordose10",
@@ -188375,7 +188376,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:12:22+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188421,7 +188422,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-a-cw-st since 2026-08-25T16:33:34"
+    "triage": "done",
+    "verdict": "Floor 8->15mm at slowchain's own 0.25s lookahead does NOT improve rise: DR-0 gate det 2/6 + sto 4/6 valid_plant (6/12) vs slowchain 5/12 -- +1 episode, inside eval noise -- while over_current terms DOUBLE (6/12 vs slowchain 3/12; all failures are rsi/bridge deep starts pinned at 2.64A, hend 20-77mm; video det_1 bridge shows straining without lifting). Zero freezes both, so no freeze-rescue signal at this lookahead. Per pre-registered criteria this is flat/worse vs the same-lookahead sibling: at an already-working lookahead, a stronger height-floor only pushes deep starts hotter, mirroring the anchor-dose overshoot. Next: floor axis at long lookahead closed; see decouple-c for the real finding (floor rescues short-lookahead collapse); rung-9 meshref arms (in flight, other cycle) remain the live lever for the deep-start over_current wall."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-b",
@@ -188533,7 +188535,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:15:48+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188582,7 +188584,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-b since 2026-08-25T16:38:41"
+    "triage": "done",
+    "verdict": "Floor 4->15mm at quarterchain's own 0.125s lookahead: floor-strength lever confirmed AGAIN (3rd of 3 decouple arms) but ceiling is flat and low. DR-0 gate det 2/6 [bridge1/2 crouch1/1 flat0/1 rsi0/2] + sto 3/6 [crouch2/2 rsi1/4] valid_plant (5/12, beats quarterchain's 4/12) with ZERO freeze episodes (quarterchain: 6/12 froze) -- same anti-freeze rescue decouple-c showed at 0.0625s. Own-DR(0.2) same shape: det 3/6 + sto 2/6 (5/12, beats quarterchain's 3/12), zero freeze (quarterchain: 4/12). Cost of the rescue: over_current terms rise to 6/12 gate + 7/12 owncfg (quarterchain: 1/12 + 5/12) -- freeze converts to hot failure, not clean success; even the 'valid' bridge/rsi episodes run cur_p95 1.52-2.05A, over the 1.5A PASS bar. Video: det_0 (flat) genuinely presses up to a raised splayed stance before tripping hot; det_5 (bridge, usually a clean starter) instead sinks/splays and trips -- the strong floor pushes harder starts into the SAME over_current wall other starts already hit. Combined with decouple-a (FAIL, floor doesn't help at 0.25s lookahead) and decouple-c (PARTIAL, floor rescues 0.0625s) verdicted this window: floor>=15mm gives a FLAT ~5-6/12 valid_plant ceiling across all three tested lookaheads (0.25/0.125/0.0625s all cluster 5-6/12) with the identical over_current wall on rsi/bridge deep starts at the 2.64A cap -- the 2D floor x lookahead grid is now fully bracketed and closed, no further pursuit-shaping arm is worth funding. rung-9 (mesh-native rise ref, meshref/meshref-s1, in flight on another cycle's pods) is confirmed as the sole remaining lever for this rung."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-c",
@@ -188694,7 +188697,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:17:57+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188744,7 +188747,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-a-cw-st since 2026-08-25T16:33:34"
+    "triage": "done",
+    "verdict": "Floor strength IS an independent anti-freeze lever: reverting min_h_ahead to 15mm at eighthchain's own 0.0625s lookahead rescues its TOTAL collapse (0/6+0/6, freezes) back to det 3/6 + sto 3/6 valid_plant with ZERO freeze episodes and even a clean bridge-start rise (det_1, hend 0.2mm, video-confirmed full stand). PARTIAL per pre-registered criteria (beats eighthchain on both valid_plant and freeze count). Key synthesis with decouple-a: once floor >=15mm the lookahead axis is flat (6/12 at 0.25s = 6/12 at 0.0625s), so the 'proper 2D grid' the gate contemplated is NOT worth funding -- both axes are now bracketed and the ceiling is invariant at ~5-6/12. Every remaining failure is the SAME wall: rsi/bridge deep starts tripping over_current at 2.64A mid-rise (video det_3 shows genuine progress -- legs tucking, body lifting -- then hot), across pace x floor x anchor-dose x budget. The reference trajectory itself doesn't offer a current-feasible deep-start path on the 3.5kg mesh model; rung-9 mesh-native ref (meshref/meshref-s1, in flight, other cycle) is the right and only funded lever. Next: no further pursuit-shaping arms; read meshref."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-s1",
@@ -188888,7 +188892,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain: SEED-ROBUSTNESS member of the meshref canary pair (judge jointly with seed 0). Can the robot learn to stand up from its belly when the demonstration it copies is one its own motors can actually afford? Every prior rise arm supervised toward rise_ref_belly2plant.npz, EXTRACTED from the 2.104kg primitive-family champion rollout: its mid-rise press is asymmetric (two legs folded at femur ~-57deg / tibia ~+100deg) and paced above the ~31deg/s servo velocity limit, and on the 3.5kg mesh model policies grind into that posture at the 2.64A ceiling (rung-8 evidence: pace dose bracketed non-monotonic, budget null at every pace, anchor dose 6.0 regression). Rung-9 swaps in rise_ref_mesh_scripted.npz -- minted this cycle by make_rise_ref_scripted.py from geometry alone (tuck feet to the plant footprint while the belly carries the mass, then a symmetric quasi-static Cartesian press via the trusted FK/IK) and PROVEN feasible open-loop on the mesh model itself: +83mm rise, end 0.8deg RMS from plant, cur_p95 0.53A, held-out-seed robustness PASS. Exact slowchain recipe otherwise (half-pace chain lookahead 0.25s / min_h 8mm, anchor coef 3.0, from scratch). Prediction-if-true: deep-start (flat/bridge/rsi) episodes stop pinning 2.64A -- the anchor now points at 0.53A-feasible postures -- and det valid_plant exceeds slowchain'\"'\"'s 3/6. Prediction-if-false: deep starts still pinned/stalled with anchor loss converged -- reference content was never the blocker; the remaining suspect is reward/termination pricing.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-s1.log",
     "wandb_id": "axy001yj",
-    "verified": "2026-08-25T16:38:15+00:00"
+    "verified": "2026-08-25T16:38:15+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T16:43:29+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          166
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-cw-stand since 2026-08-25T16:48:52"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref",
@@ -189032,6 +189051,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain: Can the robot learn to stand up from its belly when the demonstration it copies is one its own motors can actually afford? Every prior rise arm supervised toward rise_ref_belly2plant.npz, EXTRACTED from the 2.104kg primitive-family champion rollout: its mid-rise press is asymmetric (two legs folded at femur ~-57deg / tibia ~+100deg) and paced above the ~31deg/s servo velocity limit, and on the 3.5kg mesh model policies grind into that posture at the 2.64A ceiling (rung-8 evidence: pace dose bracketed non-monotonic, budget null at every pace, anchor dose 6.0 regression). Rung-9 swaps in rise_ref_mesh_scripted.npz -- minted this cycle by make_rise_ref_scripted.py from geometry alone (tuck feet to the plant footprint while the belly carries the mass, then a symmetric quasi-static Cartesian press via the trusted FK/IK) and PROVEN feasible open-loop on the mesh model itself: +83mm rise, end 0.8deg RMS from plant, cur_p95 0.53A, held-out-seed robustness PASS. Exact slowchain recipe otherwise (half-pace chain lookahead 0.25s / min_h 8mm, anchor coef 3.0, from scratch). Prediction-if-true: deep-start (flat/bridge/rsi) episodes stop pinning 2.64A -- the anchor now points at 0.53A-feasible postures -- and det valid_plant exceeds slowchain'\"'\"'s 3/6. Prediction-if-false: deep starts still pinned/stalled with anchor loss converged -- reference content was never the blocker; the remaining suspect is reward/termination pricing.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref.log",
     "wandb_id": "5wdood22",
-    "verified": "2026-08-25T16:40:25+00:00"
+    "verified": "2026-08-25T16:40:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T16:46:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2157,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-cw-stand since 2026-08-25T16:48:52"
   }
 ]

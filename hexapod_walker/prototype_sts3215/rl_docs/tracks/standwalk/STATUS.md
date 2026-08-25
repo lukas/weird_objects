@@ -1,6 +1,37 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:5x (**RUNG-9 BUILT, PROVEN, AND FUNDED:
+Last updated: 2026-08-25 ~16:5x (**DECOUPLE GRID FULLY CLOSED —
+`-decouple-b` (0.125s lookahead + floor 15mm) landed almost exactly
+on the prior entry's pre-registered prediction, confirming the
+floor-vs-lookahead synthesis with all three arms now read.** DR-0
+gate det 2/6 [bridge1/2 crouch1/1 flat0/1 rsi0/2] + sto 3/6
+[crouch2/2 rsi1/4] valid_plant (5/12 — beats quarterchain's paired
+4/12) with ZERO freeze episodes (quarterchain froze 6/12) — the same
+anti-freeze rescue decouple-c showed at 0.0625s, this time at the
+middle lookahead. Own-DR(0.2) same shape: 5/12 valid (beats
+quarterchain's 3/12), zero freeze (quarterchain 4/12). Cost of the
+rescue, also matching the a/c pattern: over_current terms rise to
+6/12 gate + 7/12 owncfg (quarterchain 1/12 + 5/12) — video confirms
+freeze converts to a genuine-but-hot attempt, not a clean pass (det_0
+flat start presses up to a raised splayed stance before tripping;
+det_5 bridge — usually a clean starter — instead sinks/splays into
+the SAME wall). **Joint read across all three (a FAIL 6/12 @0.25s,
+b PARTIAL 5/12 @0.125s, c PARTIAL 6/12 @0.0625s): floor>=15mm gives a
+flat 5-6/12 valid_plant ceiling REGARDLESS of lookahead length, with
+the identical over_current-at-2.64A wall on rsi/bridge deep starts
+every time — the 2D floor x lookahead pursuit-shaping grid is now
+fully bracketed and CLOSED, no further arm on this axis is worth
+funding.** This independently corroborates rung-9's own open-loop
+measurement (next entry): the blocker is the legacy reference's
+pacing/content, not the anchor's pursuit mechanics. Every named lever
+on rise pursuit-shaping (pace, budget, anchor-dose, floor x lookahead)
+is now exhausted; rung-9's mesh-native scripted reference (already
+built, validated open-loop at 0.53A max, canary pair
+`meshref`/`meshref-s1` training) is the sole remaining live lever.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_
+decouple_b_{gate,owncfg}/`, W&B `z36jhugx`.)
+
+Prior entry: 2026-08-25 ~16:5x (**RUNG-9 BUILT, PROVEN, AND FUNDED:
 a mesh-native scripted rise reference now exists, is torque-feasible
 on the mesh model, and a 2-seed canary pair is training.** New tool
 `rl_move/sim/make_rise_ref_scripted.py` (snapshot 25941468) mints a
@@ -29,6 +60,34 @@ alongside pace/budget/dose and the next suspect is the
 reward/termination pricing itself. Evidence: generator output in this
 entry (reproducible via the command above), snapshot tag
 `exp/cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref`.)
+
+Prior entry: 2026-08-25 ~16:4x (**DECOUPLE GRID READ (a FAIL, c
+PARTIAL): floor-vs-lookahead answered in one wave — floor strength IS
+the independent anti-freeze lever, lookahead is flat once floor
+>=15mm, the contemplated 2D grid is CLOSED as not worth funding, and
+the deep-start over_current wall stands, exactly as the rung-9 entry
+above measured open-loop.** `-decouple-c` (eighthchain's 0.0625s
+lookahead + floor reverted 2->15mm) rescues eighthchain's total
+collapse from 0/6+0/6-with-freezes to det 3/6 + sto 3/6 valid_plant,
+ZERO freeze episodes, including a video-clean bridge-start rise
+(det_1, hend 0.2mm) — decisive PARTIAL per its pre-registered
+criteria. `-decouple-a` (slowchain's 0.25s lookahead + floor 8->15mm)
+is FAIL: 6/12 valid vs slowchain's 5/12 (+1, inside noise) with
+over_current terms DOUBLED (6/12 vs 3/12) — at an already-working
+lookahead more floor only pushes deep starts hotter, mirroring the
+anchor-dose overshoot. Synthesis: floor>=15mm at ANY lookahead lands
+on the same ~6/12 ceiling (a 6/12 @0.25s, c 6/12 @0.0625s); BOTH
+pursuit axes are now bracketed and no further pursuit-shaping arms
+are justified. Every residual failure has the identical signature —
+rsi/bridge deep starts tripping over_current at 2.64A MID-RISE while
+making genuine progress (c det_3 video: legs tuck, body lifts, then
+hot) — invariant across pace x floor x anchor-dose x budget, which
+independently corroborates rung-9's open-loop finding that the legacy
+ref's pacing (not the pursuit shaping) is the defect. `-decouple-b`
+(0.125s + 15mm) still unread at write time; prediction: ~6/12, zero
+freezes — a deviation (esp. >6/12 or freezes) would reopen the axis.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_
+bcchain3_decouple_{a,c}_gate/`, W&B `ahz9mrwq`/`yz8pe501`.)
 
 Prior entry: 2026-08-25 ~16:2x (**ANCHOR-DOSE-UP AXIS CLOSED for rise:
 `-slowchain-anchordose6`/`-anchordose10` BOTH CANARY FAIL - MECHANISM,
