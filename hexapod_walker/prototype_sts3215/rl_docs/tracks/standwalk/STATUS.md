@@ -38,6 +38,22 @@ cw_standwalk_stance_mesh2_riseonly_bcchain3_{stdanneal_cont8,
 stdanneal_reanneal,slowchain}_{gate,owncfg}/`, W&B `i29a19wo` /
 `lqav84km` / `8abary62`.)
 
+Prior entry: 2026-08-25 ~15:1x (**Lower seed hedge resolved:
+`loweronly-bcchain3-s1` (seed 1, 2M mechanism canary) CANARY PASS.**
+DR-0 det 6/6 valid_plant, herr_end 1.2–3.1mm (full commanded drop
+band), zero over_current, roll clean; det strips show the same level
+six-foot planted descent as seed 0. cur_max 2.25–2.45A ≈ seed-0's
+2.17–2.26A hot-crouch band; sto tilt falls at un-annealed std ~1.0
+are expected/excluded by this gate and already proven fixable by
+stdanneal. Conclusion: the IK-descent BC-anchor-chain lower mechanism
+is seed-robust — seed 0 was not a fluke — and the rung stays CLOSED
+on the seed-0 stdanneal champion; no further lower funding needed.
+Stage-1 tally: HOLD PASS, LOWER PASS (+seed-robust canary), RISE
+PARTIAL (pace-dose batch in flight), STANCEMIX PARTIAL (stdanneal +
+warmmix arms in flight). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_loweronly_bcchain3_s1_{gate,owncfg}/`, W&B
+`7iczyeb4`.)
+
 Prior entry: 2026-08-25 ~14:5x (**LOWER RUNG CLOSED — `loweronly-bcchain3-
 stdanneal` is a FULL PASS, mirroring the hold rung's stdanneal close.**
 8M acquisition off the `loweronly-bcchain3` IK-descent BC-anchor-chain
