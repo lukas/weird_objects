@@ -1982,6 +1982,7 @@ function drvClearHeartbeat(){
 function drvResetLocalInput(){
   drvKeys.clear();
   drvPad = null;
+  drvClearGamepadCommand();
 }
 function rlButtons(disabled){
   for(const id of ['rlstand','rllower','rlwalkfwd',
@@ -2102,7 +2103,12 @@ const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
 let drvPadDownAt = 0;
 let drvPadReleaseTimer = null;
+let drvGamepad = {dx:0, dy:0, dz:0, active:false, name:''};
+let drvGamepadNeedsNeutral = false;
+let drvGamepadPollBusy = false;
+let drvGamepadNextStartT = 0;
 const DRV_TAP_PULSE_MS = 650;
+const DRV_GAMEPAD_DEADZONE = 0.14;
 const DRV_KEYMAP = {
   arrowup:'fwd', w:'fwd', i:'fwd',
   arrowdown:'back', s:'back', k:'back',
@@ -2148,6 +2154,26 @@ function uiEvent(event, data={}){
 function sleepMs(ms){
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+function drvGamepadStatus(text){
+  const el = $('rlgpstatus');
+  if(el) el.textContent = text;
+}
+function drvGamepadAxis(v){
+  const x = Number(v) || 0;
+  const a = Math.abs(x);
+  if(a < DRV_GAMEPAD_DEADZONE) return 0;
+  const scaled = (a - DRV_GAMEPAD_DEADZONE) / (1 - DRV_GAMEPAD_DEADZONE);
+  return Math.sign(x) * Math.max(0, Math.min(1, scaled));
+}
+function drvFirstGamepad(){
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for(const p of pads){ if(p) return p; }
+  return null;
+}
+function drvClearGamepadCommand(){
+  const name = (drvGamepad && drvGamepad.name) || '';
+  drvGamepad = {dx:0, dy:0, dz:0, active:false, name};
+}
 function drvClearPad(){
   if(drvPadReleaseTimer){
     clearTimeout(drvPadReleaseTimer);
@@ -2162,10 +2188,18 @@ function drvVec(){
   let dx = (drvKeys.has('fwd')?1:0) - (drvKeys.has('back')?1:0);
   let dy = (drvKeys.has('right')?1:0) - (drvKeys.has('left')?1:0);
   let dz = (drvKeys.has('yawL')?1:0) - (drvKeys.has('yawR')?1:0);
+  let analog = false;
   if(!dx && !dy && drvPad){ dx = drvPad[0]; dy = drvPad[1]; }
+  if(!dx && !dy && !dz && drvGamepad.active){
+    dx = drvGamepad.dx;
+    dy = drvGamepad.dy;
+    dz = drvGamepad.dz;
+    analog = true;
+  }
   const n = Math.hypot(dx, dy);
   const s = parseFloat($('rlwalkspeed').value);
-  const wz = dz ? dz * 0.18 : 0;
+  const wz = dz ? clamp(dz, -1, 1) * 0.18 : 0;
+  if(analog) return [clamp(dx, -1, 1)*s, clamp(dy, -1, 1)*s, wz];
   return n ? [dx/n*s, dy/n*s, wz] : [0, 0, wz];
 }
 function drvPaint(d){
@@ -2198,6 +2232,7 @@ async function drvSend(){
 }
 async function drvEnded(){
   drvActive = false;
+  drvGamepadNeedsNeutral = true;
   drvClearHeartbeat();
   drvResetLocalInput();
   drvLockRlControls(false);
@@ -2233,6 +2268,7 @@ async function drvStartSession(source='button'){
         method:'POST', cache:'no-store'});
       const d = await r.json();
       if(!d.ok){
+        if(source === 'gamepad') drvGamepadNeedsNeutral = true;
         $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
         showErr('Drive: '+(d.error || 'refused'));
         drvLockRlControls(false);
@@ -2246,6 +2282,7 @@ async function drvStartSession(source='button'){
       drvPaint(d);
       return true;
     }catch(e){
+      if(source === 'gamepad') drvGamepadNeedsNeutral = true;
       $('rldrivestatus').textContent = 'Start failed (link?)';
       drvLockRlControls(false);
       $('rldrivestart').textContent = 'Start failed';
@@ -2263,6 +2300,7 @@ async function drvStopAndWaitForInactive(actionLabel, timeoutMs=10000){
   $('rldrivestatus').textContent = 'Ending session before '+actionLabel
     + ' (rolls to a stop, holds)…';
   drvResetLocalInput();
+  drvGamepadNeedsNeutral = true;
   if(drvActive) await drvSend();
   try{ await fetch('/api/rl/drive/stop',
     {method:'POST', cache:'no-store'}); }catch(e){}
@@ -2291,6 +2329,8 @@ $('rldrivestart').onclick = async ()=>{
 $('rldriveend').onclick = async ()=>{
   $('rldriveend').disabled = true;
   $('rldrivestatus').textContent = 'Ending session (rolls to a stop, holds)…';
+  drvGamepadNeedsNeutral = true;
+  drvResetLocalInput();
   try{ await fetch('/api/rl/drive/stop', {method:'POST'}); }catch(e){}
   // Heartbeats keep flowing until the server reports inactive, so the
   // decel + wind-down is visible in the status line.
@@ -2394,6 +2434,65 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   b.addEventListener('pointerleave', up);
   b.addEventListener('pointercancel', up);
 }
+async function pollRlGamepad(){
+  if(activeView !== 'rl' || drvGamepadPollBusy) return;
+  drvGamepadPollBusy = true;
+  try{
+    if(!navigator.getGamepads){
+      drvGamepadStatus('Joystick: browser does not expose controllers.');
+      return;
+    }
+    const wasActive = drvGamepad.active;
+    const gp = drvFirstGamepad();
+    if(!gp){
+      drvClearGamepadCommand();
+      if(wasActive && drvActive) drvSend();
+      if(!window.isSecureContext)
+        drvGamepadStatus('Joystick: open the HTTPS page to use a controller.');
+      else
+        drvGamepadStatus('Joystick: press a controller button to connect.');
+      return;
+    }
+    const name = gp.id ? gp.id.slice(0, 26) : 'connected';
+    const dx = drvGamepadAxis(-(gp.axes[1] || 0));  // left stick up = forward
+    const dy = drvGamepadAxis(gp.axes[0] || 0);     // left stick right = right
+    const dz = drvGamepadAxis(gp.axes[2] || 0);     // right stick X = yaw
+    const active = !!(dx || dy || dz);
+    drvGamepad = {dx, dy, dz, active, name};
+    if(!active){
+      if(drvGamepadNeedsNeutral) drvGamepadNeedsNeutral = false;
+      drvGamepadStatus('Joystick: '+name+' · left stick walk, right stick turn.');
+      if(wasActive && drvActive) drvSend();
+      return;
+    }
+    const pct = v => Math.round(v * 100);
+    if(drvGamepadNeedsNeutral){
+      drvGamepadStatus('Joystick: return stick to center before auto-start.');
+      return;
+    }
+    drvGamepadStatus('Joystick: '+name+' · cmd '
+      + pct(dx)+'% fwd, '+pct(dy)+'% right, '+pct(dz)+'% yaw');
+    if(!drvActive){
+      const now = performance.now();
+      if(now < drvGamepadNextStartT) return;
+      drvGamepadNextStartT = now + 1500;
+      if(!(await drvStartSession('gamepad'))) return;
+    }
+  }finally{
+    drvGamepadPollBusy = false;
+  }
+}
+setInterval(pollRlGamepad, 50);
+window.addEventListener('gamepadconnected', (e)=>{
+  if(activeView === 'rl')
+    drvGamepadStatus('Joystick: '+(e.gamepad.id || 'connected')
+      +' · left stick walk, right stick turn.');
+});
+window.addEventListener('gamepaddisconnected', ()=>{
+  drvClearGamepadCommand();
+  drvGamepadStatus('Joystick: disconnected.');
+  if(drvActive) drvSend();
+});
 
 // ---- MuJoCo backend panel --------------------------------------------------
 function stopSimPoll(){
