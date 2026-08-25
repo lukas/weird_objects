@@ -1,6 +1,64 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~02:3x (**certfreeze-v9 FAIL, but the
+Last updated: 2026-08-25 ~03:4x (**hist64-mesh-acq1 FAIL + the mesh
+over_current root cause is NAILED (dig-in, measured).** The MLP-mesh
+40M acquisition hit its own pre-registered FAIL branch: reward rose
+the whole run (-633 valley -> +528; mesh-family valley reference
+waypoints 2M/7M/12M/20M/38M = -530.6/-715.1/+56.5/+207.3/+458.2 — the
+tf64-mesh sibling is judged against these) while frontier stayed
+pinned b0 and the DR-0 gate fails 24/24 episodes via over_current
+(cur_max_a~2.64 A, not topple), leg-sacrifice sets {1,3,5}/supersets.
+Dig-in (teacher-gait current probe on train-7, mesh vs primitive):
+the 2.5 A safety trip is NOT a stale cap on the 3.50 kg mesh model —
+the scripted tripod teacher exceeds 2.5 A on 29% of ticks (peak
+2.627 A) but its longest per-servo dwell is 0.32 s, under the 0.8 s
+sustained-trip window, so a properly CYCLING gait walks trip-free;
+on the primitive model the same teacher never touches 2.5 A (max
+2.452). Headroom collapsed from never-touched to grazed-every-stance:
+mesh over_current death is BEHAVIORAL (parked legs concentrate stance
+load into >0.8 s sustained saturation on the loaded knees/hips), and
+the reward is misaligned the exact way 08-21 describes — training
+terminations/over_current fired 64-160/window for all 38M steps while
+reward climbed (die-rich exploit: a few seconds of positive reward
+beats surviving). Consequences: (1) mesh-family arms must move the
+reward optimum to survival — walk_gait_gate from step 0 (decisive
+read = gaitgate-scratch1, in flight) and/or pricing sustained
+near-trip dwell before the trip fires; (2) tf64-mesh-acq1 gets judged
+against the waypoints above AND checked for the same over_current
+signature; (3) the probe also re-confirmed sim "current" is a torque
+proxy — the real 3.5 kg robot walking this teacher measures 0.395 A
+total bus current, so the trip's semantics are sustained torque
+saturation, still valid on mesh. Evidence: `logs/ckpt_eval/
+cw_arch_hist64_mesh_joyfullcurr13_v7_hz100_acq1_gate/`, W&B
+`sw94v915`, dwell probe output in the run verdict.)
+
+Previous entry (2026-08-25 ~03:2x (**gaitgate-cont1 FAIL (verdicted this
+cycle): the walk_gait_gate CONTINUATION half of the leg-sacrifice
+diagnostic pair narrows the sacrifice set from {0,2,5} to a single
+leg (duty for the other 5 legs moves into the healthy 0.3-0.98 band)
+but is WORSE on every axis that actually gates the track: held-out
+joygate falls rose 12/48->39/48, gait_valid_frac stays 0.0, and the
+DR-0 gate now terminates over_current/tilt_pitch in 24/24 episodes
+(video: hard nose-dive within the first few frames). In-training
+held-out eval/walk/survived_frac DECLINED 0.5->0.5->0.0 across the
+10M-step continuation while ep_rew_mean kept rising — a misalignment
+that got worse with more steps, not better. Matches this run's own
+pre-registered decision tree: the reward-side gate alone cannot
+dislodge an already-converged bad optimum via continuation.
+`gaitgate-scratch1` (from scratch, gate on from step 0) is now the
+sole decisive read on whether walk_gait_gate PREVENTS the basin from
+forming at all; this cycle additionally pre-registered+queued 2 seed
+replicates (`-seed1`/`-seed2`, same recipe, seed 1/2) to answer the
+robustness question in one wave once scratch1 reads, per operator
+08-22 batching guidance — both REFUSED at launch on a code-marker
+mismatch (local tree carries a concurrent cycle's uncommitted
+`linux_control/rl_policy.py`/`rl_move/robot_state.py` delta, unrelated
+to this recipe) and are re-queued in `backlog.json` for the
+self-repairing drain to place once that resolves. Evidence:
+`logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_gaitgate_cont1_
+{gate,joygate}/`, W&B `1t8jxzqo`.)
+
+Previous entry (2026-08-25 ~02:3x (**certfreeze-v9 FAIL, but the
 cleanest read in the whole V6-V9 ladder — the b3 stop-cert stall is
 now a proven real behavior, not a measurement artifact.** V9's own
 fix (`stop_speed_pure_m_s`, excludes wz!=0 ticks from the stop-tick

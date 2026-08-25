@@ -90,6 +90,23 @@ RISE_OVERRIDES = {
 SEEDS = (0, 1, 2)
 
 
+def _ref_row(env, step: int, ref_dt: float, ramp_ref: int) -> int:
+    """Time-aligned reference row for tick ``step`` of ``env``.
+
+    2026-08-25 rate fix: the rise refs are recorded at their own tick
+    rate (``dt=0.04`` s, 25 Hz); the bank used to advance one ref row
+    per ENV step, which silently replayed the whole rise 4x too fast
+    once config.yaml's control.hz default flipped 25->100 on 08-24 —
+    the reference "honest rise" toppled and terminated, failing the
+    rise/rock/trans-drag banks at BOTH model families (part of the
+    54-test regression logged in OPERATOR_QUESTIONS.md 08-25 ~02:1x).
+    The training-side consumer (`sim_env._rise_ref_clock`) was always
+    time-based; this mirrors it exactly.
+    """
+    t_rel = (step - env._rise_ramp_i0) * env.dt
+    return ramp_ref + int(round(t_rel / ref_dt))
+
+
 def _make_rise_env(seed: int, overrides=None) -> SimHexapodJointGoalEnv:
     cfg = load_config()
     for (sec, leaf), val in (overrides or RISE_OVERRIDES).items():
@@ -111,6 +128,7 @@ def _rise_rollout(policy: str, seed: int, overrides=None) -> dict:
     env.reset()
     ref = np.load(ROOT / RISE_REF)
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
+    ref_dt = float(ref["dt"])
     q0 = env.data.qpos[env._qadr].copy()
     q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
     # partial = follow the reference only halfway up, then hold that
@@ -121,16 +139,16 @@ def _rise_rollout(policy: str, seed: int, overrides=None) -> dict:
     total, step = 0.0, 0
     while True:
         if policy == "replay":
-            j = ramp_ref + (step - env._rise_ramp_i0)
+            j = _ref_row(env, step, ref_dt, ramp_ref)
             act = q_rad_to_action(q_ref[min(max(j, 0), len(q_ref) - 1)])
         elif policy == "partial":
-            j = min(ramp_ref + (step - env._rise_ramp_i0), j_half)
+            j = min(_ref_row(env, step, ref_dt, ramp_ref), j_half)
             act = q_rad_to_action(q_ref[min(max(j, 0), len(q_ref) - 1)])
         elif policy == "flagleg":
             # The cw-stand-b2p1 / cw-stand-plantgate1 video cheat: five
             # legs execute the honest rise, one leg stays flagged
             # straight out and never takes load.
-            j = ramp_ref + (step - env._rise_ramp_i0)
+            j = _ref_row(env, step, ref_dt, ramp_ref)
             q = q_ref[min(max(j, 0), len(q_ref) - 1)].copy()
             q[0:3] = q0[0:3]
             act = q_rad_to_action(q)
@@ -2971,10 +2989,11 @@ def _rock_rollout(seed: int, overrides, counter: bool = False) -> dict:
     env.reset()
     ref = np.load(ROOT / RISE_REF)
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
+    ref_dt = float(ref["dt"])
     r0, p0 = env._true_roll_pitch()
     peak, step = 0.0, 0
     while True:
-        j = ramp_ref + (step - env._rise_ramp_i0)
+        j = _ref_row(env, step, ref_dt, ramp_ref)
         q = q_ref[min(max(j, 0), len(q_ref) - 1)].copy()
         if counter:
             r, _p = env._true_roll_pitch()
@@ -3398,9 +3417,10 @@ def _tdrag_rise_rollout(seed: int, k: float) -> dict:
     env.reset()
     ref = np.load(ROOT / RISE_REF)
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
+    ref_dt = float(ref["dt"])
     tot, drag_mm, charge, step = 0.0, 0.0, 0.0, 0
     while True:
-        j = ramp_ref + (step - env._rise_ramp_i0)
+        j = _ref_row(env, step, ref_dt, ramp_ref)
         act = q_rad_to_action(q_ref[min(max(j, 0), len(q_ref) - 1)])
         _obs, r, term, trunc, info = env.step(act)
         tot += float(r)
