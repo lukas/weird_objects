@@ -1,6 +1,37 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~06:4x (**RUNG-2 (mesh2-cur1) FAIL, 3/3 seeds
+Last updated: 2026-08-25 ~06:5x (**Per-mode isolation diagnostic BATCH
+launched (4 arms) to root-cause the rung-2 total-collapse FAIL below.**
+Plain English: rung-2 (mesh2-cur1/-seed1/-seed2) failed EVERY mode
+including plain `hold` from an already-planted start, with flat reward
+the whole 20M run — a genuine stuck-mechanism FAIL, not a misalignment,
+per this cycle's own triage of `cur1`/`-seed1` (0/6 all modes both DR-0
+and own-DR; term signature MIXED per mode — hold tilt_roll, rise
+tilt_pitch, lower over_current — three distinct failure modes, not one
+uniform grind). Before spending a 3rd full 3-seed 20M batch, this
+cycle isolates WHICH mode(s) are actually unlearnable vs. starved by
+the multi-task goal-mix (hold is only 10% of it) or by a too-weak
+rise-ref tracking weight (`k_rise_ref_track=2.0`), via 4 cheap 2M
+discovery arms off the same cur1 pricing recipe (single-lever each):
+`cw-standwalk-stance-mesh2-holdonly1` (goal-mix hold=1.0, isolates
+whether quiet standing alone is learnable), `-riseonly1` (goal-mix
+rise=1.0, isolates whether rise alone tracks the reference — FINISHED
+already, reward quarters 7.3/-36.8/-147/-232.8, DECLINING not
+recovering, a bad early sign pending its stance-panel read),
+`-loweronly1` (goal-mix lower=1.0, isolates the named
+lower-height/current fallback fork), and `-cur1-reftrack10`
+(full mix unchanged, `k_rise_ref_track` 2.0->10.0, tests the
+alternative "weight too weak" fix instead of curriculum share). All 4
+VERIFIED RUNNING/FINISHED (train-0/1/2/3). Read jointly with the
+concurrent cycle's own parallel lever `cw-standwalk-stance-mesh2-
+refgain15` (same base recipe, a different `k_rise_ref_track`-style
+gain choice, independently launched — not a duplicate, a second dose
+point) — next triage cycle should read all 5 together before deciding
+rung-3. None of these are the pricing-OFF isolation / DR-ramp / log-
+std retune candidates named below (still unbuilt; queue those next if
+this batch doesn't name a clear fix).
+
+Previous entry (2026-08-25 ~06:4x (**RUNG-2 (mesh2-cur1) FAIL, 3/3 seeds
 CONFIRMED, TOTAL collapse -- worse than a misalignment, a genuine
 stuck-mechanism FAIL. Rung closed; root-cause dig-in needed before
 rung 3.** Plain English: the realigned-pricing rung
