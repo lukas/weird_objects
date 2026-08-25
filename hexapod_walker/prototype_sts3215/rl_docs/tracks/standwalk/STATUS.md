@@ -781,10 +781,24 @@ lower session harness is stage-2 tooling to build.
 Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
 `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`
 (24/24 valid_plant across DR-0+own-DR det+sto, zero terms — see Last
-updated entry). Current work: rise/lower rung — mesh-recalibrate the 3
-red `test_bc_anchor.py` rise/lower chain tests (bank-green
-precondition), then launch the BC-anchor-chain rise/lower batch
-warm-started from the hold champion.
+updated entry). RUNG-8 (rise/lower anchor chains) RUNNING 08-25
+~13:3x: the 3 red `test_bc_anchor.py` chain tests are FIXED and green
+(root cause was NOT stale primitive heights — the 08-24 config
+`control.hz` 25->100 flip quartered the wall-time of their fixed
+tick-count loops while chain progress is slew-limited at a
+rate-invariant 37.5 deg/s; loops now expressed in seconds via
+`env.dt`, bit-identical at 25 Hz, 56/56 green at the 100 Hz default;
+bisected to commit 9a2b644c, fix tag
+`exp/bcanchor-chain-tests-rate-fix` = 41419aef). Batch (2M mechanism
+canaries, footlow2-PASS anchor bundle — state_aligned/lower/foot_z/
+stratified/lookahead 0.5s/min_h_ahead 15mm — on the mesh bcanchor3
+recipe, coef 3.0, from-scratch; NO warm start from the hold champion:
+its std is annealed to 0.018 and the anchor needs no init, proven by
+rung-7): `cw-standwalk-stance-mesh2-riseonly-bcchain3` (train-1),
+`-loweronly-bcchain3` (train-0), `-stancemix-bcchain3` (train-2, the
+hold=.1/rise=.45/lower=.45 composition read vs the rung-1-6 mix
+collapse). Gates in the ledger; isolated-vs-mix comparison is the
+designed read.
 
 Historical (superseded) entry — stage-1 batch 08-25 ~04:4x (operator kick):
 `cw-standwalk-stance-mesh1-rr1` + `-seed1-rr1`/`-seed2-rr1` on

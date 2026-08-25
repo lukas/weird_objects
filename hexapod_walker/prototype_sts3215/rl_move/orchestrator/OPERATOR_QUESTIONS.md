@@ -2798,3 +2798,14 @@ artifacts are fully synced (both `_gate` and `_owncfg` copy-back
 markers) before assigning triage, since a partial-artifact first
 read is what produced this cycle's initial error.
 status: informational, no operator input needed.
+
+## 08-25 ~13:3x — informational: recurring stale zero-byte .git/HEAD.lock (no answer needed)
+Twice this cycle a zero-byte `/workspace/weird_objects/.git/HEAD.lock`
+(once with `logs/HEAD.lock`) blocked `snapshot.sh`/`respec --now` with
+"Another git process seems to be running", with NO live git process
+(only long-dead zombies). First occurrence coincided with a
+`git worktree remove` (bisect worktree), second with a concurrent
+cycle's launch-time snapshot under kubectl-exec timeouts. Resolution
+both times: verify no live git process, `rm -f .git/HEAD.lock`, retry
+— worked cleanly. If this recurs, consider a stale-lock sweep (age >
+60 s + no live git) at the top of snapshot.sh.
