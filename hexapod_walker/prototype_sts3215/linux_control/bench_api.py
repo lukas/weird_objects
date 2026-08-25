@@ -6914,7 +6914,8 @@ class BenchAPI:
                        vy: float = 0.0, duration_s: float = 6.0,
                        rot60: bool = True, turn: str | None = None,
                        tilt_trip_deg: float | None = None,
-                       extra_hold_s: float = 0.0) -> dict:
+                       extra_hold_s: float = 0.0,
+                       learned: bool = False) -> dict:
         """Run RL walk; stand/lower use baked STEP outside Experiments.
 
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
@@ -6923,7 +6924,11 @@ class BenchAPI:
         (sim walk-ready pose for walk).
         ``mode="stand"`` and ``mode="lower"`` deliberately delegate to
         the STEP stand-up keyframes instead of the experimental learned
-        stance policies.
+        stance policies — unless ``learned=True`` (operator opt-in,
+        08-25): that runs the learned stance-policy episode via
+        run_policy_move using the stand/lower role weights (stand starts
+        belly-down legs-straight; lower starts from the sim walk-ready
+        stand). EXPERIMENTAL on hardware — keep a hand ready.
         Safety layer trips (tilt / sustained over-current / temp) limp
         immediately. Walk extras: body-frame vx/vy (m/s, clamped to the
         trained 0.06 band) and duration_s (clamped 3..20 s).
@@ -6934,9 +6939,9 @@ class BenchAPI:
         mode = (mode or "stand").strip().lower()
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
-        if mode == "stand":
+        if mode == "stand" and not learned:
             return self._rl_walk_ready_stand()
-        if mode == "lower":
+        if mode == "lower" and not learned:
             return self.standup(mode="step", speed=10.0,
                                 direction="down")
         try:
@@ -6973,12 +6978,14 @@ class BenchAPI:
         self._demo_gen += 1
         gen = self._demo_gen
         self._demo_abort.clear()
-        label = {"stand": "STEP stand up", "lower": "STEP lower",
+        label = {"stand": "learned RL rise", "lower": "learned RL lower",
                  "walk": "RL walk"}[mode]
         with self._lock:
             self._demo_name = f"rl_policy_{mode}"
             self._demo_status = f"{label} starting"
             self._demo_params = {"mode": mode}
+            if learned:
+                self._demo_params["learned"] = True
             if mode == "walk":
                 self._demo_params.update(
                     vx=float(vx), vy=float(vy),

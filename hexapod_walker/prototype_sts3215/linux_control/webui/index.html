@@ -470,12 +470,19 @@ legs can reach instead of clipping it.">
       <div class="hint" id="simstatus" style="margin-top:8px">—</div>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2 title="Stand-up uses STEP as needed, then settles to the sim walk-ready stance. Lower uses STEP-down when standing, otherwise safe-zero recovery. Walk still uses the selected RL policy.">Policy moves</h2>
+      <h2 title="Stand-up uses STEP as needed, then settles to the sim walk-ready stance. Lower uses STEP-down when standing, otherwise safe-zero recovery. Walk still uses the selected RL policy. The ‘learned RL’ pair runs the actual stance-policy rise/lower episodes instead.">Policy moves</h2>
       <div class="btns" style="margin-top:12px">
         <button id="rlstand" class="on" title="Use STEP stand-up as needed, then settle into the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
         <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
         <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
+      <div class="btns" style="margin-top:8px">
+        <button id="rlstandrl" title="EXPERIMENTAL learned stance-policy rise (the model in the ‘stand’ role, defaults to the live stance model). Start belly-down with legs straight out (logical zero) — preflight refuses anything else. Watch it; keep a hand ready.">⬆ Rise (learned RL)</button>
+        <button id="rllowerrl" title="EXPERIMENTAL learned stance-policy lower (the model in the ‘lower’ role). Start from the sim walk-ready stand — preflight refuses anything else. Watch it; keep a hand ready.">⬇ Lower (learned RL)</button>
+      </div>
+      <div class="hint">Learned rise/lower run the actual stance-policy
+        episodes (same models the sim uses) instead of the STEP keyframes.
+        Experimental on hardware — watch the robot the whole time.</div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
       <h2 style="margin-top:16px" title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
       <div class="btns" style="margin-top:10px">

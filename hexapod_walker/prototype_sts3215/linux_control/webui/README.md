@@ -177,7 +177,12 @@ reconnects to a live session and resumes heartbeats. · **Timed walk**
 `POST /api/rl/walk {vx, vy, duration_s}` · **Model roles** selects →
 `GET/POST /api/rl/roles` (which policy file serves walk / hold /
 stand / lower; no motion) · **Stand up** → STEP stand-up into the sim
-walk-ready stance · **Stop** →
+walk-ready stance · **Rise / Lower (learned RL)** →
+`POST /api/rl/stand|lower {learned:true}` = the actual stance-policy
+episodes using the `stand` / `lower` role weights (experimental on
+hardware; preflight-gated: rise needs belly-down legs-straight, lower
+needs the walk-ready stand; the sim twin always runs the learned
+versions, so there the pairs behave the same) · **Stop** →
 `POST /api/rl/stop` · readiness checks →
 `GET /api/rl/preflight?mode=stand|lower|walk` (read-only) · policy info →
 `GET /api/rl/policy`.

@@ -1985,7 +1985,7 @@ function drvResetLocalInput(){
   drvClearGamepadCommand();
 }
 function rlButtons(disabled){
-  for(const id of ['rlstand','rllower','rlwalkfwd',
+  for(const id of ['rlstand','rllower','rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
                    'rldrivestart','rldriveend'])
@@ -2071,6 +2071,9 @@ async function rlScriptedStand(mode, label, direction='up'){
 }
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
+// Learned stance-policy episodes (opt-in; the plain buttons stay STEP).
+$('rlstandrl').onclick = ()=> rlMove('stand', {learned:true});
+$('rllowerrl').onclick = ()=> rlMove('lower', {learned:true});
 function rlWalk(dx, dy, heading){
   const s = parseFloat($('rlwalkspeed').value);
   const n = Math.hypot(dx, dy) || 1;   // unit heading so speed = |v|
@@ -2118,7 +2121,7 @@ const DRV_KEYMAP = {
   e:'yawR', o:'yawR',
 };
 function drvLockRlControls(active){
-  for(const id of ['rlstand','rlwalkfwd',
+  for(const id of ['rlstand','rlstandrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
     $(id).disabled = active;

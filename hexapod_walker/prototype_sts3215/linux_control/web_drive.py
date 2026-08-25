@@ -696,6 +696,10 @@ class Handler(BaseHTTPRequestHandler):
                     kw["tilt_trip_deg"] = float(data["tilt_trip_deg"])
                 if data.get("extra_hold_s"):
                     kw["extra_hold_s"] = float(data["extra_hold_s"])
+                if data.get("learned"):
+                    # Opt-in learned stance-policy episode (rise/lower
+                    # role weights) instead of the default STEP keyframes.
+                    kw["learned"] = True
                 self._json(200, BENCH.rl_policy_move(
                     mode=path.rsplit("/", 1)[-1], **kw))
         elif path == "/api/rl/walk":
