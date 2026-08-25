@@ -164,52 +164,67 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   the full-wrap housing described in the bottom-bearing section; the
   raise ring is unioned after every variant cut so the ear shaves
   never nick it.
-* Net: −17 cm³ (318 vs 335).  **On an existing stock chassis print**
+* **Wire corridors flattened** (user, Aug 24 rev 5): the wago-era
+  apparatus inboard of each seated yaw servo — cradle end wall, porch
+  canopy, side-wall stubs — is cut back to the bare sheet, one box per
+  leg (leg-frame x 50 → 64.65, |y| ≤ 20.5, sheet top → over the
+  deck).  See "The flattened corner" below.
+* Net: −28 cm³ (306.6 vs 335).  **On an existing stock chassis print**
   most of this is a bench mod instead: saw/sand the corners back to
-  the tower barrel and shave the ear lugs, drill the foot holes using
-  the pillar feet as jigs, and glue a printed Φ44/Φ37.15 × 3 mm rim
-  collar onto each tower top (the one edit that adds material).  The
-  stock tray walls can stay — the feet were sized to fit them with
-  0.3 mm clearance, so they just become a bonus shear key.
+  the tower barrel, shave the ear lugs and corridor walls, drill the
+  foot holes using the pillar feet as jigs, and glue a printed
+  Φ44/Φ37.15 × 3 mm rim collar onto each tower top (the one edit that
+  adds material).  The stock tray walls can stay — the feet were sized
+  to fit them with 0.3 mm clearance, so they just become a bonus shear
+  key.
 
-### What still stands at the corner flats (verified, Aug 24)
+### The flattened corner (user decision, Aug 24 rev 5)
 
-After the tray delete the corner flats were re-probed (both the mesh
-and the BREP-derived STL): **nothing wago-era survives** above the
-sheet top anywhere on the plate.  The walls still visible next to each
-pillar foot are NOT tray remnants — they are, per feature:
+The plate top inboard of each seated yaw servo used to carry the
+wago-era **wire-corridor apparatus** — per leg (leg frame, yaw axis at
+x 100, sheet top z 2, deck top z 10.25):
 
-* the two **yaw-servo cradle shells** flanking every corner flat (the
-  2.4 mm printed walls with the notched inboard ends; each one has a
-  yaw servo inside it and carries the servo-mount deck) — production
-  geometry, fully load-bearing;
-* the **yaw_servo_retainer** corner pads (a separate bolt-on part, not
-  chassis) that keep the servo from dropping out of its well;
-* the variant's own **pillar foot bar + inboard tab**.
+* the cradle's transverse **end wall** at x 61.5–64.5, full height
+  z 2 → 10.25, standing 0.3 mm off the servo's inboard end face
+  (x 64.8), with the harness notch at |y| ≤ 3.5;
+* a **"porch" canopy skin** (z ≈ 8 → 10.25) roofing a floorless
+  corridor down to x ≈ 50 (the harness aperture passes through the
+  plate there — production geometry, still open);
+* **side-wall stubs** at |y| ≈ 14–18.9.
 
-They read like tray walls because they are the same wall thickness and
-a similar height, but every one of them holds a servo.  Do not cut
-them.  (`corner_flat_owners.png` — a z=8 section of the corner flat
-with per-part colours — shows the ownership.)
+Identification history, one line: the end wall was first probed and
+kept as "the cradle's corner pier / servo end-stop / wire channel"
+(Aug 24 evening) — the user overruled: *"take a step back that CRADLE
+WALL isnt doing shit, just flatten it out and its fine"*, and
+clarified the scope: *"this isnt wall flattening, its flatening random
+bumps in the top of the chassis plate that serve no purpose"*.  With
+the splices consolidated into `centre_wago_block`, the harness simply
+exits the well into open air — none of that apparatus registered,
+sealed or carried anything.  **Deliberately flattened by user
+decision**: one box per leg cuts the whole band back to the bare sheet
+(x 50 → 64.65 — splitting the old 0.3 mm wall-to-servo gap — |y| ≤
+20.5, z 2 → 12), all six legs (`corner_flattened_annotated.png` shows
+before/after).
 
-**The "L-shaped part" challenge (user, Aug 24 evening):** a viewer
-close-up of a free-standing notched L-wall left of a pillar foot was
-called "totally unnecessary and a remnant of the wago holder".  Probed
-again on the post-full-wrap geometry (`corner_L_wall_annotated.png`,
-the user's own screenshot annotated + a measured plan): the L is the
-**inboard-corner wall of the yaw-servo cradle shell** — full height
-from the sheet top (z 2) to the servo-mount deck top (z 10.25), owner
-`chassis_bottom_rigid`, straight production geometry from
-`_chassis_yaw_cradle_solid()`.  It looks free-standing only because
-the deck skin (z 8.2..10.25) is hollow underneath and overhangs toward
-it; they merge at the top.  It (a) is the corner pier under the deck
-skin, (b) laterally registers the seated yaw-servo body (whose corner
-sits 0.3 mm away at chassis (49.9, 21.7), hanging z −28..10.25), and
-(c) its notch (floor z 6.6) is the servo wire-exit channel.  The real
-wago tray walls were 6.5 mm lips inside r 76.75..100, |tan| ≤ 17.3 —
-that whole envelope is covered by the tray-delete cutter (+0.4 mm
-margin, all six corners) and re-probing the fresh mesh finds the
-corner flats bare.  Verdict: **kept — load-bearing, not wago-era.**
+**What still registers each seated yaw servo** (all verified against
+the cut mesh on every rebuild, `check_chassis_variant`):
+
+* the **well-mouth collar + deck plateau** outboard of the cut
+  (x > 64.65): the servo body still passes through and bears on the
+  production well opening;
+* the **side walls flanking the servo body** at |y| ≈ 13–19 outboard
+  of x 64.65 (they carry the servo-mount deck and hug the flanks);
+* the **`yaw_servo_retainer`** below the sheet (z −40 → −6, bolts up
+  from the belly into plate pilots at leg-frame x 71/87.5, |y| 21 —
+  outside the cut in x, y and z): its grip jaws take the lateral
+  loads, its bar takes the drop-out load.
+
+The servo's inboard END face now looks at open air where the end wall
+stood — the end-stop job (0.3 mm bump clearance) is covered by the
+retainer jaws and the well collar; nothing measurable changes in how
+the servo is held.  (`corner_flat_owners.png` — a z=8 section of the
+pre-flatten corner with per-part colours — remains as the ownership
+reference for what the walls were.)
 
 ### The joint column: horn → bearing → coxa (redesigned Aug 24)
 

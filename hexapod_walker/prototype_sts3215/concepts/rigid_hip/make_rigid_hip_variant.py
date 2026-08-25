@@ -63,11 +63,14 @@ pair.  This variant closes the loop from the TOP:
     that"), the dead cap-bolt ear lugs shaved (outboard + tangential
     + the inboard one cut flush to the servo-mount deck, its root
     left merged with the well collar below it), the 18 pillar-foot
-    holes printed in, and the six corner Wago TRAY WALL SETS DELETED
+    holes printed in, the six corner Wago TRAY WALL SETS DELETED
     (user, Aug 24 -- the splices live in centre_wago_block now, so
-    the trays are dead geometry).  See the CHB_* constant block.
-    Every functional surface (pocket, seat, walls, slots) is
-    production geometry.
+    the trays are dead geometry), and the wago-era WIRE-CORRIDOR
+    APPARATUS inboard of each seated yaw servo FLATTENED to the
+    sheet (user, Aug 24 rev 5 -- "that CRADLE WALL isnt doing shit,
+    just flatten it out"; see the CHB_FLAT_* constants).  See the
+    CHB_* constant block.  Every remaining functional surface
+    (pocket, seat, well collar, slots) is production geometry.
   * ``centre_wago_block`` -- the corner Wagos are gone (pillars stand
     there), so the power tree consolidates: 4x 5-port 221-415 (two per
     net, jumpered) in one printed press-fit block at the chassis
@@ -409,6 +412,32 @@ CHB_RIM_W = hp.CHASSIS_YAW_OUTPUT_Z + TOWER_RIM_Z           # 22.75 -- raised
                               # rim = race-top plane, world z (full 7 mm wrap)
 CHB_EAR_R = 6.6               # covers the Phi 9 ear boss with margin
 CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
+# CORRIDOR FLATTEN (user, Aug 24 rev 5: "take a step back that CRADLE
+# WALL isnt doing shit, just flatten it out and its fine" / "its
+# flatening random bumps in the top of the chassis plate that serve
+# no purpose").  Inboard of each seated yaw servo the plate top still
+# carried the wago-era WIRE-CORRIDOR apparatus: the cradle's
+# transverse end wall (leg-frame x 61.5..64.5, full height sheet-top
+# z 2 -> deck top 10.25, standing 0.3 mm off the servo's inboard end
+# face, with the harness notch at |y| <= 3.5), a "porch" canopy skin
+# (z ~6.3/8 -> 10.25) roofing a hollow corridor down to x ~50, and
+# side-wall stubs at |y| ~14..18.9.  The wires route to the CENTRE
+# splice block in this variant (corner trays deleted), so none of it
+# registers, seals or carries anything -- the harness just exits the
+# well into open air.  One box per leg flattens the whole band back
+# to the bare sheet.  KEPT: the servo-mount deck plateau + well-mouth
+# collar outboard of the cut (the servo end face sits at x 64.8; the
+# cut face splits the old 0.3 mm wall-to-servo gap), the side walls
+# flanking the servo body at |y| ~13..19 outboard of x 64.65, the
+# towers, and the yaw_servo_retainer territory: the retainer bolts
+# from the BELLY into plate pilots at leg-frame x 71/87.5, |y| 21,
+# z -2..1 -- outside the cut in x, y AND z (verified).
+CHB_FLAT_X0 = 50.0            # inboard face: past the porch's x~52 lip
+CHB_FLAT_X1 = 64.65           # splits wall face 64.5 / servo face 64.8
+CHB_FLAT_HALF_Y = 20.5        # covers stubs to |y| 18.9; walls at 19+
+                              # near the tower are outboard of X1
+CHB_FLAT_Z0 = hp.CHASSIS_PLATE_T / 2.0    # 2.0 -- the bare sheet top
+CHB_FLAT_Z1 = 12.0            # clears the deck top (10.25)
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
                                           # midway between the lid-screw
                                           # pilot (76.2) and the dedicated
@@ -884,6 +913,15 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         cut away (the 1 mm embed band below the top face is interior
         material and stays).  The pillar feet register on their three
         M3 bolts instead of the old wall key.
+      * WIRE CORRIDOR FLATTENED (user, Aug 24 rev 5): the cradle end
+        wall + porch canopy + side-wall stubs inboard of each seated
+        yaw servo are cut back to the bare sheet (one box per leg,
+        leg-frame x CHB_FLAT_X0..X1, |y| <= CHB_FLAT_HALF_Y, sheet
+        top to over the deck) -- see the CHB_FLAT_* constant block
+        for what they were and why nothing needs them.  The deck
+        plateau + well collar + flanking walls outboard of the cut
+        still register the servo; the retainer pilots live below the
+        sheet top, untouched.
 
     This makes chassis_bottom the variant's second reprinted
     production part (chassis_bottom_rigid.stl)."""
@@ -913,6 +951,11 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
                         y=ear_r * np.sin(np.pi * 7.0 / 6.0),  # flush to the
                         sections=48)                          # deck top only
         leg_cuts.append(_diff(ear210, [keep]))
+        leg_cuts.append(_box(                                # (g) corridor
+            (CHB_FLAT_X1 - CHB_FLAT_X0,                      # flatten (rev 5)
+             2.0 * CHB_FLAT_HALF_Y, CHB_FLAT_Z1 - CHB_FLAT_Z0),
+            ((CHB_FLAT_X0 + CHB_FLAT_X1) / 2.0, 0.0,
+             (CHB_FLAT_Z0 + CHB_FLAT_Z1) / 2.0)))
         for c in leg_cuts:
             c.apply_transform(R)
             cutters.append(c)
@@ -1402,10 +1445,13 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     rim (all three dead ears cut, the az-210 root left merged below
     the deck), all six towers carry the full-wrap raise ring to the
     race-top plane, the printed foot holes are open exactly where the
-    pillar feet expect them, and the six Wago tray wall sets are GONE
-    above the sheet with the sheet still solid underneath.  (Pocket
-    seat and retainer territory are re-verified against THIS mesh by
-    the other checks.)"""
+    pillar feet expect them, the six Wago tray wall sets are GONE
+    above the sheet with the sheet still solid underneath, and the
+    wire-corridor band inboard of each yaw servo is FLATTENED to the
+    bare sheet (rev 5) with the servo-registering deck plateau /
+    flanking walls outboard of the cut still standing.  (Pocket seat
+    and retainer territory are re-verified against THIS mesh by the
+    other checks.)"""
     cb = meshes["chassis_bottom"]
     assert cb.body_count == 1, "chassis variant not a single body"
     v = trimesh.transform_points(cb.vertices, _rotz(-0.5 * np.pi / 3.0))
@@ -1506,11 +1552,49 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert cb.contains(np.array(under)).all(), \
         "tray delete cut bit into the sheet"
 
+    # corridor flattened (rev 5): the ENTIRE cut band is air on every
+    # leg (grid sample); everything below the sheet-top plane is
+    # untouched (probed at spots the pre-cut solid owned -- note the
+    # corridor itself was already a floorless tunnel in production:
+    # the harness aperture passes through the plate, only the canopy
+    # roofed it); and the servo-registering structure outboard of the
+    # cut still stands (deck plateau, flanking side walls).
+    gx = np.arange(CHB_FLAT_X0 + 0.5, CHB_FLAT_X1 - 0.4, 2.0)
+    gy = np.arange(-CHB_FLAT_HALF_Y + 0.5, CHB_FLAT_HALF_Y - 0.4, 2.5)
+    gz = (3.0, 6.0, 9.5)
+    grid = np.array([[x, y, z] for x in gx for y in gy for z in gz])
+    below_keep = np.array([
+        [56.0, 19.0, 1.0],    # bare sheet at the band edge (inboard of
+        [56.0, -19.0, 1.0],   # x 52 the trunk pass opens on legs 0/5)
+        [55.0, 15.0, 0.5],    # side-wall roots below the flatten plane
+        [55.0, -15.0, 0.5],
+        [63.0, 0.0, -3.0],    # belly band under the old wire notch
+    ])
+    keep_local = np.array([
+        [70.0, 16.0, 9.5],    # deck plateau, outboard of the cut
+        [70.0, -16.0, 9.5],
+        [90.0, 18.0, 5.0],    # side wall flanking the servo body
+        [90.0, -18.0, 5.0],
+        [70.0, 0.0, 9.5],     # deck skin directly over the servo end
+    ])
+    for i in range(6):
+        Ri = _rotz((i + 0.5) * np.pi / 3.0)
+        band = trimesh.transform_points(grid, Ri)
+        n_in = int(cb.contains(band).sum())
+        assert n_in == 0, \
+            f"leg {i}: {n_in} corridor-band points still solid (flatten missed)"
+        assert cb.contains(trimesh.transform_points(below_keep, Ri)).all(), \
+            f"leg {i}: flatten cut bit below the sheet-top plane"
+        assert cb.contains(trimesh.transform_points(keep_local, Ri)).all(), \
+            f"leg {i}: flatten cut removed servo-registering structure"
+
     print(f"  chassis variant: tower bases trimmed to one r {CHB_TRIM_R:g} "
           f"cylinder (outboard max r {r_max:.2f}), rims raised to the "
           f"race top (world {CHB_RIM_W:g}), all 3 dead ears shaved "
           f"(az 210 flush to the deck), 18 foot holes printed in, "
-          f"6 wago trays deleted, {abs(cb.volume) / 1000.0:.0f} cm3")
+          f"6 wago trays deleted, wire corridors flattened "
+          f"(x {CHB_FLAT_X0:g}..{CHB_FLAT_X1:g}, |y| {CHB_FLAT_HALF_Y:g}, "
+          f"deck plateau/side walls kept), {abs(cb.volume) / 1000.0:.0f} cm3")
 
 
 def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
