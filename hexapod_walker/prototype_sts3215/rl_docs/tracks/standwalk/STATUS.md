@@ -1,6 +1,25 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~19:4x (**TUCKEXEMPT0/-S1 JOINT PAIR CLOSED —
+Last updated: 2026-08-25 ~19:5x (SUPERSEDES the entry directly below:
+by the time this note landed the concurrent cycle had already gone
+further — probed `--tuck-rise-mm` with 3 controlled CPU mints (no GPU
+spent) and REFUTED ref-content editing by construction (on the 3.5kg
+mesh model, no feasible tuck-segment content places ACHIEVED height
+inside the tuck: swing-lift fights the rise, then a ~25-30mm
+compliance dead-band, then a ~1.5s lag — height always lands in the
+press regardless of dose/split), and pre-refuted the mid-tuck-
+curriculum alternative too (rsi already samples tuck ticks uniformly
+and those starts already press-pin in the parent). Anchor-floor
+plumbing AND ref-content AND mid-tuck curriculum are now ALL closed;
+the only surviving design is changing the anchor floor's PROGRESS
+METRIC itself (script-index or commanded-height keyed, not achieved-
+height keyed) — bc_anchor hot-path code + bank rows + a canary, and
+correctly **DIG-IN flagged for the deep cycle** rather than being
+rushed here. Full detail in `## Now` below (19:5x entry, W&B
+j9k3h490); do not restart the ref-content axis, it is refuted, not
+just "in flight.")
+
+Prior entry: 2026-08-25 ~19:4x (**TUCKEXEMPT0/-S1 JOINT PAIR CLOSED —
 CANARY FAIL - MECHANISM, cross-verified both seeds; anchor-floor-
 scoping axis is now FULLY CLOSED.** This cycle read+verdicted the
 seed-1 twin (`tuckexempt0-s1`): flat-pinned probe (det+sto n=6+6,
