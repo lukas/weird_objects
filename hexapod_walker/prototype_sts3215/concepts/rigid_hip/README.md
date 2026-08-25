@@ -375,8 +375,10 @@ a pass ever named it*.  `chassis_whitelist_violations` (the vertex
 census) is asserted in `check_chassis_variant` on every mesh build
 AND against the STEP-derived STL in `build_rigid_hip_step.py`; run
 against the pre-rev-8 STEP STL it reports 120 offending vertices
-(worst r 35.13) and against the mesh STL 0 — the mesh part is
-byte-identical before/after the whitelist cut.  STEP-vs-mesh volume
+(worst r 35.13) and against the mesh STL 0 — on the mesh part the
+cut removes exactly nothing (0.0000 mm³ of material in the cut
+region, measured by boolean intersection; only the tessellation
+shuffles through the extra boolean).  STEP-vs-mesh volume
 delta: +1.51 % → −0.20 % (now the same tessellation slop as the other
 parts).  Nothing below z 2 was touched; rotating-part clearances only
 grew.  Proof drawing: `chassis_top_clean.png` (hub top view — hex
