@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T16:06:42+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain
+
+**wandb_id**: yei41azm
 
 **hypothesis**: Sibling of -anchordose6 (same cycle): brackets the anchor-dose axis from the other side. If 6.0 shows a dose-response (PARTIAL/PASS), does 10.0 continue improving or overshoot (anchor term dominating the RL objective, e.g. income/posture gates getting starved -- the exact failure mode the stancemix rung already showed under a different dilution). If 6.0 FAILs flat, this confirms dose-insensitivity at 2x-3.3x the default rather than needing a third point to be sure.
 

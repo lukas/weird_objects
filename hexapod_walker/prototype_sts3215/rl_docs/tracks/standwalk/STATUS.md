@@ -1,6 +1,30 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:1x (**rung-8 rise PACE DOSE GRID FULLY
+Last updated: 2026-08-25 ~16:1x (NOTE, same window, independent parallel
+triage of `quarterchain`: this cycle's own read of `quarterchain`
+landed the identical FAIL conclusion as the consolidated entry below
+(det 2/6 worse than slowchain's 3/6, deep-start current/term proxy
+metrics look great but `height_err_end_mm` 46-86mm on flat/rsi
+exposes stalling-not-cooling; `env/rise_score` also peaks ~0.43 around
+65% of training then declines to ~0.32 by the end, and
+`bc_anchor_loss_rise` ends at 0.061 after briefly dipping to 0.049 —
+both worth a second look if this rung's chain-loss plateau ever gets
+revisited) — a genuine parallel-cycle duplication (ledger raced,
+re-recorded, see RL_LOG 16:08/16:10), not a contradiction. Distinct
+value-add before spotting the duplicate: launched a 2-arm anchor-DOSE
+grid off `slowchain`'s own already-working half-pace checkpoint's
+recipe (`train.bc_anchor_coef` 3.0->6.0 and ->10.0, 2M canaries,
+VERIFIED RUNNING train-2/train-1) — rise has never been dosed above
+the hold/lower-inherited default of 3.0, and this is the OTHER named
+lever in every one of this rung's own gate texts ("attack the
+flat-segment posture directly" / supervision strength, as opposed to
+chain PACE which is now fully bracketed per the entry below). Runs
+IN PARALLEL with rung-9's mesh-native-IK-ref proposal, not a
+substitute for it — cheap enough (2M each) to read before committing
+to the bigger rung-9 build. Evidence: ledger verdict + W&B `75d9j4tg`;
+new arms not yet evidenced (just launched).)
+
+Prior entry: 2026-08-25 ~16:1x (**rung-8 rise PACE DOSE GRID FULLY
 BRACKETED — non-monotonic, peak at slowchain's 1/2-pace, both further
 dosing AND more budget FAIL; rung-9 (mint a mesh-native rise ref from
 scripted IK) is now the live lever.** Following the pace-confirmed
