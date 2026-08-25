@@ -1990,25 +1990,37 @@ function rlButtons(disabled){
                    'rldrivestart','rldriveend'])
     $(id).disabled = disabled;
 }
-async function rlEnsureNoDriveSession(actionLabel){
-  if(!drvActive) return true;
+async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
+  let active = drvActive;
   try{
     const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
-    if(!d.active){
+    active = !!d.active;
+    if(!active){
       drvActive = false;
       drvClearHeartbeat();
       drvResetLocalInput();
       drvLockRlControls(false);
       return true;
     }
+    drvActive = true;
+    drvLockRlControls(true);
+    drvPaint(d);
   }catch(e){}
+  if(!active) return true;
+  if(stopFirst) return await drvStopAndWaitForInactive(actionLabel);
   $('rlstatus').textContent = 'End the drive session before '+actionLabel+'.';
   return false;
 }
 async function rlMove(mode, body){
   // No confirms anywhere (operator 08-11: no warning modals);
   // the server preflight refuses bad start poses.
-  if(!(await rlEnsureNoDriveSession('starting another RL move'))) return;
+  const lower = mode === 'lower';
+  if(lower) rlButtons(true);
+  if(!(await rlEnsureNoDriveSession(
+      lower ? 'lowering' : 'starting another RL move', lower))){
+    if(lower) rlButtons(false);
+    return;
+  }
   if(mode!=='stand' && mode!=='lower' && body)
     delete body.heading;   // UI-only label, not an API field
   $('rlstatus').textContent = 'Request sent…';
@@ -2085,7 +2097,7 @@ $('rlstop').onclick = async ()=>{
 // active; the robot's 25 Hz loop slews toward them and treats anything
 // older than 0.6 s as "keys released". So: keydown = walk, keyup = stop
 // and hold, dead tab = stop and hold.
-let drvActive = false, drvHb = null;
+let drvActive = false, drvHb = null, drvStartPromise = null;
 const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
 let drvPadDownAt = 0;
@@ -2100,7 +2112,7 @@ const DRV_KEYMAP = {
   e:'yawR', o:'yawR',
 };
 function drvLockRlControls(active){
-  for(const id of ['rlstand','rllower','rlwalkfwd',
+  for(const id of ['rlstand','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
     $(id).disabled = active;
@@ -2132,6 +2144,9 @@ function uiEvent(event, data={}){
       body: JSON.stringify(Object.assign({event, view:activeView}, data)),
     }).catch(()=>{});
   }catch(e){}
+}
+function sleepMs(ms){
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 function drvClearPad(){
   if(drvPadReleaseTimer){
@@ -2195,43 +2210,83 @@ async function drvEnded(){
       + ' · holding (X to limp).';
   }catch(e){ $('rldrivestatus').textContent = 'Session ended — holding.'; }
 }
-$('rldrivestart').onclick = async ()=>{
-  // Recover from stale browser state after a service restart/deploy.
-  uiEvent('rl_drive_start_click', {
-    button:'rldrivestart',
-    disabled:$('rldrivestart').disabled,
-    active:drvActive,
-    status:$('rldrivestatus').textContent,
-  });
+async function drvStartSession(source='button'){
+  if(drvActive) return true;
+  if(drvStartPromise) return await drvStartPromise;
   drvActive = false;
   drvClearHeartbeat();
-  drvResetLocalInput();
-  drvLockRlControls(true);
-  $('rldrivestart').textContent = 'Starting...';
-  $('rldrivestatus').textContent = 'Starting session (preflight'
-    + ' — no auto-stance move)…';
-  try{
-    const r = await fetch('/api/rl/drive/start', {
-      method:'POST', cache:'no-store'});
-    const d = await r.json();
-    if(!d.ok){
-      $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
-      showErr('Drive: '+(d.error || 'refused'));
+  drvStartPromise = (async ()=>{
+    // Recover from stale browser state after a service restart/deploy.
+    uiEvent('rl_drive_start_click', {
+      button:'rldrivestart',
+      source,
+      disabled:$('rldrivestart').disabled,
+      active:drvActive,
+      status:$('rldrivestatus').textContent,
+    });
+    drvLockRlControls(true);
+    $('rldrivestart').textContent = 'Starting...';
+    $('rldrivestatus').textContent = 'Starting drive (preflight'
+      + ' — no auto-stance move)…';
+    try{
+      const r = await fetch('/api/rl/drive/start', {
+        method:'POST', cache:'no-store'});
+      const d = await r.json();
+      if(!d.ok){
+        $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
+        showErr('Drive: '+(d.error || 'refused'));
+        drvLockRlControls(false);
+        $('rldrivestart').textContent = 'Refused';
+        return false;
+      }
+      drvActive = true;
+      if(drvHb) clearInterval(drvHb);
+      drvHb = setInterval(drvSend, 200);
+      drvSend();  // immediate heartbeat using current key/pad input
+      drvPaint(d);
+      return true;
+    }catch(e){
+      $('rldrivestatus').textContent = 'Start failed (link?)';
       drvLockRlControls(false);
-      $('rldrivestart').textContent = 'Refused';
-      return;
+      $('rldrivestart').textContent = 'Start failed';
+      return false;
     }
-    drvActive = true;
-    drvKeys.clear(); drvPad = null;
-    if(drvHb) clearInterval(drvHb);
-    drvHb = setInterval(drvSend, 200);
-    drvSend();  // immediate zero-command heartbeat; no 200 ms blind spot
-    drvPaint(d);
-  }catch(e){
-    $('rldrivestatus').textContent = 'Start failed (link?)';
-    drvLockRlControls(false);
-    $('rldrivestart').textContent = 'Start failed';
+  })();
+  try{
+    return await drvStartPromise;
+  }finally{
+    drvStartPromise = null;
   }
+}
+async function drvStopAndWaitForInactive(actionLabel, timeoutMs=10000){
+  $('rlstatus').textContent = 'Ending drive session before '+actionLabel+'…';
+  $('rldrivestatus').textContent = 'Ending session before '+actionLabel
+    + ' (rolls to a stop, holds)…';
+  drvResetLocalInput();
+  if(drvActive) await drvSend();
+  try{ await fetch('/api/rl/drive/stop',
+    {method:'POST', cache:'no-store'}); }catch(e){}
+  const deadline = Date.now() + timeoutMs;
+  while(Date.now() < deadline){
+    try{
+      const d = await (await fetch('/api/rl/drive',
+        {cache:'no-store'})).json();
+      if(!d.active){
+        await drvEnded();
+        return true;
+      }
+      drvActive = true;
+      drvPaint(d);
+    }catch(e){}
+    await sleepMs(250);
+  }
+  $('rlstatus').textContent = 'Drive is still stopping; try Lower again when'
+    + ' the session shows ended.';
+  return false;
+}
+$('rldrivestart').onclick = async ()=>{
+  drvResetLocalInput();
+  await drvStartSession('button');
 };
 $('rldriveend').onclick = async ()=>{
   $('rldriveend').disabled = true;
@@ -2273,6 +2328,7 @@ async function refreshRlRuntimeState(){
   }
 
   drvActive = false;
+  drvStartPromise = null;
   drvClearHeartbeat();
   drvResetLocalInput();
   drvLockRlControls(false);
@@ -2292,21 +2348,22 @@ setInterval(()=>{ if(activeView === 'rl') refreshRlRuntimeState(); }, 2000);
 // Keys drive ONLY from the RL tab (the Drive tab's own key loop streams
 // scripted-gait J commands — never both at once). Leaving the tab or
 // window counts as releasing everything.
-window.addEventListener('keydown', (e)=>{
-  if(!drvActive || activeView !== 'rl') return;
+window.addEventListener('keydown', async (e)=>{
+  if(activeView !== 'rl') return;
   const tag = (e.target && e.target.tagName || '').toLowerCase();
   if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
   const dir = DRV_KEYMAP[e.key.toLowerCase()];
   if(!dir) return;
   e.preventDefault();
-  if(!drvKeys.has(dir)){ drvKeys.add(dir); drvSend(); }
+  if(!drvKeys.has(dir)) drvKeys.add(dir);
+  if(!drvActive && !(await drvStartSession('key'))) return;
+  drvSend();
 });
 window.addEventListener('keyup', (e)=>{
-  if(!drvActive) return;
   const dir = DRV_KEYMAP[e.key.toLowerCase()];
   if(!dir) return;
   e.preventDefault();
-  if(drvKeys.delete(dir)) drvSend();
+  if(drvKeys.delete(dir) && drvActive) drvSend();
 });
 // Lost focus = treat every key as released (missed keyup otherwise).
 window.addEventListener('blur', ()=>{
@@ -2315,14 +2372,14 @@ window.addEventListener('blur', ()=>{
 for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   const dv = b.dataset.dv.split(',').map(Number);
   if(!dv[0] && !dv[1]) continue;          // center "hold" cell
-  const down = (e)=>{ e.preventDefault();
-    if(!drvActive) return;
+  const down = async (e)=>{ e.preventDefault();
     if(drvPadReleaseTimer){
       clearTimeout(drvPadReleaseTimer);
       drvPadReleaseTimer = null;
     }
     drvPad = dv;
     drvPadDownAt = performance.now();
+    if(!drvActive && !(await drvStartSession('pad'))) return;
     drvSend();
   };
   const up = ()=>{

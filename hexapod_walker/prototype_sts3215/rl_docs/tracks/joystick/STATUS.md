@@ -1,6 +1,24 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~00:3x (**cw-arch-tf64-joyfullcurr13-v7-hz100-acq1
+Last updated: 2026-08-25 (OPERATOR-ORDERED mesh-family lineage restart
+launched: `cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1` (train-6) — a
+clean FROM-SCRATCH restart of the tf64 2L/d128/8h/ff256 lineage from its
+canary beginning, on the NEW default `env.model_source=mesh` (as-built
+3.50 kg, corrected hip-pitch anchor, +4 mm boots on legs 0/4 modeled; pod
+loads the mesh_mjx twin, confirmed in the train log). NO warm-start — pre-
+08-24 checkpoints are primitive-family and do not transfer. Launched
+alongside `cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1` (train-7):
+the from-scratch hist64 MLP clone on mesh, needed because the 08-24 valley
+ruling requires a MATCHED-STEP control trajectory and none exists for the
+mesh family; it doubles as second-architecture per-leg-duty evidence for
+the cross-lineage leg-sacrifice fingerprint (watch legs 3/5, and whether
+the modeled boots on 0/4 move the fingerprint). Both 2M mechanism-health
+canaries — no reward-level judgment at 2M; if both healthy, next cycle
+respecs both to 40M acquisitions judged against each other (acq1 gate
+structure). Run docs: `rl_docs/runs/cw-arch-{tf64,hist64}-mesh-
+joyfullcurr13-v7-hz100-canary1.md`.)
+
+Previous entry: 2026-08-25 ~00:3x (**cw-arch-tf64-joyfullcurr13-v7-hz100-acq1
 FAIL: the 100Hz tf64 (2L/d128/8h/ff256) architecture question is ANSWERED
 YES (reward matches/beats the matched-step MLP control -- ep_rew_mean 811,
 quarters -692/515/671/747, crossed zero well inside the pre-registered
