@@ -107,6 +107,22 @@
 # z -2..1 -- outside the cut in every axis) and the shell inside the
 # keep cylinder, which also carries the 6805 seat's inboard arc over
 # the servo tunnel.
+#
+# ABOVE-SHEET WHITELIST (rev 8 user, Aug 25: "get rid of these L
+# shaped bumps I circled in red ... all of them, not just the ones i
+# circled"): every earlier pass was a blacklist and every pass left
+# something standing (rev 8's L-stubs were the STEP sidecar's stale
+# two-bay WAGO3 tray side walls, which the WAGO5-sized tray-delete
+# cutter missed at all six corners; the mesh pipeline was already
+# clean).  The rule is now a whitelist: above the bare sheet top
+# (z 2) the ONLY material allowed is the six tower cylinders
+# (r <= 22.02 about each yaw axis) -- the deck-plateau category
+# measured degenerate (the functional deck lives inside the tower
+# keep cylinder) and the mates category measured empty (pillars bolt
+# through the sheet, >= 5.2 mm clear; retainer bolts from below;
+# wago block is taped).  One global cut enforces it in BOTH
+# pipelines, and a vertex census (chassis_whitelist_violations)
+# asserts it on every mesh build and on the STEP-derived STL.
 
 parts:
   hip_clamp_cap_rigid:
@@ -478,10 +494,10 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, corridors + cradle shells flattened, tower flanks smoothed (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, corridors + cradle shells flattened, tower flanks smoothed, above-sheet whitelist (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
-      The production chassis_bottom with seven variant edits (user,
+      The production chassis_bottom with eight variant edits (user,
       Aug 24: "round the corners on the chassis bottom below where the
       bearings go"; rev 2: "the multiple curves should all match";
       rev 3: "remove the wago slots"; rev 4: "the bearing should be
@@ -547,7 +563,18 @@ parts:
       so they are shaved to the corner-trim cylinder: the tower
       outer profile is ONE vertical cylinder (r 22.00..22.02) from
       the sheet top to the rim, asserted per rebuild on all six
-      legs.
+      legs.  (8) ABOVE-SHEET WHITELIST (rev 8 user, Aug 25: "get rid
+      of these L shaped bumps ... all of them, not just the ones i
+      circled"): one global cut -- a box from the bare sheet top
+      (z 2) to above the rim, minus the six tower cylinders --
+      removes EVERYTHING standing on the plate outside the towers,
+      at every azimuth, whether or not an earlier blacklist pass
+      named it; applied identically in the mesh and STEP pipelines
+      and enforced by a vertex census asserted on every build.  The
+      whitelist's deck-plateau category is degenerate (the
+      functional deck lives inside the keep cylinder) and its mates
+      category measured empty (pillars bolt through the sheet,
+      retainer from below, wago block taped).
       The Aug-25 lowered pocket makes a stock-print bench mod
       impractical (it needs the shoulder relief bored out and the
       tower cut 5 mm shorter); reprint for this variant.
@@ -673,6 +700,39 @@ parts:
             label: "Tower keep-cylinder radius (6805 seat's inboard-arc support)"
             value: 21.95
             code_name: CHB_KEEP_R
+      above_sheet_whitelist:
+        label: "Above-sheet whitelist cut (global, rev 8)"
+        kind: "cut"
+        purpose: >-
+          Structural enforcement of the rev-8 rule: above the bare
+          sheet top (z 2) the ONLY material allowed is the six yaw
+          towers (r <= 22.02 about each yaw axis).  One box from the
+          sheet top to above the rim, minus six keep cylinders,
+          applied in BOTH pipelines before the rim re-union --
+          removes every stub/wall/lip at every azimuth whether or
+          not a blacklist pass ever named it (this is what killed
+          the STEP sidecar's stale two-bay WAGO3 tray walls, the
+          L-shapes in the user's drawing).  A vertex census
+          (chassis_whitelist_violations: no vertex above z 2.05
+          outside every tower cylinder + tolerance) is asserted on
+          every mesh build and on the STEP-derived STL.
+        dimensions:
+          sheet_top_z:
+            label: "Cut bottom (world z, bare sheet top)"
+            value: 2.0
+            code_name: CHB_FLAT_Z0
+          cutter_top_z:
+            label: "Cut top (world z, clears the rim 17.75)"
+            value: 26.0
+            code_name: CHB_WL_Z1
+          keep_r:
+            label: "Whitelist keep radius (trim cylinder + 0.01 air gap)"
+            value: 22.03
+            code_name: CHB_WL_KEEP_R
+          census_tol:
+            label: "Census tolerance over CHB_TRIM_R"
+            value: 0.03
+            code_name: CHB_WL_TOL
   coxa_link:
     label: "coxa_link_rigid — rounded corners + seat ring + dust brim + short column (concept)"
     aliases: ["rigid coxa", "rounded coxa", "coxa link rigid", "servo holder"]

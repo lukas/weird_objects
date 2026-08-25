@@ -281,7 +281,10 @@ What you now see at a corner: bare sheet, the pillar, the Φ44 tower
 boss, and the servo case itself standing 4.25 mm proud of the sheet —
 the thing that was hiding behind the stubs.  (`corner_flat_owners.png`
 — a z=8 section of the pre-flatten corner with per-part colours —
-remains as the ownership reference for what the walls were.)
+remains as the ownership reference for what the walls were.)  Since
+rev 8 this is not just what you see but a RULE: above the bare sheet
+top, the towers are the only material allowed at all (see "The
+above-sheet WHITELIST" below).
 
 ### The tower-flank bump (user, Aug 25 rev 7)
 
@@ -318,6 +321,66 @@ the whole sheet-top → rim band (the assert was verified to reject the
 pre-shave STL).  Before/after from roughly the user's camera angle:
 `tower_flank_smoothed.png` (regenerate with
 `make_tower_flank_figure.py`).
+
+### The above-sheet WHITELIST (user, Aug 25 rev 8)
+
+After all of the above, a top-down drawing of `chassis_bottom_rigid`
+still showed thin diagonal slashes flanking the towers and L-shaped
+brackets at the corner flats: *"Its incredible how many times ive
+asked this but I'll try again, get rid of these L shaped bumps I
+circled in red … all of them, not just the ones i circled"*.
+
+The inventory (cross-section + vertex census, `probe_above_sheet.py`)
+found the mesh pipeline **already clean** — above z 2.05 it carries
+exactly six tower/deck columns and nothing else.  The offenders lived
+only in the **STEP sidecar**: the base STEP chassis builder
+(`cad_step_test/build_step_first_test.py::_chassis_wago_tray_solid`)
+still models the RETIRED two-bay WAGO3 corner tray — 4.8 mm wider
+(half-width 22.15 vs 17.325) than the production single-bay WAGO5
+tray the variant's tray-delete cutter is sized for — so the old
+tray's two side walls survived the delete at **all six corners**: 12
+wall remnants, 2.4 mm thick, z 2 → 8.5, spanning corner-frame radial
+76.75 → 100 at tangential |y| 19.75 → 22.15 (r 27.9 → 35.1 from the
+nearest yaw axis).  Seen from above, one wall reads as a diagonal
+slash near each tower and the wall + outer-wall stub corner reads as
+an L at each flat; the "adjacent holes" in the drawing are the
+printed pillar-foot bolt holes through the sheet.  They slipped every
+earlier pass because each pass was a BLACKLIST — name a leftover, cut
+it — and the STEP part's +1.5 % volume sat under the 2 % equivalence
+gate.
+
+Rev 8 flips the rule to a **whitelist**.  Above the bare sheet top
+(z 2) the ONLY material allowed on `chassis_bottom_rigid` is:
+
+1. **the six yaw towers** — everything within the trim cylinder
+   (r ≤ 22.02 about each yaw axis): press bore, seat ledge, in-keep
+   deck, rim;
+2. **the servo deck plateaus** — measured from the servo well
+   geometry this category is *degenerate*: the only deck a seated
+   servo still needs (the 6805 seat's inboard arc over the servo
+   tunnel + the well-mouth collar) lives entirely inside the tower
+   keep cylinder, i.e. inside category 1 (rev 6 measured that
+   nothing bears on or registers against the roof outside it);
+3. **verifiable mates** — measured *empty*: the pillars bolt through
+   holes in the SHEET and their feet stand ≥ 5.2 mm from any
+   above-sheet material outside the towers, the retainer bolts from
+   BELOW the sheet, the wago block is VHB-taped to the sheet at the
+   centre.
+
+Enforcement is structural, not per-feature: **both** pipelines now
+apply one global cut — a box from the sheet top to above the rim
+minus the six tower cylinders (`CHB_WL_*`), before the rim re-union —
+so anything standing outside the whitelist is removed *whether or not
+a pass ever named it*.  `chassis_whitelist_violations` (the vertex
+census) is asserted in `check_chassis_variant` on every mesh build
+AND against the STEP-derived STL in `build_rigid_hip_step.py`; run
+against the pre-rev-8 STEP STL it reports 120 offending vertices
+(worst r 35.13) and against the mesh STL 0 — the mesh part is
+byte-identical before/after the whitelist cut.  STEP-vs-mesh volume
+delta: +1.51 % → −0.20 % (now the same tessellation slop as the other
+parts).  Nothing below z 2 was touched; rotating-part clearances only
+grew.  Proof drawing: `chassis_top_clean.png` (hub top view — hex
+outline, holes, six towers, nothing else standing).
 
 ### The joint column: horn → bearing → coxa (Aug 24, dropped to the deck Aug 25)
 
@@ -786,9 +849,12 @@ full-wrap ring complete on all six towers, foot holes open where the
 pillar feet expect them, all six Wago tray wall sets gone with the
 sheet still solid underneath, the whole rev 5+6 flatten band proven
 air outside the tower keep with the sheet intact below it and the
-in-keep shell + pocket floor still standing, and the rev-7 flank
+in-keep shell + pocket floor still standing, the rev-7 flank
 cylindricity: no vertex within 45 mm of any yaw axis pokes past the
-trim cylinder anywhere between the sheet top and the rim), full 360° yaw sweep vs
+trim cylinder anywhere between the sheet top and the rim, and the
+rev-8 above-sheet whitelist: no vertex above z 2.05 anywhere on the
+part outside the six tower cylinders — also asserted against the
+STEP-derived STL at export time), full 360° yaw sweep vs
 the plate,
 straight-down plate descent over all six bearings, pillar clearances
 (seated robot, ±45° operating yaw with margin, and an informational
