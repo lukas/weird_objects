@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T22:17:41+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1
+
+**wandb_id**: xmkbyuuq
 
 **hypothesis**: Same question as the seed-0 twin (tuckclock-acq8m), seed 1: does 8M resolve seed-1's specific 2M failure mode -- asymmetric single-leg flailing causing falls in 11/12 flat episodes (roll_class fell/leaning, h_err 57.5-72.9mm) -- into a stable tuck, or is it budget-invariant? Exact tuckclock1-s1 recipe unchanged (mesh-native scripted ref, half-pace chain, anchor 3.0, stdanneal, train.bc_anchor_flat_time_indexed=1), from scratch, 8M, seed 1. Prediction-if-true: flat-pinned probe fall-rate drops and swing distribution rebalances across legs (vs the 2M canary's leg-idx1-dominant 2-10x/episode thrash) by 8M, non-flat holds >=parent. Prediction-if-false: fall-rate/asymmetric-swing pattern persists at 8M unchanged -- confirms a per-leg stability/coordination defect in the flat-time-indexed target, not an acquisition-budget problem.
 

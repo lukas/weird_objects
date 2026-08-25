@@ -1,6 +1,46 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~22:0x (**STAND_HEIGHT height-AWARE anchor
+Last updated: 2026-08-25 ~22:1x (**RISE, TUCK DIG-IN PAYS OFF —
+`tuckclock1`/`-s1` CANARY PASS (mechanism-health; behavioral score
+PARTIAL). The flat-time-indexed BC-anchor clock breaks the total-
+freeze/press-up basin that killed the prior 5 anchor-plumbing arms.**
+Triaged both seeds this cycle (seed-0's own prestage fired normally;
+seed-1's never fired — checkpoint pulled + gate/owncfg/flatprobe run
+by hand on train-1). Flat-pinned probe (det+sto n=6+6, DR-0, on-pod,
+both seeds): 0/12 valid_plant each (h_err seed-0 37.7–59.3mm, seed-1
+57.5–72.9mm, still short of the 79–87mm target) BUT for the first
+time genuine six-leg motion in EVERY episode — duty>0 AND
+swing_count>0 on every leg (vs the freeze family's byte-identical
+duty=0/swing=0, and the meshref parent's own flat draw: duty=0.67
+but swing=0, i.e. never lifts a leg). Video confirms a genuine
+splay→tuck-under→partial-stand. Non-flat kinds (bridge/crouch/rsi)
+hold AT/ABOVE the meshref parent on the standard DR-0 gate both seeds
+(seed-0 5/6+5/6, seed-1 4/6+4/6, vs parent 5/6+4/6). Current still
+pegs ~2.64A on nearly every episode — the same structural ceiling as
+every prior arm, not new. SEED DIVERGENCE worth tracking: seed-0
+lands in a stable-incomplete basin (zero falls, settled 3/6 det +
+6/6 sto); seed-1 lands in an unstable-flailing one (11/12 flat
+episodes end roll_class fell/leaning, one leg — idx1 — swinging
+2–10×/episode while 3–4 others swing 0–2×). Both are the run's own
+pre-registered PARTIAL branch (and the hypothesis's own named
+"strongest alternative": clock tracked in action space but physics
+lags on the 3.5kg mesh model) — NOT the FAIL branch's freeze/press-up
+signature, so per the 08-21 ruling the reasoned move is extend
+budget before touching any anchor knob, mirroring the meshref
+parent's own 2M→8M acq8m precedent. LAUNCHED the pre-registered 8M
+budget-extension pair, exact recipe unchanged, from scratch:
+`cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock-acq8m`
+(seed 0, train-0) / `-acq8m-s1` (seed 1, train-1), both VERIFIED
+RUNNING. Gate: flat-probe valid_plant convergence (or at least
+shrinking h_err / dropping seed-1 fall-rate) vs the 2M canary's own
+baseline, non-flat still ≥parent. FAIL route (budget-invariant h_err/
+fall-rate) points at a per-leg stability/symmetry term on the
+flat-time-indexed target, not more budget. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckclock1{,_s1}_
+{gate,owncfg,flatprobe,flatprobe_det,flatprobe_sto}/`, W&B `3otxc8w4`/
+`atmjubij`.)
+
+Prior entry: 2026-08-25 ~22:0x (**STAND_HEIGHT height-AWARE anchor
 rung-1 canary: seed 0 PASSES — flag-leg cheat GONE.**
 `holdheight-rung1-hha1` (this cycle's assigned run) CANARY
 PASS - MECHANISM: with `train.bc_anchor_hold_height_aware=1` +
