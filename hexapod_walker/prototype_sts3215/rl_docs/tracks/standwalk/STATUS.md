@@ -1,81 +1,61 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~05:2x (**stage-1 gate reads in: 2/3 seeds
-CATASTROPHIC, DIG-IN flagged, both runs left UNVERDICTED for the deep
-cycle.** `cw-standwalk-stance-mesh1-rr1` (seed 0) and `-seed2-rr1`
-both finished 20M steps; `-seed1-rr1` still training this cycle (left
-alone per assignment, not read here). Plain English: the ported
-footlow2-style stance recipe, bank-checked clean on mesh pre-launch,
-collapses on the ACTUAL stage-1 gate (pod_eval joint_goal panel,
-hold/rise/lower, n=6/mode, DR-0 + own-DR 0.2, det+sto) almost every
-episode, on both completed seeds:
-- `rr1` DR-0 gate: 33/36 episodes terminated (31 `over_current`,
-  2 `tilt_roll`), `cur_max_a` pinned at exactly **2.64 A** on every
-  over_current episode (the trip ceiling, not a soft overshoot) —
-  fwd drift only 0.02-0.11 m/15s (not walking away, just failing in
-  place). own-DR(0.2): 28/36 terminated (23 `over_current`, 4
-  `tilt_roll`, 1 `tilt_pitch`), `cur_max_a` 2.52-2.66 — same signature,
-  slightly less severe than DR-0 (noise-injected joints likely break
-  the exact load-lock pose sometimes).
-- `seed2-rr1` DR-0 gate: **36/36** (100%) terminated — 17
-  `tilt_pitch`, 10 `over_current`, 9 `tilt_roll`; own-DR(0.2):
-  **36/36** terminated too, evenly split 12/12/12 across the same
-  three reasons. `cur_max_a` up to 2.66 A.
-- Video (rise_det, seed2): the rise motion itself looks basically
-  right for the first ~2/3 of the ascent (frame-by-frame: flat ->
-  crouch -> good mid-height stance under the body) and then the body
-  **rolls/tips sideways** partway up and never recovers (`tilt_roll`
-  term) — reads as a lateral-balance margin failure during the
-  dynamic rise, not a scripted/static posture bug. Video (hold_det,
-  rr1): starts at a normal-looking stand and progressively **splays/
-  sprawls** into a twisted, legs-akimbo crouch over the hold window,
-  consistent with the load-imbalance -> `over_current` signature
-  (some servos pinned near max duty while others idle).
-- Training reward: `rr1` rose net positive by the end (quarters
-  -245/-581/-127/**+90**) while its in-training eval callback's
-  survived_frac/height_err ALSO looked fine at the very last logged
-  point (hold survived 1.0, height_err 2.7mm @ 19M) — this
-  contradicts the harness verdict above; the in-training eval is
-  either a much easier config (shorter horizon / no full posture
-  check) than the pod_eval gate, or an evaluator-loophole. `seed2-rr1`
-  stayed net negative the whole run (quarters -265/-471/-149/-93) with
-  survived_frac ~0 from ~8M onward. Per the 08-21 ruling this reads as
-  MISALIGNED for `rr1` (reward up, gate catastrophic) but closer to a
-  genuine stuck/FAIL signature for `seed2-rr1` (reward never really
-  escapes negative, eval flat-bad throughout) — the two seeds do NOT
-  even agree with each other on which failure mode this is, which is
-  itself informative (recipe-level instability, not one unlucky seed).
-- **CROSS-TRACK CORRELATION (not yet root-caused, flagging for
-  whichever cycle digs in):** the joystick track's mesh-family runs
-  this same 08-25 cycle (`gaitgate-scratch1`, `tf64-mesh-acq1`) also
-  died via `over_current` with `cur_max_a` in the same **2.6-2.7 A**
-  band, on a completely different task (walk, not stance) and
-  completely different reward stack. Two independent tracks hitting
-  the identical current ceiling on the same mesh model in the same
-  cycle is suspicious for a SHARED root cause (servo current-trip
-  threshold/model miscalibrated for the 3.5 kg mesh body's real
-  torque demand, or both reward stacks independently lacking any
-  current-aware shaping) rather than two unrelated per-track
-  misalignments. The joystick track already has deep tooling/history
-  on this exact signature (`reward.k_walk_current`, current-dwell
-  charges) — worth checking whether that machinery (or its lesson)
-  transfers to `joint_goal`/stance before inventing a parallel fix
-  here.
-- **Per the gate's own reading rule** ("2-3/3 healthy = recipe
-  robust; 0-1/3 = seed-dependent or recipe gap"): 0/2 read so far is
-  already at the recipe-gap threshold regardless of how `seed1-rr1`
-  lands.
-- **DIG-IN, not verdicted**: this is a stage-1-gate-deciding fork
-  (whether the ported recipe needs a current/balance-aware reward
-  redesign before any further seed spend, per the 08-21 "audit
-  reward/eval/sim before more budget" rule) — leaving
-  `cw-standwalk-stance-mesh1-rr1` and `-seed2-rr1` UNVERDICTED for a
-  deep-toolkit read (per-leg current traces, matched-parent-style
-  current decomposition, and a check of whether the mesh servo
-  current-trip constant itself is calibrated correctly) rather than
-  recording a shallow PASS/FAIL this cycle. Evidence:
-  `logs/ckpt_eval/cw_standwalk_stance_mesh1_rr1_gate/`,
-  `..._seed2_rr1_{gate,owncfg}/`, W&B `hq7zyih9`/`bpbesoyb`.
+Last updated: 2026-08-25 ~05:5x (**dig-in DONE, both stage-1 seeds
+VERDICTED FAIL-misaligned, realigned pricing rung launched.**)
+
+## Dig-in resolution (08-25 deep cycle — supersedes the open flags)
+
+- **Root cause found and measured.** The "exact 2.64 A" is the actuator
+  torque ceiling: cur = |torque| x 1.2 A/Nm, ceiling 2.2 Nm -> 2.64 A;
+  trip = 2.5 A sustained 0.8 s (`rl_move/safety.py`). own-DR spread
+  2.52-2.66 = DR-scaled limits. Both seeds learned a **torque-saturation
+  ground-grind**: servos parked at the ceiling fighting contacts
+  (seed2 video overlay: i_max migrates across servos, MEAN current
+  0.37 -> 2.23 A — whole body, not one hot joint). Learning curves:
+  both seeds survived ALL stance modes at 1M, collapsed to survived=0
+  by 8-10M and never recovered while reward kept rising — PPO walked
+  up an exploit gradient the gate kills. rr1's 19M bg-eval hold=1.0
+  was an n=2 flicker (deterministic harness kills hold 6/6 both DR).
+- **Not a sim/trip defect, and the cross-track 2.6-2.7 A correlation is
+  closed:** that band is just the saturation signature (limit x 1.2),
+  reachable on the 3.5 kg body by any reward stack with unpriced
+  current. Honest hold draws 0.15 A mean / 0.41 A max; the honest rise
+  replay TOUCHES 2.64 A transiently (no trip) — margin is thinner on
+  mesh but the task is feasible. Per-track pricing fixes; no shared
+  defect. (Relayed to joystick via this STATUS; their k_walk_current
+  machinery already prices it on walk.)
+- **Pricing probe (`rl_move/sim/probe_stance_pricing.py`, results in
+  `logs/probe_stance_pricing_rr1*.json`)** rolled the ACTUAL rr1
+  checkpoint vs honest scripted behaviors under the launch-exact mesh
+  stack: at base pricing the grind is a PROFITABLE local optimum
+  (hold +66, lower +187/ep) even though honest dominates (hold 1472,
+  rise replay 2412) — misalignment = profitable cheat basin, not
+  honest<cheat. Flat hot pricing @1.0 A REPRODUCES the kick cycle's
+  bank breakage (honest mid-crouch runs one servo ~2.2-2.6 A
+  legitimately: partial -649 < freeze). **Chosen dose: k_current_hot=1.0
+  @ current_hot_a=2.0 + term_cost_per_remaining_s=3 (cap 60)** — grind
+  negative in all modes (hold -39, lower -27, rise -773), honest rise
+  keeps 90% (2160), hold untouched (1472), rise orderings preserved
+  (replay > partial 412 > flagleg 58 > freeze -637 ~ stilt -771).
+  All pre-existing default-OFF cfg keys; no env code changed; the
+  committed primitive bank is bit-exact untouched.
+- **Known residual risk (named fallback fork):** the LOWER task's
+  25-55 mm crouch is intrinsically hot on mesh (~2.2+ A sustained on
+  one knee even for the honest descent; honest -44 vs grind -27 at the
+  chosen dose — profit erased but honest not yet dominant). If the
+  realigned rung learns rise/hold but still fails lower, the next fork
+  is recalibrating goal.lower_height_mm for mesh (likely belly-rest
+  supported, servos unloaded — freeze draws 0.15 A) rather than more
+  pricing. Bank debt: fold the grind rows into test_task_semantics
+  when the first mesh stance pass records the reference band.
+- Verdicts: `cw-standwalk-stance-mesh1-rr1` FAIL (0/36 ok DR-0,
+  33/36 term; reward +90 Q4), `cw-standwalk-stance-mesh1-seed2-rr1`
+  FAIL (36/36 term both panels; 2/3-height rise then lateral tip).
+  0/2 completed seeds = recipe gap per the pre-registered rule
+  (seed1-rr1 is another cycle's read and cannot change that joint
+  conclusion). No continuation of these checkpoints — realign+relaunch:
+  **`cw-standwalk-stance-mesh2-cur1` / `-seed1` / `-seed2`** (same
+  recipe + the probed pricing, 20M, 3 seeds, launched this cycle).
 
 Previous entry (2026-08-25 ~03:3x (operator registration — track
 created, nothing launched yet).
@@ -153,6 +133,25 @@ deferred to a hardening rung), W&B names burned, relaunched as -rr1.
 rr1 (seed 0) already completed 20M in ~22 min: final periodic eval
 rise/lower 0/2 with over_current terminations — triage judges vs the
 pre-registered ladder alternative (20M@DR0.2 = first rung).
+
+**seed1-rr1 VERDICTED FAIL (08-25 ~05:3x cycle):** 0/60 stance
+episodes (rise/hold/lower, det+sto, DR-0 gate AND own-DR 0.2), every
+episode an over_current trip with Imax pinned ~2.64 A. Video: rise =
+sprawled press-up with outrigger legs/skating feet, no valid plant;
+hold DEGRADES from a planted start into a sliding sprawl (1352 mm
+drag); lower ends belly-down but splayed, plant 0/6. Reward rose in
+the final quarter (-95 vs -487) but task success was flat ZERO at
+every in-training eval for all 20M => second-clause genuine FAIL for
+this rung (bank-aligned reward + rung budget, gate unmoved), NOT a
+continuation candidate. Identical signature to seed0's gate report —
+2/2 seeds so far point at the pre-registered "recipe gap" branch;
+JOINT READ (and rung-2 batch design) belongs to the cycle holding
+rr1 + seed2-rr1. Rung-2 lever candidates from this triage: rise-ref
+tracking k 10-20 or ref-clocked anchoring (the 25 Hz ref replays to
+a valid plant 3/3 on mesh, so it IS followable — k=2.0 just loses to
+the shaping terms PPO games), a bank-proven stance-tick current-dwell
+charge (movecur analog; honest mesh hold draws 0.41 A max vs the
+2.64 A the policies pin), and/or a hold-only-first rung split.
 
 Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 - Mesh plant settles at h_rel = **82.96 mm** (primitive tibia-150:

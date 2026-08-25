@@ -176963,7 +176963,7 @@
       "control.hz=100"
     ],
     "created": "2026-08-25T04:40:28+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "100",
       "cpu_limit": 28,
@@ -177007,7 +177007,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Stage-1 mesh stance retrain seed 0 FAILS its gate catastrophically, and the dig-in shows a reward-misalignment (08-21 sense), not a dead task: the robot learned to GRIND against the floor with saturated servos instead of standing. Gate: 0/36 episodes ok at DR-0 (33/36 terminated: 31 over_current, 2 tilt_roll) and 0/36 ok at own-DR 0.2 (28/36 terminated) \u2014 yet training reward rose net positive (quarters -245/-581/-127/+90). Learning-curve evidence: at 1M ALL stance modes survived in the bg eval; by 10M survival collapsed to 0 and stayed there while reward kept climbing \u2014 PPO is walking up an exploit gradient the gate kills (the 19M hold=1.0 bg-eval blip was n=2 noise; the deterministic harness kills hold 6/6 at both DR levels). Video (hold_det/lower_det DR-0): starts at a plausible stand, then progressively splays/twists into a widening ground-grinding crouch; rise never leaves the belly. Root cause: cur_max_a pinned at EXACTLY 2.64 A = the actuator torque ceiling (2.2 Nm x 1.2 A/Nm) held >=0.8 s (trip = 2.5 A sustained); own-DR spread 2.52-2.66 A = DR-scaled limits \u2014 servos parked at max torque, isometric ground-fighting (seed2 overlay: i_max migrates across servos, MEAN current climbs 0.37->2.23 A, so it is whole-body, not one hot joint). The sim/trip is NOT miscalibrated: honest mesh hold draws 0.15 A mean / 0.41 A max and the open-loop rise-ref replay completes 3/3 with no trip \u2014 huge headroom. Incentive defect: this stack deliberately excluded ALL current/load pricing (endpost extras broke mesh bank orderings), so ref-track/income terms bank ~+100/ep during the grind while termination costs a flat -10 \u2014 the cheat is profitable. Continuation of this checkpoint is NOT justified: 10M further steps of rising reward produced zero gate movement. Next: encode the stall-grind cheat in the stance semantics bank, re-add current pricing (reward.k_current_hot + term_cost_per_remaining_s) at a bank-proven dose, relaunch the seed batch. Also closes the cross-track 2.6-2.7 A mystery: that band is the saturation signature (torque_limit x 1.2 A/Nm), reachable by ANY unpriced-current reward on the 3.5 kg mesh body \u2014 per-track pricing fixes, no shared sim defect. hardware-ready: no.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh1-seed2-rr1",
@@ -177081,7 +177083,7 @@
       "control.hz=100"
     ],
     "created": "2026-08-25T04:42:37+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "100",
       "cpu_limit": 28,
@@ -177125,7 +177127,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Stage-1 mesh stance retrain seed 2 FAILS its gate 100%: 36/36 episodes terminated at DR-0 (17 tilt_pitch / 10 over_current / 9 tilt_roll) AND 36/36 at own-DR 0.2 (12/12/12) \u2014 same recipe-level failure as seed 0 (rr1), read jointly: 0/2 completed seeds healthy = RECIPE GAP per the pre-registered rule, regardless of how seed1 lands. Not a genuine nothing-is-learning FAIL either: reward rose (-264/-471/-149/-93 quarters) while bg-eval survival collapsed from all-modes-survive at 1M to zero from 8M on \u2014 the same misalignment signature as rr1, expressed as a different local optimum. Video (rise_det DR-0): the rise actually gets ~2/3 of the way up with plausible form, then the body rolls/tips sideways and never recovers; overlay shows MEAN servo current climbing 0.37->2.23 A with i_max migrating across servos (14, 31, ...) at 2.44-2.64 A \u2014 the policy fights its own bad lateral balance with saturated torque until tilt or the 2.5A/0.8s trip fires. Same root cause as rr1 (see that verdict for the full chain): no current/saturation pricing in the deliberately-stripped mesh stack, flat -10 termination vs banked income, honest behaviors verified feasible with huge current headroom (hold 0.41 A max, rise-ref replay 3/3 no trip). The seed-2-specific lesson: even the GOOD partial rise dies to lateral balance \u2014 the realigned rung should keep the rise-ref tracking (it clearly shapes the right ascent) and add current dwell pricing + termination horizon cost so the stall-fight recovery strategy is unprofitable and the policy must learn to balance instead. No continuation of this checkpoint; relaunch under the bank-proven realigned pricing. hardware-ready: no.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh1-seed1-rr1",
@@ -177199,7 +177203,7 @@
       "control.hz=100"
     ],
     "created": "2026-08-25T04:44:45+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "100",
       "cpu_limit": 28,
@@ -177244,7 +177248,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh1-seed1-rr1 since 2026-08-25T05:19:03"
+    "triage": "done",
+    "verdict": "The from-scratch mesh stance retrain (seed 1 of 3) never learned to stand up, sit down, or even hold still: every one of the 60 gate episodes (rise/hold/lower, det+sto, DR-0 AND own-DR 0.2) ended in an over_current trip with max current pinned at ~2.64A. Video is blunt: rise is a sprawled press-up struggle with outrigger legs and skating feet that never reaches a valid plant; hold DEGRADES from a planted start into a sliding sprawl (1352mm of foot drag in a hold episode); lower ends belly-down but splayed with a waving raised leg, plant 0/6. Same signature as sibling seed0 (rr1): 2/2 seeds identical so far, pointing at the pre-registered 'recipe gap' branch rather than seed luck (seed2 still training, joint read pending). Interpretation per 08-21 checklist: training reward DID improve (final quarter -95 vs -487 mid-run) but the task metrics were flat at ZERO for all 20M (every in-training eval: rise 0/2, lower 0/2, raise 0/2) -- the reward being climbed is the sprawl-press attractor, a region the mesh bank orderings never sampled, so this is 'aligned-on-bank reward with rung budget fails to move the gate' = genuine FAIL for this rung, not a continuation candidate. Diagnostic for the next rung: honest mesh standing draws only ~0.15A mean/0.41A max (probe_hold_current), so 2.64A pinning means deliberate load-concentration/pressing; and the 25Hz rise ref open-loop replay DOES rise 3/3 on mesh, so the ref is followable -- the k=2.0 ref-tracking term is just too weak relative to the shaping terms PPO games. Next-rung levers (for the joint-read cycle to pre-register as a batch): much stronger rise-ref tracking (k 10-20) or ref-clocked BC-style anchoring, a stance-tick current-dwell charge (movecur analog, bank-proven first), and/or hold-only -> rise rung split."
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1",
@@ -177375,7 +177380,7 @@
     "log": "/tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1.log",
     "wandb_id": "oo9ts5ha",
     "verified": "2026-08-25T05:02:47+00:00",
-    "triage": "awaiting since 2026-08-25T05:34:28"
+    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-cw-arch-hist6 since 2026-08-25T05:39:34"
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate",
@@ -177507,7 +177512,8 @@
           "W&B global_step stalled at 2015232"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-cw-arch-hist6 since 2026-08-25T05:39:35"
   },
   {
     "run": "cw-walk-posture-eff12-ds1",
@@ -177815,7 +177821,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-posture-eff24-ds1 --steps 40000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_posture_eff24_ds1 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-posture-eff12-ds1: Dose-escalation sibling of cw-walk-posture-eff12-ds1 (operator kick 08-24: effort-pricing dose at agent judgment): if the k=1.2 effort charge is once again simply paid (its known failure mode - cw-walk-effort booked 18pct of income for 20M steps with zero behavior change), doubling to k_walk_effort=2.4 (~36pct of income at the crouch, but only ~7pct at plant pose since plant-height stance draws ~5x less hip torque) makes crouch-paddling strictly unprofitable while plant-height stepping stays cheap - the charge GAP between postures is the gradient. Identical otherwise: k_drag_stance=8000/6mm/0.25mm, warm off walk champion ppo_goal_cw_walk_longdist_r2, primitive family, control.hz=25, 40M. If-true: z off >= -10mm, rails ~0, tau p95 <=1.2, walk battery holds where eff12 possibly only half-moves. If-false (starve/park): fwd collapses - dose ladder capped, no further k iteration per RESEARCH_RULES; the pricing family is then exhausted on this lineage and the posture fix belongs to the BC-teacher / standwalk mesh-retrain route. If-false (paid even at 2.4): combined-pricing refuted decisively - same next step.' --cfg-set env.model_source=primitive --cfg-set control.hz=25 --cfg-set safety.max_delta_q_deg=1.5 --cfg-set reward.k_walk_effort=2.4 --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6.0 --cfg-set reward.drag_stance_tick_floor_mm=0.25 > /tmp/train_cw-walk-posture-eff24-ds1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-posture-eff24-ds1.log",
     "wandb_id": "vo5m4rs9",
-    "verified": "2026-08-25T05:32:04+00:00"
+    "verified": "2026-08-25T05:32:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T05:37:40+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 14201,
+        "fps": 22391.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-posture-eff12-ds1-tau1",
@@ -178020,6 +178038,141 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-posture-eff12-ds1-tau1 --steps 40000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_posture_eff12_ds1_tau1 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-posture-eff12-ds1: Plain English: make the walking champion stand tall and stop wasting hip torque by making effort itself expensive -- this is the operator-AMENDED version of cw-walk-posture-eff12-ds1 (running un-hinged sibling = matched control), single added lever: a per-motor torque hinge, r -= 2.0 * mean(relu(|qfrc_actuator| - 1.0 N*m)) per walk tick (reward.k_tau_over=2.0, reward.tau_over_nm=1.0, walk-routed like k_walk_effort). Operator load-probe truth: honest plant-height stepping needs at most ~1 N*m per hip (0.23 static on six feet, ~0.5 in tripod, ~1 at dynamic peaks) while the skater crouch runs 1.1-1.5 N*m STATIC and rails the 2.2 N*m clamp -- so a 1.0 N*m hinge prices ONLY the waste and the rail events, never normal stepping. Motor heat is I^2*R: sustained above-threshold torque matters superlinearly, and the mean-current k_walk_effort=1.2 (inherited, still on) underprices peaks; before the hinge nothing existed between free and the over_current episode trip. Sim current model is |tau|*1.2 A/Nm lowpassed, so hinging on raw torque is equivalent and clearer (and sees the peaks the 0.1 s LPF smears). Bank-measured separation (k=1, 3 s): honest gait -0.24, static stance 0.00, railed fight -43.1. Everything else identical to eff12-ds1: warm off ppo_goal_cw_walk_longdist_r2, k_walk_effort=1.2 + k_drag_stance=8000/6mm/0.25mm, primitive family, control.hz=25 legacy pins, 40M. If-true: posture rises toward plant faster/further than the un-hinged control and rails go to ~0. If-false (no delta vs control): the hinge is redundant given effort+drag pricing at this dose -- drop it from future rungs. If-false (starve/park): hinge dose too high at k=2.0 -- halve k, do not touch the threshold (the 1.0 N*m line is probe-anchored).' --cfg-set env.model_source=primitive --cfg-set control.hz=25 --cfg-set safety.max_delta_q_deg=1.5 --cfg-set reward.k_walk_effort=1.2 --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6.0 --cfg-set reward.drag_stance_tick_floor_mm=0.25 --cfg-set reward.k_tau_over=2.0 --cfg-set reward.tau_over_nm=1.0 > /tmp/train_cw-walk-posture-eff12-ds1-tau1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-posture-eff12-ds1-tau1.log",
     "wandb_id": "5r5vkyh3",
-    "verified": "2026-08-25T05:35:16+00:00"
+    "verified": "2026-08-25T05:35:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T05:40:30+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 13327,
+        "fps": 20389.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1",
+    "created": "2026-08-25T05:43:00+00:00",
+    "note": "RECONSTRUCTED: original ledger entry was never written (prestage log 05:39:36: pullckpt rc=1 no ledger entry). Reconstructed from rl_docs/runs/cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1.md + logs/experiments/.../wandb_summary.json + orchestrator.log. extra_args/command not recreated (not needed for verdict); wandb config is authoritative for the actual cfg-set used.",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: architecture-replication sibling of movecur1 -- does the same walking-tick current-dwell charge (reward.k_walk_move_current=2.0) that movecur1 tests on the MLP also stop the identical over_current death on the tf64 transformer (cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1, FAIL, same signature: zero tilt_pitch, over_current every DR-0 episode, Imax 2.64-2.70A)? tf64-mesh-acq1 already answered architecture does not matter, both fail identically -- this checks whether the FIX also transfers across architecture, same V7/100Hz/tf64/mesh recipe, single added lever.",
+    "gate": "PASS: training reward improves AND walk_move_current_max_a stays mostly under ~2.2A AND eval/walk/survived_frac shows real nonzero stretches, matching movecur1 own MLP read at matched steps. PARTIAL: over_current frequency drops vs tf64-mesh-acq1 but survived_frac stays mostly 0. FAIL: indistinguishable from tf64-mesh-acq1 at matched steps -- would mean the fix is MLP-specific or transformer capacity/attention interacts badly with this charge, a genuine architecture-dependent finding worth its own dig-in.",
+    "parent": "cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1",
+    "track": "joystick",
+    "wandb_id": "cslqyj5d",
+    "status": "RUNNING",
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--walk-curriculum",
+      "--walk-curriculum-version",
+      "7",
+      "--episode-seconds",
+      "60",
+      "--dr-scale",
+      "0.5",
+      "--seed",
+      "0",
+      "--ent-coef",
+      "0.01",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--device",
+      "cuda",
+      "--transformer",
+      "--tf-layers",
+      "2",
+      "--tf-width",
+      "128",
+      "--tf-heads",
+      "8",
+      "--tf-ff",
+      "256",
+      "--cfg-set",
+      "obs.history_frames=64",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.8",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_walk_course=1.0",
+      "--cfg-set",
+      "reward.walk_course_tau_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_min_speed_m_s=0.01",
+      "--cfg-set",
+      "reward.k_walk_stop_charge=1.0",
+      "--cfg-set",
+      "reward.walk_stop_grace_s=0.4",
+      "--cfg-set",
+      "reward.k_walk_stop_current=2.0",
+      "--cfg-set",
+      "goal.walk_stop_freeze_s=0.0",
+      "--walkcurr-cert-cfg-set",
+      "goal.walk_stop_freeze_s=0.4",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "safety.max_delta_q_deg=0.375",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_movecur1",
+      "--notes",
+      "respec of cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1: architecture-replication sibling of movecur1 -- reconstructed ledger entry.",
+      "--cfg-set",
+      "reward.k_walk_move_current=2.0",
+      "--cfg-set",
+      "env.model_source=mesh",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_acq1.zip"
+    ],
+    "checkups": [
+      {
+        "time": "2026-08-25T05:48:20+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": " env/height_mm -56.57479\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.79377\nwandb:  env/mean_current_a 0.33098\nwandb: env/pct_within_1deg 0.49951\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01716\nwandb:                +137 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1 at: https://wandb.ai/l2k2/hexapod-balance/runs/cslqyj5d\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_050639-cslqyj5d/logs\n"
+      }
+    ]
   }
 ]
