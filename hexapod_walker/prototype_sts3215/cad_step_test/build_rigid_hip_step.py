@@ -289,7 +289,10 @@ def make_chassis_bottom_rigid() -> object:
     deck band to the new race top, plus the Aug 25 rev-7 tower-flank
     bump shave (the production swing-relief protect ring, r 23.5, is
     cut back to the trim cylinder so the tower outer profile is one
-    vertical cylinder sheet-top -> rim) (rv.make_chassis_bottom_rigid)."""
+    vertical cylinder sheet-top -> rim), plus the Aug 25 rev-8
+    ABOVE-SHEET WHITELIST cut: everything above the bare sheet top
+    outside the six tower cylinders goes, at every azimuth
+    (rv.make_chassis_bottom_rigid)."""
     cb = step.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0
     cutters = []
@@ -361,6 +364,21 @@ def make_chassis_bottom_rigid() -> object:
             * _box((2.0 * rv.TRAY_HALF_X + 0.4, 2.0 * rv.TRAY_HALF_Y + 0.4,
                     hp.WAGO_MOUNT_WALL_H + 1.0),
                    (0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0)))
+    wl_keeps = [                  # rev-8 ABOVE-SHEET WHITELIST cut (Aug 25):
+        _cyl_z(rv.CHB_WL_KEEP_R,  # one global box from the sheet top up,
+               rv.CHB_FLAT_Z0 - 1.0, rv.CHB_WL_Z1 + 1.0,   # minus the six
+               x=rv.APOTHEM * math.cos((i + 0.5) * math.pi / 3.0),
+               y=rv.APOTHEM * math.sin((i + 0.5) * math.pi / 3.0))
+        for i in range(6)]        # tower cylinders -- EVERYTHING else above
+    cutters.append(step._diff(    # z 2 goes to the sheet.  This is what
+        _box((400.0, 400.0,       # kills the L-stubs the blacklist passes
+              rv.CHB_WL_Z1 - rv.CHB_FLAT_Z0),  # missed here: the base STEP
+             (0.0, 0.0, (rv.CHB_FLAT_Z0 + rv.CHB_WL_Z1) / 2.0)),  # chassis
+        *wl_keeps))               # still models the RETIRED two-bay WAGO3
+    # corner trays, 4.8 mm wider than the WAGO5 tray the tray-delete
+    # cutter above is sized for, so their side walls survived at all six
+    # corners (the circled diagonal slashes / L-brackets).  The rims are
+    # unioned after, so the towers are untouched.
     body = step._diff(cb, *cutters)
     rims = []                    # rebuilt full-wrap tower rings: Phi 44 /
     for i in range(6):           # Phi 37.15, deck band to the race top
@@ -430,7 +448,18 @@ def _equivalence_problems(rows: list[dict]) -> list[str]:
 
     Tessellation slop (192-gon cylinders etc.) keeps volumes within a
     fraction of a percent; anything past 2 percent or 0.6 mm of bbox is a
-    porting error, not tessellation."""
+    porting error, not tessellation.
+
+    chassis_bottom_rigid additionally gets the rev-8 ABOVE-SHEET
+    WHITELIST census on the derived STL (the same
+    rv.chassis_whitelist_violations the mesh pipeline asserts): the
+    pre-rev-8 STEP part carried 12 stale tray-wall stubs the volume
+    gate was too loose to catch (+1.5 percent, under the 2 percent
+    gate) -- the whitelist census catches a single leftover wall."""
+    import trimesh
+
+    from step_common import THIS_DIR as _here
+
     problems = []
     for row in rows:
         legacy = row["legacy_stl"]
@@ -448,6 +477,14 @@ def _equivalence_problems(rows: list[dict]) -> list[str]:
             problems.append(
                 f"{row['name']}: bbox size delta {worst:.3f} mm vs mesh"
             )
+        if row["name"] == "chassis_bottom_rigid":
+            derived = trimesh.load(_here / row["stl"])
+            n_bad, worst_r = rv.chassis_whitelist_violations(derived)
+            if n_bad:
+                problems.append(
+                    f"{row['name']}: {n_bad} vertices above the sheet "
+                    f"outside the tower whitelist (worst r {worst_r:.2f})"
+                )
     return problems
 
 

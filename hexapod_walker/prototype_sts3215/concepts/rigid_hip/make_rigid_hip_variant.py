@@ -524,6 +524,43 @@ CHB_FLAT_Z0 = hp.CHASSIS_PLATE_T / 2.0    # 2.0 -- the bare sheet top
 CHB_FLAT_Z1 = 12.0            # clears the deck top (10.25); the only
                               # taller corner material is the tower
                               # ring, inside the keep cylinder
+# ABOVE-SHEET WHITELIST (rev 8 user, Aug 25: "get rid of these L shaped
+# bumps I circled in red ... all of them, not just the ones i circled").
+# Every earlier pass was a BLACKLIST -- name a leftover, cut it -- and
+# every pass left something standing (rev 8's L-stubs lived only in the
+# STEP sidecar: the base STEP chassis still modeled the RETIRED two-bay
+# WAGO3 corner tray, 4.8 mm wider than the production WAGO5 tray the
+# variant's tray-delete cutter is sized for, so the old side walls at
+# tray-local |y| 19.75..22.15 survived at all six corners).  Rev 8 flips
+# the rule to a WHITELIST: above the bare sheet top (z 2) the ONLY
+# material allowed on chassis_bottom_rigid is
+#   1. the six yaw towers -- everything within CHB_TRIM_R (22.02) of a
+#      yaw axis: pocket, seat ledge, deck plateau, rim;
+#   2. the servo deck plateaus -- measured from the servo well geometry
+#      this category is DEGENERATE: the only deck the seated servo
+#      still needs (the 6805 seat's inboard arc over the servo tunnel
+#      + the well-mouth collar that registers the case at the output
+#      end) lives entirely inside the tower keep cylinder, i.e. inside
+#      category 1 (the rev-6 measurements showed nothing bears on the
+#      roof outside it, and the servo is registered by the sheet-level
+#      well + the belly retainer);
+#   3. features a placed part verifiably mates with -- measured EMPTY:
+#      the pillars bolt through holes in the SHEET and stand no closer
+#      than 5.2 mm to any above-sheet material outside the towers, the
+#      retainer bolts from BELOW the sheet, the wago block is taped to
+#      the sheet at the centre.
+# So the whitelist cutter is one global box (sheet top -> above the
+# rim) minus the six tower cylinders, applied in BOTH pipelines before
+# the rim re-union; check_chassis_variant enforces it on every build
+# (no vertex above z 2.05 outside every tower cylinder + CHB_WL_TOL).
+CHB_WL_Z1 = 26.0              # cutter top: clears the rim (17.75) + slack
+CHB_WL_KEEP_R = CHB_TRIM_R + 0.01   # 22.03: 0.01 proud of the trim
+                              # cylinder so the cutter's inner wall sits
+                              # in AIR next to the r 22.02 trim surface
+                              # (no coincident-face boolean, towers and
+                              # pockets untouched by construction)
+CHB_WL_TOL = 0.03             # assert slack over CHB_TRIM_R (matches
+                              # the rev-7 cylindricity assert)
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
                                           # midway between the lid-screw
                                           # pilot (76.2) and the dedicated
@@ -968,6 +1005,30 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
     return trimesh.boolean.intersection([body, keep], engine="manifold")
 
 
+def chassis_whitelist_violations(mesh: trimesh.Trimesh,
+                                 z_min: float = 2.05) -> tuple[int, float]:
+    """Rev-8 above-sheet whitelist census on a chassis_bottom mesh.
+
+    Returns ``(n_bad, worst_r)``: the number of vertices above ``z_min``
+    that lie OUTSIDE every tower cylinder (distance to the nearest yaw
+    axis > CHB_TRIM_R + CHB_WL_TOL), and the worst such distance.  The
+    deck-plateau and mates whitelist categories are degenerate/empty
+    (see the CHB_WL_* constant block), so the towers are the whole
+    whitelist.  Shared by check_chassis_variant, the STEP sidecar's
+    derived-STL check and probe_above_sheet.py."""
+    v = np.asarray(mesh.vertices)
+    above = v[v[:, 2] > z_min]
+    if len(above) == 0:
+        return 0, 0.0
+    d = np.full(len(above), np.inf)
+    for i in range(6):
+        a = (i + 0.5) * np.pi / 3.0
+        d = np.minimum(d, np.hypot(above[:, 0] - APOTHEM * np.cos(a),
+                                   above[:, 1] - APOTHEM * np.sin(a)))
+    bad = d > CHB_TRIM_R + CHB_WL_TOL
+    return int(bad.sum()), (float(d[bad].max()) if bad.any() else 0.0)
+
+
 def make_chassis_bottom_rigid(bump_shave: bool = True) -> trimesh.Trimesh:
     """The production chassis_bottom with the CHB_* variant edits (see
     the constant block above):
@@ -1031,6 +1092,12 @@ def make_chassis_bottom_rigid(bump_shave: bool = True) -> trimesh.Trimesh:
         retainer and the shell inside the keep cylinder (which also
         carries the 6805 seat's inboard arc); the retainer pilots
         live below the sheet top, untouched.
+      * ABOVE-SHEET WHITELIST (user, Aug 25 rev 8): one global cut --
+        everything above the bare sheet top (z 2) outside the six
+        tower cylinders goes, at every azimuth, whether or not an
+        earlier blacklist pass named it.  See the CHB_WL_* constant
+        block for the whitelist rule and why its deck-plateau and
+        mates categories are degenerate/empty.
 
     This makes chassis_bottom the variant's second reprinted
     production part (chassis_bottom_rigid.stl).
@@ -1109,6 +1176,19 @@ def make_chassis_bottom_rigid(bump_shave: bool = True) -> trimesh.Trimesh:
                  center=(0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0))
         c.apply_transform(M)                                 # local z0 = sheet top
         cutters.append(c)
+    wl_keeps = [_cyl_z(CHB_WL_KEEP_R,                        # (j) rev-8
+                       CHB_FLAT_Z0 - 1.0, CHB_WL_Z1 + 1.0,   # above-sheet
+                       x=APOTHEM * np.cos((i + 0.5) * np.pi / 3.0),
+                       y=APOTHEM * np.sin((i + 0.5) * np.pi / 3.0),
+                       sections=192)
+                for i in range(6)]                           # whitelist cut:
+    cutters.append(_diff(                                    # one global box
+        _box((400.0, 400.0, CHB_WL_Z1 - CHB_FLAT_Z0),        # from the sheet
+             (0.0, 0.0, (CHB_FLAT_Z0 + CHB_WL_Z1) / 2.0)),   # top up, minus
+        wl_keeps))                                           # the six tower
+    # cylinders -- EVERYTHING else above z 2 goes to the sheet, at every
+    # azimuth, whether or not an earlier blacklist pass named it.  The
+    # rebuilt rims are unioned after, so the towers are untouched.
     cb = _diff(cb, cutters)
     rims = []                             # (f) rebuilt full-wrap tower rings:
     for i in range(6):                    # Phi 44 / Phi 37.15, deck to the
@@ -1644,9 +1724,25 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     collar, pocket floor, 6805-seat support) still standing.
     (The pocket seat ledge itself is verified in check_bottom_joint;
     retainer territory is re-verified against THIS mesh by the other
-    checks.)"""
+    checks.)
+
+    Rev 8 adds the ABOVE-SHEET WHITELIST assert: no vertex above
+    z 2.05 may lie outside every tower cylinder (CHB_TRIM_R +
+    CHB_WL_TOL about the six yaw axes) -- the deck-plateau and mates
+    whitelist categories measured degenerate/empty, so the towers ARE
+    the whitelist (see the CHB_WL_* constant block)."""
     cb = meshes["chassis_bottom"]
     assert cb.body_count == 1, "chassis variant not a single body"
+
+    # rev-8 whitelist: above the bare sheet, towers only -- rejects any
+    # L-bracket / diagonal-wall / lip leftover at ANY azimuth, named or
+    # not (this is the assert that caught the STEP sidecar's stale
+    # two-bay wago tray walls)
+    n_bad, worst_r = chassis_whitelist_violations(cb)
+    assert n_bad == 0, (
+        f"{n_bad} vertices above the sheet outside the tower whitelist "
+        f"(worst r {worst_r:.2f} from the nearest yaw axis) -- something "
+        f"is standing on the plate again")
     v = trimesh.transform_points(cb.vertices, _rotz(-0.5 * np.pi / 3.0))
     near = v[(np.abs(v[:, 1]) < 40.0) & (v[:, 0] > 55.0)]
     ax = APOTHEM
@@ -1821,7 +1917,8 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
           f"(az 210 flush to the deck), 18 foot holes printed in, "
           f"6 wago trays deleted, corridors + cradle shells flattened "
           f"(x {CHB_FLAT_X0:g}..{CHB_FLAT_X1:g}, |y| {CHB_FLAT_HALF_Y:g}, "
-          f"tower keep r {CHB_KEEP_R:g} kept), "
+          f"tower keep r {CHB_KEEP_R:g} kept), above-sheet whitelist "
+          f"clean (towers only, 0 vertices outside), "
           f"{abs(cb.volume) / 1000.0:.0f} cm3")
 
 
