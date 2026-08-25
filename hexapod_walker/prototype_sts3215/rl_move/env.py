@@ -354,6 +354,35 @@ class HexapodBalanceEnv:
         sp = self.write_speed if speed is None else int(speed)
         self.bus.write_all(deg, speed=sp, acc=self.write_acc)
 
+    def _command_and_update(self, q_rad: np.ndarray, *,
+                            speed: int | None = None) -> RobotState:
+        """Command a pose and return state without a second bus read.
+
+        Stream firmware supports ``step_all``: SyncWrite + cached state
+        snapshot in a single transaction. Legacy firmware falls back to
+        the old write-then-read path.
+        """
+        self.estimator.set_commanded(q_rad)
+        deg = (np.asarray(q_rad) * RAD2DEG).tolist()
+        sp = self.write_speed if speed is None else int(speed)
+        if self.enable_motion:
+            step_all = getattr(self.bus, "step_all", None)
+            if step_all is not None:
+                try:
+                    snap = step_all(deg, speed=sp, acc=self.write_acc)
+                except Exception:
+                    snap = None
+                if snap is not None:
+                    from_snap = getattr(
+                        self.estimator, "update_from_snapshot", None)
+                    if from_snap is not None:
+                        state = from_snap(snap)
+                        if state is not None:
+                            return state
+                    return self.estimator.update()
+            self.bus.write_all(deg, speed=sp, acc=self.write_acc)
+        return self.estimator.update()
+
     def _limp(self) -> None:
         if not self.enable_motion:
             return
@@ -467,8 +496,7 @@ class HexapodBalanceEnv:
         clipped, bad = self.safety.validate_action(action)
         if clipped is None:
             q_safe = self.safety._last_safe.copy()
-            self._command_deg(q_safe)
-            self._state = self.estimator.update()
+            self._state = self._command_and_update(q_safe)
             pen = float(cfg_get(self.cfg, "reward",
                                 "safety_termination_penalty", default=10))
             parts = {"reward_termination": -pen}
@@ -491,15 +519,17 @@ class HexapodBalanceEnv:
 
         t_cmd0 = time.monotonic()
         terminated = bool(status.terminate)
+        state_after_cmd = None
         if terminated:
             # Do not keep SyncWriting into a tip — that brown-outs the pack.
             if self.limp_on_terminate:
                 self._limp()
         else:
-            self._command_deg(q_safe)
+            state_after_cmd = self._command_and_update(q_safe)
         t_cmd = time.monotonic() - t_cmd0
 
-        self._state = self.estimator.update()
+        self._state = (state_after_cmd if state_after_cmd is not None
+                       else self.estimator.update())
         reward, parts = self._reward(self._state, clipped)
         if terminated:
             pen = float(cfg_get(self.cfg, "reward",
