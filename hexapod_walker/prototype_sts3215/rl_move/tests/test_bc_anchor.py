@@ -198,7 +198,13 @@ def test_state_aligned_chain_climbs_to_the_plant():
     j0 = j_state()
     worst_on_path = 0.0
     act = q_rad_to_action(env.data.qpos[env._qadr])
-    for _ in range(60):
+    # 2.4 s of chaining (60 ticks at the legacy 25 Hz). Chain progress
+    # is slew-limited at a rate-invariant 37.5 deg/s (safety.
+    # max_delta_q_deg scales with control.hz), so the budget must be
+    # expressed in SECONDS: at the 100 Hz default (08-24 flip) a fixed
+    # 60-tick loop is only 0.6 s and the chain "barely advances" (+6
+    # rows, exactly 4x short — the 08-25 red-test root cause).
+    for _ in range(int(round(2.4 / env.dt))):
         _o, _r, term, trunc, info = env.step(act)
         if term or trunc or "bc_target" not in info:
             break
@@ -369,7 +375,10 @@ def test_lower_anchor_chain_descends_with_feet_planted():
     assert target_m < 0.0, "lower episode must command a descent"
     act = q_rad_to_action(env.data.qpos[env._qadr])
     worst_clear_mm = 0.0
-    for _ in range(300):
+    # 12 s of descent (300 ticks at the legacy 25 Hz) — seconds, not
+    # ticks: the command slew is rate-invariant deg/s (see the
+    # state-aligned chain test's note on the 08-24 control.hz flip).
+    for _ in range(int(round(12.0 / env.dt))):
         _o, _r, term, trunc, info = env.step(act)
         if term or trunc:
             assert not term, "the anchored descent fell over"
@@ -1011,13 +1020,16 @@ def test_min_h_ahead_unpins_the_plateau_traversal():
     times faster — by tick 120 (4.8 s) the floored chain is high while
     the legacy chain is still in the plateau (measured 82.5 vs ~9 mm
     at t=50/100; policy-level the legacy pursuit pins outright)."""
-    def h_at(min_h, n=120):
+    def h_at(min_h, seconds=4.8):
         env = _floor_env(min_h,
                          extra={("bus", "servo_params"): "loaded"})
         env.reset()
         act = q_rad_to_action(env.data.qpos[env._qadr])
         h = 0.0
-        for _ in range(n):
+        # "tick 120" of the docstring = 4.8 s at the legacy 25 Hz;
+        # seconds, not ticks (rate-invariant slew — see the
+        # state-aligned chain test's note on the 08-24 control.hz flip).
+        for _ in range(int(round(seconds / env.dt))):
             _o, _r, term, trunc, info = env.step(act)
             if term or trunc:
                 break

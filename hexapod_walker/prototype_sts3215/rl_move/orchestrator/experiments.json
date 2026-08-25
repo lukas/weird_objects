@@ -184622,7 +184622,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3.zip"
     ],
     "created": "2026-08-25T12:41:25+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED-PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -184673,7 +184673,9 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "The robot can now stand rock-solid on all six feet on the new heavier mesh model, even with action noise and physics randomization -- the first fully robust stance hold of the mesh era. 8M acquisition off the bcanchor3 canary (BC pose-anchor dose 3.0) with log-std annealed 0->-4.0 (final std 0.018): DR-0 det 6/6 AND sto 6/6 valid_plant (gate bar was sto>=4/6, det>=5/6), own-DR(0.2) det 6/6 AND sto 6/6, ZERO terminations in all 24 episodes, cur_p95 0.44-0.69A (trip line 2.5A), height_err_end 0.1-0.4mm, plant_margin ~150mm. Det and sto videos: level chassis, six loaded feet, motionless to truncation -- no crouch, no creep, no flag leg. Reward rose every quarter (-14.6/100.7/290.9/553.9). This confirms std-annealing alone closed the det/sto gap the 2M canaries showed (their sto 0/6 was pure un-annealed noise-floor, as hypothesized). WHY: the supervised BC anchor gives the gradient a target posture six rungs of pure reward/termination shaping could not express; annealing removes the exploration noise that was shoving feet off their load. NEXT: hold rung CLOSED -- checkpoint ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal is the mesh hold champion/teacher; stage-1 moves to rise/lower (BC-anchor chain machinery exists but its 3 rise/lower bank tests are pinned to primitive heights and must be mesh-recalibrated before any mechanism launch). Hardware-ready: sim-only track, but behavior quality yes."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1",
@@ -184883,7 +184885,7 @@
       "train.bc_anchor_coef=3.0"
     ],
     "created": "2026-08-25T12:46:12+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED-PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -184915,6 +184917,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdminload40-bcanchor3: Is the BC pose-anchor'\"'\"'s escape from the 40mm hover basin seed-robust, or does it depend on the one shared init? All three rung-7 dose arms (0.5/1.0/3.0, all CANARY PASS with 6/6 det valid_plant) used the DEFAULT seed \u2014 identical network init \u2014 so dose-insensitivity is proven but seed-robustness is not. Seed twin (seed 1) of the dose-3.0 canary, identical recipe otherwise. Prediction-if-true: >=4/6 det valid_plant at 2M with the same clean-plant signature. Prediction-if-false: pinned 40mm/2.64A hover reappears \u2014 the anchor mechanism rides a lucky init, which matters if the running stdanneal 8M acquisition disappoints. Strongest alternative: partial plant (1-3/6), anchor helps but escape is slower from other inits.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 > /tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1.log",
     "wandb_id": "q1xfw1ik",
-    "verified": "2026-08-25T12:49:53+00:00"
+    "verified": "2026-08-25T12:49:53+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T12:55:36+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "b:         env/height_mm -1.02831\nwandb:     env/height_ref_mm 2.73865\nwandb:  env/hold_feet_factor 0.15556\nwandb:  env/hold_load_factor 0.15556\nwandb: env/hold_still_factor 0.94112\nwandb:     env/max_current_a 1.53289\nwandb:                   +85 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1 at: https://wandb.ai/l2k2/hexapod-balance/runs/q1xfw1ik\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_124729-q1xfw1ik/logs\n"
+      }
+    ],
+    "triage": "done",
+    "verdict": "CANARY PASS. The BC pose-anchor mechanism is seed-robust: a second network init reproduces the clean six-foot plant, so the rung-7 result did not ride one lucky seed. Seed-1 2M mechanism-health canary of the bcanchor3 recipe: DR-0 det 6/6 valid_plant at cur_p95 0.46A with zero terminations (canary PASS bar >=4/6), own-DR(0.2) det also 6/6 zero terms; det video = level six-foot plant held motionless, same as seed 0. sto 0/6 (hold_min_load) at both DRs -- the exact un-annealed policy_std~1.02 signature seed 0 showed at 2M, now PROVEN benign by the stdanneal acquisition (same cycle: 6/6 sto after annealing). Reward quarters (-3.8/-57.7/-93.0/-81.8) track seed 0 (-2.9/-57.9/-91.2/-86.2) closely. Hedge read complete: mechanism generalizes across inits AND doses (0.5-3.0 det-level; 1.0-3.0 sustained). No follow-up needed from this run -- the stdanneal champion supersedes it."
   }
 ]

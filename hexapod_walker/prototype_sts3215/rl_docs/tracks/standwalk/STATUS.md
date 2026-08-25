@@ -1,6 +1,33 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~12:5x (**rung-7 dose read COMPLETE (3/3),
+Last updated: 2026-08-25 ~13:1x (**HOLD RUNG CLOSED — `bcanchor3-stdanneal`
+(8M acquisition, dose 3.0 + log-std anneal 0->-4.0, final std 0.018)
+is a FULL PASS: DR-0 det 6/6 + sto 6/6 AND own-DR(0.2) det 6/6 + sto
+6/6 valid_plant, ZERO terminations in all 24 episodes, cur_p95
+0.44-0.69A, height_err_end 0.1-0.4mm; det+sto videos = level six-foot
+plant, motionless to truncation.** Gate bar was sto>=4/6 with det>=5/6
+— exceeded everywhere. This settles the canaries' det/sto gap:
+un-annealed policy_std~1.0 was the entire sto blocker (annealing alone
+took sto 0/6 -> 6/6 with no other change). Seed hedge also landed:
+`bcanchor3-s1` (seed 1, 2M canary) CANARY PASS — DR-0 det 6/6
+valid_plant @0.46A + own-DR det 6/6, same clean plant on video, same
+benign un-annealed-sto signature; the BC-anchor mechanism is
+seed-robust AND dose-robust. **New mesh hold champion / stage-2 hold
+teacher: `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`**
+(SKILLS.md row added). NEXT RUNG = rise/lower on mesh via the same
+proven lever (BC-anchor chains toward the rise ref / plant pose),
+warm-started from the hold champion (mesh-family, so warm-start is
+legal and default). SPECIFICATION DEBT first: `test_bc_anchor.py`'s 3
+rise/lower chain tests (`test_state_aligned_chain_climbs_to_the_plant`,
+`test_lower_anchor_chain_descends_with_feet_planted`,
+`test_min_h_ahead_unpins_the_plateau_traversal`) are RED — pinned to
+primitive-era heights (primitive plant h_rel 131.94mm vs mesh 82.96mm)
+— and per RESEARCH_RULES the bank must be green before the mechanism
+launch. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal_{gate,owncfg}/`,
+`..._bcanchor3_s1_{gate,owncfg}/`, W&B `bmoh247p`/`q1xfw1ik`.)
+
+Prior entry: 2026-08-25 ~12:5x (**rung-7 dose read COMPLETE (3/3),
 FINAL: `bcanchor0p5` (dose 0.5) is a CANARY FAIL - MECHANISM (dose
 too low), not a third passer — settled after two independent reads
 converged (this cycle's own first pass wrongly called it PASS on a
@@ -751,7 +778,15 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-Stage-1 batch RUNNING 08-25 ~04:4x (operator kick):
+Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
+`ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`
+(24/24 valid_plant across DR-0+own-DR det+sto, zero terms — see Last
+updated entry). Current work: rise/lower rung — mesh-recalibrate the 3
+red `test_bc_anchor.py` rise/lower chain tests (bank-green
+precondition), then launch the BC-anchor-chain rise/lower batch
+warm-started from the hold champion.
+
+Historical (superseded) entry — stage-1 batch 08-25 ~04:4x (operator kick):
 `cw-standwalk-stance-mesh1-rr1` + `-seed1-rr1`/`-seed2-rr1` on
 train-0/1/2, 3 seeds one wave, 20M each, from-scratch footlow2-style
 joint_goal on the mesh default @100 Hz (goal-mix hold=.1/rise=.45/
