@@ -1659,3 +1659,136 @@ def test_flat_time_indexed_nonflat_starts_unchanged():
     a = _collect_targets(_flat_clock_env(None, seed=5, force="crouch"))
     b = _collect_targets(_flat_clock_env(1.0, seed=5, force="crouch"))
     assert a.shape == b.shape and np.array_equal(a, b)
+
+
+# ---------------------------------------------------------------------------
+# HEIGHT-AWARE HOLD REFERENCE (train.bc_anchor_hold_height_aware, 08-25).
+# holdheight-rung1/-s1 (the goal.hold_height_cmd_frac mechanism canary)
+# trained WITHOUT any hold pose anchor at all (the existing anchor's
+# target, q_nom, is height-BLIND and would fight a moving command) and
+# lost the champion's clean quiet-stand current/load profile even on
+# the STATIC height_ref=0 DR-0 gate (cur_max 2.0-2.63A vs the
+# champion's 0.67-0.71A; 5/6 det episodes tripped hold_min_load) —
+# dropping the anchor threw out its general pose regularization along
+# with its height-blindness. Fix: re-target the anchor at the pose
+# that reaches the NEXT commanded height via FixedFootBodyIK, the
+# same one-tick-ahead convention `bc_anchor_lower` already uses, so
+# the anchor keeps supervising pose quality while tracking a moving
+# target instead of fighting it.
+# ---------------------------------------------------------------------------
+
+def _height_cmd_env(seed, hha=None, cmd_frac=1.0, kind_target=None,
+                    only_mode="hold"):
+    ov = {("train", "bc_anchor_coef"): 1.0,
+         ("goal", "hold_height_cmd_frac"): cmd_frac,
+         ("goal", "hold_height_cmd_range_mm"): [-40.0, 20.0],
+         ("goal", "hold_height_cmd_rate_mm_s"): 15.0}
+    if hha is not None:
+        ov[("train", "bc_anchor_hold_height_aware")] = hha
+    env = _make_env(seed, ov, only_mode=only_mode)
+    if kind_target is not None:
+        env._goal_gen.force_hold_height_profile = kind_target
+    return env
+
+
+def test_hold_height_aware_default_off_bit_exact():
+    """No bc_anchor_hold_height_aware key: a hold episode ramped to
+    -30mm still anchors to the exact constant q_nom target (legacy
+    height-blind behavior byte-for-byte), even though the goal itself
+    is moving."""
+    env = _height_cmd_env(40, hha=None, kind_target=("ramp", -0.030))
+    env.reset()
+    expected = q_rad_to_action(env._q_nom)
+    act = expected
+    for _ in range(int(round(6.0 / env.dt))):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+        assert np.array_equal(info["bc_target"],
+                              expected.astype(np.float32))
+        act = info["bc_target"]
+    env.close()
+
+
+def test_hold_height_aware_zero_height_stays_qnom():
+    """hha=1 but the commanded height is exactly 0 (the settle window,
+    or a plain flat hold episode when cmd_frac<1): target is
+    bit-identical to the legacy constant q_nom, same convention as
+    tilt_comp's level-deadband no-op."""
+    env = _height_cmd_env(41, hha=1.0, cmd_frac=0.0)
+    env.reset()
+    expected = q_rad_to_action(env._q_nom)
+    _o, _r, _t, _tr, info = env.step(expected)
+    assert np.array_equal(info["bc_target"], expected.astype(np.float32))
+    env.close()
+
+
+def test_hold_height_aware_targets_the_commanded_height():
+    """With bc_anchor_hold_height_aware=1, once a ramp has reached its
+    -30mm target every subsequent tick's bc_target is EXACTLY the
+    FixedFootBodyIK descent from q_nom to the next commanded height —
+    the honest demonstration, not the height-blind pose."""
+    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+    env = _height_cmd_env(42, hha=1.0, kind_target=("ramp", -0.030))
+    env.reset()
+    act = q_rad_to_action(env.data.qpos[env._qadr])
+    seen_offset_target = False
+    for _ in range(int(round(8.0 / env.dt))):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+        act = info["bc_target"]
+        g_next = env._goal_traj.at(env._step_i + 1)
+        if abs(float(g_next.height_ref) + 0.030) < 1e-4:
+            ik = FixedFootBodyIK()
+            ik.reset(env._q_nom)
+            res = ik.solve(BodyOffset(height=float(g_next.height_ref)))
+            assert res.ok
+            assert np.allclose(act, q_rad_to_action(res.q_rad),
+                               atol=1e-6)
+            seen_offset_target = True
+    env.close()
+    assert seen_offset_target, "ramp never settled at -30mm in 8s"
+
+
+def test_hold_height_aware_track_mode_excluded():
+    """track episodes never carry a moving height command, but the
+    gate is explicit (mode == 'hold') — a track episode's target must
+    stay the legacy constant q_nom regardless of the flag."""
+    env = _height_cmd_env(43, hha=1.0, only_mode="track")
+    env.reset()
+    assert env._goal_traj.mode == "track"
+    expected = q_rad_to_action(env._q_nom)
+    _o, _r, _t, _tr, info = env.step(expected)
+    assert np.array_equal(info["bc_target"], expected.astype(np.float32))
+    env.close()
+
+
+def test_hold_height_aware_chain_tracks_height_with_feet_planted():
+    """Following the height-aware anchor's targets must produce the
+    honest behavior class: body height tracks the commanded -30mm
+    descent while every foot stays grounded (no aloft/outrigger
+    residue) — the same class of check `bc_anchor_lower`'s own chain
+    test uses."""
+    env = _height_cmd_env(44, hha=1.0, kind_target=("ramp", -0.030))
+    env.reset()
+    z_start = float(env.data.xpos[env._chassis_bid, 2])
+    act = q_rad_to_action(env.data.qpos[env._qadr])
+    worst_clear_mm = 0.0
+    for _ in range(int(round(8.0 / env.dt))):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            assert not term, "the height-aware anchored hold fell over"
+            break
+        act = info["bc_target"]
+        clear = max(float(env.data.xpos[b, 2]) - env._pad_z_ref[i]
+                    for i, b in enumerate(env._pad_bids))
+        worst_clear_mm = max(worst_clear_mm, clear * 1000.0)
+    z_end = float(env.data.xpos[env._chassis_bid, 2])
+    dropped = z_start - z_end
+    env.close()
+    assert dropped > 0.6 * 0.030, (
+        f"chain only descended {dropped*1000:.0f}mm of the commanded 30mm")
+    assert worst_clear_mm < 25.0, (
+        f"a foot came {worst_clear_mm:.0f}mm off the ground during the "
+        f"height-aware anchored hold — not the honest feet-planted class")
