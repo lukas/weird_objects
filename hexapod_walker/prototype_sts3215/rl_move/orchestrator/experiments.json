@@ -179717,7 +179717,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-refgain15 --steps 20000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_refgain15 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=15.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1'\"'\"'s own pricing (current_hot+term_cost) removed the profitable grind exploit but PPO never found any honest stable basin either (reward flat all 20M, 0/3 seeds pass). Candidate cause: the dense guidance toward the KNOWN-GOOD rise trajectory (k_rise_ref_track=2.0, unchanged since the primitive era) is too weak to out-compete the other shaping terms once the cheap grind path is priced out, so exploration never gets pulled onto the reference path before falling. This arm raises k_rise_ref_track 2.0->15.0 (7.5x), single lever, same pricing/goal-mix/budget as cur1. Prediction-if-true: rise panel starts landing valid plants (>=5/6) by 20M where cur1 landed 0/6; reward trend breaks out of the flat negative band cur1/seed1/seed2 all showed. Prediction-if-false: reward stays flat/negative -- ref-tracking gain was not the bottleneck, escalate to the physics/gains audit (log-std-init/ent-coef) or budget-ladder fork named in STATUS.md instead.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-refgain15.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-refgain15.log",
     "wandb_id": "75dqyaxt",
-    "verified": "2026-08-25T07:07:13+00:00"
+    "verified": "2026-08-25T07:07:13+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T07:12:19+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11444,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-cur1-reftrack10",
@@ -179799,7 +179811,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:05:39+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -179831,7 +179843,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-cur1-reftrack10 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_cur1_reftrack10 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=10.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1'\"'\"'s full-mix rise topples instead of following the demonstrated rise reference (k_rise_ref_track=2.0). Companion to riseonly1'\"'\"'s curriculum-share test: this arm keeps the ORIGINAL full goal-mix (hold=.1/rise=.45/lower=.45) but multiplies the tracking weight 5x (k_rise_ref_track=10.0), testing the other candidate fix (the weight is too weak vs other shaping terms, not that rise is undertrained by curriculum share). Prediction-if-true: rise'\"'\"'s tilt_pitch/over_current-at-rise rate drops and DR-0 rise episodes end closer to valid plant even with hold/lower still competing for gradient. Prediction-if-false: still topples -- rules out a pure tracking-weight fix; combine with riseonly1'\"'\"'s read to decide whether the fix is curriculum (split), pricing (weight), or budget (neither) at all.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-cur1-reftrack10.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-cur1-reftrack10.log",
     "wandb_id": "fhk6ir7p",
-    "verified": "2026-08-25T07:09:22+00:00"
+    "verified": "2026-08-25T07:09:22+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T07:15:11+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "9.84781\nwandb:     env/height_ref_mm 2.96018\nwandb:  env/hold_feet_factor 0.62429\nwandb: env/hold_still_factor 0.95892\nwandb:     env/max_current_a 1.90829\nwandb:    env/mean_current_a 0.46116\nwandb:   env/pct_within_1deg 0.14429\nwandb:                   +84 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-cur1-reftrack10 at: https://wandb.ai/l2k2/hexapod-balance/runs/fhk6ir7p\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_070659-fhk6ir7p/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-curonly",
@@ -180010,7 +180030,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:07:49+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -180021,7 +180041,19 @@
       "running_experiments_before": 5,
       "code_sha_local": "6cc7240f5a8e0f22950f4d8a0e419d8cac448b79",
       "code_sha_pod": "6cc7240f5a8e0f22950f4d8a0e419d8cac448b79",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "40505",
+      "log_growth_bytes": [
+        10484,
+        18954
+      ],
+      "wandb_id": "vbs2jyh1",
+      "trainer_pid": "40505",
+      "global_step_window": [
+        917504,
+        1048576
+      ],
+      "fps_estimate": 4369.1
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -180029,6 +180061,123 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "This cycle's on-mesh bank-check + open-loop rise-ref replay ending valid plant 3/3 (standwalk STATUS 08-25); mesh-family MJX training healthy per cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1 CANARY PASS. rr1 = relaunch of cw-standwalk-stance-mesh1 after the servo_params=loaded latency crash (W&B name burned).",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-termonly --steps 20000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_termonly --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). This arm isolates term_cost_per_remaining_s ALONE (k_current_hot forced to 0, term_cost unchanged from cur1) -- the complementary ablation to curonly -- to test which of the two new charges is the actual destabilizer. Prediction-if-term_cost-is-fine-alone: reward climbs (grind returns since current_hot pricing is what killed it, or an honest basin if term_cost alone is enough deterrent) -- current_hot is the destabilizer, needs a softer dose. Prediction-if-still-flat: term_cost alone blocks learning -- it (not current_hot) is the destabilizer, needs a softer per-second rate or lower cap.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=0.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-termonly.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-standwalk-stance-mesh2-termonly.log"
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-termonly.log",
+    "wandb_id": "vbs2jyh1",
+    "verified": "2026-08-25T07:11:32+00:00"
+  },
+  {
+    "run": "cw-standwalk-stance-mesh2-curonly",
+    "pod": "hexapod-mjx-train-6",
+    "steps": 20000000,
+    "smoke": false,
+    "hypothesis": "Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). Something about the new pricing pair, not just 'pricing exists', blocked all learning. This arm isolates current_hot ALONE (term_cost_per_remaining_s forced to 0, current_hot/current_hot_a unchanged from cur1) to test which of the two new charges is the actual destabilizer -- the complementary ablation to termonly. Prediction-if-current_hot-is-fine-alone: reward climbs like mesh1's grind case (or better, an honest basin) -- term_cost is the destabilizer, drop/soften it. Prediction-if-still-flat: current_hot alone is enough to block learning -- it (not term_cost) is the destabilizer, needs a softer dose or a curriculum ramp.",
+    "gate": "Same stage-1 gate as cur1 at 20M: pod_eval stance panel n>=12 det+sto DR-0+own-DR(0.2). Read jointly with termonly: whichever ablation alone reproduces cur1's flat-negative signature names the destabilizing term; whichever recovers movement (grind or honest) exonerates its own term.",
+    "parent": "cw-standwalk-stance-mesh2-cur1",
+    "track": "standwalk",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.005",
+      "--log-std-init",
+      "0",
+      "--goal-mix",
+      "hold=0.1,rise=0.45,lower=0.45",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_standwalk_stance_mesh2_curonly",
+      "--cfg-set",
+      "actions.max_height_mm=88",
+      "--cfg-set",
+      "goal.rise_height_mm=[79,87]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "goal.rise_rsi_frac=0.5",
+      "--cfg-set",
+      "goal.rise_hold_min_s=0.5",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_score_strip_pen=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.hold_still_gate=1.0",
+      "--cfg-set",
+      "reward.hold_flag_fade=1.0",
+      "--notes",
+      "respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). Something about the new pricing pair, not just 'pricing exists', blocked all learning. This arm isolates current_hot ALONE (term_cost_per_remaining_s forced to 0, current_hot/current_hot_a unchanged from cur1) to test which of the two new charges is the actual destabilizer -- the complementary ablation to termonly. Prediction-if-current_hot-is-fine-alone: reward climbs like mesh1's grind case (or better, an honest basin) -- term_cost is the destabilizer, drop/soften it. Prediction-if-still-flat: current_hot alone is enough to block learning -- it (not term_cost) is the destabilizer, needs a softer dose or a curriculum ramp.",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "reward.k_current_hot=1.0",
+      "--cfg-set",
+      "reward.current_hot_a=2.0",
+      "--cfg-set",
+      "reward.term_cost_per_remaining_s=0.0",
+      "--cfg-set",
+      "reward.term_cost_max=60.0"
+    ],
+    "created": "2026-08-25T07:10:49+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+      "running_experiments_before": 6,
+      "code_sha_local": "95e8933f838bef4fc7aa11091391806f7de2f813",
+      "code_sha_pod": "95e8933f838bef4fc7aa11091391806f7de2f813",
+      "wandb_env_on_pod": true,
+      "pid": "106628",
+      "log_growth_bytes": [
+        13312,
+        18988
+      ],
+      "wandb_id": "zwdc1ef5",
+      "trainer_pid": "106628",
+      "global_step_window": [
+        983040,
+        1179648
+      ],
+      "fps_estimate": 6553.6
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "This cycle's on-mesh bank-check + open-loop rise-ref replay ending valid plant 3/3 (standwalk STATUS 08-25); mesh-family MJX training healthy per cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1 CANARY PASS. rr1 = relaunch of cw-standwalk-stance-mesh1 after the servo_params=loaded latency crash (W&B name burned).",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-curonly --steps 20000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_curonly --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). Something about the new pricing pair, not just '\"'\"'pricing exists'\"'\"', blocked all learning. This arm isolates current_hot ALONE (term_cost_per_remaining_s forced to 0, current_hot/current_hot_a unchanged from cur1) to test which of the two new charges is the actual destabilizer -- the complementary ablation to termonly. Prediction-if-current_hot-is-fine-alone: reward climbs like mesh1'\"'\"'s grind case (or better, an honest basin) -- term_cost is the destabilizer, drop/soften it. Prediction-if-still-flat: current_hot alone is enough to block learning -- it (not term_cost) is the destabilizer, needs a softer dose or a curriculum ramp.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=0.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-curonly.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-curonly.log",
+    "wandb_id": "zwdc1ef5",
+    "verified": "2026-08-25T07:14:32+00:00"
   }
 ]

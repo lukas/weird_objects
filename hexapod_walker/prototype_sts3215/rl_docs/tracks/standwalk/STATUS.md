@@ -31,6 +31,19 @@ rung-3. None of these are the pricing-OFF isolation / DR-ramp / log-
 std retune candidates named below (still unbuilt; queue those next if
 this batch doesn't name a clear fix).
 
+**ADDENDUM (this cycle, same wave):** added the pricing-OFF isolation
+as a proper ablation PAIR instead of waiting: `cw-standwalk-stance-
+mesh2-curonly` (`term_cost_per_remaining_s` forced to 0.0, `current_hot`
+pricing unchanged from cur1) and `-termonly` (`k_current_hot` forced to
+0.0, term_cost unchanged) — single-lever complements, both 20M, both
+VERIFIED RUNNING (train-6/train-4). Rationale: mesh1-rr1 (NEITHER
+charge) found a rising-reward grind; mesh2-cur1 (BOTH charges) found
+nothing (flat reward); these two arms name which charge alone is
+sufficient to block all learning vs. which is safe alone. Read all 6
+diagnostic arms (holdonly1/riseonly1/loweronly1, refgain15/reftrack10,
+curonly/termonly) together for the rung-3 recipe decision — do not
+launch more same-lever variants until this wave reports.
+
 Previous entry (2026-08-25 ~06:4x (**RUNG-2 (mesh2-cur1) FAIL, 3/3 seeds
 CONFIRMED, TOTAL collapse -- worse than a misalignment, a genuine
 stuck-mechanism FAIL. Rung closed; root-cause dig-in needed before
