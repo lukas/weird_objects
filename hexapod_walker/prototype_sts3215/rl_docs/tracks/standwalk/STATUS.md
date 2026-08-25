@@ -1,6 +1,44 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~14:5x (**LOWER RUNG CLOSED — `loweronly-bcchain3-
+Last updated: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
+PACE IS THE LEVER, not budget or noise — the "mint a mesh-native IK
+ref" branch is NOT triggered.** All three arms shared the same 8M
+budget off the `riseonly-bcchain3-stdanneal` parent (DR-0 gate 2/6 det
++ 2/6 sto valid_plant, deep-start [flat/bridge/rsi] cur_p95 median
+2.64A pinned, 8/12 over_current terms, bc_anchor_loss_rise plateaued
+~0.05-0.07): `-cont8` (8M more steps, same chain pace, std pinned -4)
+FAIL — det 2/6 sto 3/6, deep-start median STILL 2.64A, anchor loss
+0.0515 (at the plateau, no further tracking headroom); `-reanneal`
+(fresh 0→-4 noise re-injection, same pace) FAIL — det 1/6 (worse) sto
+4/6, deep-start median STILL 2.64A, anchor loss 0.0512 (same
+plateau) — noise dose was never the deep-start blocker on this rung
+(unlike hold/lower, where std-anneal alone cooled everything).
+`-slowchain` (chain pace HALVED from-scratch — `bc_anchor_lookahead_s`
+0.5→0.25s, `min_h_ahead_mm` 15→8) PARTIAL, real progress: deep-start
+cur_p95 median falls 2.64A→**1.85A**, gate over_current terms fall
+8/12→**3/12**, DR-0 det valid_plant 2/6→3/6 — the pre-registered
+prediction-if-true landed and prediction-if-false ("equally pinned at
+half pace") is refuted. Still short of the 4/6+4/6+≤1.5A PASS bar:
+the deep-start plants that DO land are still hot (bridge det
+1.85-2.09A), so "unpinned" means below the hard 2.64A ceiling, not yet
+cool. Because slowchain (the pace arm) moved the blocked metric while
+cont8/reanneal (budget/noise arms, unchanged pace) both independently
+did not, the joint-FAIL condition that would force rung-9 (mint a
+mesh-native rise ref from scripted IK) is NOT met — pace is confirmed
+as a real, working lever, so we dose it further before reaching for a
+new reference. FUNDED (batch, from-scratch clones of slowchain's
+recipe unless noted): `cw-standwalk-stance-mesh2-riseonly-bcchain3-
+quarterchain` (lookahead 0.125s / min_h 4mm — halve again),
+`-eighthchain` (lookahead 0.0625s / min_h 2mm — bracket further),
+`-slowchain-cont8` (init-from the slowchain checkpoint itself, 8M
+more steps at the SAME already-working half-pace, std pinned -4 — is
+budget useful GIVEN a working pace, unlike cont8's null result on the
+non-working pace). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_{stdanneal_cont8,
+stdanneal_reanneal,slowchain}_{gate,owncfg}/`, W&B `i29a19wo` /
+`lqav84km` / `8abary62`.)
+
+Prior entry: 2026-08-25 ~14:5x (**LOWER RUNG CLOSED — `loweronly-bcchain3-
 stdanneal` is a FULL PASS, mirroring the hold rung's stdanneal close.**
 8M acquisition off the `loweronly-bcchain3` IK-descent BC-anchor-chain
 canary (log-std anneal 0→-4.0, final std 0.018): DR-0 det 6/6 + sto
