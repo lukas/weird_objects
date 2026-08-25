@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T16:02:18+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain
+
+**wandb_id**: r0htou5e
 
 **hypothesis**: Quarterchain/eighthchain (halving the BC-anchor chain pace further, twice) came back a REGRESSION not an improvement: det valid_plant fell 3/6(slowchain)->2/6(quarterchain), the 'cooler' deep-start cur_p95 median is a measurement artifact of MORE non-attempts (flat/rsi starts stall at height_err 76-86mm, video-confirmed same splayed press-up as ever, near-zero current because the leg never engages) rather than genuinely cooler landings (only 1/9 deep starts actually landed, at 1.46A). This suggests chain PACE has hit its floor between slowchain(1/2) and quarterchain(1/4). This arm tests the OTHER lever the gate names: is chain-tracking SUPERVISION STRENGTH (not speed) the blocker? Keep slowchain's already-working half-pace (lookahead 0.25s, min_h 8mm) fixed and double the anchor dose 3.0->6.0 (rise has never been dosed above the hold/lower-inherited 3.0 default). Prediction-if-true: deep-start (flat/bridge/rsi) valid_plant count rises above slowchain's own 3/6 det and/or bc_anchor_loss_rise drops below its ~0.05 plateau. Prediction-if-false: same plateau/regression signature (stalled splay, anchor loss unmoved) -- dose is not the remaining lever either, tightening the case for rung-9 (mesh-native IK rise ref).
 

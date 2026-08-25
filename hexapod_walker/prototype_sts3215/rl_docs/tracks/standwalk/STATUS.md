@@ -1,6 +1,51 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
+Last updated: 2026-08-25 ~16:1x (**rung-8 rise PACE DOSE GRID FULLY
+BRACKETED — non-monotonic, peak at slowchain's 1/2-pace, both further
+dosing AND more budget FAIL; rung-9 (mint a mesh-native rise ref from
+scripted IK) is now the live lever.** Following the pace-confirmed
+3-arm triage below, the batch it funded all came back FAIL:
+`quarterchain` (pace 1/4, lookahead 0.125s/min_h 4mm) — det 2/6 WORSE
+than slowchain's 3/6; the deep-start current/term proxy metrics look
+great (median 0.2A, 1/12 terms) but `height_err_end_mm` exposes why:
+most flat/rsi episodes drew near-zero current while sitting at
+76-86mm height error, UNCHANGED from the belly start — the policy
+FROZE rather than pressed up. A cheap way to score well on the
+current/term proxy while doing worse on the actual goal — do not
+grade this rung on current/terms alone, always cross-check
+`height_err_end_mm`. `eighthchain` (pace 1/8) — total collapse, det
+0/6 + sto 0/6, even crouch (6/6 robust at every other dose in the
+whole rung) breaks; mixes both bad modes (3 over_current + 3 frozen).
+`slowchain-cont8` (8M more budget on slowchain's own working
+half-pace, std pinned, no re-anneal) — NET WORSE than slowchain
+itself (det 3/6→2/6, terms 3/12→7/12): continued low-noise refinement
+pushed some deep starts MORE aggressive/hot, not uniformly cooler.
+Combined with cont8/reanneal's identical null result on the
+unchanged full pace, budget is now settled as NOT a lever on this
+rung at ANY pace once `bc_anchor_loss_rise` hits its ~0.05 plateau.
+**Consolidated dose-response (DR-0 gate, det+sto valid_plant / 12,
+over_current terms /12):** full pace (stdanneal parent) 4/12 valid,
+8/12 oc; full pace +8M (cont8) 5/12, 7/12; full pace +reanneal 5/12,
+7/12; **1/2 pace (slowchain) 5/12, 3/12 — the peak**; 1/2 pace +8M
+(slowchain-cont8) 4/12, 7/12; 1/4 pace (quarterchain) 4/12, 1/12 (but
+new freeze failure, not genuine improvement); 1/8 pace (eighthchain)
+0/12, 5/12 (collapse). Pace dosing and budget are BOTH exhausted
+levers now — do not refund either without a structural change first.
+`ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_slowchain.zip`
+is the best rise-in-progress asset from this whole campaign (still
+short of PASS). NEXT (rung-9, unfunded — real code, not a config
+dose): mint a mesh-native rise reference from scripted/analytic IK
+(sit→plant joint trajectory computed directly on the 3.5kg mesh
+geometry, not borrowed from the 2.1kg/25Hz primitive extraction) so
+the anchor stops supervising a torque-infeasible flat-segment
+posture; alternatively, inspect/edit the existing
+`rise_ref_belly2plant.npz` flat segment directly (shorten it, or
+re-shape the splayed-leg posture the 08-25 dig-in flagged) before
+building a full new generator. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_{quarterchain,eighthchain,
+slowchain_cont8}_gate/`, W&B `75d9j4tg` / `l9tcutsx` / `5bx2x0n3`.)
+
+Prior entry: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
 PACE IS THE LEVER, not budget or noise — the "mint a mesh-native IK
 ref" branch is NOT triggered.** All three arms shared the same 8M
 budget off the `riseonly-bcchain3-stdanneal` parent (DR-0 gate 2/6 det
@@ -1113,6 +1158,22 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
    keep funding the full-mix curriculum until stage-1 passes the old
    hard1-style gates + current/DR/session gates. Encoded in
    CURRENT_TRUTHS "STANDWALK CANONICAL STANCE RECIPE".
+0.5 RUNG-9 (08-25 ~16:1x, unfunded, real code): rung-8's rise
+   BC-anchor-chain pace/budget dose grid is now FULLY EXHAUSTED (7
+   arms: stdanneal/cont8/reanneal/slowchain/quarterchain/eighthchain/
+   slowchain-cont8 — see Last-updated entry for the full table). The
+   deep-start (flat/bridge/rsi) rise still tops out around slowchain's
+   5/12 valid_plant, 3/12 over_current. Next lever is the REFERENCE
+   itself, not more dosing: mint a mesh-native `rise_ref` from
+   scripted/analytic IK on the 3.5kg mesh geometry (the current
+   `rise_ref_belly2plant.npz` was extracted from a 2.1kg/25Hz
+   primitive-family policy — `extract_rise_ref.py`'s own docstring
+   flags this as a stopgap), OR inspect+edit the flat segment of the
+   existing ref directly (shorten the slow 0-25mm prep crawl / fix the
+   splayed-leg posture the 08-25 dig-in named) before building a full
+   new generator — cheaper first probe. Whoever picks this up: read
+   the full pace-dose table in the Last-updated entry before touching
+   `train.bc_anchor_*` again; that lever is spent for this rung.
 1. DONE 08-25 ~04:4x (see Now): recipe ported, bank-checked on mesh,
    3-seed batch launched.
    RECIPE ARCHAEOLOGY (08-25 ~04:0x cycle, saves the re-dig):
