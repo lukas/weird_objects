@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: CANARY FAIL - INFRASTRUCTURE
+**status**: FAILED
 
 **created**: 2026-08-25T19:53:21+00:00
 
@@ -12,9 +12,11 @@
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref
 
+**wandb_id**: 58ohqh56
+
 **hypothesis**: Does giving the mesh rise reference's OWN tuck segment a monotone height gain (instead of dead-flat) let the unchanged BC-anchor height-floor (min_h_ahead_mm=8, proven anti-freeze in tuckfloor0/tuckexempt-i0) walk its lookahead target THROUGH the tuck instead of skipping it or freezing? tuckfloor0/-s1 (floor removed globally) and tuckexempt-i0/tuckexempt0/-s1 (floor removed only pre-ramp_i0) BOTH collapsed into a total duty=0 freeze, cross-verified 4/4 seeds: with the floor gone the state-aligned lookahead target ALSO sits near 0mm through the tuck (ref itself is height-flat there), so pursuit has near-zero gradient and freeze becomes anchor-optimal regardless of floor scoping. Root fix targets WHAT the reference contains, not the floor: new make_rise_ref_scripted.py --tuck-rise-mm=15 (snapshot this cycle, 4 new code paths, cur_p95 0.71A open-loop, robustness PASS 3/3 held-out seeds) raises the chassis by 15mm across the second half of the tuck via smoothstep (feet near the plant footprint by then, cheap lever arms), giving the ref a monotone height profile from tick 0 (achieved open-loop: flat to ~tick210, then smooth 0->83mm by tick400) so the SAME min_h_ahead=8 floor that already works past ramp_i0 now has real height signal to walk through inside the tuck too. Single lever vs the meshref parent: reward.rise_ref_path swapped rise_ref_mesh_scripted.npz -> rise_ref_mesh_tuckrise15.npz, floor/lookahead/coef all unchanged at their proven meshref values (no tuck_exempt cfg -- that axis is closed). Prediction-if-true: flat-pinned probe shows genuine duty>0 tuck-then-press motion (not a freeze), converting toward valid_plant. Prediction-if-false: flat stays pinned at either the original 2.64A press-up (floor's search still overshoots past the now-sloped tuck) or a new duty=0 freeze (achieved-height flatness through ~tick210 still defeats the floor) -> reference-content editing is refuted too; next is a direct tuck-phase reward/curriculum term, not more ref/floor plumbing.
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. Same flat-pinned probe (goal.rise_flat_frac=1.0 rise_partial_frac=0 rise_rsi_frac=0, det+sto n=6+6, DR-0) + standard DR-0 gate as tuckfloor0/tuckexempt0. PASS if BOTH seeds hit flat-probe det>=4/6 AND sto>=4/6 valid_plant (genuine duty>0 tuck-then-press motion, not a freeze) AND standard-gate non-flat kinds at-or-above the meshref parent (det 5/6 + sto 4/6, oc<=3/12) -> promote to an 8M acquisition grid + port into stancemix. PARTIAL if flat-probe shows ANY genuine duty>0 tuck motion (even short of valid_plant) while non-flat holds >= meshref parent -> extend budget / dose the rise magnitude. FAIL if flat stays 0-1/12 valid with either the original 2.64A press-up pin or a duty=0 freeze, or non-flat regresses below the meshref parent -> ref-content editing refuted alongside floor-scoping; next is a direct tuck-phase reward/curriculum term.
 
-**verdict**: CANARY FAIL - INFRASTRUCTURE: the launch command's reward.rise_ref_path pointed at rl_move/sim/refs/rise_ref_mesh_tuckrise15.npz, which was never committed to git (only rise_ref_mesh_tuckrise45.npz landed in the snapshot commit fa1bccc5 -- the 15mm/20mm exploration variants were generated but not kept). Worker crashed immediately on env reset (FileNotFoundError in sim_env.load_rise_ref, MjxShardedVecEnv worker died before any step; W&B 58ohqh56, 0 training steps) -- zero information, pure launch-asset mismatch. No relaunch of the 15mm variant right now (the file no longer exists and regenerating it competes with whatever variant the launching cycle actually intends); the properly committed rise_ref_mesh_tuckrise45.npz is what this cycle is launching next under its own run name.
+**failed_reason**: W&B global_step not advancing (0 -> 0) after 120s (n_steps=64, cpu-time flat for 2 polls)
 
