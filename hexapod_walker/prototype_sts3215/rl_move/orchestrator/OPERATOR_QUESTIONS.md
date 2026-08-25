@@ -2809,3 +2809,10 @@ cycle's launch-time snapshot under kubectl-exec timeouts. Resolution
 both times: verify no live git process, `rm -f .git/HEAD.lock`, retry
 — worked cleanly. If this recurs, consider a stale-lock sweep (age >
 60 s + no live git) at the top of snapshot.sh.
+UPDATE (same cycle, ~13:4x): root cause identified — background
+`git maintenance run --auto` / `git gc` / `git repack` jobs hold the
+locks transiently after any commit-heavy activity. Retry-after-wait is
+the correct handling (the final snapshot succeeded on retry while a
+repack ran); only rm a lock that is zero-byte AND >60s old AND has no
+live (non-defunct, non-maintenance) git process. Consider
+`git config maintenance.auto false` in this clone if it keeps biting.
