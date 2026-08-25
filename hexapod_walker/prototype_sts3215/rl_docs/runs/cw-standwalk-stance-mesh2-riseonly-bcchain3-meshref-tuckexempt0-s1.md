@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T19:14:37+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckfloor0-s1
+
+**wandb_id**: zigatklw
 
 **hypothesis**: Seed twin of tuckexempt0 (train.bc_anchor_min_h_ahead_mm restored 0->8 + new train.bc_anchor_min_h_tuck_exempt_i0=1, gating the height-floor off only inside the mesh ref's tuck segment < ramp_i0): does the tuck-exempt fix work robustly across seeds, or was tuckexempt0 seed luck? Same joint-pair discipline as every mechanism hedge this campaign (meshref-s1, flatmix70-s1, tuckfloor0-s1). Judged jointly with tuckexempt0 per its own pre-registered gate.
 
