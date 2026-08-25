@@ -4096,7 +4096,46 @@ class SimHexapodBalanceEnv(_GymBase):
                     _bc_min_h = float(cfg_get(
                         self.cfg, "train", "bc_anchor_min_h_ahead_mm",
                         default=0.0))
-                    if _bc_min_h > 0.0 and "h" in _bc_ref:
+                    # TUCK-EXEMPT floor (08-25, tuckfloor0 FAIL-MECH
+                    # follow-up): the mesh-native scripted rise ref's
+                    # tuck segment (ticks 0..ramp_i0) is height-flat by
+                    # design (belly carries the mass while feet sweep
+                    # to the plant footprint), so the floor above
+                    # always jumps a flat/tuck-matched state straight
+                    # to the press phase, skipping tuck supervision
+                    # entirely (measured: flatmix70/-s1, 0/12 flat
+                    # valid, 2.64A never-tucks press-up). Turning the
+                    # floor off everywhere (tuckfloor0/-s1) does not
+                    # recover the tuck either — it collapses BOTH flat
+                    # AND previously-clean bridge/crouch/rsi starts
+                    # into a NEW all-six-leg duty_cycle=0 total freeze
+                    # (measured: both seeds' flat probe 0/12 valid,
+                    # zero over_current, zero swings, height_err stuck
+                    # 79-86mm; standard DR-0 gate collapsed to 0/6+0/6
+                    # from meshref's 5/6+4/6, with new freezes mixed
+                    # into the surviving 2.64A pins) — the floor's
+                    # press-phase anti-stall role (its ORIGINAL 08-12
+                    # purpose) was load-bearing and got thrown out with
+                    # its flat-segment defect. When
+                    # train.bc_anchor_min_h_tuck_exempt_i0 > 0, gate the
+                    # floor on the matched index already being at/past
+                    # the reference's OWN tuck/press boundary
+                    # (``ref["ramp_i0"]``, a fixed property of the
+                    # reference file, not the episode clock): the tuck
+                    # segment gets pure time-lookahead pursuit (genuine
+                    # tuck supervision, no skip-ahead), and the press
+                    # segment keeps the exact legacy anti-freeze floor.
+                    # Default 0 = legacy (floor active whenever
+                    # min_h_ahead_mm > 0, regardless of segment) —
+                    # bit-exact unchanged.
+                    _bc_tuck_exempt = float(cfg_get(
+                        self.cfg, "train",
+                        "bc_anchor_min_h_tuck_exempt_i0", default=0.0))
+                    _bc_floor_active = _bc_min_h > 0.0 and "h" in _bc_ref
+                    if (_bc_floor_active and _bc_tuck_exempt > 0.0
+                            and _bc_j < int(_bc_ref["ramp_i0"])):
+                        _bc_floor_active = False
+                    if _bc_floor_active:
                         _bc_hnow = float(self.data.xpos[
                             self._chassis_bid, 2]) - self._z0
                         _bc_ks = np.flatnonzero(
