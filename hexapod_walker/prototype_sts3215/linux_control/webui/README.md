@@ -154,16 +154,21 @@ keyframe stand-up and dance around the standing pose at τ900.
 **Stand up / Lower** → smart standard motion outside the Experiments page:
 standing Stand adjusts to the sim walk-ready stance, not-standing Stand safe-zeros then
 STEP-ups, standing Lower STEP-downs, not-standing Lower safe-zeros ·
-**Drive — hold keys**: **Start driving** → `POST /api/rl/drive/start`,
-then arrow keys / WASD (or the on-screen pad, pointerdown/up) stream
-`POST /api/rl/drive/cmd {vx, vy}` heartbeats at 5 Hz while the session
-is active — held key = walk that way, released = the robot decels and
-holds (the robot treats a heartbeat older than 0.6 s as "keys
-released", so a dead tab stops it). **End session** →
+**Drive — keys / joystick**: **Start driving** is optional; holding arrow
+keys / WASD, pressing the on-screen pad, or moving a browser Gamepad API
+controller left stick starts `POST /api/rl/drive/start` automatically.
+Left stick streams analog `{vx, vy}` and right-stick X streams `{wz}`;
+keys/pad stream full-speed commands. While active the browser posts
+`POST /api/rl/drive/cmd {vx, vy, wz}` heartbeats at 5 Hz — held input =
+walk that way, released = the robot decels and holds (the robot treats a
+heartbeat older than 0.6 s as "keys released", so a dead tab stops it).
+**End session** →
 `POST /api/rl/drive/stop` (decel + hold). Keys only act on this tab
 (the Drive tab's own key loop owns WASD there); leaving the tab or
-window blur releases everything. A page reload reconnects to a live
-session and resumes heartbeats. · **Timed walk** (details block) →
+window blur releases everything. A joystick must return to center before
+it can auto-start again after stop/lower/refused-start. A page reload
+reconnects to a live session and resumes heartbeats. · **Timed walk**
+(details block) →
 `POST /api/rl/walk {vx, vy, duration_s}` · **Model roles** selects →
 `GET/POST /api/rl/roles` (which policy file serves walk / hold /
 stand / lower; no motion) · **Stand up** → STEP stand-up into the sim

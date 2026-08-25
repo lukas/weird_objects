@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=driveux1">
+<link rel="stylesheet" href="/style.css?v=joyrl1">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -477,9 +477,9 @@ legs can reach instead of clipping it.">
         <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
-      <h2 style="margin-top:16px" title="Hold arrow keys, WASD, or the pad. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — hold keys</h2>
+      <h2 style="margin-top:16px" title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
       <div class="btns" style="margin-top:10px">
-        <button id="rldrivestart" class="on" title="Optional pre-arm from the sim walk-ready stance. Direction keys or pad buttons also start driving automatically.">▶ Start driving</button>
+        <button id="rldrivestart" class="on" title="Optional pre-arm from the sim walk-ready stance. Direction keys, pad buttons, or joystick movement also start driving automatically.">▶ Start driving</button>
         <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
         <label class="hint">speed
           <select id="rlwalkspeed">
@@ -489,7 +489,10 @@ legs can reach instead of clipping it.">
           </select></label>
       </div>
       <div class="hint" id="rldrivestatus" style="margin-top:8px">No
-        session — hold a direction to start. Q/E turn.</div>
+        session — hold a direction or move the joystick to start. Q/E turn.</div>
+      <div class="hint" id="rlgpstatus" style="margin-top:6px">Joystick:
+        press a controller button to connect. Left stick walks; right stick
+        turns.</div>
       <div id="rldrivepad" style="margin-top:10px;display:grid;
                   grid-template-columns:repeat(3,minmax(72px,1fr));
                   gap:6px;max-width:280px">
@@ -851,6 +854,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=driveux1"></script>
+  <script src="/app.js?v=joyrl1"></script>
 </body>
 </html>
