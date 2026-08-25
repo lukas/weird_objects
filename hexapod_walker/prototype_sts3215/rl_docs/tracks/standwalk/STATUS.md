@@ -1,6 +1,69 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~23:0x (**FLAT-START RISE SOLVED on seed 0 —
+Last updated: 2026-08-25 ~23:1x (**BOTH REGISTERED JOINT CALLS CLOSED
+— (1) ACQ8M JOINT PASS: flat-start mesh rise SOLVED CROSS-SEED, recipe
+promoted, stancemix port pair launched; (2) RUNG-2 JOINT PASS: full
+[-40,20]mm height range clean cross-seed, rung-3 kind-mix pair
+launched.** This cycle verdicted the two seed-1 twins and executed
+both joint calls the ~23:0x seed-0 cycle delegated:
+
+1. `tuckclock-acq8m-s1` (8M, seed 1) **ACQUISITION PASS** + **JOINT
+   CALL: JOINT PASS.** Seed-1 flat-pinned probe (run on train-1)
+   12/12 valid_plant, h_err_end 0.9-4.4mm, zero terms, roll_tail
+   <=0.1° — the 2M flailing-fall mode (11/12 fell) fully resolved by
+   budget; combined with seed-0's own 12/12 the pair lands 24/24 on
+   the primary criterion. Non-flat gate 4/6+4/6 vs parent 5/6+4/6:
+   sto parent-identical (2 rsi OC fells); det includes the lineage's
+   FIRST flat gate pass; only slip = bridge det (one OC fell + one
+   footprint-only miss that planted all six feet, success=True) —
+   judged small-n noise, not a class regression. **PROMOTION
+   EXECUTED:** `train.bc_anchor_flat_time_indexed=1` +
+   `rise_ref_mesh_scripted.npz` is THE mesh rise recipe. **Stancemix
+   port launched** as the registered on-PASS move:
+   `cw-standwalk-stance-mesh2-stancemix-tuckclock1`/`-s1` (train-4/5,
+   VERIFIED RUNNING, 2M canary pair) — exact `slowchain` respec with
+   ONLY the two recipe keys changed (slowchain already carries the
+   0.25s/8mm/foot_z/stratified chain and its FAIL diagnostic blamed
+   precisely the primitive ref's torque-infeasible flat posture),
+   warm from `stancemix_bcchain3_stdanneal`, std pinned -4 per the
+   slowchain precedent (noise re-injection previously exonerated).
+   Gate: flat probe genuine non-freeze tuck both seeds + hold
+   >=5/6+5/6 zero-term + lower >=5/6 honest -> fund 8M; freeze/pin or
+   hold/lower regression -> next lever is re-opened std, not budget.
+   Rise residuals for later hardening: presses ride the current pin
+   (2.37-2.64A) without tripping; bridge/rsi OC tail (parent-shared);
+   own-DR (s0 10/12, s1 5/6+4/6); det leg-idx2 micro-swing asymmetry
+   at no stability cost. SKILLS.md row added (seed-1 scoped).
+
+2. `holdheight-rung2-hha1-s1` (2M canary, seed 1) **CANARY PASS** +
+   **RUNG-2 JOINT CALL: PASS, PROCEED.** Seed-1: DR-0 12/12
+   valid_plant, ZERO min-load terms, h_err_end 0.2-3.2mm, det duty
+   1.0 all legs, det cur_max 0.62-0.76A (inside the rung-1 band);
+   trace residual 1/6 sto ep at duty 0.89 — smaller than seed-0's 2/6
+   at 0.87/0.89; cross-rung the cheat magnitude SHRANK (rung-1 s1:
+   6/12 terms, floor 0.57). FALLBACK RULING (assume-and-go, in the
+   verdict): the S-gate/min-load-pricing fallback does NOT fire on
+   shrinking zero-term trace dips; instead **rung-3 carries a
+   registered TRIPWIRE** — any per-leg duty <0.85 OR any
+   hold_min_load term at DR-0 in either seed fires it immediately.
+   **Rung-3 pair launched:** `holdheight-rung3-hha1`/`-s1`
+   (train-2/3, VERIFIED RUNNING, 2M each) — full kind mix
+   `["hold","ramp","sine","pulse"]` at 15mm/s (pure cfg sweep, all
+   four kinds already in goal_task.py), warm from the rung-2 SEED-1
+   ckpt (cleaner of the pair), gate = rung-2 gate + tripwire, joint
+   pair. Own-DR hardening stays open (one det min-load term per seed
+   at rung-2, better than rung-1's 2/6).
+
+Fleet: 4 launches this cycle (cap), 4 pods busy training
+(train-2/3/4/5), watcher owns their checkups. Next decision points:
+rung-3 joint read (tripwire!), stancemix-tuckclock joint read (fund
+8M vs re-open std), then STAND_HEIGHT rungs 4-5 unblock via the now-
+solved rise. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+holdheight_rung2_hha1_s1_{gate,owncfg}/`, `..._riseonly_bcchain3_
+meshref_tuckclock_acq8m_s1_{gate,owncfg,flatprobe}/`, W&B `o8aq5c1a`
+/ `xmkbyuuq`.)
+
+Prior entry: 2026-08-25 ~23:0x (**FLAT-START RISE SOLVED on seed 0 —
 `tuckclock-acq8m` PASS: the campaign-wide flat-start blocker is
 broken. Plus rung-2 height-elevator seed 0 PASS with a trace caveat.**
 This cycle verdicted its two assigned seed-0 runs; BOTH registered
