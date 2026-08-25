@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~08:0x (**Full diagnostic wave (7 arms) now
+Last updated: 2026-08-25 ~08:2x (**ADDENDUM to the ~08:0x synthesis
+below — corrections + the last wave arm verdicted + rung-3 is a
+3-arm batch, not one run.** (a) CORRECTION: `holdload1min` is
+FROM-SCRATCH (respec of holdonly1's recipe + the load-min gate), not
+a warm-start; the warm-start question is its own arm. The full rung-3
+batch launched 08-25 ~08:0x-08:2x: `cw-standwalk-stance-mesh2-
+holdload1min` (scratch seed 0, 6M, train-0 — already FINISHED at
+~08:15, next cycle triages), `-holdload1min-s1` (scratch seed 1, 6M,
+train-1), `-holdload1min-warm` (WARM from the holdonly1 stilt
+checkpoint, 4M, train-4 — tests whether repricing deforms the
+already-balanced stilt into a six-foot plant, vs acq1's
+no-repricing continuation which destabilized it). All gated on hold
+panel DR-0 det+sto n=12: >=10/12 survive, zero OC/tilt, six-foot
+stance, cur_p95<=1.0A. (b) Pricing-probe backing (this cycle,
+`logs/probe_stance_pricing_holdload.json`; probe gained a `loadX[min]`
+token): under the launch dose + load-min gate, honest six-foot hold
+keeps EXACTLY 1471.6/ep while the actual holdonly1 stilt policy drops
++511 -> -94.5 (product variant -77.3) — stilt strictly unprofitable,
+honest untouched. (c) Last diagnostic arm `cur1-reftrack10` VERDICTED
+FAIL (eval run manually — watcher prestage skipped it): k=10 at 2M
+buys a FLAG-LEG FREEZE basin (det hold/lower ZERO terminations both
+DRs — the only full-mix arm that doesn't fall — but hold ok 0/6,
+one front foot aloft, rise still 5-6/6 terms, sto collapses).
+CAVEAT for future reads: lower det scored 4/6 "ok" on the height
+clause while the video shows the same frozen flag stance — the lower
+ok criterion is lenient to flag-leg freezes; require the plant/duty
+clause too. With refgain15 (k=15, 20M) FAIL, the ref-gain lever is
+closed at all doses. (d) NOTE: `riseonly1-acq1` (continuation of
+riseonly1, +budget) was launched by a concurrent cycle whose read of
+riseonly1's video ("clean rise, only OC terminations") disagrees with
+the recorded FAIL verdict (sprawled press-up); its own 10M panel will
+adjudicate — owner triages it, do not double-verdict.)
+
+Previous entry: 2026-08-25 ~08:0x (**Full diagnostic wave (7 arms) now
 CLOSED — pricing is exonerated, the multi-task goal-mix is the
 blocker; rung-3 (bank-checked `hold_feet_load` income gate, min-over-
 feet variant) already launched off the fresh conclusion.** Plain

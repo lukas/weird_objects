@@ -1,6 +1,50 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~06:4x (**Effort/torque/drag pricing for the
+Last updated: 2026-08-25 ~08:2x (**`movecur1-acq1r2` (hist64 MLP,
+charge alone) FAIL at 38M: the current-dwell charge does NOT dislodge
+the mesh-family locked-leg-tripod exploit.** Plain English: the
+current-charge continuation of the movecur1 trio to matched
+40M-step budget (the sibling that trains the plain MLP/hist64
+architecture with `k_walk_move_current=2.0` and nothing else) is now
+read, and it converges to the IDENTICAL pinned-current failure as the
+uncharged `acq1`/`tf64-mesh-acq1` references it was built to fix, not
+a reduced one. Own-cfg DR-0 gate: 24/24 real terminations, ALL
+`term_reason=over_current`, `cur_max_a` pinned bit-exactly at 2.64A on
+every episode (walk det+sto, walk_startjitter det+sto) — matches the
+references' pinned 2.64-2.70A signature exactly. Held-out 60s joygate:
+40/48 falls (24/24 at dr0 alone), gait_valid_frac 0.5625, slip/m 3.64
+(cap 2.9) — comparable to or worse than `gaitgate-scratch1`'s 39/48
+and `tf64-mesh-acq1`'s 38/48, not an improvement. `walkcurr/frontier`
+and `walkcurr/promotions` stayed pinned at 0 through all 76 cert
+rounds to 38M steps. Video (contact sheet + `walk_det_1.mp4`): the
+same wide-splayed rigid stance rearing nose-up onto stiff planted legs
+before toppling — the converged pathology, not the generic early-
+valley look. Why the earlier 2M `PARTIAL` hedge was wrong to extend on
+faith: the in-training `env/max_current_a` scalar looked lower
+(~2.16-2.24A through most of the run) than the reference's pinned
+value, which read as the charge "having a chance to bind" — but that
+metric is an env-averaged in-training sample, not the deterministic
+eval's actual peak; at eval time the frozen policy still finds and
+holds the same 2.64A clamp exploit every single episode. **CLOSES
+`k_walk_move_current=2.0` alone on the plain MLP/hist64 architecture**
+— do not fund further same-dose continuations on this exact arm. Two
+sibling reads still pending for the joint movecur1-lever call:
+`gaitgate-acq1r3` (charge + `reward.walk_gait_gate` combo — already a
+closed lever solo, per the `gaitgate-scratch1` FAIL, but untested
+stacked with a current charge) and `cw-arch-tf64-mesh-...-movecur1-
+acq1` (transformer replicate, same dose — answers whether architecture
+changes the outcome). If both also converge to the same pinned-2.64A/
+frontier-stuck-at-b0 signature, `k_walk_move_current` as a mechanism
+class is closed across every combination tried, and the next lever
+for THIS specific over_current/leg-sacrifice exploit needs to be
+either a harder per-leg current-clamp/curriculum mechanism or
+deferred to the `standwalk` track's mesh stance-retrain + teacher
+distillation (already in flight, unrelated ownership) the same way
+the walk-champion posture-pricing dig-in already deferred there.
+Evidence: `logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_
+movecur1_acq1r2_{gate,joygate}/`, W&B `t1l9bxzr`.)
+
+Previous entry (2026-08-25 ~06:4x (**Effort/torque/drag pricing for the
 crouch fix is REFUTED, 3/3 arms, monotonically WORSE with more
 pricing pressure -- posture-fix-by-reward-shaping CLOSED on this
 lineage.** Plain English: the operator's 08-24 kick asked for a

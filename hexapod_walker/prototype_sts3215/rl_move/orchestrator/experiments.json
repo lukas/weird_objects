@@ -178942,7 +178942,7 @@
       "rl_move/sim/policies/ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1.zip"
     ],
     "created": "2026-08-25T06:14:35+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -178989,7 +178989,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-acq1r2 since 2026-08-25T08:08:57"
+    "triage": "done",
+    "verdict": "Result: FAIL -- the k_walk_move_current=2.0 current-dwell charge (MLP/hist64 architecture, charge alone) does NOT fix the mesh-family locked-leg-tripod over_current exploit at the same 40M-step budget the uncharged acq1/tf64-mesh-acq1 references got. Evidence: own-cfg DR-0 gate is 24/24 real terminations, ALL term_reason=over_current, Imax pinned bit-exactly at 2.64A on every single episode (walk det+sto, walk_startjitter det+sto) -- the IDENTICAL pinned-current signature as the uncharged references (2.64-2.70A, over_current every episode), not a reduced or shifted one. Held-out 60s joygate: 40/48 falls (24/24 at dr0, 16/24 at dr0p5), gait_valid_frac 0.5625, slip/m 3.64 (cap 2.9), dir_err 50.9deg (allow 40) -- comparable to or worse than the uncharged gaitgate-scratch1 (39/48) and tf64-mesh-acq1 (38/48) references, not an improvement. walkcurr/frontier + walkcurr/promotions stayed pinned at 0 through all 76 cert rounds to 38M steps (b0_bridge cmd_prog_frac only 0.48), i.e. no forward-progress unlock either. Video (contact sheet, walk_det_1.mp4) shows the same wide-splayed rigid stance rearing nose-up onto stiff planted legs before toppling, matching the reference pathology exactly -- not the generic early-valley look, a converged failure mode. Why: the training-time env/max_current_a scalar looked lower than the reference (~2.16-2.24A through most of training) which is why the earlier 2M PARTIAL read hedged, but that metric is an env-averaged in-training sample, not the deterministic eval's actual peak -- at eval time the frozen policy still finds and holds the same 2.64A current-clamp exploit every single episode. This is the pre-registered FAIL branch verbatim (over_current/Imax converge to the SAME locked-leg-tripod signature). What's next: k_walk_move_current=2.0 alone (this architecture) is CLOSED -- do not fund further same-dose continuations on the hist64-MLP arm. The joint call on the movecur1 lever as a whole still needs the two sibling reads (gaitgate-acq1r3: charge+walk_gait_gate combo; tf64-mesh-movecur1-acq1: transformer replicate, same dose) before deciding whether ANY movecur1 variant helps or the whole lever is closed pending a different mechanism (e.g. a harder per-leg current-clamp curriculum, or deferring to the standwalk mesh stance-retrain teacher route the walk-champion posture-pricing dig-in already pointed at)."
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate-acq1r3",
@@ -179820,7 +179821,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:05:39+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -179860,7 +179861,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "9.84781\nwandb:     env/height_ref_mm 2.96018\nwandb:  env/hold_feet_factor 0.62429\nwandb: env/hold_still_factor 0.95892\nwandb:     env/max_current_a 1.90829\nwandb:    env/mean_current_a 0.46116\nwandb:   env/pct_within_1deg 0.14429\nwandb:                   +84 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-cur1-reftrack10 at: https://wandb.ai/l2k2/hexapod-balance/runs/fhk6ir7p\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_070659-fhk6ir7p/logs\n"
       }
-    ]
+    ],
+    "verdict": "Dose answer: k_rise_ref_track=10 does not fix the full-mix recipe, but it lands in a DIFFERENT basin than cur1's topple \u2014 the policy survives det hold and lower with ZERO terminations (both DR-0 and own-DR) by FREEZING in a five-leg stance with one front leg flagged aloft (video), while rise still terminates 5-6/6 and every sto panel collapses (hold sto 5/6 terms). hold ok=0/6 despite the survival (invalid stance), and NOTE: lower det scores 4/6 ok on the height criterion while the video shows the same frozen flag stance \u2014 the lower ok clause is lenient to a flag-leg freeze and should not be trusted alone. Read with refgain15 (k=15, 20M, 0/36 total collapse): more ref-gain is NOT the lever at any dose; at 2M it merely buys a freeze-and-survive local optimum that 20M optimization destroys. Diagnostic wave complete; rung-3 (hold-first + measured-load hold income) already in flight. Eval was run manually this cycle (watcher prestage skipped this run).",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-curonly",
@@ -180922,7 +180925,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly1-acq1 --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly1_acq1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly1: Plain English: riseonly1 (2M, rise=1.0 goal-mix, cur1 pricing) already learns a genuinely clean rise motion (video: smooth push-up to a level plant, not the full-mix'\"'\"'s rearing/splay pathology) but every det episode still trips over_current holding the final pose (cur_p95 2.5-2.65A, right at the actuator ceiling) -- this is the SAME '\"'\"'reward still declining, task partially right'\"'\"' shape as the holdonly1->holdonly1-acq1 continuation that already worked (hold survival rose 0.5@1M->6/6@2M while return fell only via accumulating hot charges). This arm continues riseonly1 +8M (10M total) testing whether budget alone teaches a lower-torque way to hold the risen pose instead of fighting gravity at the ceiling. Prediction-if-true: rise panel starts landing zero-over_current valid plants (>=4/6 det) by 10M, cur_p95 drops off the 2.5-2.65A ceiling toward the honest sub-1A band. Prediction-if-false: still pinned at the current ceiling with 0/6 valid plants at 10M -- budget is not the lever for rise; escalate to a mesh-specific torque/effort shaping term or a current-threshold recalibration (the ceiling may be reachable-but-tight for ANY good-faith full-weight stance on the 3.5kg body, not just a bad gait).' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_riseonly1.zip > /tmp/train_cw-standwalk-stance-mesh2-riseonly1-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly1-acq1.log",
     "wandb_id": "fbdij62l",
-    "verified": "2026-08-25T08:12:13+00:00"
+    "verified": "2026-08-25T08:12:13+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T08:17:26+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 13432,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdload1min-warm",
@@ -181113,7 +181128,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdload1min.zip"
     ],
     "created": "2026-08-25T08:15:00+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -181125,7 +181140,19 @@
       "code_sha_local": "ee08edb449458e1ab4593a317242b6be3f22070f",
       "code_sha_pod": "ee08edb449458e1ab4593a317242b6be3f22070f",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "55138",
+      "log_growth_bytes": [
+        15624,
+        29250
+      ],
+      "wandb_id": "eagwo962",
+      "trainer_pid": "55138",
+      "global_step_window": [
+        1507328,
+        2162688
+      ],
+      "fps_estimate": 21845.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -181133,6 +181160,112 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "holdonly1 checkpoint balances 6/6 DR-0 det hold (mesh-family parent, no family mismatch); probe shows its stilt earns -94.5/ep under the load-min gate vs honest 1471.6 -- the repriced gradient points 'put the other three feet down'",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdload1min-warm --steps 4000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdload1min_warm --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdload1min: Does repricing rescue the ALREADY-balanced stilt? Warm-start from holdonly1'\"'\"'s checkpoint (survives 15s but on three feet) with the load-min hold-income gate ON. holdonly1-acq1 showed continuing WITHOUT repricing destabilizes the stilt into tilt_pitch collapse (0/24); this arm tests whether the load gate instead deforms it into a six-foot plant, which would be far cheaper than from-scratch. Prediction-if-true: six-foot hold within 4M, faster than the scratch pair. Prediction-if-false: same acq1-style destabilization (tilt collapse, declining reward, eval 0/12) -- the stilt is a knife-edge that cannot be locally deformed to a plant; rely on the scratch arms. Strongest alternative: it sheds load partially and parks on the s_i on-ramp -- watch hold_load_factor.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdload1min.zip > /tmp/train_cw-standwalk-stance-mesh2-holdload1min-warm.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-standwalk-stance-mesh2-holdload1min-warm.log"
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-holdload1min-warm.log",
+    "wandb_id": "eagwo962",
+    "verified": "2026-08-25T08:18:42+00:00"
+  },
+  {
+    "run": "cw-standwalk-stance-mesh2-loweronly1-acq1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 8000000,
+    "smoke": false,
+    "hypothesis": "Plain English: loweronly1 (2M, lower=1.0 goal-mix, cur1 pricing) hasn't converged: det episodes hold a too-tall stance and trip current, but several sto episodes already get close (near-target height, no termination) at just 2M -- suggesting the policy is on the way to a working low-current descent, not stuck in a pathological basin (video shows a genuine standing posture, not the full-mix's rearing/splay). This arm continues loweronly1 +8M (10M total) testing whether budget alone lets it commit to the actual lower target instead of parking tall. Prediction-if-true: lower panel starts landing zero-over_current valid plants (>=4/6 det) by 10M. Prediction-if-false: still pinned tall/hot at 10M -- budget is not the lever; escalate to goal.lower_height_mm mesh recalibration or a torque/effort shaping term, per the pre-registered fallback fork in STATUS.md.",
+    "gate": "Acquisition read at 10M total: pod_eval lower panel DR-0+own-DR(0.2) det+sto n=6+6. PASS: >=4/6 det AND >=4/6 sto reach valid plant (posture-strict, no over_current/tilt term) AND cur_p95<=1.5A on passing episodes. FAIL: still pinned at the current ceiling with 0/6 or 1/6 valid plants -- budget is not the lever, next fork is goal.lower_height_mm recalibration or torque/effort pricing.",
+    "parent": "cw-standwalk-stance-mesh2-loweronly1",
+    "track": "standwalk",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.005",
+      "--log-std-init",
+      "0",
+      "--goal-mix",
+      "hold=0.0,rise=0.0,lower=1.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_standwalk_stance_mesh2_loweronly1_acq1",
+      "--cfg-set",
+      "actions.max_height_mm=88",
+      "--cfg-set",
+      "goal.rise_height_mm=[79,87]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "goal.rise_rsi_frac=0.5",
+      "--cfg-set",
+      "goal.rise_hold_min_s=0.5",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_score_strip_pen=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.hold_still_gate=1.0",
+      "--cfg-set",
+      "reward.hold_flag_fade=1.0",
+      "--notes",
+      "respec of cw-standwalk-stance-mesh2-loweronly1: Plain English: loweronly1 (2M, lower=1.0 goal-mix, cur1 pricing) hasn't converged: det episodes hold a too-tall stance and trip current, but several sto episodes already get close (near-target height, no termination) at just 2M -- suggesting the policy is on the way to a working low-current descent, not stuck in a pathological basin (video shows a genuine standing posture, not the full-mix's rearing/splay). This arm continues loweronly1 +8M (10M total) testing whether budget alone lets it commit to the actual lower target instead of parking tall. Prediction-if-true: lower panel starts landing zero-over_current valid plants (>=4/6 det) by 10M. Prediction-if-false: still pinned tall/hot at 10M -- budget is not the lever; escalate to goal.lower_height_mm mesh recalibration or a torque/effort shaping term, per the pre-registered fallback fork in STATUS.md.",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "reward.k_current_hot=1.0",
+      "--cfg-set",
+      "reward.current_hot_a=2.0",
+      "--cfg-set",
+      "reward.term_cost_per_remaining_s=3.0",
+      "--cfg-set",
+      "reward.term_cost_max=60.0",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_loweronly1.zip"
+    ],
+    "created": "2026-08-25T08:18:14+00:00",
+    "status": "INTENT",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 4,
+      "code_sha_local": "9156a9a1469ee5b3659d18b37b3671f532e2581b",
+      "code_sha_pod": "9156a9a1469ee5b3659d18b37b3671f532e2581b",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "loweronly1 2M discovery canary: det always pins at the current ceiling (cur_p95 2.55-2.65A, over_current 6/6) while it stands TALL instead of lowering (height_err 17-39mm); sto is noisier and shows 1/6 clean success + several non-terminated near-target episodes (cur_p95 2.2-2.4A) -- reward still declining not flat at 2M (7.1/-40.1/-147.5/-184.3), same shape as holdonly1's justified continuation.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-loweronly1-acq1 --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=0.0,lower=1.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_loweronly1_acq1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-loweronly1: Plain English: loweronly1 (2M, lower=1.0 goal-mix, cur1 pricing) hasn'\"'\"'t converged: det episodes hold a too-tall stance and trip current, but several sto episodes already get close (near-target height, no termination) at just 2M -- suggesting the policy is on the way to a working low-current descent, not stuck in a pathological basin (video shows a genuine standing posture, not the full-mix'\"'\"'s rearing/splay). This arm continues loweronly1 +8M (10M total) testing whether budget alone lets it commit to the actual lower target instead of parking tall. Prediction-if-true: lower panel starts landing zero-over_current valid plants (>=4/6 det) by 10M. Prediction-if-false: still pinned tall/hot at 10M -- budget is not the lever; escalate to goal.lower_height_mm mesh recalibration or a torque/effort shaping term, per the pre-registered fallback fork in STATUS.md.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_loweronly1.zip > /tmp/train_cw-standwalk-stance-mesh2-loweronly1-acq1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-loweronly1-acq1.log"
   }
 ]
