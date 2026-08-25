@@ -1,6 +1,356 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
+Last updated: 2026-08-25 ~17:4x (**RUNG-9 8M GRID, 2 OF 3 SEEDS READ:
+neither beats the strict PASS bar; seed-0 nudged, seed-1 exactly
+plateaued.** `meshref-8m-s1` (this cycle) PARTIAL — DR-0 gate det 5/6
++ sto 4/6 valid_plant, IDENTICAL counts to its own 2M canary, with
+over_current 3/12 landing on the SAME start-kind set the canary named
+(1 det:flat + 2 sto:rsi) — 4x the budget moved nothing for this seed.
+Worse, 2 of the 5 valid det episodes (both bridge starts) run
+cur_p95 2.27A/1.97A, over the gate's <=1.5A-on-every-valid-episode
+clause, so this seed clears neither PASS nor even PARTIAL's own
+"beats canary" bar in isolation. own-DR(0.2) det 3/6 + sto 6/6.
+Video: flat/rsi deep starts genuinely tuck and lift toward a
+splayed-but-planted stand before tripping current mid-hold — the
+same qualitative story as every rung-8/9 sibling, not a freeze.
+Training reward is strongly rising (quarters -18/-167/+340/+1041,
+ep_rew_mean 1515) — per the 08-21 ruling this doesn't disqualify the
+run, but paired with a flat-vs-canary eval it does NOT read as
+"needs more budget" either; the residue looks like a hard floor for
+this seed's init. `meshref-acq8m` (seed 0, concurrent-cycle read,
+RL_LOG 17:34) instead nudged: det 5/6 + sto 5/6, oc 2/12 (<canary's
+3/12) — not yet reflected in this file's own entries, folded in here
+for the joint read. `meshref-8m-s2` (seed 2) still training — the
+grid's own ">=2/3 seeds at the strict bar" call needs it; do not
+close the grid on 2/3 reads, especially with the two available reads
+disagreeing on direction (nudge vs. plateau). If s2 also
+plateaus/regresses, the grid's own FAIL branch fires: budget is
+refuted for the flat-start tuck residue, next lever is a targeted
+tuck mechanism (start-mix weighting toward flat, or tuck-phase anchor
+dose), not more budget. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_8m_s1_{gate,owncfg}/`,
+W&B `q5fttoat`.)
+
+Prior entry: 2026-08-25 ~17:3x (LEDGER CORRECTION, no science change:
+the cycle that launched `-acq8m` briefly mis-marked it DEAD -
+INFRASTRUCTURE (misread its ~8-min budget-complete exit as a launch-
+race kill) and relaunched a verbatim duplicate `-acq8m-r1` on
+train-4. Both errors reverted within minutes of the entry below
+landing: `-acq8m` restored to RUNNING/unverdicted (it FINISHED clean
+at 8,060,928 steps, W&B 08k9lmkm synced 17:15 — it IS the 8M grid's
+seed-0, triage belongs to its fan-out cycle), `-acq8m-r1` killed ~5
+min in and verdicted KILLED - DUPLICATE (no information lost; same
+spec+seed as the completed acq8m). Net fleet state is exactly the
+entry below: 8M grid = acq8m(s0, done)/-8m-s1/-8m-s2 + fullpace2
+pair, nothing else standwalk-running.)
+
+Prior entry: 2026-08-25 ~17:2x (**pace-redose canary pair recovered
+and running.** The `-fullpace` launch was an infra dud (respec omitted
+the two pace overrides → exact meshref-s0 duplicate, killed ~2 min in,
+verdicted CANARY FAIL-INFRA by the launching cycle) and its claimed
+relaunch `-fullpace2` NEVER actually landed — no ledger entry, W&B
+run, or process existed, only the pre-launch snapshot commit. This
+cycle relaunched it for real: `-fullpace2` (train-0, W&B 3kgxqusz) +
+seed twin `-fullpace2-s1` (train-1), both VERIFIED RUNNING with
+`bc_anchor_lookahead_s=0.5` / `min_h_ahead_mm=15` confirmed present
+in the ledger commands; 2M canaries judged jointly as a pass-rate vs
+the meshref s0/s1 pair (PASS = det>=5/6 + sto>=4/6, no episode
+>2.25A, oc terms <=3/12 → full pace preferred, one less knob).
+Also: watcher SUSPECT on `-acq8m` was a FALSE ALARM — clean
+budget-complete exit at 8,060,928 steps, W&B synced 17:15
+(08k9lmkm); `-8m` likewise finished clean at 8.06M @17:14 (its 17:19
+duplicate-kill verdict predates the finish taking effect — treat
+acq8m as the grid's seed-0). Triage of both belongs to their fan-out
+cycles.)
+
+Prior entry: 2026-08-25 ~17:0x (**RUNG-9 CANARY PAIR: CANARY PASS,
+PARTIAL-strong — the mesh-native scripted rise reference IS the
+lever the whole rung-8 dose grid was missing.** Both seeds
+(`meshref`/`meshref-s1`, 2M, exact slowchain recipe with only
+`reward.rise_ref_path` swapped to `rise_ref_mesh_scripted.npz`)
+replicate each other almost exactly on the DR-0 rise gate: det 5/6 +
+sto 4/6 valid_plant vs parent slowchain's 3/6+2/6; valid-episode
+cur_p95 median 1.36A (s0) / 1.19A (s1) vs slowchain's 1.85A
+bridge-press; deep starts (bridge/rsi) rise cleanly on video
+(sprawl → six-feet plant → full stand, tilt<2°, h_err_end 3-9mm).
+Missed the strict PASS bar only on the zero-over_current clause:
+3/12 terms per seed — the flat-prone det/0 start plus 2 rsi-sto
+episodes, where a splayed FRONT leg never tucks under the body and
+the press against the extended lever arm pins 2.64A MID-RISE
+(h_err_end 16-38mm — qualitatively different from slowchain's
+freezes at 76-79mm/0.3A). Reward-quarter swings (12→-382) match
+slowchain's own shape; recipe-normal, not collapse. FUNDED per the
+canary's own promotion clause: 3-seed 8M acquisition grid — seed 0 =
+`meshref-acq8m` (launched 17:01 by the concurrent cycle in a
+triage-overlap race; both cycles independently reached the same
+CANARY PASS read and funded the same promotion, and this cycle's own
+seed-0 copy `meshref-8m` was KILLED as an exact duplicate) + seeds
+1/2 = `meshref-8m-s1`/`-8m-s2` (this cycle) — exact recipe, only
+budget changes; the 2M canary had already annealed std to 0.018, so
+the 8M schedule's slower anneal is the exploration that could
+convert the flat-start tuck. RUNNING train-0/train-3/train-2, judged
+jointly as a pass-rate (grid gate on `meshref-8m-s1`) with a
+pre-registered FAIL route to a targeted tuck mechanism (start-mix
+weighting toward flat, or tuck-phase anchor dose). SKILLS.md deliberately NOT updated: the canary gate forbids
+skill-acquisition claims; the 8m grid's full bar owns that. Once a
+rise recipe passes in isolation, re-run the stancemix mix with the
+mesh ref (per the stancemix FAIL verdict below). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_
+{gate,s1_gate}/`, W&B 5wdood22 / axy001yj.)
+
+Prior entry: 2026-08-25 ~16:5x (2 verdicts, both reinforcing rung-9:
+**anchordose10 CANARY FAIL - MECHANISM** — anchor coef 3.0→10.0 on
+the slowchain recipe is monotonically DOWN (DR-0 valid_plant 2/12 vs
+parent 5/12, over_current 9/12 vs 3/12, all pinned 2.64A;
+bc_anchor_loss_rise ends 0.100 vs the 0.05 plateau — harder
+supervision toward the infeasible flat posture just pins current
+harder; ep_rew quarters 8→-419 as the anchor penalty dominates).
+Dose10 can never be promoted regardless of anchordose6 (other cycle);
+if dose6 also fails to beat 5/12, the anchor-dose axis is CLOSED
+alongside pace/budget. **stancemix-bcchain3-slowchain FAIL** per its
+pre-registered bar — the half-pace lever does NOT fix rise in the
+3-mode mix, but hold/lower transfer perfectly: DR-0 hold det+sto
+12/12 zero terms (cur_p95<=0.87A), lower 12/12 honest descents
+(herr_end<=0.8mm), rise 2/12 with ALL 9 deep starts pinned 2.64A
+(own-DR: hold 11/12, lower 12/12, rise 0/12). KEY DIAGNOSTIC: in-mix
+bc_anchor_loss_rise fell to 0.027-0.035 — BELOW the ~0.05 riseonly
+plateau — and env/rise_score hit 0.56 (riseonly peak ~0.43), yet
+SCORE/raise_success stayed 0.0 for all 8M steps. Tracking capacity is
+not the bottleneck; the borrowed primitive-extracted reference is —
+the closed-loop twin of the rung-9 open-loop command-lag measurement
+below. No further mix funding until a rise recipe passes in isolation
+(meshref pair in flight); then re-run this exact mix. Evidence:
+logs/ckpt_eval/cw_standwalk_stance_mesh2_{riseonly_bcchain3_slowchain
+_anchordose10_gate,stancemix_bcchain3_slowchain_gate,stancemix_
+bcchain3_slowchain_owncfg}/, W&B yei41azm / kza9ep2s.)
+
+Prior entry: 2026-08-25 ~16:5x (**DECOUPLE GRID FULLY CLOSED —
+`-decouple-b` (0.125s lookahead + floor 15mm) landed almost exactly
+on the prior entry's pre-registered prediction, confirming the
+floor-vs-lookahead synthesis with all three arms now read.** DR-0
+gate det 2/6 [bridge1/2 crouch1/1 flat0/1 rsi0/2] + sto 3/6
+[crouch2/2 rsi1/4] valid_plant (5/12 — beats quarterchain's paired
+4/12) with ZERO freeze episodes (quarterchain froze 6/12) — the same
+anti-freeze rescue decouple-c showed at 0.0625s, this time at the
+middle lookahead. Own-DR(0.2) same shape: 5/12 valid (beats
+quarterchain's 3/12), zero freeze (quarterchain 4/12). Cost of the
+rescue, also matching the a/c pattern: over_current terms rise to
+6/12 gate + 7/12 owncfg (quarterchain 1/12 + 5/12) — video confirms
+freeze converts to a genuine-but-hot attempt, not a clean pass (det_0
+flat start presses up to a raised splayed stance before tripping;
+det_5 bridge — usually a clean starter — instead sinks/splays into
+the SAME wall). **Joint read across all three (a FAIL 6/12 @0.25s,
+b PARTIAL 5/12 @0.125s, c PARTIAL 6/12 @0.0625s): floor>=15mm gives a
+flat 5-6/12 valid_plant ceiling REGARDLESS of lookahead length, with
+the identical over_current-at-2.64A wall on rsi/bridge deep starts
+every time — the 2D floor x lookahead pursuit-shaping grid is now
+fully bracketed and CLOSED, no further arm on this axis is worth
+funding.** This independently corroborates rung-9's own open-loop
+measurement (next entry): the blocker is the legacy reference's
+pacing/content, not the anchor's pursuit mechanics. Every named lever
+on rise pursuit-shaping (pace, budget, anchor-dose, floor x lookahead)
+is now exhausted; rung-9's mesh-native scripted reference (already
+built, validated open-loop at 0.53A max, canary pair
+`meshref`/`meshref-s1` training) is the sole remaining live lever.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_
+decouple_b_{gate,owncfg}/`, W&B `z36jhugx`.)
+
+Prior entry: 2026-08-25 ~16:5x (**RUNG-9 BUILT, PROVEN, AND FUNDED:
+a mesh-native scripted rise reference now exists, is torque-feasible
+on the mesh model, and a 2-seed canary pair is training.** New tool
+`rl_move/sim/make_rise_ref_scripted.py` (snapshot 25941468) mints a
+belly→plant reference from geometry alone — NO checkpoint extraction:
+tuck feet to the plant footprint while the belly carries the mass,
+then a symmetric quasi-static Cartesian press via the trusted
+`tripod_gait` FK/IK, then hold; the candidate must survive an
+open-loop replay on the training model with a hard current bar
+(p95<=1.5A) plus held-out-seed robustness before it may be written.
+TWO KEY MEASUREMENTS from its probes: (1) the legacy
+primitive-extracted ref's pacing sits far above the ~31 deg/s servo
+velocity limit — at that pace even a clean symmetric scripted press
+reproduces the 2.64A pin OPEN-LOOP as a pure command-lag convergence
+transient (no policy involved); (2) at quasi-static pacing (tuck 3s /
+press 5s / hold 2.5s) the full belly→plant rise runs at **0.53A max**,
+ends +83mm and 0.8° RMS from plant — so a <=1.5A mesh rise IS
+physically feasible; the task was never torque-blocked, the reference
+content/pacing was the defect. Shipped
+`rl_move/sim/refs/rise_ref_mesh_scripted.npz` (T=526, dt=0.02s,
+ramp_i0=245, validation PASS). FUNDED: 2M canary pair
+`riseonly-bcchain3-meshref` (seed 0) / `-meshref-s1` (seed 1), exact
+slowchain recipe with ONLY `reward.rise_ref_path` swapped, judged
+jointly as a pass-rate — VERIFIED RUNNING train-0/train-1. If both
+FAIL with anchor loss converged, reference content is refuted
+alongside pace/budget/dose and the next suspect is the
+reward/termination pricing itself. Evidence: generator output in this
+entry (reproducible via the command above), snapshot tag
+`exp/cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref`.)
+
+Prior entry: 2026-08-25 ~16:4x (**DECOUPLE GRID READ (a FAIL, c
+PARTIAL): floor-vs-lookahead answered in one wave — floor strength IS
+the independent anti-freeze lever, lookahead is flat once floor
+>=15mm, the contemplated 2D grid is CLOSED as not worth funding, and
+the deep-start over_current wall stands, exactly as the rung-9 entry
+above measured open-loop.** `-decouple-c` (eighthchain's 0.0625s
+lookahead + floor reverted 2->15mm) rescues eighthchain's total
+collapse from 0/6+0/6-with-freezes to det 3/6 + sto 3/6 valid_plant,
+ZERO freeze episodes, including a video-clean bridge-start rise
+(det_1, hend 0.2mm) — decisive PARTIAL per its pre-registered
+criteria. `-decouple-a` (slowchain's 0.25s lookahead + floor 8->15mm)
+is FAIL: 6/12 valid vs slowchain's 5/12 (+1, inside noise) with
+over_current terms DOUBLED (6/12 vs 3/12) — at an already-working
+lookahead more floor only pushes deep starts hotter, mirroring the
+anchor-dose overshoot. Synthesis: floor>=15mm at ANY lookahead lands
+on the same ~6/12 ceiling (a 6/12 @0.25s, c 6/12 @0.0625s); BOTH
+pursuit axes are now bracketed and no further pursuit-shaping arms
+are justified. Every residual failure has the identical signature —
+rsi/bridge deep starts tripping over_current at 2.64A MID-RISE while
+making genuine progress (c det_3 video: legs tuck, body lifts, then
+hot) — invariant across pace x floor x anchor-dose x budget, which
+independently corroborates rung-9's open-loop finding that the legacy
+ref's pacing (not the pursuit shaping) is the defect. `-decouple-b`
+(0.125s + 15mm) still unread at write time; prediction: ~6/12, zero
+freezes — a deviation (esp. >6/12 or freezes) would reopen the axis.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_
+bcchain3_decouple_{a,c}_gate/`, W&B `ahz9mrwq`/`yz8pe501`.)
+
+Prior entry: 2026-08-25 ~16:2x (**ANCHOR-DOSE-UP AXIS CLOSED for rise:
+`-slowchain-anchordose6`/`-anchordose10` BOTH CANARY FAIL - MECHANISM,
+dose-insensitive between 6.0 and 10.0.** Doubling/3.3x-ing the BC-anchor
+coef (3.0->6.0/10.0) off slowchain's own working half-pace does NOT
+extend hold/lower's "more dose helps" precedent to rise — it overshoots
+into a DIFFERENT, worse failure mode than the pace-dose siblings' cold
+stalling: DR-0 gate det 1/6 valid_plant + sto 2/6 + 9/12 over_current
+BOTH doses (slowchain baseline: 3/6 det + 2/6 sto + 3/12 terms); video
+(dose6 rise_det_0) shows a genuinely MORE aggressive rise attempt
+(body visibly lifting/tucking) that then trips hot mid-motion, not a
+frozen splay — raising supervision strength pushes the policy to chase
+the reference harder than the current budget allows, the opposite
+direction from what helped hold/lower at low dose. Both arms' reward
+trajectories overlay almost exactly (quarters ~8/-23/-220/-420) and
+`bc_anchor_loss_rise` ends WORSE (0.098) than the ~0.05-0.06 plateau
+every coef=3.0 sibling reaches — this is a real regime change at the
+3.0->6.0 boundary, not a continued dose-response, so no intermediate
+dose is worth probing. Combined with the pace-dose grid's own
+exhaustion (quarterchain/eighthchain/slowchain-cont8, consolidated
+below) and now this axis, BOTH named levers in every rise-rung gate
+text to date are closed — rung-9 (mesh-native IK rise ref) and the
+decouple-a/b/c floor-vs-lookahead split (launched this same window,
+see entry below) are what's left in flight; a direct posture-reward
+redesign on the flat/bridge/rsi segment remains unbuilt/unfunded.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_
+slowchain_anchordose{6,10}_{gate,owncfg}/`, W&B `r0htou5e`/`yei41azm`.)
+
+Prior entry: 2026-08-25 ~16:2x (**Root-cause decoupling of the pace
+scalar — LAUNCHED, a third parallel lever alongside the anchor-dose
+grid and rung-9.** This cycle's own triage of `eighthchain` (verdicted
+FAIL, matches the consolidated read below) found the mechanism behind
+its total collapse: `sim_env`'s BC-anchor pursuit conflates TWO
+distinct knobs into one "pace" scalar every prior arm moved together
+— `train.bc_anchor_lookahead_s` (how far ahead the target sits once
+IN a genuinely-climbing region = torque aggressiveness) and
+`train.bc_anchor_min_h_ahead_mm` (the height-floor search that jumps
+the target forward until it clears the reference's ~5s flat dead
+zone = anti-freeze strength; see `bc_anchor.py`'s
+"HEIGHT-FLOOR pursuit" comment, 08-12 origin). eighthchain paired the
+SMALLEST floor (2mm) with the smallest lookahead and produced BOTH the
+worst current pin AND a brand-new pathology never seen at any other
+dose: several deep starts (`flat`/`rsi`) show ALL-SIX-LEG
+`duty_cycle=0.0` for the full episode (video-confirmed total
+belly-down freeze, height_err 79-86mm) — a 2mm floor is too weak to
+force the target meaningfully past the flat zone regardless of
+lookahead. Launched 3 arms isolating floor from lookahead (all
+respec `--from slowchain`, from-scratch, unchanged budget/recipe,
+VERIFIED RUNNING train-2/3/4): `-decouple-a` (lookahead 0.25s =
+slowchain's, floor reverted to the ORIGINAL 15mm instead of
+slowchain's paired 8mm), `-decouple-b` (lookahead 0.125s =
+quarterchain's, floor 15mm — does a strong floor rescue quarterchain's
+new freeze failure while keeping its shorter/gentler jump?),
+`-decouple-c` (lookahead 0.0625s = eighthchain's, floor 15mm — does a
+strong floor rescue even eighthchain's total collapse?). Gate:
+same DR-0 rise det+sto n=6+6 harness; PASS clears
+4/6+4/6+<=1.5A+zero-over_current+zero-freeze-episodes; PARTIAL beats
+the SAME-lookahead paired-dose sibling (b vs quarterchain, c vs
+eighthchain) on valid_plant or freeze-episode count even short of
+PASS (confirms floor as an independent lever, motivating a proper 2D
+grid); FAIL = flat/worse than the paired sibling, closing this
+direction and leaving rung-9 (mesh-native ref / flat-segment edit) as
+the sole remaining lever. Runs IN PARALLEL with the anchor-dose grid
+and rung-9 — not a substitute for either, cheap enough (8M each, same
+budget as the pace arms) to read before committing to rung-9's bigger
+build. Evidence: ledger verdicts for `eighthchain`/`slowchain-cont8`
+(FAIL, this cycle), W&B `l9tcutsx`/`5bx2x0n3`; decouple arms not yet
+evidenced (just launched).)
+
+Prior entry: 2026-08-25 ~16:1x (NOTE, same window, independent parallel
+triage of `quarterchain`: this cycle's own read of `quarterchain`
+landed the identical FAIL conclusion as the consolidated entry below
+(det 2/6 worse than slowchain's 3/6, deep-start current/term proxy
+metrics look great but `height_err_end_mm` 46-86mm on flat/rsi
+exposes stalling-not-cooling; `env/rise_score` also peaks ~0.43 around
+65% of training then declines to ~0.32 by the end, and
+`bc_anchor_loss_rise` ends at 0.061 after briefly dipping to 0.049 —
+both worth a second look if this rung's chain-loss plateau ever gets
+revisited) — a genuine parallel-cycle duplication (ledger raced,
+re-recorded, see RL_LOG 16:08/16:10), not a contradiction. Distinct
+value-add before spotting the duplicate: launched a 2-arm anchor-DOSE
+grid off `slowchain`'s own already-working half-pace checkpoint's
+recipe (`train.bc_anchor_coef` 3.0->6.0 and ->10.0, 2M canaries,
+VERIFIED RUNNING train-2/train-1) — rise has never been dosed above
+the hold/lower-inherited default of 3.0, and this is the OTHER named
+lever in every one of this rung's own gate texts ("attack the
+flat-segment posture directly" / supervision strength, as opposed to
+chain PACE which is now fully bracketed per the entry below). Runs
+IN PARALLEL with rung-9's mesh-native-IK-ref proposal, not a
+substitute for it — cheap enough (2M each) to read before committing
+to the bigger rung-9 build. Evidence: ledger verdict + W&B `75d9j4tg`;
+new arms not yet evidenced (just launched).)
+
+Prior entry: 2026-08-25 ~16:1x (**rung-8 rise PACE DOSE GRID FULLY
+BRACKETED — non-monotonic, peak at slowchain's 1/2-pace, both further
+dosing AND more budget FAIL; rung-9 (mint a mesh-native rise ref from
+scripted IK) is now the live lever.** Following the pace-confirmed
+3-arm triage below, the batch it funded all came back FAIL:
+`quarterchain` (pace 1/4, lookahead 0.125s/min_h 4mm) — det 2/6 WORSE
+than slowchain's 3/6; the deep-start current/term proxy metrics look
+great (median 0.2A, 1/12 terms) but `height_err_end_mm` exposes why:
+most flat/rsi episodes drew near-zero current while sitting at
+76-86mm height error, UNCHANGED from the belly start — the policy
+FROZE rather than pressed up. A cheap way to score well on the
+current/term proxy while doing worse on the actual goal — do not
+grade this rung on current/terms alone, always cross-check
+`height_err_end_mm`. `eighthchain` (pace 1/8) — total collapse, det
+0/6 + sto 0/6, even crouch (6/6 robust at every other dose in the
+whole rung) breaks; mixes both bad modes (3 over_current + 3 frozen).
+`slowchain-cont8` (8M more budget on slowchain's own working
+half-pace, std pinned, no re-anneal) — NET WORSE than slowchain
+itself (det 3/6→2/6, terms 3/12→7/12): continued low-noise refinement
+pushed some deep starts MORE aggressive/hot, not uniformly cooler.
+Combined with cont8/reanneal's identical null result on the
+unchanged full pace, budget is now settled as NOT a lever on this
+rung at ANY pace once `bc_anchor_loss_rise` hits its ~0.05 plateau.
+**Consolidated dose-response (DR-0 gate, det+sto valid_plant / 12,
+over_current terms /12):** full pace (stdanneal parent) 4/12 valid,
+8/12 oc; full pace +8M (cont8) 5/12, 7/12; full pace +reanneal 5/12,
+7/12; **1/2 pace (slowchain) 5/12, 3/12 — the peak**; 1/2 pace +8M
+(slowchain-cont8) 4/12, 7/12; 1/4 pace (quarterchain) 4/12, 1/12 (but
+new freeze failure, not genuine improvement); 1/8 pace (eighthchain)
+0/12, 5/12 (collapse). Pace dosing and budget are BOTH exhausted
+levers now — do not refund either without a structural change first.
+`ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_slowchain.zip`
+is the best rise-in-progress asset from this whole campaign (still
+short of PASS). NEXT (rung-9, unfunded — real code, not a config
+dose): mint a mesh-native rise reference from scripted/analytic IK
+(sit→plant joint trajectory computed directly on the 3.5kg mesh
+geometry, not borrowed from the 2.1kg/25Hz primitive extraction) so
+the anchor stops supervising a torque-infeasible flat-segment
+posture; alternatively, inspect/edit the existing
+`rise_ref_belly2plant.npz` flat segment directly (shorten it, or
+re-shape the splayed-leg posture the 08-25 dig-in flagged) before
+building a full new generator. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_{quarterchain,eighthchain,
+slowchain_cont8}_gate/`, W&B `75d9j4tg` / `l9tcutsx` / `5bx2x0n3`.)
+
+Prior entry: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
 PACE IS THE LEVER, not budget or noise — the "mint a mesh-native IK
 ref" branch is NOT triggered.** All three arms shared the same 8M
 budget off the `riseonly-bcchain3-stdanneal` parent (DR-0 gate 2/6 det
@@ -1014,12 +1364,89 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-RUNG-8 tally (08-25 ~15:1x): HOLD PASS, LOWER PASS (both stdanneal),
-RISE PARTIAL — the pace-dose batch (`quarterchain`/`eighthchain`/
-`slowchain-cont8`, all VERIFIED RUNNING off free capacity) is the live
-lever; see Last-updated entry for the cont8/reanneal FAIL + slowchain
-PARTIAL evidence that ruled it in. STANCEMIX still PARTIAL
-(warmmix1/2 triage belongs to a concurrent cycle).
+**RISE, 08-25 ~17:4x — rung-9 8M seed-0 TWINS read: budget lever is
+likely NULL (within same-seed noise of the 2M canary); targeted
+flat-mix canary LAUNCHED.** `meshref-acq8m` PARTIAL by its gate
+letter (DR-0 det 5/6 + sto 5/6 valid_plant, oc 2/12, valid-ep
+cur_p95 median 0.81A vs canary 5/6+4/6, 3/12) — BUT the dup-killed
+`meshref-8m` turns out to have FINISHED its full 8M budget
+(max global_step 8,060,928 @~17:14, before the 17:19 kill landed;
+earlier "~5M" reads were an out-of-order W&B video row) and its
+pre-staged eval scored EXACTLY canary level (5/6+4/6, 3/12 oc).
+Same seed + same config + same budget on a different pod => the
+twin delta (±1 episode, ±1 oc term at n=12) IS this harness's
+run-to-run noise band, and acq8m's nominal edge over the 2M canary
+sits inside it. Robust across both 8M replicates: flat det/0 is the
+identical never-tucks splayed press-up (2.64A pin, h_err_end
+24-28mm, video-confirmed) at 2M/8M/8M — budget-invariant,
+structural; successes stay clean (bridge sprawl→level six-foot
+plant by ~3s, tilt 0.3°). Grid still judged jointly when s1/s2
+triage lands (both finished training ~17:4x, next cycle owns them),
+but with two seed-0 8M replicates at/within-noise-of canary levels
+expect the pre-registered FAIL route. ACTED on acq8m's own PARTIAL
+clause ("fund one targeted arm at the named residual subclass"):
+`cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-flatmix70`
+VERIFIED RUNNING train-0 — 2M canary, exact meshref recipe, single
+config lever `goal.rise_flat_frac` 0.35→0.70 / `rise_partial_frac`
+0.40→0.20 (flat exposure ~17.5%→~35%; mechanism already existed in
+config, no code). Its gate's primary evidence is a FLAT-PINNED pod
+probe (eval `--cfg-set goal.rise_flat_frac=1.0 rise_partial_frac=0
+rise_rsi_frac=0`, det+sto 6+6) since the standard gate draws only
+1-2 flat episodes — read deltas against the twin noise band. On
+flatmix FAIL: exposure refuted → ref-content/phase treatment
+(tuck-phase anchor dose or tuck-segment curriculum) is the next
+rung. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_{acq8m,8m}_gate/`,
+W&B 08k9lmkm/ul88m0v3.
+
+Prior entry (**RISE, 08-25 ~17:0x:** rung-9 mesh-native ref canary
+pair = CANARY PASS (PARTIAL-strong, see Last-updated entry); 3-seed
+8M acquisition grid `meshref-acq8m`(s0)/`meshref-8m-s1`/`-8m-s2`
+RUNNING. On grid PASS (>=2/3 seeds at the full bar): promote the
+best seed as the mesh rise recipe and re-run the stancemix mix with
+`reward.rise_ref_path=rise_ref_mesh_scripted.npz`. On grid FAIL at
+canary levels: budget is refuted for the flat-start tuck residue;
+next rung is a targeted tuck mechanism (start-mix weighting toward
+flat starts, or tuck-phase anchor dose) — never more undirected
+budget.)
+
+**STANCEMIX-BCCHAIN3-STDANNEAL PASSED its pre-registered DR-0 gate
+(08-25 ~15:5x):** the full hold=.1/rise=.45/lower=.45 mix + log-std
+anneal (0→-4 over 8M, warm-started off the 2M stancemix-bcchain3
+canary) hits all 3 pre-registered clauses — hold det 6/6 + sto 6/6
+valid_plant, ZERO terms, cur_p95 0.78A det / 0.81-0.92A sto (cooled
+from the canary's hot 2.62A hold_min_load trips); lower det 6/6 +
+sto 6/6, height_err_end 0.0-1.4mm (up from the canary's 0/6 success
+at 18-32mm — the mode called "severely diluted" is now AT the
+isolated lower champion's own band); rise det 2/6 valid_plant (meets
+the >=2/6 bar; the 4 failures are the SAME universal deep-start
+over_current/tilt_pitch press-up pinned at 2.33-2.64A the rung-8
+pace-dose grid (below) is independently attacking, not a new
+mix-specific failure). No mode regressed vs the 2M parent canary —
+**the operator's full-mix-curriculum directive is vindicated for
+hold+lower; rise remains capped by the campaign-wide deep-start
+blocker.** Own-DR(0.2) is weaker (hold sto 4/6, rise 0/6) — flagged,
+not disqualifying, same universal-blocker signature.
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal_{gate,owncfg}/`.
+Refill: since rung-8 (below) found `slowchain`'s 1/2-pace is the
+PEAK of the whole dose-response (both further halving AND more
+budget FAIL), ported that exact validated dose into the mix —
+`cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain` (8M,
+`bc_anchor_lookahead_s` 0.5→0.25s + `min_h_ahead_mm` 15→8, log-std
+pinned -4 no re-anneal, warm-started from THIS pass checkpoint so
+hold/lower keep their solved weights) VERIFIED RUNNING on train-0 —
+tests whether the isolated-proven pace fix transfers into the
+shared-capacity mix without disturbing hold/lower.
+
+RUNG-8 tally (08-25 ~16:1x, concurrent cycle): HOLD PASS, LOWER PASS
+(both stdanneal), RISE dose-response now FULLY BRACKETED and
+non-monotonic — peak at `slowchain`'s 1/2-pace (5/12 valid, 3/12 oc);
+further halving (quarterchain 1/4, eighthchain 1/8) and more budget
+(cont8, slowchain-cont8) all FAIL/regress. Pace and budget are BOTH
+exhausted levers on this rung now; rung-9 (mint a mesh-native rise
+ref from scripted IK, since the borrowed 25Hz/2.1kg primitive ref's
+flat segment may be torque-infeasible on the 3.5kg mesh) is the next
+live lever if the mix-ported slowchain arm above also caps out.
 
 Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
 `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`
@@ -1113,6 +1540,22 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
    keep funding the full-mix curriculum until stage-1 passes the old
    hard1-style gates + current/DR/session gates. Encoded in
    CURRENT_TRUTHS "STANDWALK CANONICAL STANCE RECIPE".
+0.5 RUNG-9 (08-25 ~16:1x, unfunded, real code): rung-8's rise
+   BC-anchor-chain pace/budget dose grid is now FULLY EXHAUSTED (7
+   arms: stdanneal/cont8/reanneal/slowchain/quarterchain/eighthchain/
+   slowchain-cont8 — see Last-updated entry for the full table). The
+   deep-start (flat/bridge/rsi) rise still tops out around slowchain's
+   5/12 valid_plant, 3/12 over_current. Next lever is the REFERENCE
+   itself, not more dosing: mint a mesh-native `rise_ref` from
+   scripted/analytic IK on the 3.5kg mesh geometry (the current
+   `rise_ref_belly2plant.npz` was extracted from a 2.1kg/25Hz
+   primitive-family policy — `extract_rise_ref.py`'s own docstring
+   flags this as a stopgap), OR inspect+edit the flat segment of the
+   existing ref directly (shorten the slow 0-25mm prep crawl / fix the
+   splayed-leg posture the 08-25 dig-in named) before building a full
+   new generator — cheaper first probe. Whoever picks this up: read
+   the full pace-dose table in the Last-updated entry before touching
+   `train.bc_anchor_*` again; that lever is spent for this rung.
 1. DONE 08-25 ~04:4x (see Now): recipe ported, bank-checked on mesh,
    3-seed batch launched.
    RECIPE ARCHAEOLOGY (08-25 ~04:0x cycle, saves the re-dig):

@@ -6,6 +6,30 @@ English: teach a from-scratch PPO policy (no gait clock, no BC
 teacher, no motion prior) to walk by climbing a curriculum that starts
 with ONE fixed forward command and only widens after certified passes.
 
+**STALE-FLAG RETRACTED (08-25 ~17:0x, ledger-verified):** a flag
+placed here 08-25 ~16:1x claimed the 08-23 ~21:3x rung-0 escalation
+("build a rung-0 semantics bank, then launch the swing-dominant/
+no-travel-charge diet") "was recorded but never executed" and invited
+a future idle-capacity cycle to pick it up as runnable work. **That
+reading is wrong — do NOT act on it.** Ledger facts: the rung-0 diet
+WAS launched the same hour it was committed (`cw-walkcurr-pf-rung0-
+swing3`/`-swing9`, created 08-23T21:41/21:43, both verdicted FAIL —
+stork lean and airborne hover respectively; see the "rung-0 swing
+income CLOSED" Now entry below), followed by RND-on-rung-0 arms
+(`swing3-rnd1`/`-rnd3`, also FAIL). The "zero launches since
+2026-08-24T03:50" observation is true but has the opposite meaning:
+by 03:50 the campaign had exhausted EVERY rule-(a)-legal lever (14
+mechanism/architecture/reset-diversity classes, tally in
+`OPERATOR_QUESTIONS.md` q_20260824T0233Z, including the final
+`shortep3`/`shortep8` pair — both FAIL), and the track deliberately
+recorded itself as blocked: "no further walkcurr rung-1 arms will be
+launched by the agent fleet until [the BC-kickstart question] is
+answered." Idle capacity is NOT license to relaunch here; the wait is
+a genuine `[operator]` ruling on the track's own founding rule (see
+WAITING-ON), the closest analogue to the spend-approval carve-out.
+Rebuilding a semantics bank for the already-refuted swing diet would
+be filler.
+
 ## Goal (DONE gate)
 
 A prior-free policy passes a held-out C-env contextual walking panel
