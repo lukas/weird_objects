@@ -193232,7 +193232,7 @@
       "goal.hold_height_cmd_kinds=[\"hold\",\"ramp\"]"
     ],
     "created": "2026-08-25T20:52:41+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -193283,7 +193283,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-holdheight-rung1-s1 since 2026-08-25T21:09:06"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: dropping the hold pose anchor entirely (train.bc_anchor_coef forced 0.0, to avoid the height-blind q_nom target fighting a moving command) broke the champion's solid quiet-stand skill, not just its height-blindness. Evidence: DR-0 gate (hold_height_cmd_frac=1.0 rides into the eval per pod_eval's own-cfg-set carry-forward) hold det 1/6 valid_plant + sto 1/6 (5/6 det and 5/6 sto episodes trip the hold_min_load safety termination ~3-8s into the 15s episode); own-DR(0.2) det 2/6 + sto 1/6. cur_max climbs to 2.0-2.63A (near the 2.64A torque-saturation ceiling) vs the deployed champion's clean 0.67-0.71A on the identical static hold, and drag 75-191mm vs ~0mm. Video contact sheets show NO visible fall/tip (roll_peak 0.6-2.8deg, all six feet visibly grounded every frame) -- the failure is a genuine but visually-subtle foot-underload trip, not a collapse (gate-vs-video read: real, just not dramatic). Training reward DECLINED across the run (optimization/reward_per_tick 0.42->0.24), so per the 08-21 ruling this is a genuine fail, not misalignment-continue. Cross-seed: the seed-0 twin (cw-standwalk-stance-mesh2-holdheight-rung1, read independently this cycle from its own synced report.json, verdict owned by the concurrent cycle) shows the byte-similar signature (cur_max 2.59A, 5/6 det + 3/6 sto hold_min_load terminations) -- same mechanism, not seed noise. Why: STAND_HEIGHT.md's own design doc named this exact fallback ('if [dropping the anchor] proves insufficient, the correct fix is a height-AWARE anchor ... not the height-blind one') -- the height-blind anchor was doing real pose-regularization work beyond its height-blindness, and removing it let PPO drift into a noisier, higher-current stance. What's next: built + tested the fix this cycle (train.bc_anchor_hold_height_aware, default 0=bit-exact, rl_move/sim/sim_env.py) -- re-targets the hold BC-anchor at the FixedFootBodyIK pose that reaches the NEXT commanded height (same one-tick-ahead convention bc_anchor_lower already uses) instead of the constant height-blind q_nom, so the anchor keeps supervising pose quality while tracking a moving target. 5 new tests in test_bc_anchor.py (default-off bit-exact, zero-height no-op, targets-the-commanded-height, track-mode-excluded, feet-planted-descent chain), all green; full bc_anchor + hold_height_cmd suites green (84/84); STAND_HEIGHT.md's own preflight bank unaffected (4/4 green). Launching the fix canary pair (bc_anchor_coef restored to 3.0 + bc_anchor_hold_height_aware=1.0, same hold_height_cmd_range/rate/kinds) this cycle."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1",
@@ -194080,7 +194081,7 @@
       "train.bc_anchor_flat_time_indexed=1.0"
     ],
     "created": "2026-08-25T21:32:31+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -194091,14 +194092,28 @@
       "running_experiments_before": 1,
       "code_sha_local": "55b8fe073018d1389e596cdb956dca803fc6c03e",
       "code_sha_pod": "55b8fe073018d1389e596cdb956dca803fc6c03e",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3561494",
+      "log_growth_bytes": [
+        20948,
+        38948
+      ],
+      "wandb_id": "atmjubij",
+      "trainer_pid": "3561494",
+      "global_step_window": [
+        1376256,
+        1900544
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "canary",
     "assessment_scope": "mechanism_health",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckclock1_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref: Seed twin of meshref-tuckclock1 (only --seed 0->1 differs; same single lever train.bc_anchor_flat_time_indexed=1 vs the meshref parent): does the flat-start absolute-script-clock anchor work robustly across seeds, or was seed-0 luck? Plain story: a probe measured that the honest scripted tuck-then-press ON ITS OWN CLOCK is the reward optimum (+2021, 0.575A, plant_ok) under the exact launched pricing where every taught behavior scores -50..-770 -- this pair tests whether anchoring flat starts to that clock lets PPO find it. Judged jointly with meshref-tuckclock1 per its pre-registered gate. Same joint-pair discipline as every mechanism hedge this campaign.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --cfg-set train.bc_anchor_flat_time_indexed=1.0 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1.log"
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1.log",
+    "wandb_id": "atmjubij",
+    "verified": "2026-08-25T21:36:15+00:00"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1",
