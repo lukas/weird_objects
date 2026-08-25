@@ -1,6 +1,38 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~17:0x (**RUNG-9 CANARY PAIR: CANARY PASS,
+Last updated: 2026-08-25 ~17:3x (LEDGER CORRECTION, no science change:
+the cycle that launched `-acq8m` briefly mis-marked it DEAD -
+INFRASTRUCTURE (misread its ~8-min budget-complete exit as a launch-
+race kill) and relaunched a verbatim duplicate `-acq8m-r1` on
+train-4. Both errors reverted within minutes of the entry below
+landing: `-acq8m` restored to RUNNING/unverdicted (it FINISHED clean
+at 8,060,928 steps, W&B 08k9lmkm synced 17:15 — it IS the 8M grid's
+seed-0, triage belongs to its fan-out cycle), `-acq8m-r1` killed ~5
+min in and verdicted KILLED - DUPLICATE (no information lost; same
+spec+seed as the completed acq8m). Net fleet state is exactly the
+entry below: 8M grid = acq8m(s0, done)/-8m-s1/-8m-s2 + fullpace2
+pair, nothing else standwalk-running.)
+
+Prior entry: 2026-08-25 ~17:2x (**pace-redose canary pair recovered
+and running.** The `-fullpace` launch was an infra dud (respec omitted
+the two pace overrides → exact meshref-s0 duplicate, killed ~2 min in,
+verdicted CANARY FAIL-INFRA by the launching cycle) and its claimed
+relaunch `-fullpace2` NEVER actually landed — no ledger entry, W&B
+run, or process existed, only the pre-launch snapshot commit. This
+cycle relaunched it for real: `-fullpace2` (train-0, W&B 3kgxqusz) +
+seed twin `-fullpace2-s1` (train-1), both VERIFIED RUNNING with
+`bc_anchor_lookahead_s=0.5` / `min_h_ahead_mm=15` confirmed present
+in the ledger commands; 2M canaries judged jointly as a pass-rate vs
+the meshref s0/s1 pair (PASS = det>=5/6 + sto>=4/6, no episode
+>2.25A, oc terms <=3/12 → full pace preferred, one less knob).
+Also: watcher SUSPECT on `-acq8m` was a FALSE ALARM — clean
+budget-complete exit at 8,060,928 steps, W&B synced 17:15
+(08k9lmkm); `-8m` likewise finished clean at 8.06M @17:14 (its 17:19
+duplicate-kill verdict predates the finish taking effect — treat
+acq8m as the grid's seed-0). Triage of both belongs to their fan-out
+cycles.)
+
+Prior entry: 2026-08-25 ~17:0x (**RUNG-9 CANARY PAIR: CANARY PASS,
 PARTIAL-strong — the mesh-native scripted rise reference IS the
 lever the whole rung-8 dose grid was missing.** Both seeds
 (`meshref`/`meshref-s1`, 2M, exact slowchain recipe with only
