@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~05:5x (**dig-in DONE, both stage-1 seeds
+Last updated: 2026-08-25 ~06:4x (**RUNG-2 (mesh2-cur1) FAIL, 2/3 seeds
+in so far, TOTAL collapse -- worse than a misalignment, a genuine
+stuck-mechanism FAIL.** Plain English: the realigned-pricing rung
+(current_hot=1.0@2.0A + term_cost, meant to fix the mesh1-rr1 grind
+exploit) does not merely fail to improve -- it fails to find ANY
+stable stance at all. `cw-standwalk-stance-mesh2-cur1` and `-seed1`
+both verdicted FAIL this cycle: 35-36/36 episodes terminated (DR-0 gate
++ own-DR 0.2) via tilt_pitch/tilt_roll/over_current on EVERY mode,
+including `hold` (just standing still at the plant pose) -- video
+(hold_det_0) shows the robot visibly tipping over during a plain hold.
+Training reward is FLAT the whole 20M run on all 3 seeds (quarters
+cur1 -293/-339/-276/-285, seed1 -318/-533/-311/-297, seed2 -315/-516
+/-298/-364 -- same shape, dip-then-partial-recovery, never net
+positive) -- reward AND eval both flat/bad = a genuine FAIL per the
+08-21 ruling, not a misalignment to realign-and-continue. Distinct from
+the mesh1-rr1/seed2-rr1 failure mode (which at least found a
+profitable-but-wrong grind basin) -- this rung's pricing (or the
+from-scratch mesh/100Hz recipe itself: log-std-init=0, ent-coef=0.005
+unchanged from the primitive-era defaults, DR=0.2 from step 0 with no
+ramp) is not finding a stance basin at all. `-seed2` still finishing at
+write time; 2/2 read so far agree exactly, so this is very unlikely to
+be a seed-lottery result. **Next rung candidates (not yet built)**:
+(a) a pricing-OFF isolation probe (does hold alone stabilize with
+current_hot/term_cost removed -- tests whether the NEW pricing itself
+is destabilizing vs. the base recipe just being too hard on mesh);
+(b) a DR curriculum ramp (0 -> 0.2 over the run, instead of flat 0.2
+from step 0 -- first real mesh contact might need an easier start);
+(c) re-examine log-std-init/ent-coef for a from-scratch mesh/100Hz
+task (both values are untouched primitive-era defaults, never
+re-tuned for this recipe). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_cur1{,_seed1}_{gate,owncfg}/`, W&B
+`9jgempi8`/`h8nqxuk2`.)
+
+Previous entry (2026-08-25 ~05:5x (**dig-in DONE, both stage-1 seeds
 VERDICTED FAIL-misaligned, realigned pricing rung launched.**)
 
 ## Dig-in resolution (08-25 deep cycle — supersedes the open flags)

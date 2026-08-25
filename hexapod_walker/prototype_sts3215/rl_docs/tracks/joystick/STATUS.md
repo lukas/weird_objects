@@ -1,6 +1,99 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~06:0x (**gaitgate-scratch1-seed1 FAIL, worse
+Last updated: 2026-08-25 ~06:4x (**Effort/torque/drag pricing for the
+crouch fix is REFUTED, 3/3 arms, monotonically WORSE with more
+pricing pressure -- posture-fix-by-reward-shaping CLOSED on this
+lineage.** Plain English: the operator's 08-24 kick asked for a
+walk-champion respec that prices hip effort/torque so the robot stops
+wasting torque in a sprawled ~40mm-below-plant crouch. All 3 arms
+(`cw-walk-posture-eff12-ds1` k=1.2, `-eff24-ds1` k=2.4 hedge,
+`-eff12-ds1-tau1` k=1.2 + a per-motor torque-peak hinge) verdicted
+FAIL this cycle, and not just "unchanged" -- `probe_walk_posture_load`
+shows the crouch getting MONOTONICALLY DEEPER as pricing pressure
+rises: baseline (unpriced) z-offset -39.5mm -> eff12 -54.3mm -> eff24
+-56.5mm -> tau1 (deepest) -64.2mm. The priced quantities (clamp-rail
+duty, mean/peak hip torque) DO drop as designed -- the charges are
+being paid exactly as intended -- but the policy's cheapest way to cut
+priced torque on this leg geometry is to crouch LOWER, not to stand
+taller: lower crouch apparently needs less hip torque here, the
+opposite of the intuition the pricing was built on. L/R stance-hip
+asymmetry tracks the same story (23.3%/27.3%/33.3% vs baseline 28.1% --
+tau1's hinge actively made asymmetry WORSE than the unpriced parent).
+Safety also degrades with dose: held-out 60s joygate falls 2/24 (eff12)
+-> 4/24 (tau1) -> 12/24 (eff24), all 3 still FAIL outright on
+direction_err (41-44deg vs 40deg allow) and on the interactive session
+hard-gate (over_current on sit/right/back). **CLOSES the class**: no
+further k-dose or hinge-threshold iteration is warranted on
+effort/torque/drag pricing alone for this lineage's posture problem --
+per this batch's own pre-registered fallback, the fix belongs to the
+BC-teacher / standwalk mesh-retrain route (already in flight: the
+standwalk track's `cw-standwalk-stance-mesh2-cur1` batch is a
+from-scratch mesh/100Hz stance recipe that starts from the CORRECT
+plant height by construction, not a post-hoc reward patch on a
+primitive-family champion that already learned to crouch). Evidence:
+`/tmp/probe_eff12_ds1.json`, `/tmp/probe_eff24_ds1_full.txt`,
+`/tmp/probe_tau1_full.txt`, `logs/ckpt_eval/cw_walk_posture_eff{12,24}
+_ds1{,_tau1}_{joygate,session}/`, W&B `iyaezh14`/`vo5m4rs9`/`5r5vkyh3`.)
+
+Previous entry (2026-08-25 ~06:3x (**movecur1 trio (MLP/MLP+gate/tf64)
+all PARTIAL: 2M is too early to judge k_walk_move_current=2.0 at all
+-- matched-step comparison against the uncharged acq1/tf64-mesh-acq1
+references shows over_current/height/reward tracking nearly
+IDENTICALLY tick-for-tick through 2M (the charge only fires on
+commanded-translating ticks and cmd_prog_frac stayed ~0 all 4 b0_bridge
+cert rounds in every arm, matching the uncharged references own
+0-promotion trajectory at the same steps), so it has not had a chance
+to bind yet -- the references' own over_current pathology only fully
+dominated by 20-38M once they committed to a locked-leg gait. Video
+(training rollout + DR-0 walk_det_0) confirms all three sit in the same
+static wide-splayed crouch the whole clip, but this matches the
+generic early-valley look this recipe family shows at 2M regardless of
+architecture or the added lever, not charge-specific paralysis.**
+Continued all three to the same 38M-more/40M-total budget the
+uncharged references got, charge/gate held constant: `cw-arch-hist64-
+joyfullcurr13-v7-hz100-movecur1-acq1r2` (charge alone, train-5),
+`cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate-acq1r3`
+(charge+gate combo, train-10), `cw-arch-tf64-mesh-joyfullcurr13-v7-
+hz100-movecur1-acq1` (transformer replicate, train-11), all VERIFIED
+RUNNING. Also this cycle: the tf64-mesh-movecur1 ledger entry was
+never written by the launcher (a race, root cause not isolated);
+reconstructed by hand from the run's .md + W&B config/history so
+tooling (evalcmd/podeval/verdict) could operate on it normally --
+flagging for a checkup-cycle look if it recurs.
+
+Previous entry (2026-08-25 ~06:3x (**cw-walk-posture-eff24-ds1 FAIL: the
+2x effort/drag-stance dose got PAID but the crouch got WORSE, not
+better -- posture-pricing is CLOSED on the walk-champion lineage.**
+Plain English: doubling the effort charge (k_walk_effort=2.4) plus the
+per-stance drag charge did make the policy pay less current over
+training (reward_effort/reward_drag_stance both shrank), but it paid
+by finding an even LOWER, WIDER splayed stance (shorter lever arm ->
+less torque per hip) instead of rising back toward the champion's
+plant pose -- the exact opposite of the hypothesis. probe_walk_posture_load:
+body-z offset -56.5mm (gate >=-10mm; parent -39.5mm, so WORSE),
+stance hip tau p95 1.314 N*m (gate <=1.2; parent 1.58, improved but
+still over), L/R asymmetry 27.3% (gate <20%; parent 28.1%, essentially
+unchanged) -- only clamp-rail duty passed (~0). The walk battery
+itself is fine (DR0 det+sto median fwd 1.37m, det slip/m median 0.92,
+gait_valid 12/12, clean six-leg video) but one sto episode terminated
+(tilt_roll), so even the walk-only gate half misses "0 terminations".
+This is the pre-registered "paid even at 2.4: combined-pricing
+refuted decisively" branch -- **no further k-dose iteration on this
+lineage; the dose ladder (eff12/eff24) is capped and closed.** Root
+cause: an effort/drag-stance charge alone can't tell "cheap because
+upright" from "cheap because sprawled lower and wider" -- it needs a
+posture target, not just a current proxy. Ownership for the actual
+posture fix moves to the `standwalk` track's mesh-era stance retrain +
+teacher distillation (already running, `cw-standwalk-stance-mesh2-cur1`
+family), which shapes the plant-height stance directly via a teacher
+instead of an effort-cost proxy. (eff12-ds1, the k=1.2 sibling, is a
+concurrent cycle's evidence -- not required to close this since the
+higher dose already shows the wrong-direction result the monotonic
+dose argument predicted would only get worse at the lower dose too.)
+Evidence: `logs/ckpt_eval/cw_walk_posture_eff24_ds1_gate/report.json`,
+`logs/probe_posture_load/posture_eff24_ds1.json`, W&B `vo5m4rs9`.)
+
+Previous entry (2026-08-25 ~06:0x (**gaitgate-scratch1-seed1 FAIL, worse
 than its own already-FAILing parent -- walk_gait_gate-from-scratch is
 now CLOSED as a leg-sacrifice prevention mechanism on mesh, 2/2 seeds.**
 Plain English: the seed replicate of `gaitgate-scratch1` (reward-side
