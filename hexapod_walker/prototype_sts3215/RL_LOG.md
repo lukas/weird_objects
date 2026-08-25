@@ -597,3 +597,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 07:53 standwalk: termonly FAIL 0/36 — unpriced current brings the grind back (reward rising); current_hot necessary-not-sufficient 
 - 08-25 07:54 standwalk: riseonly1 FAIL — rise fails even at 100% diet share; rise needs a hold-first prior 
 - 08-25 07:54 standwalk: loweronly1 FAIL — lower-only also OC-grinds; lower waits for a hold-capable parent 
+- 08-25 08:06 08-25 08:0x [standwalk] synthesis: 7-arm diagnostic wave (holdonly1/-acq1, refgain15, curonly, termonly, riseonly1, loweronly1) closed jointly -- pricing exonerated (all 4 current_hot/term_cost corners tried), budget doesn't anneal the stilt, rise/lower fail even at 100% diet share (need hold-first prior not more share); rung-3 hold_feet_load min-over-feet arm (holdload1min) already in flight, confirmed sound + STATUS.md refreshed 

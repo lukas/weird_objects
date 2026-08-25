@@ -1,6 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~07:3x (**`cw-standwalk-stance-mesh2-refgain15`
+Last updated: 2026-08-25 ~08:0x (**Full diagnostic wave (7 arms) now
+CLOSED — pricing is exonerated, the multi-task goal-mix is the
+blocker; rung-3 (bank-checked `hold_feet_load` income gate, min-over-
+feet variant) already launched off the fresh conclusion.** Plain
+English synthesis of everything triaged this cycle + the concurrent
+cycle (all verdicts committed): the rung-2 total collapse
+(cur1/seed1/seed2, 0/3 healthy seeds) sent out 6 single-lever
+diagnostic arms plus the already-in-flight `refgain15`, all now read
+together —
+(1) **pricing is not the lever**: all 4 corners of the current_hot x
+term_cost grid were tried (`rr1`=neither -> profitable grind, `cur1`
+=both -> total collapse, `curonly`=hot-only -> total collapse,
+`termonly`=term-only -> grind returns) — current_hot is NECESSARY to
+kill the grind (termonly proves it) but NOT SUFFICIENT to make the
+full-mix recipe learnable (curonly proves it), and dosing the
+ref-tracking gain 7.5x (`refgain15`) didn't help either. (2) **balance
+IS learnable in isolation** — `holdonly1` (hold=1.0 diet, same
+pricing) survived 6/6 DR-0 det hold episodes, refuting "physics is
+broken on mesh." But the learned hold is a hot THREE-LEG STILT (other
+3 feet held 15-20mm aloft, current riding just under the priced 2.0A
+threshold) that the bank shows earns ~3x less than honest six-foot
+quiet standing (504 vs 1472/ep) — a local basin, not the optimum. (3)
+**Budget alone does not anneal the stilt**: `holdonly1-acq1` (+8M
+continuation, 10M total) made it WORSE, not better (hold 0/24 vs
+parent 6/6, reward declining in lockstep) — this rules out "just
+train longer" and points at a reward-shape fix. (4) **rise and lower
+each fail from-scratch even at 100% diet share**: `riseonly1` (11/12
+DR-0 over_current/sprawl) and `loweronly1` (6/6 DR-0 over_current
+splayed grind) both fail identically to their share in the full mix —
+neither mode is diet-starved, both need a hold-capable PRIOR
+(warm-start), not more curriculum share or ref-tracking gain.
+**Conclusion or rung-3**: curriculum/goal-mix STRUCTURE (not reward
+magnitude, not pricing) is the lever, and the first sub-problem to
+solve is turning the tripod-stilt hold basin into an honest six-foot
+stance via a load-gated income term. That arm is already running:
+`cw-standwalk-stance-mesh2-holdload1min` (bank-checked
+`reward.hold_feet_load=1` + `hold_feet_load_min=1`, min-over-feet
+variant per the primitive-era one-foot-shedding lesson;
+`test_task_semantics.py` HOLD-feet-load + MIN-over-feet banks both
+green pre-launch; 6M budget, warm-start from `holdonly1`, gated on
+six-foot valid_plant + zero OC + cur_p95<=1.0A at 6M) — VERIFIED
+RUNNING train-0, owned by whichever cycle reads its 6M checkpoint.
+Once an honest six-foot hold checkpoint exists, the pre-registered
+next step is warm-starting rise-only and lower-only continuations
+from IT (not from-scratch) to test whether the hold-first prior is
+what rise/lower were actually missing. Evidence for every arm above:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_{holdonly1,holdonly1_acq1,
+refgain15,curonly,termonly,riseonly1,loweronly1}_{gate,owncfg}/`,
+RL_LOG 08-25 07:1x-07:5x.
+
+Previous entry (2026-08-25 ~07:3x (**`cw-standwalk-stance-mesh2-refgain15`
 VERDICTED FAIL: 7.5x the rise-ref-tracking gain does NOT fix the
 rung-2 total collapse — ref-tracking weight is exonerated, goal-mix
 implicated instead.** Plain English: this arm kept cur1's exact
