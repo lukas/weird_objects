@@ -228,7 +228,7 @@ def make_coxa_link_rigid() -> object:
     slab + cradle sub-solid drops rv.COL_DROP as one rigid body, the
     seat ring + Phi 38 brim are added, the horn-screw shafts are re-cut
     from the VARIANT seat planes (rv.HORN_HEAD_SEAT_Z /
-    rv.HORN_CENTRE_SEAT_Z -- 5 mm deeper, tracking the M3x30 -> M3x25
+    rv.HORN_CENTRE_SEAT_Z -- 10 mm deeper, tracking the M3x30 -> M3x20
     swap so the tip planes / horn engagement never move; shank
     clearances re-opened through the dropped slab), and the result is
     trimmed to the rotation envelope."""
@@ -281,8 +281,11 @@ def make_chassis_bottom_rigid() -> object:
     """Production chassis bottom + corner trim to the tower cylinder, all
     three dead-ear shaves (az 210 flush to the deck top), pillar-foot
     holes, wago-tray deletes, the per-leg wire-corridor flatten
-    (rv.CHB_FLAT_* -- Aug 24 rev 5), and the six raised full-wrap
-    tower rims (rv.make_chassis_bottom_rigid)."""
+    (rv.CHB_FLAT_* -- Aug 24 rev 5), and the Aug 25 LOWERED bearing
+    pocket: the old tower band above the new deck-level seat plane is
+    cut away (leaving the 0.5 mm-proud Phi 34/Phi 37.15 seat ledge)
+    and a fresh full-wrap Phi 44/Phi 37.15 ring is unioned from the
+    deck band to the new race top (rv.make_chassis_bottom_rigid)."""
     cb = step.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0
     cutters = []
@@ -318,8 +321,12 @@ def make_chassis_bottom_rigid() -> object:
              2.0 * rv.CHB_FLAT_HALF_Y, rv.CHB_FLAT_Z1 - rv.CHB_FLAT_Z0),
             ((rv.CHB_FLAT_X0 + rv.CHB_FLAT_X1) / 2.0, 0.0,
              (rv.CHB_FLAT_Z0 + rv.CHB_FLAT_Z1) / 2.0))
+        band = _cyl_z(rv.CHB_TOWER_R + 0.1,   # tower band rebuild (Aug 25):
+                      rv.CHB_SEAT_W,          # everything above the NEW seat
+                      rv.CHB_RIM_OLD_W + 1.5, # plane goes; the 0.5 mm Phi 34
+                      x=rv.APOTHEM)           # band left below is the ledge
         cutters.extend(Rotation(0, 0, deg) * c
-                       for c in (corner, ear330, box90, ear210, flat))
+                       for c in (corner, ear330, box90, ear210, flat, band))
     for az in range(0, 360, 60):
         for hx, hy in ((rv.PILLAR_BAR_HOLE_X, +rv.PILLAR_BAR_HOLE_Y),
                        (rv.PILLAR_BAR_HOLE_X, -rv.PILLAR_BAR_HOLE_Y),
@@ -335,13 +342,13 @@ def make_chassis_bottom_rigid() -> object:
                     hp.WAGO_MOUNT_WALL_H + 1.0),
                    (0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0)))
     body = step._diff(cb, *cutters)
-    rims = []                                    # raised full-wrap rims
-    for i in range(6):
+    rims = []                    # rebuilt full-wrap tower rings: Phi 44 /
+    for i in range(6):           # Phi 37.15, deck band to the race top
         deg = math.degrees((i + 0.5) * math.pi / 3.0)
         rim = step._diff(
-            _cyl_z(rv.CHB_TOWER_R, rv.CHB_RIM_OLD_W - 1.0, rv.CHB_RIM_W,
+            _cyl_z(rv.CHB_TOWER_R, rv.CHB_SEAT_W - 1.0, rv.CHB_RIM_W,
                    x=rv.APOTHEM),
-            _cyl_z(rv.POCKET_BORE / 2.0, rv.CHB_RIM_OLD_W - 2.0,
+            _cyl_z(rv.POCKET_BORE / 2.0, rv.CHB_SEAT_W - 2.0,
                    rv.CHB_RIM_W + 1.0, x=rv.APOTHEM))
         rims.append(Rotation(0, 0, deg) * rim)
     return step._union(body, *rims)
@@ -392,8 +399,8 @@ def rigid_hip_part_specs() -> list[StepPart]:
             "chassis_bottom_rigid",
             make_chassis_bottom_rigid,
             base / "chassis_bottom_rigid.stl",
-            "Production chassis bottom with tower-cylinder corners, full-wrap "
-            "raised rims and foot holes.",
+            "Production chassis bottom with tower-cylinder corners, the "
+            "lowered deck-level bearing pocket and foot holes.",
         ),
     ]
 
