@@ -280,8 +280,9 @@ def make_coxa_link_rigid() -> object:
 def make_chassis_bottom_rigid() -> object:
     """Production chassis bottom + corner trim to the tower cylinder, all
     three dead-ear shaves (az 210 flush to the deck top), pillar-foot
-    holes, wago-tray deletes, and the six raised full-wrap tower rims
-    (rv.make_chassis_bottom_rigid)."""
+    holes, wago-tray deletes, the per-leg wire-corridor flatten
+    (rv.CHB_FLAT_* -- Aug 24 rev 5), and the six raised full-wrap
+    tower rims (rv.make_chassis_bottom_rigid)."""
     cb = step.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0
     cutters = []
@@ -312,8 +313,13 @@ def make_chassis_bottom_rigid() -> object:
                    y=ear_r * math.sin(math.pi * 7.0 / 6.0)),
             keep,
         )
+        flat = _box(                  # wire-corridor flatten (Aug 24 rev 5)
+            (rv.CHB_FLAT_X1 - rv.CHB_FLAT_X0,
+             2.0 * rv.CHB_FLAT_HALF_Y, rv.CHB_FLAT_Z1 - rv.CHB_FLAT_Z0),
+            ((rv.CHB_FLAT_X0 + rv.CHB_FLAT_X1) / 2.0, 0.0,
+             (rv.CHB_FLAT_Z0 + rv.CHB_FLAT_Z1) / 2.0))
         cutters.extend(Rotation(0, 0, deg) * c
-                       for c in (corner, ear330, box90, ear210))
+                       for c in (corner, ear330, box90, ear210, flat))
     for az in range(0, 360, 60):
         for hx, hy in ((rv.PILLAR_BAR_HOLE_X, +rv.PILLAR_BAR_HOLE_Y),
                        (rv.PILLAR_BAR_HOLE_X, -rv.PILLAR_BAR_HOLE_Y),
