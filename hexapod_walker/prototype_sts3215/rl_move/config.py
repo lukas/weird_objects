@@ -1,6 +1,7 @@
 """Load ``config.yaml`` with light defaults."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,24 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
         data = _tiny_yaml(text)
     if not isinstance(data, dict):
         raise ValueError(f"config root must be a mapping: {p}")
+    # HEXAPOD_CONTROL_HZ override (2026-08-25, leg-sacrifice-fingerprint
+    # DIG-IN): mirrors the existing HEXAPOD_MODEL_SOURCE pattern
+    # (servo_model.resolve_model_source) for the SAME reason. config.yaml's
+    # `control.hz` default flipped 25 -> 100 on 2026-08-24
+    # (fb_20260824T174619_c49b7e); `rl_move/tests/test_task_semantics.py`'s
+    # ~230-test calibrated reward-pricing bank calls this function with NO
+    # override anywhere, so every fixed-magnitude threshold in that bank
+    # (charges/bonuses accumulate per TICK, and 100 Hz banks 4x more ticks
+    # per wall-clock second than the 25 Hz dynamics they were measured
+    # against) went stale silently: a full-bank run found **54 newly-failing
+    # tests** (was 1 known-red as of 08-22) the same day this override was
+    # added. Unset (the default everywhere except the pinned test suite) is
+    # a no-op — bit-exact, whatever config.yaml says. Only
+    # `tests/conftest.py` sets this, exactly like `HEXAPOD_MODEL_SOURCE`.
+    hz = os.environ.get("HEXAPOD_CONTROL_HZ", "").strip()
+    if hz:
+        data.setdefault("control", {})["hz"] = float(hz) if "." in hz \
+            else int(hz)
     return data
 
 
