@@ -281,6 +281,14 @@ def make_chassis_bottom_rigid() -> object:
                        (rv.PILLAR_TAB_RHO, 0.0)):
             cutters.append(Rotation(0, 0, az)
                            * _cyl_z(rv.HOLE_D / 2.0, -12.0, 12.0, hx, hy))
+    for M in hp.wago_tray_corner_transforms():   # wago tray delete (Aug 24)
+        deg = math.degrees(math.atan2(M[1, 0], M[0, 0]))
+        cutters.append(
+            Pos(M[0, 3], M[1, 3], M[2, 3])
+            * Rotation(0, 0, deg)
+            * _box((2.0 * rv.TRAY_HALF_X + 0.4, 2.0 * rv.TRAY_HALF_Y + 0.4,
+                    hp.WAGO_MOUNT_WALL_H + 1.0),
+                   (0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0)))
     return step._diff(cb, *cutters)
 
 

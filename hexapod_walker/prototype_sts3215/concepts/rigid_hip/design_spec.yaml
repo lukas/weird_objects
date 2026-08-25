@@ -291,11 +291,12 @@ parts:
       (measured 5.03 mm; envelope + distance asserted on every
       rebuild; the hip servo never gets within 13.8 mm; clear even
       for a 360-deg hand spin).
-      The foot fills the corner Wago-tray bay of chassis_bottom with
-      0.3 mm clearance to its three 2.4 mm walls -- the production
-      tray IS the shear/registration socket; the corner power splices
-      (buried under solid deck in this variant anyway) consolidate
-      into centre_wago_block.  6 per robot.
+      The foot keeps the old corner Wago-tray bay footprint but the
+      variant chassis DELETES the tray walls (dead geometry once the
+      corner splices consolidated into centre_wago_block), so the foot
+      registers on its three M3 bolts; on a stock chassis print the
+      surviving walls still fit it with 0.3 mm clearance.  6 per
+      robot.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_corner_pillar"
@@ -326,19 +327,19 @@ parts:
               the pillar.  Sand/shim a proud pillar, never let it rock
               the plate off the races.
       bay_foot:
-        label: "Wago-bay foot with 3 belly through-bolts"
+        label: "Bay-footprint foot with 3 belly through-bolts"
         kind: "boss"
         purpose: >-
-          4 mm plate filling the vacated tray bay (registration in
-          tangential shear on the side walls, radial on the outer
-          wall) plus an inboard tab whose bolt lands under the open
-          hatch.  Three M3 through-bolts with nyloc nuts on the belly;
-          the phi 3.4 holes are printed into chassis_bottom_rigid at
-          the same constants (on a STOCK chassis print: the foot is
-          the drill jig, a bench mod).
+          4 mm plate sized to the old tray bay, plus an inboard tab
+          whose bolt lands under the open hatch.  Registration is the
+          three M3 through-bolts (nyloc nuts on the belly); the
+          phi 3.4 holes are printed into chassis_bottom_rigid at the
+          same constants.  On a STOCK chassis print the foot is the
+          drill jig, and the surviving tray walls become a bonus
+          shear key around it.
         dimensions:
           key_clearance:
-            label: "Foot-to-wall clearance per side"
+            label: "Foot-to-wall clearance per side (stock print only)"
             value: 0.3
             code_name: PILLAR_KEY_CL
 
@@ -346,10 +347,11 @@ parts:
     label: "Central power-splice block (concept)"
     aliases: ["wago block", "splice block", "power block"]
     description: >-
-      The pillars claim the six corner Wago trays, so the power tree
-      consolidates: 4x 5-port Wago 221-415 in one printed press-fit
-      block at the chassis centre, replacing the 6 corner + 2 trunk
-      nuts (8 -> 4).  Two back-to-back rows share the middle wall
+      The pillars stand where the six corner Wago trays sat (the
+      variant chassis deletes those tray walls outright), so the power
+      tree consolidates: 4x 5-port Wago 221-415 in one printed
+      press-fit block at the chassis centre, replacing the 6 corner +
+      2 trunk nuts (8 -> 4).  Two back-to-back rows share the middle wall
       (north pair = V+, south pair = GND; each net's two nuts are
       jumpered, leaving battery-in + 6 leg branches + a spare port).
       Bays reuse the bench-tuned production tray constants (0.15 mm
@@ -409,12 +411,13 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — tower-trimmed platforms, ears shaved, foot holes (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, ears shaved, foot holes, trays deleted (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
-      The production chassis_bottom with three variant edits (user,
+      The production chassis_bottom with four variant edits (user,
       Aug 24: "round the corners on the chassis bottom below where the
-      bearings go"; rev 2: "the multiple curves should all match").
+      bearings go"; rev 2: "the multiple curves should all match";
+      rev 3: "remove the wago slots").
       (1) PLATFORM CORNERS: the square outboard platform under each
       yaw tower (face x 121.2 in the leg frame, half-width 21.25 above
       the sheet / 18.9 for the belly skirt) poked 8.4 mm diagonally
@@ -424,7 +427,7 @@ parts:
       never grazes the tower wall).  Every height shows the tower's
       one curve -- production already had that curve bulging through
       the platform band, so no new crease appears -- and pocket, seat,
-      well walls, trays and slots are untouched production geometry
+      well walls and slots are untouched production geometry
       (asserted every rebuild).  (2) DEAD EARS: the yaw_bearing_cap is
       deleted in this variant, so its three M3 ear lugs per tower had
       no job; the outboard one (which sat ON the trimmed corner) is
@@ -432,9 +435,14 @@ parts:
       to the rim-wall face; the inboard one stays merged with the
       well-mouth collar (invisible under the deck).  (3) FOOT HOLES:
       the 18 phi 3.4 pillar-foot bolt holes are printed through the
-      sheet at the same PILLAR_* constants as the feet.  Net -15 cm3
-      (320 vs 335).  A stock chassis print can be bench-modded to
-      match (saw/sand + drill) instead of reprinting.
+      sheet at the same PILLAR_* constants as the feet.  (4) WAGO
+      TRAYS DELETED: the six corner tray wall sets (2.4 mm U-walls,
+      6.5 tall) are dead geometry once the splices consolidated into
+      centre_wago_block, so everything above the sheet top is cut
+      away (the 1 mm embed band inside the sheet stays); pillar feet
+      register on their bolts.  Net -22 cm3 (313 vs 335).  A stock
+      chassis print can be bench-modded to match (saw/sand + drill)
+      instead of reprinting.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_chassis_bottom_rigid"

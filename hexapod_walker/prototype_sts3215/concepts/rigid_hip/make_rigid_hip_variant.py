@@ -50,14 +50,17 @@ pair.  This variant closes the loop from the TOP:
     (user, Aug 24: corners rounded; rev 2: all corner curves must
     match -- so the tower curve is now the ONLY curve), the dead
     cap-bolt ear lugs shaved (outboard + tangential; the inboard one
-    stays merged with the well collar), and the 18 pillar-foot holes
-    printed in.  See the CHB_* constant block.
-    Every functional surface (pocket, seat, walls, trays, slots) is
+    stays merged with the well collar), the 18 pillar-foot holes
+    printed in, and the six corner Wago TRAY WALL SETS DELETED (user,
+    Aug 24 -- the splices live in centre_wago_block now, so the trays
+    are dead geometry).  See the CHB_* constant block.
+    Every functional surface (pocket, seat, walls, slots) is
     production geometry.
-  * ``centre_wago_block`` -- the pillars claim the corner Wago trays,
-    so the power tree consolidates: 4x 5-port 221-415 (two per net,
-    jumpered) in one printed press-fit block at the chassis centre,
-    under the open hatch, replacing the 6 corner + 2 trunk nuts.
+  * ``centre_wago_block`` -- the corner Wagos are gone (pillars stand
+    there), so the power tree consolidates: 4x 5-port 221-415 (two per
+    net, jumpered) in one printed press-fit block at the chassis
+    centre, under the open hatch, replacing the 6 corner + 2 trunk
+    nuts.
 
   Load path: hip moment -> cap boss -> top bearing -> top plate ->
   six rim pillars -> chassis_bottom / five other legs.  Each yaw axis
@@ -314,29 +317,38 @@ PILLAR_TOP_GAP = 0.1                      # nominal gap to the frame sheet:
 PILLAR_FRAME_SCREW_RHO = 87.0             # dedicated frame->pillar M3
 PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
 
-# The pillar stands in the production WAGO TRAY at each corner flat
-# (chassis_bottom grows a U of 2.4 mm walls there for a 5-way Wago).
-# With the top frame installed those corner Wagos are buried under
-# solid deck (no lever access), so in this variant the corner + trunk
-# splices CONSOLIDATE into the central block (see WBLK_* below); the
-# vacated tray becomes the pillar's SOCKET:
-# the foot fills the bay with 0.3 mm clearance to all three walls, so
-# the production walls themselves are the shear/registration key (the
-# tray geometry is production, untouched by the CHB_* chassis edits).
-# The surrounding corner is otherwise
+# The pillar stands where the production WAGO TRAY sat at each corner
+# flat.  With the top frame installed those corner Wagos are buried
+# under solid deck (no lever access), so in this variant the corner +
+# trunk splices CONSOLIDATE into the central block (see WBLK_* below)
+# and the six integrated tray WALL SETS ARE DELETED from the chassis
+# print (user, Aug 24: "they dont make any sense anymore") -- see the
+# tray-cut block in make_chassis_bottom_rigid.  The pillar foot keeps
+# the exact bay-sized footprint (all hole positions unchanged) but now
+# registers on its THREE M3 through-bolts instead of the old 0.3 mm
+# wall key.  The surrounding corner is otherwise
 # claimed (probed against the real solid): the leg cradle's diagonal
 # well wall at y ~ +/-19..26 and the retainer's corner pads (z to 9.25)
-# forbid any foot wings OUTSIDE the bay, so both bar bolts sit INSIDE
-# the bay, plus a small INBOARD tab whose bolt lands under the open
-# hatch (driver comes straight down, even with the frame on).  Nyloc
-# nuts go on the belly (-6 face, verified open at all three spots).
+# forbid any foot wings outside the old bay footprint, so both bar
+# bolts sit INSIDE it, plus a small INBOARD tab whose bolt lands under
+# the open hatch (driver comes straight down, even with the frame on).
+# Nyloc nuts go on the belly (-6 face, verified open at all three
+# spots).  On a STOCK chassis print the tray walls still exist; the
+# foot was sized to fit them with 0.3 mm clearance, so it still drops
+# straight in (the walls just become a bonus shear key there).
 _WAGO_BAY_W = hp.WAGO5_W + hp.WAGO_MOUNT_BAY_CLEAR    # 29.85 tangential
-PILLAR_KEY_CL = 0.3                       # foot-to-wall clearance per side
-_BAY_OUT_X = hp.WAGO_MOUNT_EDGE_R - hp.WAGO_MOUNT_WALL_T   # 97.6 outer wall
+PILLAR_KEY_CL = 0.3                       # foot vs (stock-print) wall, per side
+_BAY_OUT_X = hp.WAGO_MOUNT_EDGE_R - hp.WAGO_MOUNT_WALL_T   # 97.6 old outer wall
 PILLAR_BAR_HOLE_X = 93.0                  # in-bay bolt pair, radial pos
 PILLAR_BAR_HOLE_Y = 11.0                  # in-bay bolt pair, tangential +/-
 PILLAR_TAB_RHO = 67.6                     # inboard tab bolt radius
 PILLAR_FOOT_T = 4.0                       # foot plate thickness
+# Tray wall-set envelope (for the delete cut + the gone-check): the
+# production tray is 2 side walls + 1 outer wall, 2.4 thick, 6.5 tall,
+# on the plate top face at each corner flat (az 0/60/...).
+TRAY_HALF_X = (hp.WAGO5_D + hp.WAGO_MOUNT_BAY_CLEAR) / 2.0 \
+    + hp.WAGO_MOUNT_WALL_T                # 11.625 radial half-extent
+TRAY_HALF_Y = _WAGO_BAY_W / 2.0 + hp.WAGO_MOUNT_WALL_T   # 17.325 tangential
 
 # CENTRAL SPLICE BLOCK (user, Aug 24: consolidate).  With the corner
 # trays claimed by the pillars, the power tree collapses into ONE
@@ -584,11 +596,12 @@ def make_corner_pillar() -> trimesh.Trimesh:
       * two Phi 2.5 self-tap pilots in the top face (insert-ready):
         the shared lid screw (rho 76.2) and the dedicated frame screw
         (rho 87);
-      * a bottom FOOT plate that fills the (vacated) corner Wago tray
-        bay with 0.3 mm clearance to its three 2.4 mm walls -- the
-        production tray IS the shear/registration socket -- carrying
-        two in-bay Phi 3.4 through-holes, plus a small inboard TAB
-        whose bolt lands under the open hatch.  All three are M3
+      * a bottom FOOT plate sized to the old corner Wago tray bay
+        (the variant chassis DELETES the tray walls, so the foot
+        registers on its bolts; on a stock chassis print the
+        surviving walls still fit it with 0.3 mm clearance) carrying
+        two Phi 3.4 through-holes, plus a small inboard TAB whose
+        bolt lands under the open hatch.  All three are M3
         through-bolts with nyloc nuts on the belly; the matching holes
         are printed into chassis_bottom_rigid (on a STOCK chassis
         print, drill them using the foot as the jig).
@@ -691,6 +704,12 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
       * FOOT HOLES: the 18 Phi 3.4 pillar-foot bolt holes are printed
         through the sheet (same PILLAR_* constants as the feet, so
         they line up by construction).
+      * WAGO TRAYS DELETED (user, Aug 24): the corner power splices
+        moved into centre_wago_block, so the six integrated tray wall
+        sets are dead geometry -- every wall above the sheet top is
+        cut away (the 1 mm embed band below the top face is interior
+        material and stays).  The pillar feet register on their three
+        M3 bolts instead of the old wall key.
 
     This makes chassis_bottom the variant's second reprinted
     production part (chassis_bottom_rigid.stl)."""
@@ -726,6 +745,12 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
             h = _cyl_z(HOLE_D / 2.0, -12.0, 12.0, x=hx, y=hy, sections=32)
             h.apply_transform(Ra)
             cutters.append(h)
+    for M in hp.wago_tray_corner_transforms():               # (e) tray delete
+        c = _box((2.0 * TRAY_HALF_X + 0.4, 2.0 * TRAY_HALF_Y + 0.4,
+                  hp.WAGO_MOUNT_WALL_H + 1.0),
+                 center=(0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0))
+        c.apply_transform(M)                                 # local z0 = sheet top
+        cutters.append(c)
     return _diff(cb, cutters)
 
 
@@ -1080,10 +1105,11 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     top NOTHING outboard of the hex edge survives past the tower
     cylinder (the corner trim leaves one matching curve), the trim
     never bit the tower wall, only the intentional az-210 boss survives
-    past the tower cylinder above the platform, and the printed foot
-    holes are open exactly where the pillar feet expect them.  (Pocket
-    seat, tray socket and retainer territory are re-verified against
-    THIS mesh by the other checks.)"""
+    past the tower cylinder above the platform, the printed foot
+    holes are open exactly where the pillar feet expect them, and the
+    six Wago tray wall sets are GONE above the sheet with the sheet
+    still solid underneath.  (Pocket seat and retainer territory are
+    re-verified against THIS mesh by the other checks.)"""
     cb = meshes["chassis_bottom"]
     assert cb.body_count == 1, "chassis variant not a single body"
     v = trimesh.transform_points(cb.vertices, _rotz(-0.5 * np.pi / 3.0))
@@ -1139,9 +1165,27 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
         "a printed foot hole is blocked"
     assert cb.contains(np.array(beside)).all(), \
         "sheet not solid beside a printed foot hole"
+
+    # wago trays gone: probe mid-height of all three wall positions of
+    # every corner tray (must be air) and the sheet just below each
+    # (must still be solid -- the cut may not bite the plate)
+    t = hp.WAGO_MOUNT_WALL_T
+    gone, under = [], []
+    for M in hp.wago_tray_corner_transforms():
+        for lx, ly in ((TRAY_HALF_X - t / 2.0, 0.0),
+                       (0.0, +(TRAY_HALF_Y - t / 2.0)),
+                       (0.0, -(TRAY_HALF_Y - t / 2.0))):
+            p = np.array([lx, ly, 0.0, 1.0])
+            gone.append((M @ (p + [0, 0, hp.WAGO_MOUNT_WALL_H / 2.0, 0]))[:3])
+            under.append((M @ (p + [0, 0, -1.0, 0]))[:3])
+    assert not cb.contains(np.array(gone)).any(), "a wago tray wall survived"
+    assert cb.contains(np.array(under)).all(), \
+        "tray delete cut bit into the sheet"
+
     print(f"  chassis variant: tower bases trimmed to one r {CHB_TRIM_R:g} "
           f"cylinder (outboard max r {r_max:.2f}), az-330/90 ears shaved, "
-          f"18 foot holes printed in, {abs(cb.volume) / 1000.0:.0f} cm3")
+          f"18 foot holes printed in, 6 wago trays deleted, "
+          f"{abs(cb.volume) / 1000.0:.0f} cm3")
 
 
 def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:

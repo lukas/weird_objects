@@ -26,8 +26,8 @@ servo — is a cantilever.  This variant closes the structure from the top:
 * **`corner_pillar`** (print 6): plain solid elliptical columns at the
   six corner azimuths tying the frame to chassis_bottom at the RIM —
   the actual top↔bottom structural connection (see below).  Each
-  stands in a vacated corner Wago tray and doubles as the boss its
-  hatch perimeter screw threads into.
+  stands where a corner Wago tray used to be and doubles as the boss
+  its hatch perimeter screw threads into.
 * **`coxa_link_rigid`** (print 6): the production coxa with three
   variant edits — servo-cradle corners rounded to the 38.2 mm yaw
   envelope so the plain columns clear the swinging leg by 5 mm at
@@ -37,13 +37,15 @@ servo — is a cantilever.  This variant closes the structure from the top:
 * **`chassis_bottom_rigid`** (print 1): the production chassis with the
   six square tower platforms trimmed to the tower's own Φ44 cylinder —
   one matching curve from belly to bearing pocket — the dead cap-bolt
-  ear lugs shaved off, and the 18 pillar-foot bolt holes printed in
-  (see below).  Every functional surface — bearing pocket, seat, well
-  walls, Wago trays, strap slots — is production geometry.
-* **`centre_wago_block`** (print 1): the pillars claim the corner Wago
-  trays, so the power tree consolidates — 4× 5-port 221-415 (two per
-  net, jumpered) in one press-fit block at the chassis centre under
-  the open hatch, replacing the 6 corner + 2 trunk nuts (see below).
+  ear lugs shaved off, the 18 pillar-foot bolt holes printed in, and
+  the six corner Wago tray wall sets deleted (dead geometry in this
+  variant — see below).  Every functional surface — bearing pocket,
+  seat, well walls, strap slots — is production geometry.
+* **`centre_wago_block`** (print 1): the corner Wago trays are gone
+  (pillars stand there), so the power tree consolidates — 4× 5-port
+  221-415 (two per net, jumpered) in one press-fit block at the
+  chassis centre under the open hatch, replacing the 6 corner +
+  2 trunk nuts (see below).
 
 Load path: hip moment → cap boss → top bearing → top plate →
 **six rim pillars** → chassis_bottom + the five other legs.  Each yaw
@@ -127,10 +129,18 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   gain.
 * **18 pillar-foot holes printed in** (same constants as the pillar
   feet, aligned by construction) — no bench drilling on a fresh build.
-* Net: −15 cm³ (320 vs 335).  **On an existing stock chassis print**
+* **Corner Wago trays deleted** (user, Aug 24: "they dont make any
+  sense anymore in this version"): the splices live in
+  `centre_wago_block` now, so the six 2.4 mm tray wall sets are dead
+  geometry — everything above the sheet top is cut away (the 1 mm
+  embed band inside the sheet stays as interior material).  The pillar
+  feet register on their three M3 bolts instead of the old wall key.
+* Net: −22 cm³ (313 vs 335).  **On an existing stock chassis print**
   all of this is a bench mod instead: saw/sand the corners back to the
   tower barrel and shave the ear lugs, drill the foot holes using the
-  pillar feet as jigs.
+  pillar feet as jigs.  The stock tray walls can stay — the feet were
+  sized to fit them with 0.3 mm clearance, so they just become a bonus
+  shear key.
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
@@ -203,35 +213,35 @@ territory outside every swing envelope):
   pilots in a 10 mm solid plug: the hatch perimeter screw (one M3×16
   clamps lid → frame → pillar) and a dedicated frame screw at rho 87
   so the frame stays clamped with the lid off.
-* **Foot = the corner Wago tray**: chassis_bottom already grows a
-  three-walled tray for a 5-way Wago at every corner flat.  With the
-  top frame on, those Wagos would be buried under solid deck anyway
-  (no lever access), so the power splices **consolidate into the
-  central block** (next section); the vacated bay becomes the pillar's
-  socket — the foot fills it with 0.3 mm clearance to the 2.4 mm
-  production walls, which act as the shear/registration key (the tray
-  is untouched production geometry on the `chassis_bottom_rigid`
-  reprint).
+* **Foot = the old corner Wago tray bay**: production chassis_bottom
+  grows a three-walled tray for a 5-way Wago at every corner flat.
+  With the top frame on, those Wagos would be buried under solid deck
+  anyway (no lever access), so the power splices **consolidate into
+  the central block** (next section) and `chassis_bottom_rigid`
+  **deletes the tray walls outright** (user, Aug 24).  The foot keeps
+  the exact bay-sized footprint — every hole position unchanged — and
+  registers on its three M3 bolts.  (On a stock chassis print the
+  walls survive and the foot still drops in with 0.3 mm clearance;
+  there they act as a bonus shear key.)
 * **Foot bolts**: three M3 through-bolts with nyloc nuts on the belly
-  (two inside the bay, one on an inboard tab that sits under the open
-  hatch so its driver comes straight down).  The Φ3.4 holes are
-  **printed into `chassis_bottom_rigid`** at the same constants the
-  foot uses, so they line up by construction; belly verified open at
-  all three nut spots.  (Bench-modding a STOCK chassis print instead?
-  The foot is its own drill jig: sit the pillar in the tray, drill
-  Φ3.4 through the 8 mm sheet+floor, bolt.)
+  (two inside the old bay footprint, one on an inboard tab that sits
+  under the open hatch so its driver comes straight down).  The Φ3.4
+  holes are **printed into `chassis_bottom_rigid`** at the same
+  constants the foot uses, so they line up by construction; belly
+  verified open at all three nut spots.  (Bench-modding a STOCK
+  chassis print instead?  The foot is its own drill jig: sit the
+  pillar in the tray, drill Φ3.4 through the 8 mm sheet+floor, bolt.)
 
 Why this shape: light (~140 g total for all six), cheap (pure print,
 ~$3 of filament + 24 screws), strong (six large-section columns at
 2× the standoff radius — slender-column estimates put plate shear ~3×
-and torsion ~6× the four-standoff baseline, before counting the keyed
-sockets), and easy (each pillar drops into a socket that already
-exists on the production part and takes 4 screws).
+and torsion ~6× the four-standoff baseline), and easy (each pillar
+sits flat on the sheet and takes 4 screws).
 
 ## Central splice block — the power tree consolidates 8 nuts → 4
 
-With the corner trays claimed by the pillars, per-corner splices no
-longer earn their keep — `centre_wago_block` (print 1, ~11 g) replaces
+With the corner trays gone (pillars stand there now), per-corner
+splices no longer exist — `centre_wago_block` (print 1, ~11 g) replaces
 the **6 corner Wagos AND the 2 trunk nuts** with 4× 5-port 221-415 in
 one printed block at the chassis centre:
 
@@ -312,11 +322,11 @@ variation only moves parts that stay outboard/below the plate.
   yaw envelope the plain columns rely on nor reaches the tower-seated
   race (same filament as 6 production coxas; the old prints become
   spares)
-* **1× `chassis_bottom_rigid` reprint** (~320 cm³, same class as the
+* **1× `chassis_bottom_rigid` reprint** (~313 cm³, same class as the
   production chassis print) — tower platforms trimmed to the tower
-  cylinder, shaved ears, printed foot holes.  A stock chassis print
-  can be bench-modded instead (saw/sand corners + drill), skipping the
-  reprint entirely
+  cylinder, shaved ears, printed foot holes, corner Wago trays
+  deleted.  A stock chassis print can be bench-modded instead
+  (saw/sand corners + drill), skipping the reprint entirely
 * recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
   cap pilots, +12 for the pillar-top pilots — see "Disassembly & service"
 
@@ -336,10 +346,11 @@ variation only moves parts that stay outboard/below the plate.
    chassis solid), seat 4× 221-415, jumper each pair, land the battery
    leads through the trunk pass into the east ports and each leg's
    (lengthened) pigtails into the fan-out ports.  The 6 corner and 2
-   trunk nuts are retired.  Then sit each `corner_pillar` in its
-   vacated tray and bolt down with M3×12 + belly nylocs through the
-   printed foot holes (stock chassis: drill them first, using the
-   foot as the jig).
+   trunk nuts are retired.  Then sit each `corner_pillar` flat on the
+   sheet at its corner flat and bolt down with M3×12 + belly nylocs
+   through the printed foot holes (stock chassis: the tray walls are
+   still there — drop the foot between them and drill first, using
+   the foot as the jig).
 3. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
 4. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time —
@@ -447,6 +458,14 @@ npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
 # see cad_step_test/README.md; verifies BREP vs these meshes at build time
 uv run --no-project --python 3.12 --with build123d --with trimesh --with numpy \
   python hexapod_walker/prototype_sts3215/cad_step_test/build_rigid_hip_step.py
+
+# the STEP files themselves are also viewable in BuildViz (native STEP
+# ingest; parts laid out side by side, print-checkable):
+#   cd cad_step_test/out/step && npx buildviz push-step \
+#     hip_clamp_cap_rigid.step chassis_top_rigid.step top_hatch_rigid.step \
+#     corner_pillar.step centre_wago_block.step coxa_link_rigid.step \
+#     chassis_bottom_rigid.step --build-id sts3215-rigid-hip-step
+# http://127.0.0.1:5183/?build=sts3215-rigid-hip-step
 ```
 
 Checks run at build time: watertightness, seated-stack placement, the
@@ -457,7 +476,8 @@ bearing lift-out path),
 the chassis variant (nothing outboard survives past the tower
 cylinder, the trim never bit the tower wall, only the intentional
 inboard boss survives, foot holes open where the pillar feet expect
-them), full 360° yaw sweep vs the
+them, all six Wago tray wall sets gone with the sheet still solid
+underneath), full 360° yaw sweep vs the
 plate, straight-down plate descent over all six bearings, pillar
 clearances (seated robot, ±45° operating yaw with margin, and an
 informational full hand-spin scan) and the femur pitch×yaw contact
