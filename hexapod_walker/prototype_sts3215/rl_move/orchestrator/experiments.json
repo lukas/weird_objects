@@ -188091,7 +188091,23 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init -4.0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3_slowchain --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-stancemix-bcchain3-stdanneal: Does the rise pace-halving lever validated on the ISOLATED rise lineage (riseonly-bcchain3-slowchain: bc_anchor_lookahead_s 0.5->0.25s, min_h_ahead_mm 15->8mm, which cut deep-start cur_p95 2.64A->1.85A and raised DR-0 det valid_plant 2/6->3/6) ALSO unpin rise'\"'\"'s deep-start press-up when ported into the FULL hold+rise+lower mix, warm-started from the just-PASSED stancemix-bcchain3-stdanneal checkpoint (hold 6/6+6/6 zero-term @0.78A, lower 6/6+6/6 @<=1.4mm, rise det 2/6 with deep starts pinned 2.64A) -- without disturbing the hold/lower parity that checkpoint just achieved? Warm-start (not from-scratch) so hold/lower keep their solved weights; log-std pinned at -4 (no re-anneal, mirroring the isolated cont8 continuation) since noise re-injection was already shown NOT to be the rise blocker. Prediction-if-true: rise DR-0 det valid_plant rises above 2/6 and/or deep-start cur_p95 median falls below 2.64A toward slowchain'\"'\"'s 1.85A, while hold stays >=5/6+5/6 zero-term <=1.0A and lower stays >=4/6 honest (<=10mm) -- pace transfers cleanly into the mix. Prediction-if-false: rise stays pinned at 2.64A/2-6 valid_plant despite the pace change (mix dynamics differ from isolated), or hold/lower regress (the mix trades one mode'\"'\"'s gain for another'\"'\"'s loss under shared policy capacity) -- either result means the pace fix must be re-derived in-mix, not simply ported.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-anneal-frac 0.5 --log-std-final -4.0 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal.zip > /tmp/train_cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain.log",
     "wandb_id": "kza9ep2s",
-    "verified": "2026-08-25T16:08:10+00:00"
+    "verified": "2026-08-25T16:08:10+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T16:13:56+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 74,
+        "cpu_centisec_deltas": [
+          4,
+          2
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 4009984"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-anchordose10",
