@@ -1,6 +1,41 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~17:5x (**8M GRID CLOSES with seed-2 — budget
+Last updated: 2026-08-25 ~18:1x (**FLAT-START ROOT CAUSE FOUND — the
+BC anchor's height-floor pursuit SKIPS the mesh ref's entire tuck
+segment from flat states; exposure refuted (flatmix70-s1 CANARY
+FAIL-MECH); tuckfloor0 canary pair launched as the fix.** Seed-1 read:
+flat-pinned probe 0/12 valid, all 12 over_current at exactly 2.64A,
+same never-tucks radial press-up (h_err 13-62mm); standard DR-0 gate
+det 0/6 — the 0.70-flat mix sampled 4 flat + 2 rsi det starts and BOTH
+rsi det starts regressed into the press-up basin (vs meshref det 5/6);
+sto 4/6 (rsi/bridge clean, flat 0/2). Seed-0's standard gate
+replicates episode-for-episode (det 0/6 all oc incl. both rsi, sto
+4/6; its verdict is its own cycle's). MECHANISM (measured):
+`rise_ref_mesh_scripted.npz` tucks for ticks 0-245 (~4.9 s) at exactly
+h=0.0 mm, then presses 0→83 mm over ticks 245-400; the state-aligned
+anchor's `train.bc_anchor_min_h_ahead_mm=8` floor requires the target
+tick to command >=8 mm above current height, so from ANY h≈0 state the
+first qualifying tick is ~258 — the anchor jumps the whole tuck and
+supervises flat starts straight toward press-phase legs-under-body
+poses while the legs are still splayed = the 2.64A pin. Non-flat
+starts match at/past the tuck (why only flat fails); the floor is
+~no-op in the press segment (climbs ~0.5 mm/tick, floor 8 mm ≈ 0.32 s
+≈ the 0.25 s lookahead) — it was anti-freeze for the LEGACY ref's 5 s
+0→25 mm crawl and is segment-blind to a zero-height tuck. This also
+retro-explains why every exposure/budget/pace/dose lever failed: the
+supervision itself is wrong at flat states. FUNDED: `tuckfloor0` /
+`tuckfloor0-s1` 2M canary pair — exact meshref recipe, single lever
+`min_h_ahead_mm` 8→0 (the key's own bit-exact default), restoring tuck
+supervision from flat while leaving press supervision effectively
+unchanged; judged jointly on the flat-pinned probe + standard gate
+(PASS → 8M + port to stancemix; PARTIAL/stall-return → code the
+tuck-exempt floor, i.e. floor active only at/after `ramp_i0`; FAIL
+with anchor verified pointing into the tuck → tuck-segment start
+curriculum next). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+riseonly_bcchain3_meshref_flatmix70_s1_{gate,owncfg,flatprobe}/`, W&B
+xz8urts2.)
+
+Prior entry: 2026-08-25 ~17:5x (**8M GRID CLOSES with seed-2 — budget
 is NOT the lever on the mesh-native ref; PACE AXIS ALSO CLOSED —
 half-pace stays the default. Flat-start tuck is the sole residual, and
 the running flatmix70 exposure pair is the funded attack on it.** This
