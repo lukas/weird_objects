@@ -171,11 +171,12 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   past the platform silhouette and is shaved flush to the rim-wall
   face; the inboard (az 210) one — a free-standing column reaching
   r 28 from the yaw axis and z 19.75 — is cut flush to the
-  **servo-mount deck top** (z 10.25).  Its below-deck root stays
-  merged with the well-mouth collar (cutting there risks gouging the
-  collar, and it invisibly stiffens the deck).  Above the deck,
-  nothing pokes past the tower cylinder at any azimuth: the towers
-  read as six clean bare columns.
+  **servo-mount deck top** (z 10.25).  Its below-deck root used to
+  stay merged with the deck-skin roof; since rev 6 that roof (and the
+  root with it) is gone — the ear centre sits at r 23.5 from the yaw
+  axis, outside the tower keep cylinder.  Above the deck, nothing
+  pokes past the tower cylinder at any azimuth: the towers read as
+  six clean bare columns.
 * **18 pillar-foot holes printed in** (same constants as the pillar
   feet, aligned by construction) — no bench drilling on a fresh build.
 * **Corner Wago trays deleted** (user, Aug 24: "they dont make any
@@ -190,12 +191,15 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   ledge) and a fresh Φ44/Φ37.15 ring is unioned to the new race top
   (world 17.75) after every variant cut, so the ear shaves never nick
   it.
-* **Wire corridors flattened** (user, Aug 24 rev 5): the wago-era
-  apparatus inboard of each seated yaw servo — cradle end wall, porch
-  canopy, side-wall stubs — is cut back to the bare sheet, one box per
-  leg (leg-frame x 50 → 64.65, |y| ≤ 20.5, sheet top → over the
-  deck).  See "The flattened corner" below.
-* Net: −47 cm³ (288 vs 335).  **On an existing stock chassis print**
+* **Wire corridors + cradle shells flattened** (user, Aug 24 rev 5 +
+  Aug 25 rev 6): the wago-era apparatus inboard of each seated yaw
+  servo — cradle end wall, porch canopy, side-wall stubs — AND the
+  cradle-shell run outboard of it (side walls + the deck-skin roof
+  they carried, whose ends were the "two gray things" flanking each
+  pillar) are cut back to the bare sheet, one box per leg (leg-frame
+  x 50 → 100, |y| ≤ 20.5, sheet top → over the deck) minus the tower
+  keep cylinder (r 21.95).  See "The flattened corner" below.
+* Net: −67 cm³ (268 vs 335).  **On an existing stock chassis print**
   the cosmetic edits are still a bench mod (saw/sand the corners back
   to the tower barrel, shave the ear lugs and corridor walls, drill
   the foot holes using the pillar feet as jigs), but the Aug 25
@@ -206,7 +210,7 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   print — the feet were sized to fit them with 0.3 mm clearance, so
   they just become a bonus shear key.
 
-### The flattened corner (user decision, Aug 24 rev 5)
+### The flattened corner (user decisions, Aug 24 rev 5 + Aug 25 rev 6)
 
 The plate top inboard of each seated yaw servo used to carry the
 wago-era **wire-corridor apparatus** — per leg (leg frame, yaw axis at
@@ -228,31 +232,51 @@ clarified the scope: *"this isnt wall flattening, its flatening random
 bumps in the top of the chassis plate that serve no purpose"*.  With
 the splices consolidated into `centre_wago_block`, the harness simply
 exits the well into open air — none of that apparatus registered,
-sealed or carried anything.  **Deliberately flattened by user
-decision**: one box per leg cuts the whole band back to the bare sheet
-(x 50 → 64.65 — splitting the old 0.3 mm wall-to-servo gap — |y| ≤
-20.5, z 2 → 12), all six legs (`corner_flattened_annotated.png` shows
-before/after).
+sealed or carried anything.  **Rev 5** cut that band back to the bare
+sheet with one box per leg (x 50 → 64.65, |y| ≤ 20.5, z 2 → 12).
 
-**What still registers each seated yaw servo** (all verified against
-the cut mesh on every rebuild, `check_chassis_variant`):
+**Rev 6 (user, Aug 25): the cradle shell goes too.**  Rev 5 stopped at
+the old wall-to-servo gap, which left the **cradle-shell run**
+standing outboard of the cut face: the 5.6 mm side walls at |y|
+13.2–18.9 (z 2 → 10.25) and the 2.2 mm deck-skin roof they carried
+(z ≈ 8.05 → 10.25, spanning the full 37.6 mm between the wall outer
+faces).  At the corners those shell ends read as *"two gray things
+from the waygo sticking up on each side of the column"* (user) —
+vertical cut faces flanking each pillar at ~10 mm, one from each
+adjacent leg.  Measured before removing them: the roof hovers
+**1.8 mm above the real servo case top** (the case front face is at
+z 6.25; the "case top = deck top 10.25" plane is only the horn-boss
+region inside the tower — the fat visual servo block hides this),
+nothing bears on the roof (the bearing and the top plate ride the
+towers and pillars), the walls sit 0.85 mm off the case flanks, and
+their only job was holding that roof up.  The flatten box now runs to
+the yaw axis (x 50 → 100) **minus the tower keep cylinder**
+(r 21.95 about the axis), all six legs
+(`pillar_stubs_annotated.png` — the user's camera angle, before/after;
+`corner_flattened_annotated.png` — plan sections).  Chassis print
+288 → 268 cm³.
 
-* the **well-mouth collar + deck plateau** outboard of the cut
-  (x > 64.65): the servo body still passes through and bears on the
-  production well opening;
-* the **side walls flanking the servo body** at |y| ≈ 13–19 outboard
-  of x 64.65 (they carry the servo-mount deck and hug the flanks);
+**What actually registers each seated yaw servo** (all verified
+against the cut mesh on every rebuild, `check_chassis_variant`):
+
+* the **sheet-level well** (z 0 → 2): hugs the case at 0.75 mm/side
+  for its full length — the production lateral register, below the
+  cut plane and untouched;
 * the **`yaw_servo_retainer`** below the sheet (z −40 → −6, bolts up
   from the belly into plate pilots at leg-frame x 71/87.5, |y| 21 —
   outside the cut in x, y and z): its grip jaws take the lateral
-  loads, its bar takes the drop-out load.
+  loads, its bar takes the drop-out load;
+* the **shell inside the tower keep cylinder** (well-mouth collar,
+  pocket floor, seat ledge): registers the case at the output end —
+  and it is structural: it carries the **inboard arc of the 6805
+  seat** over the servo tunnel, which is why the keep cylinder is a
+  hard boundary for the cut, not styling.
 
-The servo's inboard END face now looks at open air where the end wall
-stood — the end-stop job (0.3 mm bump clearance) is covered by the
-retainer jaws and the well collar; nothing measurable changes in how
-the servo is held.  (`corner_flat_owners.png` — a z=8 section of the
-pre-flatten corner with per-part colours — remains as the ownership
-reference for what the walls were.)
+What you now see at a corner: bare sheet, the pillar, the Φ44 tower
+boss, and the servo case itself standing 4.25 mm proud of the sheet —
+the thing that was hiding behind the stubs.  (`corner_flat_owners.png`
+— a z=8 section of the pre-flatten corner with per-part colours —
+remains as the ownership reference for what the walls were.)
 
 ### The joint column: horn → bearing → coxa (Aug 24, dropped to the deck Aug 25)
 
@@ -716,10 +740,13 @@ sub-slab silhouette inside the seat-ring + brim envelope, slab clear
 of the tower rim), the chassis variant (nothing outboard survives
 past the tower cylinder, the trim never bit the tower wall, nothing
 past the tower cylinder above the servo-mount deck at any azimuth up
-to the rim with the az-210 root still solid below it, the rebuilt
+to the rim with the az-210 ear + its root proven gone, the rebuilt
 full-wrap ring complete on all six towers, foot holes open where the
 pillar feet expect them, all six Wago tray wall sets gone with the
-sheet still solid underneath), full 360° yaw sweep vs the plate,
+sheet still solid underneath, the whole rev 5+6 flatten band proven
+air outside the tower keep with the sheet intact below it and the
+in-keep shell + pocket floor still standing), full 360° yaw sweep vs
+the plate,
 straight-down plate descent over all six bearings, pillar clearances
 (seated robot, ±45° operating yaw with margin, and an informational
 full hand-spin scan) and the femur pitch×yaw contact sweep (fails the

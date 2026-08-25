@@ -85,20 +85,28 @@
 # collar) and prints in the 18 pillar-foot holes.  All remaining
 # functional surfaces stay production geometry.
 #
-# Wire corridors flattened (user, Aug 24 rev 5: "that CRADLE WALL isnt
-# doing shit, just flatten it out and its fine" / "its flatening
-# random bumps in the top of the chassis plate that serve no
-# purpose"): the wago-era apparatus inboard of each seated yaw servo
-# -- the cradle end wall (leg-frame x 61.5..64.5, full height, 0.3 mm
-# off the servo end face, wire notch at |y| <= 3.5), the porch canopy
-# skin over the floorless harness corridor, and the |y| 14..18.9
-# side-wall stubs -- is cut back to the bare sheet, one box per leg
-# (x 50..64.65, |y| <= 20.5, sheet top z 2 -> 12).  The wires route to
-# the centre splice block now, so nothing there had a job.  KEPT and
-# still registering the servo: the well-mouth collar + deck plateau +
-# flanking side walls outboard of x 64.65, and the belly-bolted
-# yaw_servo_retainer (its plate pilots at x 71/87.5, |y| 21, z -2..1
-# are outside the cut in every axis).
+# Wire corridors + cradle shells flattened (rev 5 user, Aug 24: "that
+# CRADLE WALL isnt doing shit, just flatten it out and its fine" /
+# "its flatening random bumps in the top of the chassis plate that
+# serve no purpose"; rev 6 user, Aug 25: "how are there still these
+# two gray things from the waygo sticking up on each side of the
+# column"): rev 5 cut the wago-era apparatus inboard of each seated
+# yaw servo -- the cradle end wall (leg-frame x 61.5..64.5, full
+# height, 0.3 mm off the servo end face, wire notch at |y| <= 3.5),
+# the porch canopy skin over the floorless harness corridor, and the
+# inboard side-wall stubs -- back to the bare sheet with a box ending
+# at x 64.65.  Rev 6 extends the box to the yaw axis minus the tower
+# keep cylinder (x 50..100, |y| <= 20.5, z 2 -> 12, keep r 21.95),
+# removing the remaining cradle-shell run whose ends flanked each
+# corner pillar at ~10 mm: 5.6 mm side walls at |y| 13.2..18.9
+# (0.85 mm off the case flanks) plus the 2.2 mm deck-skin roof they
+# carried (hovering 1.8 mm above the real case top at z 6.25 --
+# measured: nothing bears on it, it registers nothing).  The servo is
+# registered by the sheet-level well (z 0..2, 0.75 mm/side), the
+# belly-bolted yaw_servo_retainer (plate pilots at x 71/87.5, |y| 21,
+# z -2..1 -- outside the cut in every axis) and the shell inside the
+# keep cylinder, which also carries the 6805 seat's inboard arc over
+# the servo tunnel.
 
 parts:
   hip_clamp_cap_rigid:
@@ -470,7 +478,7 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, wire corridors flattened (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, corridors + cradle shells flattened (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
       The production chassis_bottom with five variant edits (user,
@@ -493,10 +501,11 @@ parts:
       lugs per tower had no job; the outboard one (which sat ON the
       trimmed corner) is shaved flush to the tower cylinder, the
       tangential one flush to the rim-wall face, and the inboard
-      (az 210) column flush to the servo-mount deck top (z 10.25),
-      its root left merged with the well-mouth collar below the deck.
-      Above the deck nothing pokes past the tower cylinder at any
-      azimuth (asserted).  (3) LOWERED POCKET (Aug 25): the old tower
+      (az 210) column flush to the servo-mount deck top (z 10.25);
+      its below-deck root, once left merged with the deck-skin roof,
+      goes with the rev-6 shell flatten (the ear centre is at r 23.5,
+      outside the tower keep cylinder).  Above the deck nothing pokes
+      past the tower cylinder at any azimuth (asserted).  (3) LOWERED POCKET (Aug 25): the old tower
       band above the new seat plane -- phi 34 shoulder relief, old
       pocket, old 15.75 seat -- is cut away, leaving a 0.5 mm-proud
       phi 34/phi 37.15 step over the deck as the new outer-race seat
@@ -513,15 +522,20 @@ parts:
       6.5 tall) are dead geometry once the splices consolidated into
       centre_wago_block, so everything above the sheet top is cut
       away (the 1 mm embed band inside the sheet stays); pillar feet
-      register on their bolts.  (6) WIRE CORRIDORS FLATTENED (rev 5,
-      user decision overruling the earlier keep-verdict on the corner
-      "L wall"): the wago-era apparatus inboard of each seated yaw
-      servo -- cradle end wall, porch canopy skin, side-wall stubs --
-      is cut back to the bare sheet, one box per leg (leg-frame
-      x 50..64.65 splitting the old 0.3 mm wall-to-servo gap,
-      |y| <= 20.5, z 2..12); the servo is still registered by the
-      well collar / deck plateau / flanking walls outboard of the cut
-      and by the belly-bolted retainer.  Net -47 cm3 (288 vs 335).
+      register on their bolts.  (6) WIRE CORRIDORS + CRADLE SHELLS
+      FLATTENED (rev 5 + rev 6, both user decisions overruling
+      keep-verdicts): rev 5 cut the wago-era apparatus inboard of
+      each seated yaw servo (cradle end wall, porch canopy skin,
+      side-wall stubs) back to the bare sheet up to x 64.65; rev 6
+      extends the box to the yaw axis minus the tower keep cylinder
+      (leg-frame x 50..100, |y| <= 20.5, z 2..12, keep r 21.95),
+      removing the cradle-shell walls + deck-skin roof whose ends
+      were the "two gray things" flanking each corner pillar --
+      measured to carry and register nothing.  The servo is
+      registered by the sheet-level well (0.75 mm/side), the
+      belly-bolted retainer and the in-keep shell (which also
+      carries the 6805 seat's inboard arc).  Net -67 cm3 (268 vs
+      335).
       The Aug-25 lowered pocket makes a stock-print bench mod
       impractical (it needs the shoulder relief bored out and the
       tower cut 5 mm shorter); reprint for this variant.
@@ -576,31 +590,40 @@ parts:
             value: 3.4
             code_name: HOLE_D
       corridor_flatten:
-        label: "Wire-corridor flatten (x6, one box per leg)"
+        label: "Wire-corridor + cradle-shell flatten (x6, box minus tower keep)"
         kind: "cut"
         purpose: >-
-          Removes the purposeless wago-era bumps on the plate top
-          inboard of each seated yaw servo (cradle end wall + porch
-          canopy + side-wall stubs) back to the bare sheet -- user
-          decision, Aug 24 rev 5.  Nothing below the sheet-top plane
-          is touched; the servo-registering deck plateau, well collar
-          and flanking walls outboard of the cut stand, and the
-          retainer pilots (x 71/87.5, |y| 21, in-sheet) are clear of
-          the cut in every axis.  Asserted per rebuild: cut band all
-          air, below-plane keeps solid, register keeps solid.
+          Removes the purposeless standing material around each
+          seated yaw servo back to the bare sheet: the wago-era
+          corridor bumps (cradle end wall + porch canopy + side-wall
+          stubs -- user decision, Aug 24 rev 5) AND the cradle-shell
+          run outboard of them (5.6 mm side walls 0.85 mm off the
+          case flanks + the 2.2 mm deck-skin roof hovering 1.8 mm
+          over the real case top, whose ends were the "two gray
+          things" flanking each corner pillar -- user decision,
+          Aug 25 rev 6).  Nothing below the sheet-top plane is
+          touched; the servo stays registered by the sheet-level
+          well, the belly retainer (pilots x 71/87.5, |y| 21,
+          in-sheet) and the shell inside the tower keep cylinder.
+          Asserted per rebuild: cut band all air outside the keep,
+          below-plane keeps solid, in-keep shell + pocket floor
+          solid.
         llm_context: >-
-          The cut face at x 64.65 splits the old 0.3 mm gap between
-          the deleted end wall (face 64.5) and the servo's inboard
-          end face (64.8).  Widening X1 past 64.8 would shave the
-          servo pocket; lowering Z0 below 2.0 would gouge the sheet.
+          The cut is one box per leg MINUS the tower keep cylinder
+          (r CHB_KEEP_R = 21.95 about the yaw axis at x 100).  The
+          keep is structural, not styling: the shell inside it roofs
+          the servo tunnel and carries the inboard arc of the 6805
+          seat ledge (world 10.75).  Shrinking the keep radius would
+          undercut the bearing seat; lowering Z0 below 2.0 would
+          gouge the sheet the servo well passes through.
         dimensions:
           x0:
             label: "Cut inboard face (leg-frame x)"
             value: 50.0
             code_name: CHB_FLAT_X0
           x1:
-            label: "Cut outboard face (splits the wall/servo gap)"
-            value: 64.65
+            label: "Cut box outboard face (the yaw axis; keep bounds the cut)"
+            value: 100.0
             code_name: CHB_FLAT_X1
           half_y:
             label: "Cut tangential half-width"
@@ -610,6 +633,10 @@ parts:
             label: "Cut top (clears the deck top 10.25)"
             value: 12.0
             code_name: CHB_FLAT_Z1
+          keep_r:
+            label: "Tower keep-cylinder radius (6805 seat's inboard-arc support)"
+            value: 21.95
+            code_name: CHB_KEEP_R
   coxa_link:
     label: "coxa_link_rigid — rounded corners + seat ring + dust brim + short column (concept)"
     aliases: ["rigid coxa", "rounded coxa", "coxa link rigid", "servo holder"]
