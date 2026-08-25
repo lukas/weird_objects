@@ -12,10 +12,6 @@ import argparse
 import json
 import math
 import sys
-import zipfile
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Callable
 
 import numpy as np
 import trimesh
@@ -25,16 +21,17 @@ from build123d import (
     Plane,
     Pos,
     RegularPolygon,
-    export_step,
-    export_stl,
     extrude,
 )
 
-THIS_DIR = Path(__file__).resolve().parent
-PROTO_DIR = THIS_DIR.parent
-OUT_DIR = THIS_DIR / "out"
-STEP_DIR = OUT_DIR / "step"
-STL_DIR = OUT_DIR / "stl"
+from step_common import (
+    OUT_DIR,
+    PROTO_DIR,
+    THIS_DIR,
+    StepPart,
+    export_all,
+    write_bundle,
+)
 
 sys.path.insert(0, str(THIS_DIR))
 sys.path.insert(0, str(PROTO_DIR))
@@ -43,18 +40,6 @@ sys.path.insert(0, str(PROTO_DIR / "tools"))
 import build_step_first_test as step  # noqa: E402
 import hexapod_prototype as hp  # noqa: E402
 import make_chorn_variant as ch  # noqa: E402
-
-
-PartBuilder = Callable[[], object]
-
-
-@dataclass(frozen=True)
-class ChornPart:
-    name: str
-    builder: PartBuilder
-    legacy_stl: Path | None
-    note: str
-    printable: bool = True
 
 
 def _web_hole_centres() -> list[tuple[float, float]]:
@@ -233,29 +218,29 @@ def make_tibia_chorn_socket() -> object:
     return step._diff(step._union(_web_flange(), boss, flare), bore)
 
 
-def chorn_part_specs() -> list[ChornPart]:
+def chorn_part_specs() -> list[StepPart]:
     base = PROTO_DIR / "extra_stl" / "chorn"
     return [
-        ChornPart(
+        StepPart(
             "chorn_reference_DO_NOT_PRINT",
             make_chorn_reference,
             base / "chorn_reference_DO_NOT_PRINT.stl",
             "Assumed bought C-horn geometry for fit/reference only.",
             printable=False,
         ),
-        ChornPart(
+        StepPart(
             "spacers",
             make_spacers,
             base / "spacers.stl",
             "Eight per-joint M3 standoff spacers derived from the horn span.",
         ),
-        ChornPart(
+        StepPart(
             "femur_chorn_body",
             make_femur_chorn_body,
             base / "femur_chorn_body.stl",
             "Printed femur body that bolts to the bought C-horn web.",
         ),
-        ChornPart(
+        StepPart(
             "tibia_chorn_socket",
             make_tibia_chorn_socket,
             base / "tibia_chorn_socket.stl",
@@ -322,62 +307,11 @@ def _clearance_checks_from_stl(rows: list[dict]) -> list[str]:
     return problems
 
 
-def export_one(spec: ChornPart) -> dict:
-    part = spec.builder()
-    step_path = STEP_DIR / f"{spec.name}.step"
-    stl_path = STL_DIR / f"{spec.name}.stl"
-    export_step(part, step_path)
-    export_stl(part, stl_path)
-    legacy = step._legacy_bbox(spec.legacy_stl)
-    bbox = step._part_bbox(part)
-    size_delta = None
-    if legacy is not None:
-        size_delta = step._round_list(
-            np.asarray(bbox["size"]) - np.asarray(legacy["size"])
-        )
-    return {
-        "name": spec.name,
-        "note": spec.note,
-        "printable": spec.printable,
-        "step": str(step_path.relative_to(THIS_DIR)),
-        "stl": str(stl_path.relative_to(THIS_DIR)),
-        "brep_faces": int(len(part.faces())),
-        "brep_volume_mm3": round(float(part.volume), 4),
-        "brep_bbox": bbox,
-        "derived_stl": step._mesh_stats(stl_path),
-        "legacy_stl": legacy,
-        "bbox_size_delta_vs_legacy_mm": size_delta,
-    }
-
-
-def write_bundle(manifest: dict) -> Path:
-    bundle = OUT_DIR / "chorn_step_first_bundle.zip"
-    with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(OUT_DIR / "chorn_manifest.json", "chorn_manifest.json")
-        for rel in manifest["files"]:
-            path = THIS_DIR / rel
-            zf.write(path, rel)
-    return bundle
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
 
-    STEP_DIR.mkdir(parents=True, exist_ok=True)
-    STL_DIR.mkdir(parents=True, exist_ok=True)
-
-    exported = []
-    for spec in chorn_part_specs():
-        row = export_one(spec)
-        exported.append(row)
-        size = row["brep_bbox"]["size"]
-        print(
-            f"wrote {row['step']:<42s} "
-            f"faces={row['brep_faces']:>3d} "
-            f"bbox={size[0]:.2f} x {size[1]:.2f} x {size[2]:.2f} mm"
-        )
-
+    exported = export_all(chorn_part_specs())
     problems = _static_checks() + _clearance_checks_from_stl(exported)
     manifest = {
         "units": "mm",
@@ -402,7 +336,8 @@ def main() -> None:
     }
     manifest_path = OUT_DIR / "chorn_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-    bundle = write_bundle(manifest)
+    bundle = write_bundle(manifest, "chorn_step_first_bundle.zip",
+                          "chorn_manifest.json")
     print(f"wrote {manifest_path.relative_to(THIS_DIR)}")
     print(f"wrote {bundle.relative_to(THIS_DIR)}")
     if problems:

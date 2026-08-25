@@ -13,13 +13,8 @@ import json
 import math
 import shutil
 import sys
-import zipfile
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Callable
 
 import numpy as np
-import trimesh
 from build123d import (
     Align,
     Axis,
@@ -34,32 +29,21 @@ from build123d import (
     Pos,
     Rotation,
     extrude,
-    export_step,
-    export_stl,
     make_face,
     revolve,
 )
 
-
-THIS_DIR = Path(__file__).resolve().parent
-PROTO_DIR = THIS_DIR.parent
-OUT_DIR = THIS_DIR / "out"
-STEP_DIR = OUT_DIR / "step"
-STL_DIR = OUT_DIR / "stl"
+from step_common import (
+    OUT_DIR,
+    PROTO_DIR,
+    THIS_DIR,
+    StepPart,
+    export_all,
+    write_bundle,
+)
 
 sys.path.insert(0, str(PROTO_DIR))
 import hexapod_prototype as hp  # noqa: E402
-
-
-PartBuilder = Callable[[], object]
-
-
-@dataclass(frozen=True)
-class StepPart:
-    name: str
-    builder: PartBuilder
-    legacy_stl: Path | None
-    note: str
 
 
 def _box(extents: tuple[float, float, float],
@@ -181,58 +165,6 @@ def _hex_plate(flat_to_flat: float,
                        (cx, cy, 0.0))
             )
     return _diff(plate, *cuts)
-
-
-def _round_list(values: np.ndarray | list[float],
-                digits: int = 4) -> list[float]:
-    return [round(float(v), digits) for v in values]
-
-
-def _part_bbox(part: object) -> dict:
-    bb = part.bounding_box()
-    return {
-        "min": _round_list([bb.min.X, bb.min.Y, bb.min.Z]),
-        "max": _round_list([bb.max.X, bb.max.Y, bb.max.Z]),
-        "size": _round_list([bb.size.X, bb.size.Y, bb.size.Z]),
-    }
-
-
-def _legacy_bbox(path: Path | None) -> dict | None:
-    if path is None or not path.exists():
-        return None
-    mesh = trimesh.load(path, process=False)
-    if isinstance(mesh, trimesh.Scene):
-        mesh = trimesh.util.concatenate(
-            [g for g in mesh.geometry.values() if len(g.faces) > 0]
-        )
-    return {
-        "path": str(path.relative_to(PROTO_DIR)),
-        "min": _round_list(mesh.bounds[0]),
-        "max": _round_list(mesh.bounds[1]),
-        "size": _round_list(mesh.extents),
-        "triangles": int(len(mesh.faces)),
-        "volume_mm3": round(float(mesh.volume), 4),
-    }
-
-
-def _mesh_stats(path: Path) -> dict:
-    # Binary STL is triangle soup: vertices are duplicated per facet. Process
-    # the load so trimesh welds coincident vertices before judging watertightness.
-    mesh = trimesh.load(path, process=True)
-    if isinstance(mesh, trimesh.Scene):
-        mesh = trimesh.util.concatenate(
-            [g for g in mesh.geometry.values() if len(g.faces) > 0]
-        )
-    return {
-        "triangles": int(len(mesh.faces)),
-        "watertight": bool(mesh.is_watertight),
-        "volume_mm3": round(float(mesh.volume), 4),
-        "bbox": {
-            "min": _round_list(mesh.bounds[0]),
-            "max": _round_list(mesh.bounds[1]),
-            "size": _round_list(mesh.extents),
-        },
-    }
 
 
 def make_disc_horn() -> object:
@@ -463,13 +395,55 @@ def make_servo_clamp_cap() -> object:
             0.5 * (hp.WELL_RIM_Z + hp.WELL_H),
         ),
     )
-    body = _union(flange, tongue, lip)
+    # Back-face hook + horn-side mini hook + yoke-sweep edge chamfers
+    # (Aug 18-19 2026 production features; same solids as the mesh builder).
+    hook_wall = _box(
+        (hp.CLAMP_BACK_HOOK_X1 - hp.CLAMP_BACK_HOOK_X0,
+         flange_y1 - tongue_y0, hp.CLAMP_BACK_HOOK_T + 1.0),
+        (0.5 * (hp.CLAMP_BACK_HOOK_X0 + hp.CLAMP_BACK_HOOK_X1),
+         0.5 * (tongue_y0 + flange_y1),
+         0.5 * (1.0 - hp.CLAMP_BACK_HOOK_T)),
+    )
+    shelf_y1 = tongue_y0 + 0.5
+    hook_shelf = _box(
+        (hp.CLAMP_BACK_HOOK_X1 - hp.CLAMP_BACK_HOOK_X0,
+         shelf_y1 - hp.CLAMP_BACK_HOOK_Y0,
+         hp.CLAMP_BACK_HOOK_T - hp.CLAMP_BACK_HOOK_SHELF_Z),
+        (0.5 * (hp.CLAMP_BACK_HOOK_X0 + hp.CLAMP_BACK_HOOK_X1),
+         0.5 * (hp.CLAMP_BACK_HOOK_Y0 + shelf_y1),
+         -0.5 * (hp.CLAMP_BACK_HOOK_SHELF_Z + hp.CLAMP_BACK_HOOK_T)),
+    )
+    horn_hook = _box(
+        (cav_w / 2.0 - hp.CLAMP_HORN_HOOK_X0,
+         flange_y1 - hp.CLAMP_HORN_HOOK_Y0,
+         hp.CLAMP_SEAT_DROP + 1.0),
+        (0.5 * (hp.CLAMP_HORN_HOOK_X0 + cav_w / 2.0),
+         0.5 * (hp.CLAMP_HORN_HOOK_Y0 + flange_y1),
+         0.5 * (1.0 - hp.CLAMP_SEAT_DROP)),
+    )
+    body = _union(flange, tongue, lip, hook_wall, hook_shelf, horn_hook)
+    c = hp.CLAMP_YOKE_EDGE_CHAMFER
+    chamfers = [
+        Pos(ex, flange_y1, 0.0)
+        * Rotation(0, 0, 45)
+        * _box((c * math.sqrt(2.0), c * math.sqrt(2.0), ez1 - ez0),
+               (0.0, 0.0, 0.5 * (ez0 + ez1)))
+        for (ex, ez0, ez1) in (
+            (-hp.WELL_W / 2.0, -1.0, cap_z1 + 1.0),
+            (hp.WELL_W / 2.0, -1.0, cap_z1 + 1.0),
+            (hp.CLAMP_BACK_HOOK_X0, -hp.CLAMP_BACK_HOOK_T - 1.0, 0.0),
+            (hp.CLAMP_BACK_HOOK_X1, -hp.CLAMP_BACK_HOOK_T - 1.0, 0.0),
+            (hp.CLAMP_HORN_HOOK_X0, -hp.CLAMP_SEAT_DROP - 1.0, 0.0),
+            (cav_w / 2.0, -hp.CLAMP_SEAT_DROP - 1.0, 0.0),
+        )
+    ]
     cuts = [
         _cyl_z(
             hp.HORN_CLEAR_OPENING_OD / 2.0,
             (hp.WELL_H - hp.WELL_RIM_Z) * 4.0,
             (hp.SERVO_OUTPUT_X, 0.0, hp.WELL_RIM_Z),
-        )
+        ),
+        *chamfers,
     ]
     for bx, bz in hp.servo_clamp_bolt_centres():
         cuts.append(
@@ -610,7 +584,9 @@ def _servo_well_solid(*, end_face_bolts: bool = True) -> object:
 
 def _sandwich_fixed_side(*,
                          end_face_bolts: bool = True,
-                         farwall_pad: bool = False) -> object:
+                         farwall_pad: bool = False,
+                         rear_tab: bool = False,
+                         wire_exit: bool = True) -> object:
     body = _servo_well_solid(end_face_bolts=end_face_bolts)
     if farwall_pad:
         pad_x0 = hp.WELL_W / 2.0 - 1.0
@@ -623,7 +599,51 @@ def _sandwich_fixed_side(*,
                 (0.5 * (pad_x0 + pad_x1), 0.0, pad_z1 / 2.0),
             ),
         )
-    return _diff(body, _wire_exit_slot())
+    cuts = [_wire_exit_slot()] if wire_exit else []
+    if rear_tab:
+        # Aug 2026 rear retention tab (production `_sandwich_fixed_side`):
+        # plate + fusing riser under the -X wall, tongue-relief shelf, and
+        # 2x M2.5 self-tap holes with head-recess counterbores.
+        tab_x0 = -hp.WELL_W / 2.0
+        tab_y0 = -hp.WELL_D / 2.0
+        plate = _box(
+            (hp.FEMUR_REAR_TAB_X1 - tab_x0,
+             hp.FEMUR_REAR_TAB_Y1 - tab_y0, hp.FEMUR_REAR_TAB_T),
+            (0.5 * (tab_x0 + hp.FEMUR_REAR_TAB_X1),
+             0.5 * (tab_y0 + hp.FEMUR_REAR_TAB_Y1),
+             -hp.FEMUR_REAR_TAB_T / 2.0),
+        )
+        wall_in_x = -(hp.SERVO_BODY_W / 2.0 + hp.WELL_BODY_CL)
+        riser = _box(
+            (wall_in_x - tab_x0, hp.FEMUR_REAR_TAB_Y1 - tab_y0,
+             hp.FEMUR_REAR_TAB_FUSE_Z),
+            (0.5 * (tab_x0 + wall_in_x),
+             0.5 * (tab_y0 + hp.FEMUR_REAR_TAB_Y1),
+             hp.FEMUR_REAR_TAB_FUSE_Z / 2.0),
+        )
+        body = _union(body, plate, riser)
+        tongue_y0 = hp.SERVO_BODY_D / 2.0 - hp.CLAMP_TONGUE_INTERF
+        cuts.append(_box(
+            (abs(wall_in_x - (hp.FEMUR_REAR_TAB_X1 + 0.5)) + 1.0,
+             (hp.FEMUR_REAR_TAB_Y1 + 2.0) - (tongue_y0 - 0.25),
+             hp.CLAMP_SEAT_DROP + 0.25),
+            (0.5 * (wall_in_x + hp.FEMUR_REAR_TAB_X1 + 0.5),
+             0.5 * ((tongue_y0 - 0.25) + hp.FEMUR_REAR_TAB_Y1 + 2.0),
+             -(hp.CLAMP_SEAT_DROP + 0.25) / 2.0),
+        ))
+        hx = hp.SADDLE_CASE_HOLE_X2 + hp.SERVO_OUTPUT_X
+        for sy in (+1.0, -1.0):
+            cuts.append(_cyl_z(
+                hp.SADDLE_CASE_SCREW_OD / 2.0, hp.FEMUR_REAR_TAB_T + 4.0,
+                (hx, sy * hp.SADDLE_CASE_HOLE_Y, -hp.FEMUR_REAR_TAB_T / 2.0),
+            ))
+            cb_h = hp.FEMUR_REAR_TAB_HEAD_CB + 1.0
+            cuts.append(_cyl_z(
+                hp.FEMUR_REAR_TAB_HEAD_CB_OD / 2.0, cb_h,
+                (hx, sy * hp.SADDLE_CASE_HOLE_Y,
+                 -hp.FEMUR_REAR_TAB_SHANK_T - cb_h / 2.0),
+            ))
+    return _diff(body, *cuts)
 
 
 def _disc_horn_bolt_centres() -> list[tuple[float, float]]:
@@ -792,7 +812,8 @@ def _femur_fused_spar() -> object:
 
 
 def _femur_knee_fixed_solid() -> object:
-    return _sandwich_fixed_side(end_face_bolts=False, farwall_pad=True)
+    return _sandwich_fixed_side(end_face_bolts=False, farwall_pad=True,
+                                rear_tab=True, wire_exit=False)
 
 
 def make_femur_link_part() -> object:
@@ -1159,8 +1180,17 @@ def make_coxa_hip_bracket(*, one_piece: bool = False) -> object:
         foot_z0 = hp.YAW_HUB_PLATFORM_Z1
         foot_z1 = hp.YAW_HUB_PLATFORM_Z1 + hp.YAW_HUB_PAD_T
 
-    fixed = _joint_pitch_place(_sandwich_fixed_side(), hp.COXA_HIP_ANCHOR)
-    fb = fixed.bounding_box()
+    # Production hip cradle (Aug 17 2026): no end-face bolts, no wire-exit
+    # corridor, rear retention tab.  The foot slab is sized from the NO-TAB
+    # cradle so it does not grow under the tab into the yoke-arm sweep band.
+    fixed = _joint_pitch_place(
+        _sandwich_fixed_side(end_face_bolts=False, wire_exit=False,
+                             rear_tab=True),
+        hp.COXA_HIP_ANCHOR)
+    fixed_notab = _joint_pitch_place(
+        _sandwich_fixed_side(end_face_bolts=False, wire_exit=False),
+        hp.COXA_HIP_ANCHOR)
+    fb = fixed_notab.bounding_box()
     foot_x0 = float(fb.min.X) - 1.0
     foot_x1 = float(fb.max.X) + 1.0
     foot_y0 = float(fb.min.Y) - 1.0
@@ -1243,23 +1273,30 @@ def make_coxa_link() -> object:
         make_coxa_yaw_hub(one_piece=True),
         make_coxa_hip_bracket(one_piece=True),
     )
+    # Yoke-end sweep clearance (Aug 17 2026 production): Y-axis cylinders of
+    # r 16.75 through the two femur yoke-arm bands about the hip axis.
+    hip_ax_x, _, hip_ax_z = hp.COXA_HIP_ANCHOR
+    sweeps = [
+        _cyl_y(16.75, yhi - ylo, (hip_ax_x, 0.5 * (ylo + yhi), hip_ax_z))
+        for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))
+    ]
+    # Head-access shafts: centre station has its own 1 mm-deeper seat.
     shaft_top_z = 80.0
-    shaft_h = shaft_top_z - hp.YAW_HUB_HORN_HEAD_SEAT_Z
-    stations = [(0.0, 0.0)]
+    stations = [(0.0, 0.0, hp.YAW_HUB_HORN_CENTRE_SEAT_Z)]
     r = hp.DISC_HORN_BOLT_PCD / 2.0
     stations.extend(
-        (r * math.cos(t), r * math.sin(t))
+        (r * math.cos(t), r * math.sin(t), hp.YAW_HUB_HORN_HEAD_SEAT_Z)
         for t in hp.DISC_HORN_BOLT_ANGLES_RAD
     )
     cuts = [
         _cyl_z(
             hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0,
-            shaft_h,
-            (sx, sy, hp.YAW_HUB_HORN_HEAD_SEAT_Z + shaft_h / 2.0),
+            shaft_top_z - seat_z,
+            (sx, sy, 0.5 * (seat_z + shaft_top_z)),
         )
-        for sx, sy in stations
+        for sx, sy, seat_z in stations
     ]
-    return _diff(body, *cuts)
+    return _diff(body, *sweeps, *cuts)
 
 
 def _chassis_yaw_cradle_solid() -> object:
@@ -1703,46 +1740,6 @@ PENDING_PARTS = [
 ]
 
 
-def export_one(spec: StepPart) -> dict:
-    part = spec.builder()
-    step_path = STEP_DIR / f"{spec.name}.step"
-    stl_path = STL_DIR / f"{spec.name}.stl"
-    export_step(part, step_path)
-    export_stl(part, stl_path)
-
-    legacy = _legacy_bbox(spec.legacy_stl)
-    bbox = _part_bbox(part)
-    size_delta = None
-    if legacy is not None:
-        size_delta = _round_list(
-            np.asarray(bbox["size"]) - np.asarray(legacy["size"])
-        )
-
-    stl_stats = _mesh_stats(stl_path)
-    return {
-        "name": spec.name,
-        "note": spec.note,
-        "step": str(step_path.relative_to(THIS_DIR)),
-        "stl": str(stl_path.relative_to(THIS_DIR)),
-        "brep_faces": int(len(part.faces())),
-        "brep_volume_mm3": round(float(part.volume), 4),
-        "brep_bbox": bbox,
-        "derived_stl": stl_stats,
-        "legacy_stl": legacy,
-        "bbox_size_delta_vs_legacy_mm": size_delta,
-    }
-
-
-def write_bundle(manifest: dict) -> Path:
-    bundle = OUT_DIR / "hexapod_step_first_test_bundle.zip"
-    with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(OUT_DIR / "manifest.json", "manifest.json")
-        for rel in manifest["files"]:
-            path = THIS_DIR / rel
-            zf.write(path, rel)
-    return bundle
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1754,35 +1751,19 @@ def main() -> None:
 
     if args.clean and OUT_DIR.exists():
         shutil.rmtree(OUT_DIR)
-    STEP_DIR.mkdir(parents=True, exist_ok=True)
-    STL_DIR.mkdir(parents=True, exist_ok=True)
 
-    exported = []
-    for spec in part_specs():
-        row = export_one(spec)
-        exported.append(row)
-        size = row["brep_bbox"]["size"]
-        print(
-            f"wrote {row['step']:<36s} "
-            f"faces={row['brep_faces']:>3d} "
-            f"bbox={size[0]:.2f} x {size[1]:.2f} x {size[2]:.2f} mm"
-        )
-
-    files = []
-    for row in exported:
-        files.append(row["step"])
-        files.append(row["stl"])
-
+    exported = export_all(part_specs())
     manifest = {
         "units": "mm",
         "source": "build123d/OpenCascade BREP, constants imported from hexapod_prototype.py",
         "exported_parts": exported,
         "pending_native_brep_parts": PENDING_PARTS,
-        "files": files,
+        "files": [rel for row in exported for rel in (row["step"], row["stl"])],
     }
     manifest_path = OUT_DIR / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-    bundle = write_bundle(manifest)
+    bundle = write_bundle(manifest, "hexapod_step_first_test_bundle.zip",
+                          "manifest.json")
     print(f"wrote {manifest_path.relative_to(THIS_DIR)}")
     print(f"wrote {bundle.relative_to(THIS_DIR)}")
     print()

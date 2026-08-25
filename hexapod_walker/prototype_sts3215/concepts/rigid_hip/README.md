@@ -442,6 +442,11 @@ python concepts/rigid_hip/make_rigid_hip_variant.py --skip-sweep  # fast iter
 npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
     --build-id sts3215-rigid-hip
 # http://127.0.0.1:5183/?build=sts3215-rigid-hip
+
+# STEP/BREP exports (Onshape etc.) of all seven variant printables --
+# see cad_step_test/README.md; verifies BREP vs these meshes at build time
+uv run --no-project --python 3.12 --with build123d --with trimesh --with numpy \
+  python hexapod_walker/prototype_sts3215/cad_step_test/build_rigid_hip_step.py
 ```
 
 Checks run at build time: watertightness, seated-stack placement, the
