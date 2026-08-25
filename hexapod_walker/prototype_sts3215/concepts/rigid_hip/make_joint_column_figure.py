@@ -1,10 +1,11 @@
 """Regenerate joint_column_annotated.png for the rigid-hip variant.
 
 Radial section through the leg-0 yaw axis, zoomed on the joint column,
-with every z plane annotated: full-wrap tower stack (Aug 24 rev 2) plus
-the SHORTENED coxa hub column (Aug 24 rev 3 skirt/platform delete +
-rev 4 M3x30 -> M3x25 horn screws; the cradle slab drops COL_DROP = 9 mm
-total, so the hip servo sits just above the bearing).
+with every z plane annotated: the Aug 25 BEARING-ON-THE-DECK stack (the
+6805 race sits 0.5 mm over the servo case top on a deck-level tower
+ledge) plus the SHORTENED coxa hub column (Aug 24 rev 3 skirt/platform
+delete + Aug 25 M3x30 -> M3x20 horn screws; the cradle slab drops
+COL_DROP = 14 mm total, so the hip servo sits just above the bearing).
 
 Run from anywhere:  uv run python make_joint_column_figure.py
 Requires the freshly generated stl/ meshes (run make_rigid_hip_variant
@@ -75,34 +76,38 @@ for key, M, color, alpha, label in sections:
 
 A = rv.APOTHEM
 DECK = 10.25
-HORN = hp.CHASSIS_YAW_OUTPUT_Z                        # 15.25
-SEAT = HORN + hp.YAW_BEARING_LOWER_BOT_Z              # 15.75
-RIM = rv.CHB_RIM_W                                    # 22.75
-BRIM0 = HORN + rv.BRIM_BOT_Z                          # 23.25
-BRIM1 = HORN + rv.BRIM_TOP_Z                          # 25.25
-SLAB = HORN + rv.SLAB_BOT_Z                           # 24.25
-RING1 = HORN + rv.HUB_RING_Z1                         # 25.25 (= brim top)
-HEADS = HORN + rv.HORN_HEAD_SEAT_Z + hp.INSERT_M3_BOLT_HEAD_H  # 31.0
-FLOOR = HORN + rv.COXA_FLOOR_Z                        # 32.25
-HIP = HORN + rv.COXA_HIP_DROP_V                       # 44.65
-OLD_SLAB = SLAB + rv.HORN_SEAT_DROP                   # 29.25 (M3x30 build)
+HORN = hp.CHASSIS_YAW_OUTPUT_Z                        # 15.25 coxa origin
+SEAT = HORN + rv.BR_BOT_LOCAL                         # 10.75 race bottom
+RIM = rv.CHB_RIM_W                                    # 17.75
+BRIM0 = HORN + rv.BRIM_BOT_Z                          # 18.25
+BRIM1 = HORN + rv.BRIM_TOP_Z                          # 20.25
+SLAB = HORN + rv.SLAB_BOT_Z                           # 19.25
+RING1 = HORN + rv.HUB_RING_Z1                         # 20.25 (= brim top)
+HEADS = HORN + rv.HORN_HEAD_SEAT_Z + hp.INSERT_M3_BOLT_HEAD_H  # 26.0
+FLOOR = HORN + rv.COXA_FLOOR_Z                        # 27.25
+HIP = HORN + rv.COXA_HIP_DROP_V                       # 39.65
+OLD_SEAT = HORN + hp.YAW_BEARING_LOWER_BOT_Z          # 15.75 (Aug 24 build)
+OLD_RIM = OLD_SEAT + hp.YAW_BEARING_W                 # 22.75 (Aug 24 build)
 OLD_FLOOR = FLOOR + rv.HORN_SEAT_DROP                 # 37.25 (M3x30 build)
 
 # z-plane lines with staggered, leader-lined labels (crowded stack)
 planes = [
-    (DECK, 5.4, "z 10.25   servo-mount deck top"),
-    (HORN, 9.2, "z 15.25   disc-horn top = coxa mount plane"),
-    (SEAT, 13.0, "z 15.75   race seat (0.5 over the horn + screws)"),
-    (RIM, 16.8, "z 22.75   tower rim = race top -- \u03a644 column ENDS here"),
-    (BRIM0, 20.6, "z 23.25   \u03a638 dust brim underside (0.5 running gap)"),
-    (SLAB, 24.4, "z 24.25   cradle slab underside -- DROPPED 9 mm total "
+    (DECK, 2.6, "z 10.25   servo-mount deck top = yaw servo case top"),
+    (SEAT, 6.4, "z 10.75   race seat LEDGE -- 0.5 over the deck/case "
+                "(the physical floor)"),
+    (HORN, 10.2, "z 15.25   coxa mount plane (the real \u03a620 disc horn "
+                 "is recessed at 4.25..6.25, INSIDE the race bore)"),
+    (RIM, 14.0, "z 17.75   tower rim = race top -- \u03a644 column ENDS here"),
+    (BRIM0, 17.8, "z 18.25   \u03a638 dust brim underside (0.5 running gap)"),
+    (SLAB, 21.6, "z 19.25   cradle slab underside -- DROPPED 14 mm total "
                  "(1.5 over the rim)"),
-    (BRIM1, 28.2, "z 25.25   brim top = \u03a629 seat ring top "
+    (BRIM1, 25.4, "z 20.25   brim top = \u03a629 seat ring top "
                   "(1 mm inside the slab)"),
-    (HEADS, 32.0, "z 31.00   M3x25 horn screw head tops "
-                  "(seats 5 mm deeper, tips/engagement unchanged)"),
-    (FLOOR, 35.8, "z 32.25   servo well floor -- 1.25 over the heads"),
-    (HIP, 44.65, "z 44.65   hip axis (was 49.65 with M3x30s)"),
+    (HEADS, 29.2, "z 26.00   M3x20 horn screw head tops "
+                  "(seats 10 mm deeper, tips/engagement unchanged)"),
+    (FLOOR, 33.0, "z 27.25   servo well floor -- 1.25 over the heads"),
+    (HIP, 39.65, "z 39.65   hip axis (was 44.65 with M3x25s, 49.65 with "
+                 "M3x30s)"),
 ]
 for z, ytxt, lab in planes:
     ax.axhline(z, color="k", lw=0.5, ls=":")
@@ -120,34 +125,34 @@ def brace(x, z0, z1, text, color):
                 va="center", ha="center", rotation=90)
 
 
-brace(A - 29.5, DECK, RIM, "\u03a644 tower: 12.5 mm", "#4a5568")
+brace(A - 29.5, DECK, RIM, "\u03a644 tower: 7.5 mm", "#4a5568")
 brace(A - 25.5, SEAT, RIM, "6805 fully housed", "#1a1a1a")
-brace(A - 33.5, RIM, FLOOR, "bearing \u2192 servo: 9.5 mm (was 14.5)",
-      "#166534")
-for z, lab in ((OLD_SLAB, "M3x30-era slab bottom 29.25"),
+brace(A - 33.5, RIM, FLOOR, "bearing \u2192 servo: 9.5 mm", "#166534")
+for z, lab in ((OLD_SEAT, "Aug-24 race seat 15.75"),
+               (OLD_RIM, "Aug-24 tower rim 22.75"),
                (OLD_FLOOR, "M3x30-era well floor 37.25")):
     ax.axhline(z, color="#b91c1c", lw=0.6, ls="--", alpha=0.6)
-    ax.annotate(lab + " -- dropped a further 5 mm (M3x25 screws)",
-                xy=(A - 20.0, z),
+    ax.annotate(lab, xy=(A - 20.0, z),
                 fontsize=7.0, color="#b91c1c", style="italic",
                 va="bottom", ha="left")
-ax.annotate("hub band over the heads existed only to house M3x30 length"
-            " -- screws shortened, seats follow, tips unchanged",
-            xy=(A + 10.0, OLD_SLAB + 2.0),
-            xytext=(A + 26, 3.2), fontsize=7.5,
+ax.annotate("the old \u201crace can't sit lower, it would rub the horn\u201d"
+            " claim was architectural:\nthe horn is recessed BELOW the deck,"
+            " so the race presses on the same\n\u03a625.15 hub boss 5 mm"
+            " lower and the whole robot follows it down",
+            xy=(A + 3.0, OLD_SEAT),
+            xytext=(A + 14, -4.6), fontsize=7.5,
             color="#b91c1c", style="italic", va="center",
             arrowprops=dict(arrowstyle="-", lw=0.7, color="#b91c1c",
                             ls="--", shrinkA=0.0, shrinkB=0.0))
 
 ax.set_xlim(A - 46, A + 70)
-ax.set_ylim(-8, 53)
+ax.set_ylim(-9, 48)
 ax.set_aspect("equal")
 ax.set_xlabel("radial position from body centre [mm]  (leg-0 yaw axis at 100)")
 ax.set_ylabel("world Z [mm]")
 ax.legend(loc="upper left", fontsize=8)
-ax.set_title("rigid-hip joint column, shortened Aug 24 (M3x25 horn screws)"
-             " -- horn \u2192 bearing \u2192 coxa \u2192 hip servo "
-             "(section through the leg-0 yaw axis)")
+ax.set_title("rigid-hip joint column, Aug 25: bearing ON the deck, M3x20 "
+             "horn screws\n(section through the leg-0 yaw axis)")
 fig.tight_layout()
 out = os.path.join(HERE, "joint_column_annotated.png")
 fig.savefig(out)
