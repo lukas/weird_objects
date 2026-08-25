@@ -2254,3 +2254,33 @@ pod log confirms the mechanism fires correctly. Full detail:
 `rl_docs/tracks/joystick/STATUS.md` top banner (23:2x).
 status: RESOLVED (fix built, tested, snapshotted, launched — no
 operator input needed). Next triage cycle reads v9's own gate.
+
+## 2026-08-25 ~00:3x — leg-sacrifice fingerprint now confirmed on a THIRD independent lineage (update to the 08-24 ~22:0x note; still no operator action needed)
+Not a new question, an update to the still-open/unclaimed 08-24 ~22:0x
+note above. `cw-arch-tf64-joyfullcurr13-v7-hz100-acq1` (verdicted FAIL
+this cycle; the 38M matched-gate continuation of the 2L/d128/8h/ff256
+transformer canary) shows the SAME shape again: legs [3,5] structurally
+sacrificed (duty ~0.0-0.09 vs ~0.68-0.96 on the other four) in all four
+independent readings (DR-0 det+sto, own-DR(0.5) det+sto, held-out 60s
+joygate n=48) — and this time with reward CLEANLY healthy (ep_rew_mean
+811, matching/beating the from-scratch MLP control at the same step
+budget, walk_direction_valid~0.99, walk_loadslip_ratio~0.58 — none of
+the usual "reward is bad too" tells apply). `walkcurr/frontier` never
+left b0 in 76 cert rounds despite the healthy reward. Video (det_0,
+det_3 contact sheets) confirms real topples, not a metric artifact:
+clean-looking gait for roughly the first half of each 15s episode,
+then a slow roll onto the side (`term_reason=tilt_pitch`). This is now
+THREE structurally different lineages (walkcurr's from-scratch
+prior-free diet at 25Hz, hist64-scratch's from-scratch MLP at 100Hz,
+and now this warm-started transformer at 100Hz) converging on the
+same "3-4 legs statue, 2-3 legs do all the work, eventually topples"
+shape, with reward health ranging from bad (walkcurr) to good (this
+run) — i.e. the defect reproduces independent of reward alignment,
+architecture, diet, and control rate. This raises the priors on the
+08-24 note's own leading hypothesis (a structural sim/obs/action
+leg-indexing asymmetry rather than a reward-pricing problem on any one
+track) and makes the root-cause pass more valuable than another
+reward-magnitude or architecture arm on either track. Still unclaimed;
+still no operator input needed — filed so whichever cycle next picks
+up a leg-sacrifice DIG-IN (joystick or walkcurr) has the updated tally
+without re-deriving it. status: informational, escalating priority.

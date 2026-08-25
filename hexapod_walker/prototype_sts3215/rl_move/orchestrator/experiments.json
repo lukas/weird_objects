@@ -171937,7 +171937,7 @@
       "rl_move/sim/policies/ppo_goal_cw_arch_tf64_joyfullcurr13_v7_hz100_canary2.zip"
     ],
     "created": "2026-08-24T22:09:45+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 26,
@@ -171983,7 +171983,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Reward-healthy but the checkpoint still topples: the tf64 (2L/d128/8h/ff256) 100Hz architecture question is now cleanly ANSWERED YES (matches/beats the MLP control), but the checkpoint fails the joystick DONE-gate on structural leg-3/5 sacrifice -> tilt_pitch topple, not reward. Evidence: this 38M continuation (40M total incl. canary2's 2M) crossed zero reward early and finished ep_rew_mean=811 (quarters -692/515/671/747), walk_direction_valid~0.99 and walk_loadslip_ratio~0.58 (both comfortably inside the pre-registered matched-step control bars) -- the architecture-viability question the acq1 gate was built to answer is closed POSITIVE, corroborating the prior dig-in's overturn of the 'attention pathology' read. But walkcurr/frontier stayed pinned at b0 for all 76 cert rounds despite reward turning solidly positive by ~10M, and every eval agrees on why: DR-0 gate 0/6 det + 0/6 sto gait_valid, own-DR(0.5) 0/6 + 0/6, held-out 60s joygate 48/48 falls (gait_valid_frac 0.0, dir_err 51deg vs cap 40) -- all four readings independently sacrifice the SAME legs [3,5] (duty ~0.0-0.09/0.02-0.96 split) and terminate tilt_pitch. Video (det_0, det_3) confirms real topples: clean-looking gait for the first ~half of the episode then a slow roll onto the side, not a metric artifact. This is the THIRD independent lineage (after walkcurr's from-scratch diet and hist64-scratch's from-scratch MLP) to show the identical {legs mostly-3-and-5-or-similar}-sacrifice-then-fall fingerprint under a totally different architecture/diet -- raises, but does not newly discover, the still-unclaimed cross-lineage root-cause item already filed (OPERATOR_QUESTIONS.md 08-24 ~22:0x). Aligned FAIL per the 08-21 ruling (reward and the secondary proxies are clean; the frontier/gait-validity axis is genuinely stuck at adequate budget, not a pricing misalignment). Does NOT close the 100Hz-transformer line (architecture works fine) and does NOT justify another reward-magnitude/architecture arm on this ladder -- the leg-sacrifice root cause is the real blocker shared by all recent lineages and needs its own dig-in before the next joyfullcurr arm is well-specified. No relaunch this cycle: the two live siblings (joyfullcurr15-v8-hz100-r2, certfreeze-v9) already cover the two named mechanism questions (diet-scope, stop-cert semantics); a fourth arm guessing at leg-sacrifice without root-causing it first would repeat this ladder's own history of premature fixes."
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr15-v8-hz100-r1",
@@ -172479,6 +172481,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr16-certfreeze-v9 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 9 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur2.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --cfg-set control.hz=25 --cfg-set safety.max_delta_q_deg=1.5 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr16_certfreeze_v9 --notes 'respec of cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8: Plain English: certfreeze-v8 (verdicted this cycle) proved the bucket-scope fix works -- frontier leaves b1, reaches b3 (side90 opens) -- but then plateaus AT b3 for the rest of the 40M-step run with the identical stuck-stop-cert signature v7 showed at b1. Root cause (code-read, this cycle): the cert-time hold supervisor (_walk_stop_freeze_override) exempts any tick with wz_ref!=0, but a wz-diet bucket'\"'\"'s stop_frac and wz_zero_frac draws are independent rng calls on the SAME resampled segment, so ~half of a nominal '\"'\"'stop'\"'\"' segment'\"'\"'s ticks also carry wz!=0 in any bucket carrying the diet (side90_20s onward) and are therefore exempt from the very freeze meant to clear the 0.015 m/s bar, while the legacy stop_speed_m_s metric counts every such tick anyway -- structurally guaranteeing the cert can never clear regardless of policy quality. This run tests the ONE fix: --walk-curriculum-version 8->9 (WALKCURR_BUCKETS_V9, byte-identical bucket scope/diet to V8 -- built+tested this cycle, test_walk_curriculum.py 56/56 incl. 4 new V9 tests, test_walkcurr_mjx.py 19/19, test_walk_stop_settle_metric.py 8/8 incl. 2 new stop_speed_pure_m_s tests, test_launch_run_control_hz.py 8/8 new -- except every gated bucket is certified on the new stop_speed_pure_m_s metric instead, which excludes the same wz!=0 ticks the freeze does, so the cert and the freeze finally agree about what counts as '\"'\"'commanded still'\"'\"'. Pinned to the SAME legacy control.hz=25 as its v8 parent (via the newly-built --allow-legacy-control-hz escape hatch -- CURRENT_TRUTHS documented this as already landed 08-24 but it was never actually wired into launch_run.py, discovered+fixed this cycle) to isolate this lever from the separate, concurrently-running 100Hz rate-conversion question (joyfullcurr15-v8-hz100-r1/r2).' > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr16-certfreeze-v9.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr16-certfreeze-v9.log",
     "wandb_id": "zxoxwg3i",
-    "verified": "2026-08-24T23:37:09+00:00"
+    "verified": "2026-08-24T23:37:09+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T23:42:55+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 233,
+        "cpu_centisec_deltas": [
+          2036,
+          2512
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

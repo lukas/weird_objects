@@ -1,6 +1,31 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~22:5x (**hz100-r2 FAIL, CONFOUNDED by the
+Last updated: 2026-08-25 ~00:3x (**cw-arch-tf64-joyfullcurr13-v7-hz100-acq1
+FAIL: the 100Hz tf64 (2L/d128/8h/ff256) architecture question is ANSWERED
+YES (reward matches/beats the matched-step MLP control -- ep_rew_mean 811,
+quarters -692/515/671/747, crossed zero well inside the pre-registered
+window, walk_direction_valid~0.99, walk_loadslip_ratio~0.58, all comfortably
+inside bar), corroborating the prior dig-in's overturn of the "attention
+pathology" read. But `walkcurr/frontier` stayed pinned at b0 for all 76
+cert rounds and DR-0 gate (0/6 det+sto gait_valid), own-DR(0.5) (0/6+0/6)
+and the held-out 60s joygate (48/48 falls, gait_valid_frac 0.0) all agree:
+legs [3,5] are structurally sacrificed and the robot topples (term_reason
+tilt_pitch, video-confirmed real roll-over on both det_0/det_3 strips, not
+a metric artifact). THIRD independent lineage (after walkcurr's from-
+scratch diet and hist64-scratch's from-scratch MLP) to show the identical
+leg-sacrifice-then-fall fingerprint under a totally different architecture/
+diet -- raises the priority of, but does not newly open, the still-unclaimed
+cross-lineage root-cause item (`OPERATOR_QUESTIONS.md` 08-24 ~22:0x, updated
+this cycle). Does NOT close the 100Hz-transformer line (architecture is
+fine) and does not license another reward-magnitude arm on this ladder --
+next lever is the leg-sacrifice root cause itself (DIG-IN, unclaimed), not
+another architecture/diet variant. No relaunch this cycle: the two live
+siblings (`joyfullcurr15-v8-hz100-r2`, `certfreeze-v9`) already cover the
+diet-scope and stop-cert-semantics questions. Evidence: `logs/ckpt_eval/
+cw_arch_tf64_joyfullcurr13_v7_hz100_acq1_{gate,owncfg,joygate}/`, W&B
+`kbctcsua`.)
+
+Previous entry (2026-08-24 ~22:5x (**hz100-r2 FAIL, CONFOUNDED by the
 already-fixed V7 diet-scope bug -- bit-for-bit match to certfreeze-
 v7's frontier-stuck-at-b1/leg-3-lock signature, not a rate-conversion
 finding; relaunched clean at V8+100Hz as -joyfullcurr15-v8-hz100-r2.**
