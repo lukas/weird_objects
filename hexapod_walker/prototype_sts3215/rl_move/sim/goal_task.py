@@ -189,6 +189,59 @@ class GoalGenerator:
         # rl_move.sim.eval_session (the interactive-protocol gate).
         self.rise_ramp_jitter = float(g.get("rise_ramp_jitter", 0.0))
         self.lower_ramp_jitter = float(g.get("lower_ramp_jitter", 0.0))
+        # COMMANDABLE STANDING HEIGHT (08-25, operator MCP request
+        # fb_20260825T195117_3dce6e: "once standing, move the body
+        # up/down to a specified height; from a shaky/non-solid stand,
+        # ignore the height command and get solid first"). Scoped to
+        # HOLD episodes (mode == "hold") rather than a brand-new goal
+        # kind: hold already starts at the plant, already carries the
+        # exact solid-stand S-gate this feature needs
+        # (reward.hold_still_gate / hold_feet_load(_min) / hold_flag_
+        # fade — feet-loaded^2 x no-flag fade x stillness, scoped to
+        # ("hold","track") ticks in sim_env._step_finish) and the
+        # loaded-foot-slip charge (reward.k_drag_trans, priced on every
+        # non-walk tick including hold). The only missing piece was a
+        # height_ref that MOVES: goal.height_ref is already an
+        # observed, scaled channel (rl_move.env.TaskGoal.as_obs) fed by
+        # every hold/rise/lower/raise episode today, so no observation
+        # change and no new reward code is required for rungs 0-3 of
+        # the requested curriculum (solid-start commandable height);
+        # this is deliberately NOT yet the "start non-solid, must
+        # recover before tracking" rung 4/5 extension — the standwalk
+        # rise mechanism that would supply believable non-solid-but-
+        # recoverable starts is still mid dig-in (tuckexempt/tuckrise
+        # chain, unresolved as of this note), and the feedback's own
+        # fallback is to restrict early starts to solid/near-solid
+        # states until rise firms up. See REWARD.md
+        # "HOLD, commandable height" and rl_docs/tracks/standwalk/
+        # STAND_HEIGHT.md for the full design + semantics bank.
+        #
+        # goal.hold_height_cmd_frac (default 0.0 = OFF, bit-exact: no
+        # extra rng draw at all when 0, matching the rise_start_bank_
+        # frac convention below): fraction of HOLD episodes that get a
+        # scripted height-command schedule instead of the legacy flat
+        # height_ref=0.
+        self.hold_height_cmd_frac = float(g.get("hold_height_cmd_frac",
+                                                 0.0))
+        hh_mm = g.get("hold_height_cmd_range_mm", [-40.0, 20.0])
+        self.hold_height_cmd_range_m = (
+            max(float(hh_mm[0]), -max_h) * 0.001,
+            min(float(hh_mm[1]), max_h) * 0.001)
+        # Rate limit (mm/s): every transition in the generated schedule
+        # is stretched so its slope never exceeds this — the "feels
+        # like a joystick axis, not a step function" constraint. 15
+        # mm/s matches the existing rise/lower ramp paces (a 40 mm
+        # excursion in ~2.7 s, well inside the servo profile).
+        self.hold_height_cmd_rate_mm_s = float(g.get(
+            "hold_height_cmd_rate_mm_s", 15.0))
+        hold_s = g.get("hold_height_cmd_hold_s", [2.0, 5.0])
+        self.hold_height_cmd_hold_s = (float(hold_s[0]), float(hold_s[1]))
+        self.hold_height_cmd_kinds = tuple(g.get(
+            "hold_height_cmd_kinds", ("hold", "ramp", "sine", "pulse")))
+        # Canary/bank hook (not a cfg key): pins every drawn segment to
+        # one (kind, target_m) pair instead of a random mix, for
+        # reproducible probes. None (default) = normal random draw.
+        self.force_hold_height_profile: tuple[str, float] | None = None
 
     @staticmethod
     def _jittered_s(rng: np.random.Generator, base_s: float,
@@ -204,6 +257,75 @@ class GoalGenerator:
         r = np.ones(n_steps)
         r[:n_ramp] = np.linspace(0.0, 1.0, n_ramp, endpoint=False)
         return r
+
+    def _hold_height_schedule(self, rng: np.random.Generator,
+                              n_steps: int, dt: float) -> np.ndarray:
+        """Commandable height script for a hold episode (goal.
+        hold_height_cmd_frac > 0): a piecewise mix of hold / ramp /
+        sine / pulse segments inside hold_height_cmd_range_m, every
+        transition rate-limited to hold_height_cmd_rate_mm_s so no
+        segment asks for a step change faster than a joystick axis
+        (and the servo profile) could produce. Starts and ends each
+        episode at 0 (the settled plant height) via the shared
+        ``ramp_s`` settle window, matching every other goal kind's
+        no-step-at-spawn convention."""
+        lo_m, hi_m = self.hold_height_cmd_range_m
+        rate_m_s = max(self.hold_height_cmd_rate_mm_s, 1e-3) * 0.001
+        hold_lo, hold_hi = self.hold_height_cmd_hold_s
+        height = np.zeros(n_steps)
+        cur = 0.0
+        settle_n = max(1, int(round(self.ramp_s / dt)))
+        i = min(settle_n, n_steps)
+        pinned = self.force_hold_height_profile
+        while i < n_steps:
+            if pinned is not None:
+                kind, target = str(pinned[0]), float(pinned[1])
+            else:
+                kind = str(rng.choice(self.hold_height_cmd_kinds))
+                target = float(rng.uniform(lo_m, hi_m))
+            seg_s = float(rng.uniform(hold_lo, hold_hi))
+            seg_n = max(1, int(round(seg_s / dt)))
+            end = min(i + seg_n, n_steps)
+            trans_n = max(1, int(round(
+                min(abs(target - cur) / rate_m_s, seg_s) / dt)))
+            trans_n = min(trans_n, end - i)
+            if kind == "hold" or trans_n <= 0:
+                height[i:end] = cur
+            elif kind == "ramp":
+                t_end = i + trans_n
+                height[i:t_end] = np.linspace(cur, target, trans_n,
+                                              endpoint=False)
+                height[t_end:end] = target
+                cur = target
+            elif kind == "sine":
+                # A rate-capped sine about the midpoint of cur/target,
+                # amplitude limited so its peak slope never exceeds
+                # the rate limit: |d/dt A sin(wt)| <= A*w <= rate.
+                mid = 0.5 * (cur + target)
+                amp = min(abs(target - cur) * 0.5,
+                          (hi_m - lo_m) * 0.5)
+                n_seg = end - i
+                t = np.arange(n_seg) * dt
+                period_s = max(seg_s, 1e-3)
+                w = 2.0 * math.pi / period_s
+                if amp * w > rate_m_s:
+                    period_s = 2.0 * math.pi * amp / rate_m_s
+                    w = 2.0 * math.pi / period_s
+                height[i:end] = mid - amp * np.cos(w * t)
+                cur = float(height[end - 1]) if end > i else cur
+            else:  # "pulse": rate-limited up-then-back-down
+                half = i + max(1, (end - i) // 2)
+                t_end = min(i + trans_n, half)
+                height[i:t_end] = np.linspace(cur, target,
+                                              t_end - i, endpoint=False)
+                height[t_end:half] = target
+                b_end = min(half + trans_n, end)
+                height[half:b_end] = np.linspace(target, cur,
+                                                 b_end - half,
+                                                 endpoint=False)
+                height[b_end:end] = cur
+            i = end
+        return height
 
     def _track_channel(self, rng: np.random.Generator, n_steps: int,
                        dt: float, amp_max: float) -> np.ndarray:
@@ -253,6 +375,15 @@ class GoalGenerator:
                                         self.max_pitch) * ramp
         elif mode == "unload":
             unload_leg = int(rng.integers(0, 6))
+        elif mode == "hold" and self.hold_height_cmd_frac > 0.0:
+            # Conditional draw (rise_start_bank_frac convention): only
+            # taken when the feature is configured on, so every
+            # existing hold-including lineage's rng stream is
+            # untouched at the default frac=0.0.
+            use_cmd = (self.force_hold_height_profile is not None
+                      or rng.random() < self.hold_height_cmd_frac)
+            if use_cmd:
+                height = self._hold_height_schedule(rng, n_steps, dt)
         elif mode == "raise":
             # Canary: from the plant stance, ramp the height ref up and
             # hold. Slower than the tilt ramp (the servos travel farther)

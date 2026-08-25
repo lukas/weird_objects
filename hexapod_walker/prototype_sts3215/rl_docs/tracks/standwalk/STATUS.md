@@ -1,6 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~19:5x (SUPERSEDES the entry directly below:
+Last updated: 2026-08-25 ~20:1x (**MECHANICAL/CORROBORATING NOTE — this
+cycle's own read independently reaches the same conclusion as the
+19:5x entry below, plus one caught infra bug and one self-caught
+redundant launch.** (1) Triaged the assigned run `tuckexempt0` (this
+cycle's target) + its unclaimed seed twin `tuckexempt0-s1`: BOTH
+CANARY FAIL - MECHANISM, byte-for-byte the tuckfloor0 total-freeze
+signature (flat-pinned probe 0/24 combined valid_plant, duty=0.0 all
+six legs, standard gate 0/6+0/6 both seeds, worse than the meshref
+parent's 5/6+4/6) — closes the tuck-exempt-floor axis (ledger race:
+the concurrent cycle also wrote a verdict on `-s1` ~1 min later,
+same conclusion, its text is what persisted; no information lost,
+RL_LOG keeps both lines). (2) Caught a genuine infra bug: a sibling
+`tuckrise15` launch (concurrent cycle, in flight when this cycle
+read the ledger) crashed immediately — `reward.rise_ref_path` pointed
+at `rise_ref_mesh_tuckrise15.npz`, which was generated but never
+committed (only `rise_ref_mesh_tuckrise45.npz` landed in snapshot
+`fa1bccc5`); `MjxShardedVecEnv` worker died with `FileNotFoundError`
+before any step, 0 training steps, W&B `58ohqh56`. Verdicted CANARY
+FAIL - INFRASTRUCTURE. (3) Not yet having read this file's own 19:5x
+entry (written concurrently), independently launched
+`tuckrise45`/`-s1` (2M canary pair, the properly-committed 45mm ref,
+single lever vs meshref parent) — then, on reading 19:5x below,
+recognized it was redundant: the concurrent cycle had ALREADY probed
+`--tuck-rise-mm` at 3 CPU-only doses and found achieved height never
+lands inside the tuck on the 3.5kg mesh model at ANY dose/split
+(swing-lift fights the rise, ~25-30mm compliance dead-band, ~1.5s
+lag). This run's OWN reference file confirms it directly:
+`h_rel_m` in `rise_ref_mesh_tuckrise45.npz` stays exactly 0.0 through
+tick ~245 and only starts climbing at tick ~250 (achieved
+`ramp_i0=258`, barely later than meshref's own 245) — the "45mm
+across the second half of the tuck" lands AT the tuck/press boundary,
+not inside the tuck. Killed both seeds early (~1.0-2.0M/2M steps,
+train-0/train-1) rather than let a doomed canary finish; verdicted
+CANARY FAIL - MECHANISM citing the concurrent cycle's own
+construction-level refutation + this run's own h_rel_m evidence.
+**Net: ref-content height-shaping is now refuted by TWO independent
+lines of evidence (CPU-probe construction argument + this GPU
+canary's own achieved-height trace) — do not fund another
+`--tuck-rise-mm` dose.** The only surviving design per the 19:5x
+entry — keying the BC-anchor floor's progress metric off the
+SCRIPT-INDEX or COMMANDED height instead of ACHIEVED height — is
+correctly DIG-IN flagged for a deep-model cycle (bc_anchor hot-path
+code + bank rows + a canary is more than a triage-cycle change).
+Re-checked all other tracks for spare-capacity refill (unchanged
+since 19:2x): joystick DONE-gate met (deferred hardening explicitly
+lives here, and is itself the same lesson, not a separate lever);
+amp/cpg DONE/maintenance; walkcurr self-blocked on `[operator]`.
+12/12 pods correctly idle at cycle end — genuinely nothing fundable
+without duplicating in-flight work or jumping ahead of the DIG-IN
+flag. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_
+bcchain3_meshref_tuckexempt0{,_s1}_{gate,owncfg,flatprobe_det,
+flatprobe_sto}/`, W&B `46px3v47`/`zigatklw`/`58ohqh56`/`nt6ot7gn`/
+`wbhsu4st`.)
+
+Prior entry: 2026-08-25 ~19:5x (SUPERSEDES the entry directly below:
 by the time this note landed the concurrent cycle had already gone
 further — probed `--tuck-rise-mm` with 3 controlled CPU mints (no GPU
 spent) and REFUTED ref-content editing by construction (on the 3.5kg
