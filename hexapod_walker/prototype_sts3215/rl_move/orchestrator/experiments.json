@@ -176217,7 +176217,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-25T06:20:47"
   },
   {
     "run": "cw-standwalk-stance-mesh1-seed1",
@@ -178054,7 +178055,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-25T06:15:40"
   },
   {
     "run": "cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1",
@@ -178304,7 +178306,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-25T06:20:47"
   },
   {
     "run": "cw-standwalk-stance-mesh2-cur1-seed1",
@@ -178431,7 +178434,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-25T06:20:46"
   },
   {
     "run": "cw-standwalk-stance-mesh2-cur1-seed2",
@@ -178812,6 +178816,152 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1-acq1 --steps 38000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --device cuda --transformer --tf-layers 2 --tf-width 128 --tf-heads 8 --tf-ff 256 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_movecur1_acq1 --notes 'respec of cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1: Plain English: architecture-replication continuation -- the transformer sibling (tf64-mesh-movecur1) shows the SAME matched-step-indistinguishable-from-uncharged-reference pattern at 2M as the MLP arm (over_current/height/reward tracking its own uncharged reference tf64-mesh-acq1 closely through 2M), so this canary also can'\"'\"'t yet tell whether k_walk_move_current=2.0 transfers across architecture. Continuing to the same 40M budget tf64-mesh-acq1 got (FAIL at 38M via the identical over_current tripod-lock as the MLP), charge held on, to test transfer once cmd_prog actually moves.' --cfg-set reward.k_walk_move_current=2.0 --cfg-set env.model_source=mesh --init-from rl_move/sim/policies/ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_movecur1.zip > /tmp/train_cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1-acq1.log",
     "wandb_id": "y03eby83",
-    "verified": "2026-08-25T06:11:15+00:00"
+    "verified": "2026-08-25T06:11:15+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T06:16:54+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6260,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-acq1r2",
+    "pod": "hexapod-mjx-train-5",
+    "steps": 38000000,
+    "smoke": false,
+    "hypothesis": "Plain English: at the 2M mechanism-canary budget, does k_walk_move_current=2.0 actually change anything yet? Matched-step check against the SAME recipe's uncharged reference (cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1) shows terminations/over_current, env/height_mm and rollout/ep_rew_mean tracking NEARLY IDENTICALLY tick-for-tick through 2M (e.g. over_current 1621/436/8/3/4... vs the reference's 1690/304/7/7/5... at the SAME global_steps) -- the charge only fires on commanded-translating ticks (s_ref>1e-3) and cmd_prog_frac stayed ~0 the whole 2M (0/4 b0_bridge promotions, matching the reference's own 0/5 at matched steps), so the charge has barely had a chance to bind. The reference's own over_current pathology didn't fully dominate until ~20-38M once it committed to a locked-leg gait -- 2M cannot distinguish 'charge prevents the relapse' from 'too early for either lineage to relapse'. This is the PARTIAL/continuation branch of the run's own pre-registered gate, not a FAIL: continuing to the SAME 40M acquisition budget the uncharged reference got, charge held constant, to see whether over_current re-emerges once cmd_prog actually moves.",
+    "gate": "PASS: by ~38-40M, over_current termination rate + Imax stay well under the acq1/tf64-mesh-acq1 fail signature (24-38/48 held-out falls, Imax pinned 2.64-2.70A) AND walkcurr frontier/promotions move past b0 (genuine forward progress, not another frozen plateau). PARTIAL: over_current measurably lower than the matched-step acq1/tf64-mesh-acq1 trajectory but frontier still stuck at b0 -- a real but incomplete win, dig-in on the progress/current tradeoff rather than blind further extension. FAIL: over_current/Imax converge to the SAME locked-leg-tripod signature as acq1/tf64-mesh-acq1 by matched steps -- k=2.0 is insufficient against the mesh family's fully-committed exploit; escalate dose/mechanism or pursue a structural fix (k_tau_over hinge, or warm-starting the mesh lineage off a healthy primitive walker) instead of further k_walk_move_current iteration.",
+    "parent": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1",
+    "track": "joystick",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--walk-curriculum",
+      "--walk-curriculum-version",
+      "7",
+      "--episode-seconds",
+      "60",
+      "--dr-scale",
+      "0.5",
+      "--seed",
+      "0",
+      "--ent-coef",
+      "0.01",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--cfg-set",
+      "obs.history_frames=64",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.8",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_walk_course=1.0",
+      "--cfg-set",
+      "reward.walk_course_tau_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_min_speed_m_s=0.01",
+      "--cfg-set",
+      "reward.k_walk_stop_charge=1.0",
+      "--cfg-set",
+      "reward.walk_stop_grace_s=0.4",
+      "--cfg-set",
+      "reward.k_walk_stop_current=2.0",
+      "--cfg-set",
+      "goal.walk_stop_freeze_s=0.0",
+      "--walkcurr-cert-cfg-set",
+      "goal.walk_stop_freeze_s=0.4",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "safety.max_delta_q_deg=0.375",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1_acq1r2",
+      "--notes",
+      "respec of cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1: Plain English: at the 2M mechanism-canary budget, does k_walk_move_current=2.0 actually change anything yet? Matched-step check against the SAME recipe's uncharged reference (cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1) shows terminations/over_current, env/height_mm and rollout/ep_rew_mean tracking NEARLY IDENTICALLY tick-for-tick through 2M (e.g. over_current 1621/436/8/3/4... vs the reference's 1690/304/7/7/5... at the SAME global_steps) -- the charge only fires on commanded-translating ticks (s_ref>1e-3) and cmd_prog_frac stayed ~0 the whole 2M (0/4 b0_bridge promotions, matching the reference's own 0/5 at matched steps), so the charge has barely had a chance to bind. The reference's own over_current pathology didn't fully dominate until ~20-38M once it committed to a locked-leg gait -- 2M cannot distinguish 'charge prevents the relapse' from 'too early for either lineage to relapse'. This is the PARTIAL/continuation branch of the run's own pre-registered gate, not a FAIL: continuing to the SAME 40M acquisition budget the uncharged reference got, charge held constant, to see whether over_current re-emerges once cmd_prog actually moves.",
+      "--cfg-set",
+      "reward.k_walk_move_current=2.0",
+      "--cfg-set",
+      "env.model_source=mesh",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1.zip"
+    ],
+    "created": "2026-08-25T06:14:35+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-df802228-4aad-6a1a-fc20-a818f6961215)",
+      "running_experiments_before": 4,
+      "code_sha_local": "52147de9dd4806bff51cc6b1c4ed07e0637c0db8",
+      "code_sha_pod": "52147de9dd4806bff51cc6b1c4ed07e0637c0db8",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1805254",
+      "log_growth_bytes": [
+        12136,
+        15012
+      ],
+      "wandb_id": "t1l9bxzr",
+      "trainer_pid": "1805254",
+      "global_step_window": [
+        540672,
+        737280
+      ],
+      "fps_estimate": 3276.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1 (2M CANARY PASS) -> acq1 (38M more, FAIL at 38M via over_current) is the exact healthy-canary/full-budget precedent this respec matches, mirroring the MLP canary1->acq1 pair.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-acq1r2 --steps 38000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --cfg-set reward.walk_gait_gate=0.0 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1_acq1r2 --notes 'respec of cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1: Plain English: at the 2M mechanism-canary budget, does k_walk_move_current=2.0 actually change anything yet? Matched-step check against the SAME recipe'\"'\"'s uncharged reference (cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1) shows terminations/over_current, env/height_mm and rollout/ep_rew_mean tracking NEARLY IDENTICALLY tick-for-tick through 2M (e.g. over_current 1621/436/8/3/4... vs the reference'\"'\"'s 1690/304/7/7/5... at the SAME global_steps) -- the charge only fires on commanded-translating ticks (s_ref>1e-3) and cmd_prog_frac stayed ~0 the whole 2M (0/4 b0_bridge promotions, matching the reference'\"'\"'s own 0/5 at matched steps), so the charge has barely had a chance to bind. The reference'\"'\"'s own over_current pathology didn'\"'\"'t fully dominate until ~20-38M once it committed to a locked-leg gait -- 2M cannot distinguish '\"'\"'charge prevents the relapse'\"'\"' from '\"'\"'too early for either lineage to relapse'\"'\"'. This is the PARTIAL/continuation branch of the run'\"'\"'s own pre-registered gate, not a FAIL: continuing to the SAME 40M acquisition budget the uncharged reference got, charge held constant, to see whether over_current re-emerges once cmd_prog actually moves.' --cfg-set reward.k_walk_move_current=2.0 --cfg-set env.model_source=mesh --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1.zip > /tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-acq1r2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-acq1r2.log",
+    "wandb_id": "t1l9bxzr",
+    "verified": "2026-08-25T06:18:49+00:00"
   }
 ]

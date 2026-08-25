@@ -5122,10 +5122,24 @@ def test_recover_replay_succeeds_and_terminates(recover_bank):
     total return positive. This is the current-height target
     reachability proof (the postlower mechanically-impossible-target
     lesson) and the success-hold semantics check in one."""
+    # 2026-08-25 rate fix: 395 was a raw TICK count sized against the
+    # hz=25 default (16s episode = 400 ticks; "before the horizon"
+    # meant "before tick 395/400"). Once control.hz defaulted to 100
+    # (08-24) the same fixed tick count silently became a 4x-tighter
+    # WALL-TIME bound (3.95s instead of 15.8s) with no code change --
+    # part of the 54-test regression (OPERATOR_QUESTIONS.md 08-25
+    # ~02:1x/~04:0x). Recompute the horizon from the env's own actual
+    # control rate so the bound stays "before the episode horizon"
+    # regardless of control.hz.
+    hz = float(load_config().get("control", {}).get("hz", 25.0))
+    total_ticks = 16.0 * hz
+    horizon = int(round(total_ticks * 0.99))
     for roll in recover_bank["replay"]:
         assert roll["succ"], "reference rise never reached success"
         assert roll["terminated"], "success did not terminate"
-        assert roll["steps"] < 395, "success only at the horizon"
+        assert roll["steps"] < horizon, (
+            f"success only at the horizon ({roll['steps']} >= "
+            f"{horizon} of {total_ticks:.0f} total ticks)")
         assert roll["ret"] > 0.0, f"honest recovery not paid: {roll['ret']:.1f}"
         b = float(roll["bonus"])
         assert b > 0.0, "success bonus never paid"
