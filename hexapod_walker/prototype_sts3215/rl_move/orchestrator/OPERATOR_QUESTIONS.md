@@ -2743,3 +2743,6 @@ flag-leg hybrid, feet_factor exit <260k, 4/4 product-grid FAIL) — but
 the "This cycle" ownership fences did not prevent the duplicate work.
 Assume-and-go: treating last-written verdicts as canonical; flagging
 so the watcher's assignment dedupe can be checked.
+
+## 2026-08-25 ~09:5x — pre-existing semantics-bank breakage found during rung-5 bank work (assume-and-go note, no answer needed)
+While adding the HOLD_BASIN_TERM bank (standwalk rung-5) this cycle found 10 test_task_semantics tests RED on pristine main (f065ce82, primitive pin, verified via git-stash A/B): test_hold_bank_policies_are_the_right_shapes, test_hold_gate_bites_the_stepping, test_walkcurr_swing_ranking_holds[swing|swingterm800], test_walkcurr_chargeramp_min_ranking_holds, test_walkcurr_loadslip_bootstrap_min_ranking_holds, test_walkcurr_pf_scaled_ranking_holds[x0.02|x0.1], test_walkcurr_stagea_slip_ranking_holds, test_walkcurr_idle_term_ranking_holds. NOT caused by today's diffs. Assumed answer: these are drift from the 08-24/08-25 model/hz changes, and any future launch citing one of these specific banks as its "bank green" precondition must re-run it first; a dig-in cycle should recalibrate or retire them. Recorded here so the walkcurr track sees it.

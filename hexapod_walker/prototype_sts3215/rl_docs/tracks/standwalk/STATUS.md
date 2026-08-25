@@ -1,6 +1,30 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~09:3x (**PRODUCT CLOSURE COMPLETE: the
+Last updated: 2026-08-25 ~09:5x (**rung-5 LAUNCHED: basin-exit
+termination landed, bank-proven, and running as a 2-seed batch.**
+The mechanism the closure below calls for executed same-cycle:
+`safety.hold_max_height_drop_mm` in sim_env (`hold_low_height` —
+walk_low_height's hold-mode twin, default-off bit-exact, snapshot
+`9b69378c`) + the HOLD_BASIN_TERM semantics bank, 5/5 green on
+primitive AND mesh (scripted all-hips-up belly flop: the launch stack
+is provably blind without the lever; with it the flop terminates <4 s
+with reason hold_low_height, the honest quiet stand is byte-identical,
+and return is strictly MONOTONE in time-in-basin — the slope
+min/product income provably lack). `cw-standwalk-stance-mesh2-
+holdterm40` + `-s1` (seed twin) VERIFIED RUNNING train-0/1:
+holdload1min scratch recipe + ONLY the two safety keys (40 mm drop,
+1 s grace), 6M each; hold-panel gate now also requires zero
+hold_low_height terms. Named watch axis: crouch-hover just above the
+40 mm line (h_err 30-39 mm, no valid plant) = FAIL; pre-registered
+follow-up for that or a pinned-termination stall is a MIN-LOAD exit
+trigger (terminate when min foot load stays floor-pinned), bank
+first. SIDE NOTE: 10 pre-existing RED tests in test_task_semantics on
+pristine main (2 hold-bank + 8 walkcurr ranking banks; verified via
+git-stash A/B, NOT from this cycle's diffs — OPERATOR_QUESTIONS 08-25
+~09:5x): any launch citing those specific banks must re-run them
+first.)
+
+Previous entry: 2026-08-25 ~09:3x (**PRODUCT CLOSURE COMPLETE: the
 remaining three product-gradient cells `holdprod-f01-s1`/`-f03`/
 `-f03-s1` all VERDICTED FAIL — the 2x2 grid (floor 0.1/0.3 x seed 0/1)
 is 4/4 dead, and with load-min 5/5 dead plus the noise pair (-dr0,
