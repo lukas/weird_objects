@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T22:14:01+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1
+
+**wandb_id**: h2zqn1ev
 
 **hypothesis**: Is the tuckclock1/-s1 2M CANARY PASS result (mechanism-health real: genuine non-freeze six-leg tuck motion via the new flat-time-indexed BC-anchor clock, but behaviorally PARTIAL -- 0/12 valid_plant, h_err 37.7-73mm short of the 79-87mm target, seed-0 clean/no-falls vs seed-1 asymmetric-flailing/falls) a training-budget-limited acquisition problem, mirroring the meshref parent's own 2M-CANARY-PASS-PARTIAL -> 8M-acq8m precedent, rather than a structural ceiling? Exact tuckclock1 recipe unchanged (mesh-native scripted ref, half-pace chain, anchor 3.0, stdanneal, train.bc_anchor_flat_time_indexed=1), from scratch, 8M, seed 0. Prediction-if-true: flat-pinned probe closes toward valid_plant (height error shrinking, swing motion smoothing from thrash to a clean single-cycle tuck) by 8M, non-flat holds >=parent, fall-rate no worse than the 2M canary. Prediction-if-false: flat h_err/fall-rate stays flat vs 2M (budget-invariant, like the old ref's compliance-limited press-up) -- the flat-time-indexed clock has hit a ceiling and needs a per-leg stability/coordination term, not more steps.
 
