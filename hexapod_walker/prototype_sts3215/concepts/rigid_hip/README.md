@@ -181,6 +181,25 @@ a similar height, but every one of them holds a servo.  Do not cut
 them.  (`corner_flat_owners.png` — a z=8 section of the corner flat
 with per-part colours — shows the ownership.)
 
+**The "L-shaped part" challenge (user, Aug 24 evening):** a viewer
+close-up of a free-standing notched L-wall left of a pillar foot was
+called "totally unnecessary and a remnant of the wago holder".  Probed
+again on the post-full-wrap geometry (`corner_L_wall_annotated.png`,
+the user's own screenshot annotated + a measured plan): the L is the
+**inboard-corner wall of the yaw-servo cradle shell** — full height
+from the sheet top (z 2) to the servo-mount deck top (z 10.25), owner
+`chassis_bottom_rigid`, straight production geometry from
+`_chassis_yaw_cradle_solid()`.  It looks free-standing only because
+the deck skin (z 8.2..10.25) is hollow underneath and overhangs toward
+it; they merge at the top.  It (a) is the corner pier under the deck
+skin, (b) laterally registers the seated yaw-servo body (whose corner
+sits 0.3 mm away at chassis (49.9, 21.7), hanging z −28..10.25), and
+(c) its notch (floor z 6.6) is the servo wire-exit channel.  The real
+wago tray walls were 6.5 mm lips inside r 76.75..100, |tan| ≤ 17.3 —
+that whole envelope is covered by the tray-delete cutter (+0.4 mm
+margin, all six corners) and re-probing the fresh mesh finds the
+corner flats bare.  Verdict: **kept — load-bearing, not wago-era.**
+
 ### The joint column: horn → bearing → coxa (redesigned Aug 24)
 
 The user read the old column as "rising higher than one bearing for
