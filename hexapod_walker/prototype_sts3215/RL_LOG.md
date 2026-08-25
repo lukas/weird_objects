@@ -725,3 +725,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 22:56 acq8m-s1 ACQ PASS: 8M solves seed-1 flat rise — flat probe 12/12 valid_plant (2M: 0/12, 11/12 fell), h_err<=4.4mm, genuine tuck->press on video; gate 4/6+4/6 ~parent incl first-ever flat gate pass; joint call pends seed-0 twin 
 - 08-25 22:58 [standwalk] tuckclock-acq8m (seed0) -> PASS: FLAT-START RISE SOLVED on mesh — flat probe 12/12 valid (canary was 0/12), non-flat >= parent; joint call with -s1 next cycle 
 - 08-25 23:16 - 08-25 23:1x standwalk ACQ8M JOINT CALL: JOINT PASS — flat-start mesh rise SOLVED cross-seed (flat probe 24/24 combined vs 0/24 at 2M); flat-time-indexed clock + mesh scripted ref promoted as THE mesh rise recipe; stancemix port canary pair tuckclock1/-s1 launched (train-4/5) + rung-3 kind-mix pair (train-2/3) = 4 launches, 8 pods busy 
+- 08-25 23:27 standwalk rung-3 kind-mix pair: JOINT PASS, tripwire clean (duty floor 0.95-0.98, zero DR-0 min-load terms); own-DR 1/12 residual persists 
+- 08-25 23:27 rung-3 s1: PASS, current fully in-band, duty floor 0.95 trace-only 

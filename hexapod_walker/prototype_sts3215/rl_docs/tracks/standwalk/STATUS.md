@@ -1,6 +1,33 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~23:1x (**BOTH REGISTERED JOINT CALLS CLOSED
+Last updated: 2026-08-25 ~23:3x (**STAND_HEIGHT RUNG-3 JOINT CALL:
+PASS — the height ladder's in-scope rungs (1–3) are COMPLETE. The
+stance follows the full hold/ramp/sine/pulse command mix over
+[-40,20] mm at 15 mm/s, cross-seed, tripwire NOT fired.** This cycle
+verdicted `holdheight-rung3-hha1` (seed 0) + `-s1` (seed 1), both
+CANARY PASS - MECHANISM: DR-0 12/12 valid_plant per seed, ZERO
+hold_min_load terms, h_err_end ≤2.8 mm, det Imax 0.70–0.82 A (inside
+the rung-2 band), per-leg duty floor 0.98 (s0) / 0.95 (s1) vs the
+0.85 tripwire; frame strips level/planted, micro-swings sub-visual.
+The rung-2 trace dip family SHRANK again (0.87–0.89 → 0.95–0.98
+floors) — the S-gate/min-load-pricing fallback stays holstered but
+REGISTERED. Caveats: one s0 sto ep Imax 1.50 A (envelope ≤1.38 A) at
+duty ≥0.98, judged current noise; own-DR 0.2 keeps EXACTLY 1/12 det
+hold_min_load term per seed (persists from rung 2 — the open
+hardening gap). Reward rising at both cutoffs (s0 quarters
+20.5/50.2/79.2/176.4) → per the 08-21 ruling LAUNCHED the 8M
+acquisition continuation pair, exact rung-3 recipe, warm from the
+rung-3 SEED-0 ckpt (higher duty floor):
+`cw-standwalk-stance-mesh2-holdheight-rung3-acq8m`/`-acq8m-s1`.
+Gate: own-DR 0.2 12/12 zero min-load terms (the target residual),
+DR-0 clean with the tripwire carried; FAIL branch (budget-invariant
+own-DR term) fires the registered min-load-pricing fallback, not
+more budget. Rungs 4–5 stay behind the stancemix port pair the
+~23:1x cycle launched. SKILLS.md row added (ladder skill, both
+ckpts). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+holdheight_rung3_hha1{,_s1}_{gate,owncfg}/`, W&B kpgowofs/nws2zs8y.)
+
+Prior entry: 2026-08-25 ~23:1x (**BOTH REGISTERED JOINT CALLS CLOSED
 — (1) ACQ8M JOINT PASS: flat-start mesh rise SOLVED CROSS-SEED, recipe
 promoted, stancemix port pair launched; (2) RUNG-2 JOINT PASS: full
 [-40,20]mm height range clean cross-seed, rung-3 kind-mix pair
