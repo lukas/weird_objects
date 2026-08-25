@@ -31,6 +31,7 @@ def _state(*, bus_ok=True):
         commanded_position=z.copy(),
         bus_ok=bus_ok,
         imu_ok=True,
+        timing={"source": "fake_state"},
     )
 
 
@@ -338,6 +339,13 @@ def test_stream_target_treats_stream_step_all_miss_as_stale_sample():
     state, _t_next, _overruns, err, stale_ticks, stale_samples = out
     assert err == "feedback stale during stream"
     assert rl_policy._stream_state_is_stale(state)  # noqa: SLF001
+    diag = state.timing["stale_diag"]
+    assert diag["transport"] == "step_all"
+    assert diag["step_all_none"] is True
+    assert diag["fallback_suppressed"] == "stream_firmware"
+    assert diag["stale_ticks_after"] == 4
+    assert diag["max_stale_ticks"] == 3
+    assert diag["last_good_source"] == "fake_state"
     assert stale_ticks == 4
     assert stale_samples == 4
     assert bus.steps == 4

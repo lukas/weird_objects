@@ -345,7 +345,8 @@ def _stream_state_is_stale(state) -> bool:
     return bool(timing.get("stale_feedback"))
 
 
-def _stale_stream_state(last_good_state, stale_ticks: int, q_cmd=None):
+def _stale_stream_state(last_good_state, stale_ticks: int, q_cmd=None,
+                        diag: dict | None = None):
     """Return a last-known-good RobotState marked as stale feedback."""
     if last_good_state is None:
         return None
@@ -354,6 +355,8 @@ def _stale_stream_state(last_good_state, stale_ticks: int, q_cmd=None):
         "stale_feedback": True,
         "stale_ticks": int(stale_ticks),
     })
+    if diag:
+        timing["stale_diag"] = _json_safe(diag)
     kwargs = {
         "timestamp": time.monotonic(),
         "bus_ok": True,
@@ -390,6 +393,7 @@ def _stream_target(bus, est: RobotStateEstimator,
     step_all = getattr(bus, "step_all", None)
     can_step_all = callable(step_all)
     stream_firmware = bool(getattr(bus, "has_stream", False))
+    last_diag: dict | None = None
     for sub in range(1, steps + 1):
         if abort_check():
             return state_robot, t_next, overruns, "aborted", stale_ticks, stale_samples
@@ -399,47 +403,107 @@ def _stream_target(bus, est: RobotStateEstimator,
         q_cmd_deg = (q_cmd * RAD2DEG).tolist()
         state_robot = None
         step_all_attempted = False
+        diag = {
+            "transport": "legacy_write_read",
+            "substep": sub,
+            "inner_steps": steps,
+            "stale_ticks_before": stale_ticks,
+            "stream_firmware": stream_firmware,
+            "step_all_available": can_step_all,
+            "write_speed": int(write_speed),
+            "write_acc": int(write_acc),
+        }
         if can_step_all:
             step_all_attempted = True
+            diag["transport"] = "step_all"
             try:
                 snap = step_all(q_cmd_deg, speed=write_speed,
                                 acc=write_acc)
-            except Exception:
+            except Exception as e:
+                diag["transport_error"] = repr(e)
                 snap = None
             if snap is not None:
+                diag["snapshot_seq"] = snap.get("seq")
+                diag["pos_age_ms"] = snap.get("pos_age_ms")
+                diag["imu_age_ms"] = snap.get("imu_age_ms")
                 update_from_snapshot = getattr(est, "update_from_snapshot",
                                                None)
                 if callable(update_from_snapshot):
                     state_robot = update_from_snapshot(snap)
                 else:
+                    diag["snapshot_consumer"] = "est.update_fallback"
                     state_robot = est.update()
             elif not stream_firmware:
+                diag["step_all_none"] = True
+                diag["fallback"] = "legacy_write_read"
                 step_all_attempted = False
+            else:
+                diag["step_all_none"] = True
+                diag["fallback_suppressed"] = "stream_firmware"
         if not step_all_attempted:
+            diag["transport"] = "legacy_write_read"
             bus.write_all(q_cmd_deg, speed=write_speed, acc=write_acc)
 
         t_next += inner_dt
         lag = time.monotonic() - t_next
         if lag > 0:
             overruns += 1
+            diag["overrun_lag_ms"] = round(float(lag) * 1000.0, 3)
             t_next = time.monotonic()
         else:
             time.sleep(-lag)
 
         if state_robot is None and not step_all_attempted:
-            state_robot = est.update()
+            try:
+                state_robot = est.update()
+            except Exception as e:
+                diag["est_update_error"] = repr(e)
+                state_robot = None
+        if state_robot is not None:
+            timing = dict(getattr(state_robot, "timing", {}) or {})
+            diag["state_source"] = timing.get("source")
+            diag["state_bus_ok"] = bool(getattr(state_robot, "bus_ok", False))
+            diag["state_imu_ok"] = bool(getattr(state_robot, "imu_ok", False))
+            diag["state_t_total_ms"] = round(
+                float(timing.get("t_total") or 0.0) * 1000.0, 3)
+            if timing.get("snapshot_seq") is not None:
+                diag["state_snapshot_seq"] = timing.get("snapshot_seq")
+            if timing.get("pos_age_ms") is not None:
+                diag["state_pos_age_ms"] = timing.get("pos_age_ms")
+            if timing.get("imu_age_ms") is not None:
+                diag["state_imu_age_ms"] = timing.get("imu_age_ms")
+        if last_good_state is not None:
+            good_timing = dict(getattr(last_good_state, "timing", {}) or {})
+            diag["last_good_age_ms"] = round(
+                max(0.0, time.monotonic()
+                    - float(getattr(last_good_state, "timestamp", 0.0)))
+                * 1000.0, 1)
+            diag["last_good_source"] = good_timing.get("source")
+            if good_timing.get("snapshot_seq") is not None:
+                diag["last_good_snapshot_seq"] = good_timing.get("snapshot_seq")
+            if good_timing.get("pos_age_ms") is not None:
+                diag["last_good_pos_age_ms"] = good_timing.get("pos_age_ms")
+            if good_timing.get("imu_age_ms") is not None:
+                diag["last_good_imu_age_ms"] = good_timing.get("imu_age_ms")
+        last_diag = diag
         if state_robot is None or not state_robot.bus_ok:
             stale_ticks += 1
             stale_samples += 1
+            diag["stale_ticks_after"] = stale_ticks
+            diag["stale_samples_total"] = stale_samples
+            diag["max_stale_ticks"] = max_stale_ticks
             if last_good_state is not None:
                 state_robot = _stale_stream_state(
-                    last_good_state, stale_ticks, q_cmd=q_cmd)
+                    last_good_state, stale_ticks, q_cmd=q_cmd,
+                    diag=diag)
             if (last_good_state is not None
                     and stale_ticks <= max_stale_ticks):
                 continue
             return (state_robot, t_next, overruns,
                     "feedback stale during stream", stale_ticks,
                     stale_samples)
+        if getattr(state_robot, "timing", None) is not None:
+            state_robot.timing["stream_diag"] = _json_safe(last_diag or diag)
         last_good_state = state_robot
         stale_ticks = 0
     return state_robot, t_next, overruns, "", stale_ticks, stale_samples
@@ -829,6 +893,18 @@ def _state_debug(state, *, q_cmd_rad=None, target_robot=None) -> dict:
             "full_feedback": bool(timing.get("full_feedback")),
         },
     }
+    if timing.get("source") is not None:
+        out["state_source"] = timing.get("source")
+    if timing.get("snapshot_seq") is not None:
+        out["snapshot_seq"] = timing.get("snapshot_seq")
+    if timing.get("pos_age_ms") is not None:
+        out["pos_age_ms"] = timing.get("pos_age_ms")
+    if timing.get("imu_age_ms") is not None:
+        out["imu_age_ms"] = timing.get("imu_age_ms")
+    if timing.get("stale_diag") is not None:
+        out["stale_diag"] = timing.get("stale_diag")
+    if timing.get("stream_diag") is not None:
+        out["stream_diag"] = timing.get("stream_diag")
     if q_cmd_rad is not None:
         cmd = np.asarray(q_cmd_rad, dtype=float)
         dq = np.abs(q - cmd) * RAD2DEG
