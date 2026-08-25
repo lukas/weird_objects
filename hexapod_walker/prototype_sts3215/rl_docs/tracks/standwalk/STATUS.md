@@ -13,9 +13,10 @@ episode, on both completed seeds:
   2 `tilt_roll`), `cur_max_a` pinned at exactly **2.64 A** on every
   over_current episode (the trip ceiling, not a soft overshoot) —
   fwd drift only 0.02-0.11 m/15s (not walking away, just failing in
-  place). own-DR pass for this run was still mid-eval when this note
-  was written (own pod ~2.5x slower than the seed2 pod for the same
-  job; next cycle should finish reading it).
+  place). own-DR(0.2): 28/36 terminated (23 `over_current`, 4
+  `tilt_roll`, 1 `tilt_pitch`), `cur_max_a` 2.52-2.66 — same signature,
+  slightly less severe than DR-0 (noise-injected joints likely break
+  the exact load-lock pose sometimes).
 - `seed2-rr1` DR-0 gate: **36/36** (100%) terminated — 17
   `tilt_pitch`, 10 `over_current`, 9 `tilt_roll`; own-DR(0.2):
   **36/36** terminated too, evenly split 12/12/12 across the same
