@@ -62,14 +62,47 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-Nothing launched. Track registered by the operator 08-24 evening.
+Stage-1 batch RUNNING 08-25 ~04:4x (operator kick):
+`cw-standwalk-stance-mesh1-rr1` + `-seed1-rr1`/`-seed2-rr1` on
+train-0/1/2, 3 seeds one wave, 20M each, from-scratch footlow2-style
+joint_goal on the mesh default @100 Hz (goal-mix hold=.1/rise=.45/
+lower=.45, 15 s eps, DR 0.2, log-std 0, ent .005, rise-ref tracking
+k=2.0 + posture/income/finish gates + hold_still_gate/hold_flag_fade
++ rise RSI 0.5, NO warm start / NO bc_anchor). The un-suffixed first
+wave crashed at startup: `bus.servo_params=loaded` carries a measured
+125 ms latency > the MJX backend's 12 pending-command slots at hz=100
+(dt=0.01) — pin dropped (fit at 25 Hz; loaded-latency robustness
+deferred to a hardening rung), W&B names burned, relaunched as -rr1.
+rr1 (seed 0) already completed 20M in ~22 min: final periodic eval
+rise/lower 0/2 with over_current terminations — triage judges vs the
+pre-registered ladder alternative (20M@DR0.2 = first rung).
+
+Stage-1 mesh calibration facts (measured 08-25, kick cycle):
+- Mesh plant settles at h_rel = **82.96 mm** (primitive tibia-150:
+  131.94) => `goal.rise_height_mm=[79,87]`, `actions.max_height_mm=88`.
+- The 25 Hz `rise_ref_belly2plant.npz` EXECUTES on mesh: time-aligned
+  open-loop replay ends valid plant 3/3 seeds. (The bank's replay was
+  rate-broken at hz=100 — fixed test-side via `_ref_row`; the trainer
+  consumer `_rise_ref_clock` was always time-based.)
+- Bank-check ON MESH under the exact launch stack: RISE replay 2703
+  (plant 3/3) > mesh-honest partial 536 > flagleg 395 > stilt -47 >
+  freeze/thrash negative; LOWER honest 2131 > partial 629 > refuse
+  -64 (<0), posture-strict rejects outrig/aloft; HOLD quiet 1472 >
+  stepping 870 > flag 50. Caveats: (a) LOWER thrash seed 2 lucky-
+  collapses the 3.5 kg body onto the belly target (banks 1852; thrash
+  mean 869 > partial 629, mesh-only; honest dominates 2.4x) — watch
+  lower videos for crash-lowering; (b) the committed bank's "partial"
+  (primitive j_half row) yields h=1 mm on mesh — a mesh partial must
+  hold ref row ~283 (~50 mm); (c) endpost-era shaping extras
+  (k_stance_clearance/k_end_posture/k_load_even/k_still/k_current_*)
+  BREAK bank orderings on mesh (partial below cheats, or k_still pays
+  refusal) — deliberately excluded; re-add only via a bank-proven
+  hardening rung.
 
 ## Next
 
-1. Stage-1 arm: pull `stance_dr10`'s exact recipe from the ledger,
-   port to mesh@100Hz (no legacy pins), bank-check the stance reward
-   on mesh, launch `cw-standwalk-stance-mesh1` (+ seed pair per the
-   batching rule).
+1. DONE 08-25 ~04:4x (see Now): recipe ported, bank-checked on mesh,
+   3-seed batch launched.
    RECIPE ARCHAEOLOGY (08-25 ~04:0x cycle, saves the re-dig):
    `stance_dr10` is PRE-LEDGER (no extra_args entry); its W&B config
    (run `cw-stance-dr10`, 2026-08-08) shows: task `joint_goal`,
