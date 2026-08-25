@@ -1,0 +1,20 @@
+# cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-25T01:33:03+00:00
+
+**pod**: hexapod-mjx-train-6
+
+**steps**: 38000000
+
+**parent**: cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1
+
+**wandb_id**: ibzoqf7g
+
+**hypothesis**: Plain English: does the transformer recipe's architecture health (already proven on the primitive family: cw-arch-tf64-joyfullcurr13-v7-hz100-acq1 matched/beat its MLP control by 40M) transfer to the new, heavier, corrected mesh-family model? This arm continues the tf64-mesh canary's checkpoint 38M more steps (40M total) on the identical 2L/d128/8h/ff256/V7/hist64/100Hz/mesh stack, judged against the MLP-mesh sibling's OWN matched-step trajectory (cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1, launched alongside this cycle) exactly as the primitive-family acq1 pair was judged. Prediction-if-true: reward tracks the MLP-mesh sibling's valley shape within noise, turns upward on a similar timescale, crosses zero comparably, walkcurr frontier unlocks past b0 in step with (or ahead of) the MLP-mesh sibling, and by 40M reaches MLP-mesh-equivalent health -- reproducing the primitive family's own architecture-parity finding on the new dynamics. Prediction-if-false: transformer-specific instability appears on the heavier/shifted-hip-axis mesh model that didn't appear on the primitive family (reward diverges from the MLP-mesh sibling's shape, frontier stays pinned at b0 while the sibling promotes) -- a genuine mesh-family-specific architecture deficit, not the already-refuted 08-24 'attention pathology' misread. Strongest alternative: both architectures share the same mesh-family valley depth/timing (mass dominates over architecture), reproducing the primitive-family finding exactly.
+
+**gate**: Matched-step control gate vs cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1 (the MLP-mesh sibling's own W&B trajectory, launched this cycle, waypoints read live): PASS requires (a) reward shape (upturn timing, zero-crossing) tracks the MLP-mesh sibling's own trajectory within noise -- no fixed absolute step targets since this is the FIRST mesh-family long run and the sibling's own reads set the bar as they land, (b) walkcurr/frontier promoted past b0 once positive, in step with the sibling, (c) by 40M total: standard DR-0/own-DR/joygate reads reviewed on video, explicit per-leg duty tracking for the legs-3/5-or-other sacrifice fingerprint (3 primitive-family lineages showed it; open question whether the mesh model's real geometry moves it -- see OPERATOR_QUESTIONS.md 08-25 ~01:2x). FAIL-architecture: monotonically declining or >2x below the MLP-mesh sibling's matched-step reward with frontier pinned at b0 while the sibling promotes -- closes the tf64@100Hz-on-mesh line. No mid-run kill on bad evals while reward tracks the sibling's valley shape (08-21 ruling + the matched-step lesson).
+

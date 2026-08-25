@@ -1,28 +1,39 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~01:2x (**`cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1`
-CANARY PASS** — the tf64-mesh mechanism-health canary reached its full
+Last updated: 2026-08-25 ~01:3x (**BOTH mesh-family canaries CANARY
+PASS -> respec'd to 40M acquisitions, VERIFIED RUNNING.**
+`cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1` reached its full
 2M-step budget clean: 0 tracebacks/NaN/SIGBUS, fps 3725 (same order as
 the ~5000fps primitive tf64 baseline), finite valley-shaped reward
 (quarters -45.1/-340.5/-494.3/-471.0, ep_rew_mean -527.4 — level/sign
-explicitly not judged per the 08-24 valley ruling). Answers the gate's
-only question (does the mesh twin train stably under warp) YES. Do
-**NOT** respec to 40M yet: the required MLP-mesh matched-step control,
-`cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1` (train-7), is
-still training (~1M/2M at last check) — the joint respec decision
-waits for that sibling's own PASS. **Side finding (cheap code read,
-no training spent):** the primitive-family model (`mujoco_prototype.py
-build_xml()`) generates all 6 legs from one symmetric parametric loop
-with zero per-leg geometry/mass difference — so the cross-lineage
-leg-sacrifice fingerprint (legs [3,5]/[0,2,5], 3 lineages, still an
-unclaimed DIG-IN) cannot be a geometric/boot asymmetry artifact on the
-primitive family (the mesh model's real +4mm boot asymmetry on legs
-0/4 postdates all 3 confirmed occurrences). Narrows, does not close,
-the root-cause question — full note in `OPERATOR_QUESTIONS.md`
-(08-25 ~01:2x). No further joystick launch this cycle: every
-in-flight arm (V8-r2, certfreeze-v9, both mesh canaries) is another
-cycle's to read; the hardening ladder itself stays blocked on the
-leg-sacrifice root cause per the 08-25 ~00:3x note.)
+explicitly not judged per the 08-24 valley ruling). Its sibling
+`cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1` (the required
+MLP-mesh matched-step control) ALSO finished clean during this same
+cycle (fps 4740, quarters -45.5/-361.2/-503.3/-512.1 — near-identical
+shape). Both answer the gate's only question (does the mesh twin
+train stably under warp) YES, so both were respec'd to the
+pre-registered 40M acquisitions this cycle: `cw-arch-hist64-mesh-
+joyfullcurr13-v7-hz100-acq1` (train-7, becomes the mesh family's own
+valley reference, evidenced against the primitive-family MLP's own
+`...scratch-s0-r1` shape) and `cw-arch-tf64-mesh-joyfullcurr13-v7-
+hz100-acq1` (train-6, judged against the MLP-mesh sibling's live
+trajectory, mirroring the exact acq1 gate structure the primitive
+family used). Both carry explicit per-leg duty tracking for the
+legs-3/5-or-other sacrifice fingerprint. **Side finding (cheap code
+read, no training spent):** the primitive-family model
+(`mujoco_prototype.py build_xml()`) generates all 6 legs from one
+symmetric parametric loop with zero per-leg geometry/mass
+difference — so the cross-lineage leg-sacrifice fingerprint (legs
+[3,5]/[0,2,5], 3 lineages, still an unclaimed DIG-IN) cannot be a
+geometric/boot asymmetry artifact on the primitive family (the mesh
+model's real +4mm boot asymmetry on legs 0/4 postdates all 3
+confirmed occurrences). Narrows, does not close, the root-cause
+question — full note in `OPERATOR_QUESTIONS.md` (08-25 ~01:2x). No
+further joystick launch beyond the two acq1 arms this cycle: V8-r2
+and certfreeze-v9 are another cycle's to read; the hardening ladder
+itself stays blocked on the leg-sacrifice root cause per the 08-25
+~00:3x note. Next triage cycle reads the two acq1 arms' waypoints,
+not before.)
 
 Previous entry (2026-08-25 (OPERATOR-ORDERED mesh-family lineage restart
 launched: `cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1` (train-6) — a
