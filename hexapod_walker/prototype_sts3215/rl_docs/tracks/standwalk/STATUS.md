@@ -1,6 +1,36 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~13:5x (**rung-8 lower canary read:
+Last updated: 2026-08-25 ~14:2x (**rung-8 rise stdanneal read:
+`riseonly-bcchain3-stdanneal` PARTIAL — std-anneal delivers the FIRST
+valid mesh rises but deep starts stay current-pinned.** DR-0 det 2/6 +
+sto 2/6 valid_plant, own-DR(0.2) det 1/6 + sto 4/6 (parent: 0/6
+everywhere). Structure is by start kind: crouch starts 6/6 valid
+across both passes at cur_p95 0.90–0.97 A; the bridge/flat/rsi wins
+run 1.92–1.99 A; ALL 13 failures are over_current with current pinned
+~2.64 A (one tilt_pitch), mostly with height already reached
+(herr<30 mm in 8/13). Video: bridge det = clean level six-foot plant
+held to truncation; flat det = hot SPLAYED PRESS-UP (legs radially
+extended, sliding) until the trip. FAIL branch dead:
+bc_anchor_loss_rise 0.22 -> 0.05–0.07 (converged), slip collapsed
+(0.26–1.00 m vs parent 0.66–1.98). Over_current term rate fell
+68.7->15.8/chunk and final-quarter reward still rising (-264 -> -48)
+=> 08-21 ruling continuation. FUNDED 3-arm batch (all queued/draining):
+`-stdanneal-cont8` (8M more from ckpt, std pinned -4 — pure
+refinement), `-stdanneal-reanneal` (fresh 0->-4 anneal from ckpt —
+noise re-injection to escape the press-up basin, hold precedent),
+`-slowchain` (from-scratch stdanneal recipe with
+bc_anchor_lookahead_s 0.5->0.25 + min_h_ahead 15->8 mm — is chain
+pace the torque driver?). Joint FAIL of cont8+slowchain = flat
+segment of the 25 Hz primitive rise ref is torque-infeasible on
+3.5 kg -> rung-9 lever is minting a mesh-native rise ref from
+scripted IK. Also this cycle: watcher SUSPECT on
+`loweronly-bcchain3-stdanneal` was a FALSE ALARM — budget-complete
+clean exit at 8,060,928 steps, W&B synced 14:13; triage on its
+pre-staged evals belongs to the next cycle. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_stdanneal_{gate,owncfg}/`,
+W&B `0z7x5jk2`.)
+
+Prior entry: 2026-08-25 ~13:5x (**rung-8 lower canary read:
 `loweronly-bcchain3` CANARY PASS — the IK-descent BC-anchor chain
 (`bc_anchor_lower=1`, coef 3.0) produces the FIRST honest sit-down on
 the 3.5 kg mesh model.** DR-0 det 6/6 honest descents: full commanded
@@ -912,6 +942,18 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
+0. OPERATOR DIRECTIVE (08-25, fb_20260825T140238_d43b35 — binding
+   priority): the raw-18 `joint_goal` **footlow2** curriculum
+   (hold=.1,rise=.45,lower=.45 + per-mode anchors + rise-ref) is THE
+   canonical rise/lower recipe to get working on mesh2 @ 100 Hz
+   before any AMP/transformer/walk-style drift. `stance_dr10` is NOT
+   the template (6-ch body-pose). The rung-8 `*-bcchain3` lineage IS
+   the mesh2/100 Hz footlow2 analog (same task/mix/anchor bundle,
+   mesh-recalibrated heights); triage its arms against the footlow2
+   evidence (`hard1`/`hard1-s1`/`stable1`/`plant150-3-rsifix`) and
+   keep funding the full-mix curriculum until stage-1 passes the old
+   hard1-style gates + current/DR/session gates. Encoded in
+   CURRENT_TRUTHS "STANDWALK CANONICAL STANCE RECIPE".
 1. DONE 08-25 ~04:4x (see Now): recipe ported, bank-checked on mesh,
    3-seed batch launched.
    RECIPE ARCHAEOLOGY (08-25 ~04:0x cycle, saves the re-dig):

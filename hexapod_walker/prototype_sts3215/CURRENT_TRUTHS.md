@@ -303,6 +303,30 @@ follow-ups.
 
 ## Facts that feed the tracks
 
+- **STANDWALK CANONICAL STANCE RECIPE (operator 08-25,
+  fb_20260825T140238_d43b35 — binding)**: the proven rise/lower
+  curriculum is the raw-18-joint `joint_goal` **footlow2** lineage —
+  `cw-stand-footlow2-hard1` (PASS: cold flat rise 12/12, six-foot hold
+  no real park, lower 12/12, eval_session hard gates, full rise
+  ~148 mm), `-hard1-s1` (PASS, seed-robust), `-stable1` (PASS +
+  speed/ramp robustness but more hold drag — not strictly dominant),
+  and `cw-stand-footlow2-plant150-3-rsifix` (best corrected-geometry
+  raw-joint rise evidence: stale-RSI-height fix took RSI-start rise
+  0/5 -> 5/5). Recipe shape: goal-mix hold=0.1,rise=0.45,lower=0.45,
+  `train.bc_anchor_*` bundle (state-aligned rise chain, IK-descent
+  lower, foot_z, stratified), rise-ref tracking
+  (`rl_move/sim/refs/rise_ref_belly2plant.npz`) + posture/income
+  gates. **`stance_dr10` is NOT the template** (pre-ledger 6-channel
+  body-pose action space, not raw joints); AMP is the walking
+  style-prior track, not the stance curriculum. The mesh2/100 Hz
+  analog is the standwalk rung-8 `*-bcchain3` lineage (same task,
+  same anchors at coef 3.0, mesh-recalibrated heights
+  [79,87]/max 88 — legacy heights 108-114/115 and tibia=128 are
+  STALE on mesh); the 25 Hz rise ref replays to a valid plant 3/3 on
+  mesh and `_rise_ref_clock` is time-based, so hz=100 is safe
+  (bank rate fix `_ref_row`, tag `exp/bcanchor-chain-tests-rate-fix`).
+  Footlow2 checkpoints themselves are primitive-family/25 Hz — recipe
+  rerun only, never a warm-start (model-family continuity rule).
 - **AMP M4/M5: FIRST-EVER FULL `eval_amp_m5` PASS (08-23 ~06:5x)** —
   `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05` (turn+push+fault
   composition, single lever `goal.walk_turn_in_place_frac=0.5` —
