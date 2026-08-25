@@ -1,6 +1,93 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~08:2x (**ADDENDUM to the ~08:0x synthesis
+Last updated: 2026-08-25 ~09:1x (**rung-4 product-gradient wave, first
+cell read: `cw-standwalk-stance-mesh2-holdprod-f01` (floor 0.1, seed 0)
+VERDICTED FAIL — the per-foot product income gradient does NOT hold the
+scratch policy in the plant basin either.** Plain English: this arm
+replaced the load-min gate (flat scraps the moment any foot unloads)
+with a product-over-feet gate (each re-loaded foot multiplies income
+back toward full pay), betting the missing piece was a graded income
+path BACK to the plant. It isn't sufficient: hold panel 0/12 (DR-0 and
+own-DR 0.2 both all-over_current), video shows the rear-up basin
+(starts at the paid plant, rocks back, waves front legs aloft until OC
+— holdload1min-seed0's shape), and the W&B trace is decisive on
+mechanism: `env/hold_feet_factor` starts 0.95 at 65k (policy IS in the
+paying basin) but collapses to 0.018 by 786k and never recovers past
+0.13 — PPO walks OUT of the basin in the first ~0.7M steps and the
+product gradient never pulls it back. Reward monotonically worse every
+quarter (-102.6/-407.6/-645.6/-763.8): genuine FAIL, not an 08-21
+continue case. One cell of four — the joint floor-0.1/0.3 x seed-0/1
+closure belongs to the sibling reads (`f01-s1`, `f03`, `f03-s1`, ALL
+just finished at 6M ~09:0x, each owned by its own triage cycle; the
+watcher's SUSPECT on f03-s1 was a false alarm — clean W&B sync at its
+budget). Per the pre-registered FAIL branch: no combo arm launches
+until the product closure + the noise axis (-dr0 already FAIL, -ent4
+concurrent cycle) are all read. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_holdprod_f01_{gate,owncfg}/`, W&B `c5i5ktyj`.)
+
+Previous entry: 2026-08-25 ~09:0x (**`cw-standwalk-stance-mesh2-riseonly1-acq1`
+VERDICTED FAIL — second independent confirmation that budget-alone
+continuation of an isolated-mode 2M checkpoint makes things WORSE, not
+better; closes the "just train longer" branch for rise the same way
+`holdonly1-acq1` closed it for hold (and `loweronly1-acq1`, a sibling
+cycle's read, closes it a third time for lower).** Plain English: this
+was the +8M continuation (10M total, unrepriced, rise=1.0 isolated
+diet) testing whether more budget teaches a lower-torque way to hold
+the risen pose instead of fighting gravity at the current ceiling. It
+doesn't: at 2M the parent's failure mode was purely `over_current`
+while genuinely upright (clean rise motion on video); at 10M it is
+0/6 det, 0/6 sto valid-plant, and the termination signature shifted to
+mostly `tilt_pitch`/`tilt_roll` — real falls, not a stable-but-hot
+hold. Training reward got monotonically WORSE every quarter
+(-153.8/-300.9/-413.4/-438.8), never recovering — this is the
+`holdonly1-acq1` shape (behavior itself regressing under more
+on-policy pressure), not the "declining return via accumulating hot
+charges on an improving behavior" shape that would have justified more
+budget per the 08-21 ruling. Does not change the track's current
+direction (rung-4's `hold_feet_load` structural fix is already the
+active line, per the entry below) — this just retires "budget alone"
+as a lever for isolated-mode rise/lower/hold continuations across all
+three modes now tested. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly1_acq1_{gate,owncfgowncfg}/`, W&B
+`fbdij62l`.)
+
+Previous entry: 2026-08-25 ~08:4x (**rung-3 load-min wave: 2 of 3 arms
+FAIL — a NEW failure basin (belly-flop freeze) named, the stilt-rescue
+lever CLOSED, and two single-lever optimization arms launched as the
+rung-4 batch.** (a) `holdload1min-s1` (scratch seed 1) FAIL: under the
+load-min income gate PPO finds a BELLY-FLOP FREEZE — drops from the
+planted start onto its belly by t=3s and freezes; survives 12/12 with
+ZERO terminations (roll_tail 0.0, cur_p95 0.5A) but h_err=70mm,
+all-feet duty <=0.27, never-planted, return -802/ep vs honest +1471.
+KEY READ: the reward is ALIGNED (honest plant dominates 2.9x and the
+hold episode STARTS in the paying basin) yet training reward declined
+all run (-94 -> -627) — this is an EXPLORATION/OPTIMIZATION failure,
+not pricing: term_cost never fires (it survives), current_hot barely
+fires, and min-over-feet income has no gradient from belly to plant.
+(b) `holdload1min-warm` FAIL exactly per prediction-if-false: the
+holdonly1 stilt cannot be locally deformed into a plant — 12/12 tilt
+terms both panels, duty still stilt-shaped, sto rides the current
+ceiling (p95 2.6A). 2/2 continuations from the stilt checkpoint now
+destabilize (acq1 without repricing, this with) — **holdonly1 is
+RETIRED as a parent**. (c) Scratch seed 0 (`holdload1min`) is the
+concurrent cycle's read, still pending; joint scratch-pair call is
+theirs to complete, but s1's basin is decisive on its own terms.
+(d) RUNG-4 LAUNCHED (2 arms, both single-lever off the holdload1min
+scratch recipe, reward untouched so the green bank still covers them):
+`cw-standwalk-stance-mesh2-holdload1min-dr0` (dr-scale 0.2 -> 0.0,
+train-1 — is flat DR-from-step-0 what knocks the random-init policy
+out of the plant equilibrium? rung-2 candidate (b), first time
+actually tried) and `-ent4` (ent-coef 0.005 -> 0.02, train-0 —
+does sustained entropy prevent the premature variance collapse into
+the freeze? rung-2 candidate (c), first time tried). Both VERIFIED
+RUNNING, 6M, same hold gate as holdload1min. Read jointly: dr0-pass ->
+build the DR ramp; ent4-pass -> entropy retune rung; both-fail ->
+hold curriculum / pose-anchor mechanism (bank work first). NOTE: the
+concurrent cycle has 4 `holdprod-f01/f03[-s1]` arms queued (product-
+variant income dose) — reward-side lever, complementary, do not
+duplicate.)
+
+Previous entry: 2026-08-25 ~08:2x (**ADDENDUM to the ~08:0x synthesis
 below — corrections + the last wave arm verdicted + rung-3 is a
 3-arm batch, not one run.** (a) CORRECTION: `holdload1min` is
 FROM-SCRATCH (respec of holdonly1's recipe + the load-min gate), not

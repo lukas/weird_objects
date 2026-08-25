@@ -37,6 +37,17 @@ movecur1_acq1_{gate,joygate}/`, W&B `y03eby83`;
 gaitgate_acq1r3_gate/report.json` (own-cfg gate report, read this
 cycle, sibling cycle owns that run's own verdict).
 
+**REFILL (this cycle, informing the DIG-IN rather than pre-empting
+it)**: launched `cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-
+dose5x` (`respec --from` the original movecur1 2M base, single lever
+`reward.k_walk_move_current` 2.0->10.0, 2M mechanism-health canary
+only, VERIFIED RUNNING train-4). Question: is the pinned-2.64A
+signature dose-insensitive (structural — closes the whole current-
+dwell-charge class outright) or just underdosed at k=2.0 (worth a
+real acquisition arm at higher k)? Cheap/fast, does not commit to
+either side of the dig-in's fork — read `cur_max_a` at 2M next cycle
+before deciding.
+
 **Separately, this cycle also found (not yet resolved): the
 `test_task_semantics.py` full-bank regression flagged 08-25 ~02:1x
 (54 failed / 186 passed, was "159 pass, 1 known-red" as of 08-23/24,

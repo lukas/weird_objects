@@ -2658,3 +2658,77 @@ can kill it; triage will otherwise read tau1 vs eff12-ds1 at matched
 steps. k rung chosen: k_tau_over=2.0 (railed crouch pays ~-0.14/tick
 *k -> decisive over 30-60s episodes; honest gait ~-0.08/3s*k -> noise).
 status: informational — no operator input needed.
+
+## 2026-08-25 ~08:5x — test_task_semantics.py 54-test regression: ROOT CAUSE ISOLATED (refines/corrects the 08-25 ~02:1x rejection) — the hz 25->100 default flip IS the dominant cause, via a confound in how it was tested, not despite it (research note, no operator action needed)
+Plain English: re-ran the full bank fresh this cycle: **44 failed / 196
+passed / 4 skipped / 1 xfailed** (was 54/186 at ~02:1x — 10 tests
+improved incidentally from other cycles' work, but the bulk is still
+red). Picked the clearest failure to root-cause:
+`test_walkcurr_idle_term_only_cuts_the_frozen_twin` asserts
+`park_steps < 200` but measures `park_steps: 600.0`. Traced exactly:
+the fixture's `_slipwalk_rollout` builds its episode from
+`episode_seconds=15.0` (a fixed WALL-CLOCK duration) through
+`_make_walk_env`, so `n_steps = episode_seconds / env.dt =
+episode_seconds * control.hz`. At the pre-08-24 default (hz=25) that's
+375 steps; at the current unpinned default (hz=100) it's 1500 —
+exactly matching this run's other `*_steps` values (`gait_steps:
+1500.0`, `fast_steps: 1500.0`, etc.). The idle-terminate mechanism
+itself fires EXACTLY on schedule: `safety.walk_idle_terminate_grace_s`
+(3.0) + `walk_idle_terminate_s` (3.0) = 6.0s wall-clock = 600 steps at
+hz=100 -- bang on the measured `park_steps: 600.0`, zero delay, zero
+mechanism bug. The test's hardcoded `< 200` bound was calibrated for
+hz=25 (200 steps = 8.0s, a comfortable margin over the 6.0s trigger);
+at hz=100 the SAME correctly-firing mechanism blows through a bound
+that was never rescaled. **This is a stale hardcoded STEP-COUNT
+literal, not a reward/mechanism regression** — the same shape almost
+certainly explains most of the walkcurr_swing/chargeramp/
+loadslip_bootstrap/hgt_gate/idle_term family (20+ of the 44 failures
+share the `episode_seconds`-fixed / raw-step-count-assertion pattern).
+**This also corrects the ~02:1x entry's own methodology, not just its
+conclusion**: that entry tested the hz-flip hypothesis by forcing
+`HEXAPOD_CONTROL_HZ=25` ALONE via the newly-built `_resolve` override,
+and found it made a sample test (`test_walk_gait_gate_collapses_
+flag_leg_income`) WORSE, concluding hz was "at most a partial cause."
+But `safety.max_delta_q_deg` was ALSO flipped 1.5->0.375 as part of
+the same 08-24 100Hz change (a legacy 25Hz robot needs 1.5 deg/tick to
+hit the same 37.5 deg/s physical slew that a 100Hz robot gets from
+0.375 deg/tick) — forcing hz=25 alone, with the slew cap left at the
+hz=100-calibrated 0.375, leaves the test policy able to move only
+~9.4 deg/s instead of the intended 37.5, a NEW, additional handicap
+that has nothing to do with the original pre-08-24 calibration. That
+test's "made it worse" result is confounded, not evidence against the
+hz-flip hypothesis. **Recommended next step for whoever picks this
+up** (not done this cycle — real code-editing work across ~20-40 test
+functions, out of scope for a triage cycle): (a) re-test the hz
+hypothesis properly, pinning BOTH `control.hz=25` AND
+`safety.max_delta_q_deg=1.5` together (the full legacy bundle) rather
+than hz alone, on 2-3 of the raw-step-count failures first
+(idle_term/swing/chargeramp are the cleanest cases); (b) if that
+clears them, the durable fix is NOT to pin hz in conftest (mesh-era
+tests should exercise the current default) but to rewrite the
+hardcoded step-count assertions to be computed from
+`episode_seconds / env.dt` (or asserted in seconds) so they are
+hz-invariant by construction, the same fix class as the already-landed
+`_ref_row` rate fix for the standwalk rise-ref bank; (c) separately
+audit whether any per-tick reward term's ACCUMULATED-return comparisons
+(the ranking/margin tests, not the raw-step-count ones — e.g.
+`test_walkcurr_pf_stationary_beats_wrong_way`'s park/sideways margin
+came in at -131.87 vs -132.97, missing the required 50-point gap by
+~49 points despite being nearly tied) are being distorted by the same
+4x tick-count-per-episode change interacting with per-tick vs.
+one-time reward terms -- a genuinely separate mechanism from (a)/(b)
+and not yet isolated. **Why this matters**: every reward-mechanism
+verdict that cited this bank as evidence between whenever the drift
+began and now (including walkcurr's own 15-class mechanism-closure
+tally, all bank-referenced) should be re-read skeptically for whether
+its OWN specific test is one of the 44 currently red — the actual
+TRAINING-time verdicts (measured in wall-clock/reward trend on real
+40M-step runs) are unaffected by this bank bug and stand on their own
+evidence, but any claim of the form "mechanism X is bank-proven
+correctly-ordered" is not currently trustworthy until re-verified
+against current numbers, exactly as the ~02:1x entry already warned.
+Full current failing-test list: rerun `uv run pytest
+rl_move/tests/test_task_semantics.py -q` (~25 min).
+status: informational/escalating — no operator input needed (code-
+quality/test-debt, not a values question), flagged DIG-IN for whoever
+takes the fix.
