@@ -1,6 +1,34 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~19:0x (**tuckfloor0/-s1 JOINT PAIR CANARY
+Last updated: 2026-08-25 ~19:2x (MECHANICAL NOTE, no science change:
+this cycle's assigned triage target, `...-meshref-tuckfloor0`, was
+already fully verdicted (CANARY FAIL - MECHANISM, see the 19:0x entry
+below) and its fix already coded/tested/snapshotted by the time this
+cycle read the ledger — but a race with the concurrent cycle meant
+BOTH cycles independently believed the pre-registered tuck-exempt
+canary pair had not yet landed and both launched it: the concurrent
+cycle's `...-meshref-tuckexempt0`/`-s1` (train-0/train-2, created
+19:08:39/19:14:37) is the pair of record (seed-0 already FINISHED,
+awaiting its own triage cycle; seed-1 still running). This cycle's
+own copy `...-meshref-tuckexempt-i0`/`-i0-s1` (train-1/train-3,
+created ~2 min later, bit-identical cfg) was recognized as the
+duplicate, killed cleanly on both pods, and verdicted CANARY FAIL -
+INFRASTRUCTURE (no information lost, no pod time wasted beyond ~10
+min). No other standwalk lever is fundable right now without
+duplicating in-flight work: rise is the sole open rung and its only
+live mechanism (tuck-exempt floor) is already running under the
+concurrent cycle's names; hold/lower are PASSed; the footlow2raw18
+warmmix pair and stancemix-slowchain are both already verdicted FAIL.
+Other tracks checked for spare-capacity refill: joystick's DONE gate
+is already met (08-23, `stotight45-seed13`) with further mesh/100Hz
+hardening explicitly deferred to this track per its own 08-25 ~12:1x
+entry; amp and cpg are both DONE/maintenance-only; walkcurr is
+deliberately self-blocked pending an `[operator]` ruling per its own
+founding rule (not idle-capacity-actionable). Net: 11 of 12 pods
+correctly idle this cycle — genuinely nothing else is runnable
+without duplication or violating another track's own blocking rule.)
+
+Prior entry: 2026-08-25 ~19:0x (**tuckfloor0/-s1 JOINT PAIR CANARY
 FAIL - MECHANISM — removing the BC-anchor height-floor everywhere
 does NOT teach the tuck; it breaks pursuit broadly. Coded + tested +
 launched the pre-registered fix: a TUCK-EXEMPT floor.** Both seeds

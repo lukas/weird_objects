@@ -191723,7 +191723,7 @@
       "train.bc_anchor_min_h_tuck_exempt_i0=1"
     ],
     "created": "2026-08-25T19:10:48+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - INFRASTRUCTURE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -191755,7 +191755,23 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckexempt_i0 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckfloor0: Does gating the BC-anchor height-floor OFF only while the state-aligned match is still inside the mesh ref'\"'\"'s own height-flat tuck segment (ticks < ramp_i0=245) let flat starts learn to tuck-then-press, while restoring the floor unchanged in the press segment keeps the anti-freeze role that tuckfloor0/-s1 proved load-bearing? tuckfloor0 (floor OFF everywhere, min_h_ahead_mm=0) CANARY FAIL-MECHANISM'\"'\"'d both seeds: flat probe collapsed to a total duty=0 freeze (0/12 valid, 0/12 over_current, height stuck 79-86mm) AND previously-clean bridge/crouch/rsi starts on the standard DR-0 gate collapsed too (5/6+4/6 -> 0/6+0/6), proving the floor'\"'\"'s original 08-12 anti-stall purpose is load-bearing in the press segment even though it'\"'\"'s wrong in the tuck segment. Single new lever, code-level (train.bc_anchor_min_h_tuck_exempt_i0, default 0=legacy bit-exact, 4 new unit tests green 59/59 in test_bc_anchor.py, snapshot exp/cw-standwalk-tuckexempt-i0): restore min_h_ahead_mm to 8 (the meshref/flatmix70 value) but suppress the floor while bc_j < ref['\"'\"'ramp_i0'\"'\"'], so tuck ticks get pure time-lookahead pursuit (genuine tuck tracking) and press ticks keep the exact proven anti-freeze floor unchanged. Prediction-if-true: flat-pinned probe shows visible tuck motion (feet sweep to plant footprint, duty_cycle>0 early) converting toward the meshref canary'\"'\"'s non-flat cur_p95 band (0.7-2.2A), with bridge/crouch/rsi NOT collapsing back to freeze/2.64A. Prediction-if-false: flat still freezes or re-pins at 2.64A with no tuck motion -> the floor-vs-content split is refuted and the tuck-segment defect is in the reference'\"'\"'s OWN posture content (splayed initial pose), not the anchor'\"'\"'s floor logic.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --cfg-set train.bc_anchor_min_h_tuck_exempt_i0=1 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0.log",
     "wandb_id": "j9k3h490",
-    "verified": "2026-08-25T19:14:32+00:00"
+    "verified": "2026-08-25T19:14:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T19:20:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 1003520",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "CANARY FAIL - INFRASTRUCTURE: exact duplicate launch, not a science result. Bit-identical (seed=0, same cfg incl. train.bc_anchor_min_h_ahead_mm=8 + train.bc_anchor_min_h_tuck_exempt_i0=1, lookahead_s=0.25) to the concurrent cycle's cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0 (created 19:08:39, 2min before mine at 19:10:48, same recipe/hypothesis). Launched believing the pre-registered tuckexempt-i0 fix had never landed (backlog empty, all 12 pods free at capacity check, and the STATUS.md entry I first read was the stale 18:1x one); the concurrent cycle's own launch simply wasn't reflected in what I'd read yet. Killed cleanly on train-1 (no live process found -- already exited/killed in time), no information lost. tuckexempt0/-s1 (train-0/train-2, launched by the concurrent cycle) is the pair of record; do not relaunch."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0-s1",
@@ -191869,7 +191885,7 @@
       "train.bc_anchor_min_h_tuck_exempt_i0=1"
     ],
     "created": "2026-08-25T19:14:37+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -191901,7 +191917,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckexempt0_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckfloor0-s1: Seed twin of tuckexempt0 (train.bc_anchor_min_h_ahead_mm restored 0->8 + new train.bc_anchor_min_h_tuck_exempt_i0=1, gating the height-floor off only inside the mesh ref'\"'\"'s tuck segment < ramp_i0): does the tuck-exempt fix work robustly across seeds, or was tuckexempt0 seed luck? Same joint-pair discipline as every mechanism hedge this campaign (meshref-s1, flatmix70-s1, tuckfloor0-s1). Judged jointly with tuckexempt0 per its own pre-registered gate.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --cfg-set train.bc_anchor_min_h_tuck_exempt_i0=1 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0-s1.log",
     "wandb_id": "zigatklw",
-    "verified": "2026-08-25T19:18:21+00:00"
+    "verified": "2026-08-25T19:18:21+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T19:23:57+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "  env/height_mm -4.52812\nwandb:     env/height_ref_mm 21.84004\nwandb:  env/hold_feet_factor 0.15231\nwandb:  env/hold_load_factor 0.15383\nwandb: env/hold_still_factor 1\nwandb:     env/max_current_a 1.27836\nwandb:                   +96 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0-s1 at: https://wandb.ai/l2k2/hexapod-balance/runs/zigatklw\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_191557-zigatklw/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0-s1",
@@ -192015,7 +192039,7 @@
       "train.bc_anchor_min_h_tuck_exempt_i0=1"
     ],
     "created": "2026-08-25T19:16:48+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - INFRASTRUCTURE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -192026,7 +192050,19 @@
       "running_experiments_before": 2,
       "code_sha_local": "807c8a11525f6d2b9e0266212bae5e3769ed29f2",
       "code_sha_pod": "807c8a11525f6d2b9e0266212bae5e3769ed29f2",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "99725",
+      "log_growth_bytes": [
+        16346,
+        28460
+      ],
+      "wandb_id": "9pivvxai",
+      "trainer_pid": "99725",
+      "global_step_window": [
+        1048576,
+        1441792
+      ],
+      "fps_estimate": 13107.2
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -192034,18 +192070,9 @@
     "assessment_scope": "mechanism_health",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckexempt_i0_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0: Seed twin of tuckexempt-i0 (same recipe, seed=1): does the tuck-exempt BC-anchor floor'\"'\"'s flat-tuck rescue replicate across seeds, the same joint-pair discipline used for every prior mesh-rise canary in this rung?' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=8 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --cfg-set train.bc_anchor_min_h_tuck_exempt_i0=1 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt-i0-s1.log",
-    "checkups": [
-      {
-        "time": "2026-08-25T19:18:58+00:00",
-        "process_alive": true,
-        "tracebacks_in_tail": 0,
-        "log_growth_bytes": 16404,
-        "fps": 16019.9,
-        "placement": "solo on GPU-MJX pod",
-        "verdict": "HEALTHY",
-        "problems": []
-      }
-    ],
-    "verified": "2026-08-25T19:20:04+00:00"
+    "wandb_id": "9pivvxai",
+    "verified": "2026-08-25T19:20:30+00:00",
+    "verdict": "CANARY FAIL - INFRASTRUCTURE: exact duplicate launch, not a science result. Bit-identical (seed=1, same cfg incl. train.bc_anchor_min_h_ahead_mm=8 + train.bc_anchor_min_h_tuck_exempt_i0=1) to the concurrent cycle's cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckexempt0-s1 (train-2, created 19:14:37, before mine at 19:16:48). Same root cause as its seed-0 twin: launched believing the pre-registered pair had never landed. Killed cleanly on train-3 (kill sent to pids 99719/99720/99725, confirmed dead via ps afterward), no information lost. tuckexempt0/-s1 is the pair of record; do not relaunch.",
+    "triage": "done"
   }
 ]
