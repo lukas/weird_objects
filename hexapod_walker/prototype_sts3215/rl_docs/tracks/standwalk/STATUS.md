@@ -1,6 +1,45 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~21:2x (**STAND_HEIGHT RUNG-1 CANARY FAIL —
+Last updated: 2026-08-25 ~21:4x (**STAND_HEIGHT height-AWARE BC-anchor
+fix LANDED + its own rung-1 canary pair LAUNCHED — the exact NEXT
+step the entry below (seed-0 cycle) named.** Verdicted this cycle's
+own assigned run, `holdheight-rung1-s1`: CANARY FAIL - MECHANISM,
+cross-verifying the seed-0 read below in full including the SAME
+flag-leg fingerprint — leg index 2 duty_cycle 0.23–0.70 with 4–55
+swings/episode (vs 0.88–1.0 and 0–5 on every other leg), 5/6 det +
+5/6 sto `hold_min_load` terminations. Built + tested the fix the FAIL
+branch pre-registered: `train.bc_anchor_hold_height_aware` (default
+0 = legacy constant-`q_nom` target, bit-exact) in the HOLD/TRACK
+BC-anchor block, `rl_move/sim/sim_env.py` — re-targets the anchor at
+the `FixedFootBodyIK` pose that reaches the NEXT commanded height
+(the same one-tick-ahead convention `train.bc_anchor_lower` already
+uses) instead of the height-blind constant pose, gated to `mode ==
+"hold"` and nonzero commanded height. 5 new tests in
+`test_bc_anchor.py` (default-off bit-exact, zero-height no-op,
+targets-the-commanded-height via IK-solve equality, track-mode-
+excluded, feet-planted-descent chain) — all green; full
+`test_bc_anchor.py` + `test_hold_height_cmd.py` green (84/84);
+`STAND_HEIGHT.md`'s own preflight bank re-run green (4/4, unaffected
+— confirmed the 10 red `test_task_semantics.py` walkcurr/hold-bank
+tests hit while scoping this are pre-existing per RL_LOG 08-25 09:5x,
+not caused by this change). Launched the fix canary pair — exact
+`holdheight-rung1`/`-s1` recipe, only `train.bc_anchor_coef` restored
+0.0->3.0 (the champion's own value) plus
+`train.bc_anchor_hold_height_aware=1.0` added:
+`cw-standwalk-stance-mesh2-holdheight-rung1-hha1` (train-0, W&B
+`isxy1d5b`) / `-hha1-s1` (train-1, W&B `gfksq1nx`), both VERIFIED
+RUNNING. Gate: DR-0 det>=5/6 + sto>=4/6 valid_plant, zero
+`hold_min_load` terminations, `cur_max`/duty back within noise of the
+champion's clean band (no flag-leg signature) — judged jointly as a
+pass-rate pair against `holdheight-rung1`/`-s1`'s own numbers. On
+FAIL at the same flag-leg signature even with the anchor restored:
+the S-gate itself needs strengthening (the bank already ranks honest
+6-foot tracking >2x above a flag but PPO's exploration never reaches
+it from this init) — that is the registered fallback, and a genuine
+dig-in. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+holdheight_rung1_s1_{gate,owncfg}/`, W&B `roplbk1z`.)
+
+Prior entry: 2026-08-25 ~21:2x (**STAND_HEIGHT RUNG-1 CANARY FAIL —
 CROSS-SEED FLAG-LEG CHEAT.** `holdheight-rung1` (verdicted this cycle)
 and its seed twin `-s1` (gate report peeked for the registered joint
 pass-rate judgment; verdict belongs to its own cycle) both learn the
@@ -1739,6 +1778,61 @@ Zero falls, directions followed, slip/m within the joystick band
 lower session harness is stage-2 tooling to build.
 
 ## Now
+
+**HOLD-HEIGHT (commandable stand height), 08-25 ~21:4x — rung-1
+canary pair `holdheight-rung1`/`-s1` BOTH CANARY FAIL-MECHANISM;
+height-AWARE BC-anchor fix built+tested and its own canary pair
+LAUNCHED.** The mechanism-health canary dropped the hold BC-anchor
+entirely (`train.bc_anchor_coef` forced 0.0, since the existing
+anchor's target — the constant, height-BLIND `q_nom` — would fight a
+moving height command) and warm-started from the deployed hold
+champion with `goal.hold_height_cmd_frac=1.0` (rung-1 elevator,
++/-15mm at 8mm/s, hold+ramp only). Both seeds regressed the
+champion's SOLVED quiet-stand skill, not just added height-tracking:
+DR-0 gate (the height-cmd cfg rides into the eval via pod_eval's own
+`--cfg-set` carry-forward) hold det 1/6 valid_plant + sto 1/6 (seed 0:
+det 1/6 sto 2/6), 5/6 det + 5/6 sto (seed 0: 5/6 det + 3/6 sto)
+episodes trip the `hold_min_load` safety termination 3-8s into the
+15s episode; `cur_max` climbs to 2.0-2.63A (near the 2.64A
+torque-saturation ceiling) vs the champion's clean 0.67-0.71A on the
+IDENTICAL static-hold gate, drag 75-191mm vs ~0mm. Video: no visible
+fall/tip (roll_peak 0.6-2.8deg, all six feet grounded every frame in
+the contact sheets) — a genuine but visually-subtle foot-underload
+regression, not a collapse. Training reward DECLINED across both runs
+(`optimization/reward_per_tick` ~0.42->0.24), a genuine fail per the
+08-21 ruling. ROOT CAUSE (matches STAND_HEIGHT.md's own pre-registered
+fallback): the height-blind anchor was doing real pose-regularization
+work beyond just being height-blind — removing it entirely let PPO
+drift into a noisier, higher-current stance even at commanded
+height=0. FIX (built+tested this cycle): `train.bc_anchor_
+hold_height_aware` (default 0 = legacy constant-`q_nom` target,
+bit-exact) in the HOLD/TRACK BC-anchor block, `rl_move/sim/
+sim_env.py` — re-targets the anchor at the `FixedFootBodyIK` pose
+that reaches the NEXT commanded height (the same one-tick-ahead
+convention `train.bc_anchor_lower` already uses), gated to `mode ==
+"hold"` and a nonzero commanded height so it composes cleanly with
+the existing tilt-comp block and stays a no-op for every non-height-
+cmd hold lineage. 5 new tests in `test_bc_anchor.py` (default-off
+bit-exact, zero-height no-op, targets-the-commanded-height via
+IK-solve equality, track-mode-excluded, feet-planted-descent chain) —
+all green; full `test_bc_anchor.py` + `test_hold_height_cmd.py` green
+(84/84); `STAND_HEIGHT.md`'s own preflight bank re-run green (4/4,
+unaffected). Launched the fix canary pair — exact `holdheight-rung1`/
+`-s1` recipe, only `train.bc_anchor_coef` restored 0.0->3.0 (the
+champion's own value) plus `train.bc_anchor_hold_height_aware=1.0`
+added: `cw-standwalk-stance-mesh2-holdheight-rung1-hha1` (train-0,
+W&B `isxy1d5b`) / `-hha1-s1` (train-1, W&B `gfksq1nx`), both VERIFIED
+RUNNING. Gate: DR-0 det>=5/6 + sto>=4/6 valid_plant, zero
+`hold_min_load` terminations, `cur_max` back within noise of the
+champion's 0.67-0.71A band — judged jointly as a pass-rate pair
+against `holdheight-rung1`/`-s1`'s own numbers. On PASS: promote to
+an 8M acquisition budget and treat rung-1 as cleared, move to rung 2
+(full `[-40,20]` range). On FAIL at the same signature: the height-
+command mechanism itself (not just the anchor) needs a different
+income/gate design — next lever would be pricing the `hold_min_load`
+margin directly during height transitions, a genuine dig-in. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdheight_rung1{,_s1}_
+{gate,owncfg}/`, W&B `roplbk1z` / (seed-0's own id, concurrent cycle).
 
 **RISE, 08-25 ~19:5x — tuckexempt-i0 (seed 0) CANARY FAIL-MECHANISM;
 ref-content option then REFUTED BY CONSTRUCTION PROBE (no GPU spent);
