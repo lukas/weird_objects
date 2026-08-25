@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~17:4x (**RUNG-9 8M GRID, 2 OF 3 SEEDS READ:
+Last updated: 2026-08-25 ~17:5x (**8M GRID CLOSES with seed-2 — budget
+is NOT the lever on the mesh-native ref; PACE AXIS ALSO CLOSED —
+half-pace stays the default. Flat-start tuck is the sole residual, and
+the running flatmix70 exposure pair is the funded attack on it.** This
+cycle's verdicts complete the reads the entry below was waiting on:
+(1) `-8m-s2` **FAIL per the grid's per-seed budget-refuted branch** —
+eval-identical to the 2M canary pair (DR-0 rise det 5/6 + sto 4/6
+valid_plant, oc 3/12 = det flat + 2 sto rsi all pinned 2.64A, valid
+bridge episodes at cur_p95 2.24-2.33A over the 1.5A clause; video =
+the same splayed-front press-up, h_err 20-25mm; reward rose to 1134
+throughout). Grid tally: s0 PARTIAL (oc 2/12, within the same-seed
+noise band the dup-twin defined), s1 PARTIAL (exact canary plateau),
+s2 FAIL — the >=2/3-seed strict-PASS is impossible, the 3-seed 8M
+grid is CLOSED, and 2M/5M/8M all land at canary level: budget bought
+nothing on this ref. (2) `-fullpace2` **CANARY PASS (PARTIAL
+branch)** — full pace trains cleanly to its 2M budget (its watcher
+SUSPECT was a false alarm: clean budget-complete 2,031,616-step exit,
+W&B 3kgxqusz) but regresses det to 4/6 with a NEW bridge 2.64A
+press-up pin absent in both half-pace seeds (sto 5/6, oc 3/12 equal,
+one valid ep at 2.26A over the 2.25A band); its seed twin
+`-fullpace2-s1` was verdicted CANARY FAIL - MECHANISM (det 2/6) by
+its own cycle — joint pace read: full pace at best ties, usually
+regresses; **keep half-pace (`bc_anchor_lookahead_s=0.25` /
+`min_h_ahead_mm=8`) as the default chain pacing for the mesh ref.**
+Net frontier: every generic lever (pace up/down, anchor dose, budget,
+floor/lookahead) is now refuted on the mesh-native ref; the
+flat-start never-tucks press-up is the only failing subclass, and the
+running `flatmix70`/`-s1` exposure pair is the pre-registered
+mechanism test — its FAIL branch pre-registers ref-content/tuck-phase
+treatment next. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+riseonly_bcchain3_meshref_{8m_s2,fullpace2}_gate/`, W&B 6pwzsqht /
+3kgxqusz.)
+
+Prior entry: 2026-08-25 ~17:4x (**RUNG-9 8M GRID, 2 OF 3 SEEDS READ:
 neither beats the strict PASS bar; seed-0 nudged, seed-1 exactly
 plateaued.** `meshref-8m-s1` (this cycle) PARTIAL — DR-0 gate det 5/6
 + sto 4/6 valid_plant, IDENTICAL counts to its own 2M canary, with
