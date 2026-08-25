@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T18:13:39+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref
+
+**wandb_id**: 2t8z8o4i
 
 **hypothesis**: Does turning OFF the BC anchor's height-floor lookahead let the robot finally learn to tuck its sprawled legs before pressing up from flat? The flatmix70 dig-in found the defect the whole rung-8/9 grid was circling: the state-aligned anchor's min_h_ahead_mm=8 floor requires the target ref tick to be >=8mm above the CURRENT chassis height, but the mesh scripted ref's entire tuck phase (ticks 0-245, 4.9s of 10.5s) is height-flat (-0.1..+1.6mm, belly carries the mass by design) - so from any flat/tuck state the anchor target jumps to the PRESS phase (tick 257+), supervising press-from-sprawl on every flat start. Exposure (flatmix70: 0/12 flat-pinned), budget (8M grid), pace (fullpace pair), and anchor dose all failed because they multiply or reschedule the WRONG supervision. Single config lever, defect-removal: train.bc_anchor_min_h_ahead_mm 8->0 (the code default; never run on the mesh ref - only 15/8/4/2 ever used), everything else the exact meshref canary recipe. The floor's own stall pathology does not apply here: the tuck sweeps ~90deg mean joint angle so nearest-q pursuit advances on q-distance, and the press phase is height-steep so the 0.25s time lookahead suffices there. Prediction-if-true: flat starts show visible tuck (feet sweep to plant footprint before the body lifts) and convert from the 2.64A press-up pin. Prediction-if-false: flat stays 0-1/12 with no tuck motion - the anchor pursuit itself stalls in the tuck or the defect is elsewhere; next is a code-level phase-capped floor (floor active only at/after ramp_i0) or tuck-segment curriculum.
 
