@@ -1059,12 +1059,43 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-RUNG-8 tally (08-25 ~15:1x): HOLD PASS, LOWER PASS (both stdanneal),
-RISE PARTIAL — the pace-dose batch (`quarterchain`/`eighthchain`/
-`slowchain-cont8`, all VERIFIED RUNNING off free capacity) is the live
-lever; see Last-updated entry for the cont8/reanneal FAIL + slowchain
-PARTIAL evidence that ruled it in. STANCEMIX still PARTIAL
-(warmmix1/2 triage belongs to a concurrent cycle).
+**STANCEMIX-BCCHAIN3-STDANNEAL PASSED its pre-registered DR-0 gate
+(08-25 ~15:5x):** the full hold=.1/rise=.45/lower=.45 mix + log-std
+anneal (0→-4 over 8M, warm-started off the 2M stancemix-bcchain3
+canary) hits all 3 pre-registered clauses — hold det 6/6 + sto 6/6
+valid_plant, ZERO terms, cur_p95 0.78A det / 0.81-0.92A sto (cooled
+from the canary's hot 2.62A hold_min_load trips); lower det 6/6 +
+sto 6/6, height_err_end 0.0-1.4mm (up from the canary's 0/6 success
+at 18-32mm — the mode called "severely diluted" is now AT the
+isolated lower champion's own band); rise det 2/6 valid_plant (meets
+the >=2/6 bar; the 4 failures are the SAME universal deep-start
+over_current/tilt_pitch press-up pinned at 2.33-2.64A the rung-8
+pace-dose grid (below) is independently attacking, not a new
+mix-specific failure). No mode regressed vs the 2M parent canary —
+**the operator's full-mix-curriculum directive is vindicated for
+hold+lower; rise remains capped by the campaign-wide deep-start
+blocker.** Own-DR(0.2) is weaker (hold sto 4/6, rise 0/6) — flagged,
+not disqualifying, same universal-blocker signature.
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal_{gate,owncfg}/`.
+Refill: since rung-8 (below) found `slowchain`'s 1/2-pace is the
+PEAK of the whole dose-response (both further halving AND more
+budget FAIL), ported that exact validated dose into the mix —
+`cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain` (8M,
+`bc_anchor_lookahead_s` 0.5→0.25s + `min_h_ahead_mm` 15→8, log-std
+pinned -4 no re-anneal, warm-started from THIS pass checkpoint so
+hold/lower keep their solved weights) VERIFIED RUNNING on train-0 —
+tests whether the isolated-proven pace fix transfers into the
+shared-capacity mix without disturbing hold/lower.
+
+RUNG-8 tally (08-25 ~16:1x, concurrent cycle): HOLD PASS, LOWER PASS
+(both stdanneal), RISE dose-response now FULLY BRACKETED and
+non-monotonic — peak at `slowchain`'s 1/2-pace (5/12 valid, 3/12 oc);
+further halving (quarterchain 1/4, eighthchain 1/8) and more budget
+(cont8, slowchain-cont8) all FAIL/regress. Pace and budget are BOTH
+exhausted levers on this rung now; rung-9 (mint a mesh-native rise
+ref from scripted IK, since the borrowed 25Hz/2.1kg primitive ref's
+flat segment may be torque-infeasible on the 3.5kg mesh) is the next
+live lever if the mix-ported slowchain arm above also caps out.
 
 Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
 `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`

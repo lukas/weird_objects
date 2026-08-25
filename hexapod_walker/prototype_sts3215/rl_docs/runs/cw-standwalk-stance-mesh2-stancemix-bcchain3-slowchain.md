@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T16:04:27+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-standwalk-stance-mesh2-stancemix-bcchain3-stdanneal
+
+**wandb_id**: kza9ep2s
 
 **hypothesis**: Does the rise pace-halving lever validated on the ISOLATED rise lineage (riseonly-bcchain3-slowchain: bc_anchor_lookahead_s 0.5->0.25s, min_h_ahead_mm 15->8mm, which cut deep-start cur_p95 2.64A->1.85A and raised DR-0 det valid_plant 2/6->3/6) ALSO unpin rise's deep-start press-up when ported into the FULL hold+rise+lower mix, warm-started from the just-PASSED stancemix-bcchain3-stdanneal checkpoint (hold 6/6+6/6 zero-term @0.78A, lower 6/6+6/6 @<=1.4mm, rise det 2/6 with deep starts pinned 2.64A) -- without disturbing the hold/lower parity that checkpoint just achieved? Warm-start (not from-scratch) so hold/lower keep their solved weights; log-std pinned at -4 (no re-anneal, mirroring the isolated cont8 continuation) since noise re-injection was already shown NOT to be the rise blocker. Prediction-if-true: rise DR-0 det valid_plant rises above 2/6 and/or deep-start cur_p95 median falls below 2.64A toward slowchain's 1.85A, while hold stays >=5/6+5/6 zero-term <=1.0A and lower stays >=4/6 honest (<=10mm) -- pace transfers cleanly into the mix. Prediction-if-false: rise stays pinned at 2.64A/2-6 valid_plant despite the pace change (mix dynamics differ from isolated), or hold/lower regress (the mix trades one mode's gain for another's loss under shared policy capacity) -- either result means the pace fix must be re-derived in-mix, not simply ported.
 
