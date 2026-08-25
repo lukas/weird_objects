@@ -2,11 +2,11 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: REFUSED
 
-**created**: 2026-08-25T04:10:45+00:00
+**created**: 2026-08-25T04:36:32+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-0
 
 **steps**: 20000000
 
@@ -14,5 +14,5 @@
 
 **gate**: Stage-1 pre-gate read at 20M: pod_eval stance panel (rise/hold/lower) n>=12 det+sto at DR-0 + own-DR(0.2): zero falls/tips; rise ends valid plant (PLANT_SPEC, height within +-15mm of the [79,87] mesh band) >=5/6 det AND sto; lower posture-strict (|h_err|<=15mm, all pads <=60mm) >=5/6; hold quiet 6/6 no creep, no crash-lowering on video. First passing run's numbers become the recorded mesh reference band (track STATUS). Read jointly with -seed1/-seed2: 2-3/3 healthy = recipe robust; 0-1/3 = seed-dependent or recipe gap.
 
-**failed_reason**: run never appeared as 'running' in W&B within 240s
+**refused_reason**: hexapod-mjx-train-0 code marker d3e105ad4ecb24d4ecc245013023ef9ed1405892-dirty != local HEAD d3e105ad4ecb24d4ecc245013023ef9ed1405892 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
 
