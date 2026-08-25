@@ -682,3 +682,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 17:34 meshref-8m dup-kill bookkept; its 5M eval = canary-level, brackets acq8m's rsi gain to 5-8M, flat-start budget-invariant 
 - 08-25 17:36 standwalk rung-9 8M s0: PARTIAL by letter (5/6+5/6, oc 2/12) but same-seed 8M twin scored exactly canary level — budget delta is within run-to-run noise; flat-start press-up budget-invariant; grid awaits s1/s2 
 - 08-25 17:36 meshref-8m correction: dup actually FINISHED full 8M before kill — same-seed twin @ exactly canary level, defines noise band, budget lever likely null 
+- 08-25 17:41 standwalk rung-9 8M s1 PARTIAL: plateau at 2M canary exactly (det5/6+sto4/6, oc 3/12, same flat+2xrsi failure set), 2 valid bridge eps >1.5A cur_p95 too -- budget bought nothing for this seed despite reward rising to +1041; s0 gained slightly, s2 still pending for the joint grid call 
+- 08-25 17:5x standwalk: flatmix70 canary launched (train-0) — targeted flat-start mix lever (rise_flat_frac .35->.70), funded by acq8m PARTIAL clause; twin-noise finding recorded (8m dup finished full 8M @ canary level => budget lever within same-seed noise)

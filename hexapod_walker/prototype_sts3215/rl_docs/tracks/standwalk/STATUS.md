@@ -1,6 +1,37 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~17:3x (LEDGER CORRECTION, no science change:
+Last updated: 2026-08-25 ~17:4x (**RUNG-9 8M GRID, 2 OF 3 SEEDS READ:
+neither beats the strict PASS bar; seed-0 nudged, seed-1 exactly
+plateaued.** `meshref-8m-s1` (this cycle) PARTIAL — DR-0 gate det 5/6
++ sto 4/6 valid_plant, IDENTICAL counts to its own 2M canary, with
+over_current 3/12 landing on the SAME start-kind set the canary named
+(1 det:flat + 2 sto:rsi) — 4x the budget moved nothing for this seed.
+Worse, 2 of the 5 valid det episodes (both bridge starts) run
+cur_p95 2.27A/1.97A, over the gate's <=1.5A-on-every-valid-episode
+clause, so this seed clears neither PASS nor even PARTIAL's own
+"beats canary" bar in isolation. own-DR(0.2) det 3/6 + sto 6/6.
+Video: flat/rsi deep starts genuinely tuck and lift toward a
+splayed-but-planted stand before tripping current mid-hold — the
+same qualitative story as every rung-8/9 sibling, not a freeze.
+Training reward is strongly rising (quarters -18/-167/+340/+1041,
+ep_rew_mean 1515) — per the 08-21 ruling this doesn't disqualify the
+run, but paired with a flat-vs-canary eval it does NOT read as
+"needs more budget" either; the residue looks like a hard floor for
+this seed's init. `meshref-acq8m` (seed 0, concurrent-cycle read,
+RL_LOG 17:34) instead nudged: det 5/6 + sto 5/6, oc 2/12 (<canary's
+3/12) — not yet reflected in this file's own entries, folded in here
+for the joint read. `meshref-8m-s2` (seed 2) still training — the
+grid's own ">=2/3 seeds at the strict bar" call needs it; do not
+close the grid on 2/3 reads, especially with the two available reads
+disagreeing on direction (nudge vs. plateau). If s2 also
+plateaus/regresses, the grid's own FAIL branch fires: budget is
+refuted for the flat-start tuck residue, next lever is a targeted
+tuck mechanism (start-mix weighting toward flat, or tuck-phase anchor
+dose), not more budget. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_8m_s1_{gate,owncfg}/`,
+W&B `q5fttoat`.)
+
+Prior entry: 2026-08-25 ~17:3x (LEDGER CORRECTION, no science change:
 the cycle that launched `-acq8m` briefly mis-marked it DEAD -
 INFRASTRUCTURE (misread its ~8-min budget-complete exit as a launch-
 race kill) and relaunched a verbatim duplicate `-acq8m-r1` on
@@ -1333,16 +1364,51 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**RISE, 08-25 ~17:0x:** rung-9 mesh-native ref canary pair = CANARY
-PASS (PARTIAL-strong, see Last-updated entry); 3-seed 8M acquisition
-grid `meshref-acq8m`(s0)/`meshref-8m-s1`/`-8m-s2` RUNNING. On grid
-PASS (>=2/3 seeds at the full bar): promote the best seed as the
-mesh rise recipe and re-run the stancemix mix with
+**RISE, 08-25 ~17:4x — rung-9 8M seed-0 TWINS read: budget lever is
+likely NULL (within same-seed noise of the 2M canary); targeted
+flat-mix canary LAUNCHED.** `meshref-acq8m` PARTIAL by its gate
+letter (DR-0 det 5/6 + sto 5/6 valid_plant, oc 2/12, valid-ep
+cur_p95 median 0.81A vs canary 5/6+4/6, 3/12) — BUT the dup-killed
+`meshref-8m` turns out to have FINISHED its full 8M budget
+(max global_step 8,060,928 @~17:14, before the 17:19 kill landed;
+earlier "~5M" reads were an out-of-order W&B video row) and its
+pre-staged eval scored EXACTLY canary level (5/6+4/6, 3/12 oc).
+Same seed + same config + same budget on a different pod => the
+twin delta (±1 episode, ±1 oc term at n=12) IS this harness's
+run-to-run noise band, and acq8m's nominal edge over the 2M canary
+sits inside it. Robust across both 8M replicates: flat det/0 is the
+identical never-tucks splayed press-up (2.64A pin, h_err_end
+24-28mm, video-confirmed) at 2M/8M/8M — budget-invariant,
+structural; successes stay clean (bridge sprawl→level six-foot
+plant by ~3s, tilt 0.3°). Grid still judged jointly when s1/s2
+triage lands (both finished training ~17:4x, next cycle owns them),
+but with two seed-0 8M replicates at/within-noise-of canary levels
+expect the pre-registered FAIL route. ACTED on acq8m's own PARTIAL
+clause ("fund one targeted arm at the named residual subclass"):
+`cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-flatmix70`
+VERIFIED RUNNING train-0 — 2M canary, exact meshref recipe, single
+config lever `goal.rise_flat_frac` 0.35→0.70 / `rise_partial_frac`
+0.40→0.20 (flat exposure ~17.5%→~35%; mechanism already existed in
+config, no code). Its gate's primary evidence is a FLAT-PINNED pod
+probe (eval `--cfg-set goal.rise_flat_frac=1.0 rise_partial_frac=0
+rise_rsi_frac=0`, det+sto 6+6) since the standard gate draws only
+1-2 flat episodes — read deltas against the twin noise band. On
+flatmix FAIL: exposure refuted → ref-content/phase treatment
+(tuck-phase anchor dose or tuck-segment curriculum) is the next
+rung. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_{acq8m,8m}_gate/`,
+W&B 08k9lmkm/ul88m0v3.
+
+Prior entry (**RISE, 08-25 ~17:0x:** rung-9 mesh-native ref canary
+pair = CANARY PASS (PARTIAL-strong, see Last-updated entry); 3-seed
+8M acquisition grid `meshref-acq8m`(s0)/`meshref-8m-s1`/`-8m-s2`
+RUNNING. On grid PASS (>=2/3 seeds at the full bar): promote the
+best seed as the mesh rise recipe and re-run the stancemix mix with
 `reward.rise_ref_path=rise_ref_mesh_scripted.npz`. On grid FAIL at
 canary levels: budget is refuted for the flat-start tuck residue;
 next rung is a targeted tuck mechanism (start-mix weighting toward
 flat starts, or tuck-phase anchor dose) — never more undirected
-budget.
+budget.)
 
 **STANCEMIX-BCCHAIN3-STDANNEAL PASSED its pre-registered DR-0 gate
 (08-25 ~15:5x):** the full hold=.1/rise=.45/lower=.45 mix + log-std
