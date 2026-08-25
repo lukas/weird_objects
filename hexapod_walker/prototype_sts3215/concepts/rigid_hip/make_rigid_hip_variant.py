@@ -37,14 +37,19 @@ pair.  This variant closes the loop from the TOP:
     through printed holes in ``chassis_bottom_rigid`` (on a STOCK
     chassis print: drill them using the foot as the jig).  The four
     central 90 mm standoffs remain only as hatch/electronics anchors.
-  * ``coxa_link_rigid`` (x6) -- the production coxa with three variant
-    edits: servo-cradle corners rounded to the 38.2 mm yaw envelope
-    (max 2.16 mm off two vertical wall corners), the hub uflange
-    extended DOWN as a Phi 29 seat ring to the relocated bottom race
-    (see BEARING COUNT), and a small Phi 38 DUST BRIM hovering 0.5
-    above the race-top / tower-rim plane -- non-contact, stepped 3 mm
-    INSIDE the tower Phi 44 so the coxa reads as coxa, not as more
-    chassis column (see the BRIM_* constants).  All other interfaces
+  * ``coxa_link_rigid`` (x6) -- the production coxa with four variant
+    edits: the vertical hub column SHORTENED by COL_DROP (the Phi 52.4
+    platform disc, dust-lip skirt and uflange -- all sized around the
+    deleted production cap -- are removed and the slab + cradle unit
+    drops so the well floor sits just over the M3x30 horn-screw
+    heads; see the COXA SHORTEN constants), servo-cradle corners
+    rounded to the 38.2 mm yaw envelope (max 2.16 mm off two vertical
+    wall corners), the hub grown a Phi 29 seat ring down to the
+    relocated bottom race (see BEARING COUNT), and a small Phi 38
+    DUST BRIM hovering 0.5 above the race-top / tower-rim plane --
+    non-contact, stepped 3 mm INSIDE the tower Phi 44 so the coxa
+    reads as coxa, not as more chassis column (see the BRIM_*
+    constants).  Horn interface, cradle pilots and cap seat
     untouched.
   * ``chassis_bottom_rigid`` (x1) -- the production chassis with the
     six tower platforms trimmed to the tower's own Phi 44 cylinder
@@ -265,11 +270,58 @@ ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
 # BRIM_GAP, and the rotating seat ring keeps 4.0 mm radial to the
 # pocket bore.  The remaining az-210 cap-bolt ear root is below the
 # deck (z 10.25 world), far under the raised rim.
+#
+# COXA SHORTEN (user, Aug 24 rev 3: "from around 25mm to 40mm above
+# the platform top seems largely unnecessary.  You need to redesign
+# the coxa link to make it shorter, theres a bunch of unneccessary
+# stuff there").  Audit of that band (coxa-local z ~10..25) found the
+# production coxa's vertical hub column was sized around apparatus
+# this variant DELETED:
+#   * the Phi 52.4 dust-lip SKIRT (z 14..18) labyrinthed over the
+#     production cap ring -- the cap is gone and the variant has its
+#     own Phi 38 brim at z 8..10, so the skirt hung in mid-air;
+#   * the Phi 52.4 platform DISC (z 18..24) existed to clear the
+#     production cap rim at z 16.5 by YAW_HUB_CAP_AXIAL_CL and to
+#     hang that skirt -- with the cap deleted and the bearing down at
+#     z 0.5..7.5, that clearance stack is filler;
+#   * the production uflange (z 14.5..16.5) retained the deleted
+#     UPPER race -- the variant's seat ring at the relocated race
+#     already does its job.
+# What is NOT filler is the M3x30 horn-screw stack: the head seats
+# are bench-pinned at YAW_HUB_HORN_HEAD_SEAT_Z = +17.75 (screw
+# length + measured print shortfall + tip poke -- the tips cannot go
+# deeper without jamming the disc off its seat, see the constants in
+# hexapod_prototype), so the heads top out at 17.75 + 3.0 and the
+# servo belly cannot sit below that.  The redesign drops the whole
+# slab + cradle unit (a rigid body: cradle pilots, cap seat, 688
+# housing, rear tab all ride along) by COL_DROP so the well floor
+# lands COL_HEAD_CL above the screw heads, deletes the skirt + disc
+# outright, and truncates the hub boss at the dropped slab.  The
+# horn interface (bolt pattern, seat planes) does NOT move; the
+# screw shafts through the slab just get shorter.  The hip axis and
+# EVERYTHING keyed to it (cap boss, top bearing, top plate, pillars,
+# hatch, standoffs) drop by the same COL_DROP -- shorter pillars,
+# shorter robot, same simply-supported stack.
+COL_HEAD_CL = 1.25                        # servo belly over the M3 heads
+                                          # (>= the ~1 mm FDM axial stack-up
+                                          # this axis measured on the bench)
+COXA_FLOOR_Z = (hp.YAW_HUB_HORN_HEAD_SEAT_Z
+                + hp.INSERT_M3_BOLT_HEAD_H + COL_HEAD_CL)   # 22.0 well floor
+COL_DROP = (hp.YAW_HUB_PLATFORM_Z1
+            + hp.COXA_WELL_FLOOR_LIFT) - COXA_FLOOR_Z       # 4.0 -- the shrink
+SLAB_BOT_Z = hp.YAW_HUB_BOSS_TOP_Z - COL_DROP     # 14 -- dropped slab bottom
+HUB_TRIM_Z = SLAB_BOT_Z + 0.75            # hub boss keeps 0.75 into the slab
+COXA_HIP_DROP_V = hp.COXA_HIP_DROP - COL_DROP     # 34.4 -- hip axis, coxa z
+COXA_HIP_ANCHOR_V = (hp.COXA_HIP_ANCHOR[0], hp.COXA_HIP_ANCHOR[1],
+                     COXA_HIP_DROP_V)     # the variant's hip joint anchor
 YAWBR_DROP = -hp.YAW_BEARING_W            # -7: race to the tower pocket
 HUB_RING_OD = hp.YAW_BEARING_INNER_OD     # 29 -- production uflange OD
 HUB_RING_ID = 24.0                        # overlaps the boss wall (22..25.15)
 HUB_RING_Z0 = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- relocated race TOP
-HUB_RING_Z1 = hp.YAW_BEARING_UPPER_TOP_Z + 1.5   # 16 -- well into the uflange
+HUB_RING_Z1 = SLAB_BOT_Z + 1.0            # 15 -- 1 mm into the dropped slab
+                                          # (was uflange-referenced; the
+                                          # uflange is deleted with the
+                                          # shortened column)
 BRIM_GAP = 0.5                            # running gap, axial + radial
 TOWER_RIM_Z = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- raised rim = race top
                                           # (coxa-local; world 22.75)
@@ -411,7 +463,9 @@ BOSS_Y1 = PED_Y1 + BEARING_W - BOSS_TIP_H                 # press band top
 TIP_Y1 = PED_Y1 + BEARING_W                               # lead-in tip top
 
 # World-frame stack (z up, chassis_bottom sheet mid-plane at z = 0).
-CAP_FACE_W = hp.CHASSIS_YAW_OUTPUT_Z + hp.COXA_HIP_DROP + CAP_FACE_Y  # 75.55
+# Uses the variant's SHORTENED hip drop: the whole top stack rides
+# COL_DROP lower than the production-coxa numbers.
+CAP_FACE_W = hp.CHASSIS_YAW_OUTPUT_Z + COXA_HIP_DROP_V + CAP_FACE_Y  # 71.55
 BR_BOT_W = CAP_FACE_W + PED_H             # 81.05 -- race bottom / seat
 BR_TOP_W = BR_BOT_W + BEARING_W           # 88.05 -- race top / shoulder
 RING_BOT_W = BR_BOT_W + RING_BOT_CL       # 81.55 -- ring bottom face
@@ -421,7 +475,7 @@ SHEET_Z1 = SHEET_Z0 + PLATE_T             # 92.05 -- deck face
 APOTHEM = hp.CHASSIS_FLAT_TO_FLAT / 2.0   # 100 -- yaw axes sit ON this line
 
 XZ = ((1.0, 0.0, 0.0), hp.LEG_PITCH_AXIS)
-M_HIP_JP = hp._joint_place(hp.COXA_HIP_ANCHOR, *XZ)     # well -> coxa (hip)
+M_HIP_JP = hp._joint_place(COXA_HIP_ANCHOR_V, *XZ)      # well -> coxa (hip)
 M_KNEE_JP = hp._joint_place((hp.FEMUR_LENGTH, 0.0, 0.0), *XZ)
 MH = hp._joint_place((0.0, 0.0, 0.0), *XZ)              # joint -> link local
 
@@ -674,27 +728,54 @@ def make_corner_pillar() -> trimesh.Trimesh:
 
 
 def make_coxa_link_rigid() -> trimesh.Trimesh:
-    """The production coxa with the three variant edits (see the
+    """The production coxa with the four variant edits (see the
     constant blocks above):
 
+      * SHORTENED COLUMN (user, Aug 24 rev 3): instead of starting
+        from the merged production print, the coxa is re-assembled
+        from its two production sub-solids with the vertical filler
+        removed -- the hub is truncated at HUB_TRIM_Z (deleting the
+        Phi 52.4 platform disc, the dust-lip skirt and the uflange,
+        all of which served the deleted production cap/upper race),
+        and the whole slab + cradle unit drops COL_DROP so the well
+        floor lands COL_HEAD_CL above the M3x30 horn-screw heads.
+        The horn interface does NOT move: seats stay at the
+        bench-pinned planes, only the head-access shafts above them
+        get shorter.  Hip axis: COXA_HIP_ANCHOR_V.
       * ENVELOPE ROUND: servo-cradle corners rounded to the
         ROT_ENVELOPE_R arc about its own yaw axis (max 2.16 mm off two
         vertical wall corners that used to reach 40.36 mm) so the plain
         rim columns clear by >= 5 mm at every yaw angle.
-      * HUB SEAT RING: the Phi 29 uflange extends down to z 7.5, where
-        the single bottom race now sits (tower pocket, LOWER position).
-        The ring bears only on the Phi 25..29 inner-race land -- same
-        contact the production uflange made one race higher -- and
-        merges with the boss wall over Phi 24..25.15.
+      * HUB SEAT RING: the Phi 29 ring runs from the race top (z 7.5,
+        tower pocket, LOWER position) up into the dropped slab.  It
+        bears only on the Phi 25..29 inner-race land -- same contact
+        the production uflange made one race higher -- and merges
+        with the boss wall over Phi 24..25.15.
       * DUST BRIM: a Phi 38 brim (z 8..10) roofs the seal + outer-race
         band, hovering 0.5 above the race-top / raised-rim plane and
         stopping 3 mm inside the tower Phi 44.  The old Phi 44
         skirt+curtain is deleted (it read as more chassis column) --
         see the TOWER RIM / BRIM_* constants.
 
-    Every other interface (hub, horn drive, cradle pilots, cap seat) is
-    untouched.  This makes the coxa a VARIANT print (6x)."""
-    coxa = hp.make_coxa_link_part()
+    Cradle pilots, cap seat, 688 housing and the horn drive pattern
+    are untouched (the cradle unit translates rigidly).  This makes
+    the coxa a VARIANT print (6x)."""
+    # Hub: production sub-solid, truncated at the dropped slab.  The
+    # explicit annular cut kills the dust-lip skirt (z 14..18, r 23+)
+    # so the halfspace trim cannot leave a floating skirt sliver.
+    hub = hp.make_coxa_yaw_hub(one_piece=True)
+    skirt_cut = _diff(
+        _cyl_z(hp.YAW_HUB_DUST_LIP_OD / 2.0 + 2.0, SLAB_BOT_Z - 1.5,
+               hp.YAW_HUB_BOSS_TOP_Z + 1.0, sections=64),
+        [_cyl_z(20.0, SLAB_BOT_Z - 2.5, hp.YAW_HUB_BOSS_TOP_Z + 2.0,
+                sections=64)])
+    hub = _diff(hub, [skirt_cut])
+    keep_lo = _cyl_z(60.0, hub.bounds[0][2] - 1.0, HUB_TRIM_Z, sections=32)
+    hub = trimesh.boolean.intersection([hub, keep_lo], engine="manifold")
+    # Slab + cradle: production sub-solid dropped as ONE rigid body
+    # (well floor, cradle pilots, cap seat, rear tab, chamfer).
+    bracket = hp.make_coxa_hip_bracket(one_piece=True)
+    bracket.apply_translation([0.0, 0.0, -COL_DROP])
     ring = _diff(
         _cyl_z(HUB_RING_OD / 2.0, HUB_RING_Z0, HUB_RING_Z1, sections=128),
         [_cyl_z(HUB_RING_ID / 2.0, HUB_RING_Z0 - 1.0, HUB_RING_Z1 + 1.0,
@@ -703,10 +784,39 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         _cyl_z(BRIM_OD / 2.0, BRIM_BOT_Z, BRIM_TOP_Z, sections=192),
         [_cyl_z(HUB_RING_ID / 2.0, BRIM_BOT_Z - 1.0, BRIM_TOP_Z + 1.0,
                 sections=128)])
-    coxa = _union([coxa, ring, brim])
-    z0, z1 = coxa.bounds[0][2] - 1.0, coxa.bounds[1][2] + 1.0
+    body = _union([hub, bracket, ring, brim])
+    # Yoke-end sweep clearance (mirror of hp.make_coxa_link_part, at
+    # the DROPPED hip axis): the femur yoke arm ends are full r~16
+    # discs about the hip axis; carve their swept cylinders through
+    # the two arm bands.
+    hip_ax_x, _, hip_ax_z = COXA_HIP_ANCHOR_V
+    sweeps = [_cyl_y(16.75, ylo, yhi, x=hip_ax_x, z=hip_ax_z)
+              for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))]
+    # Horn-screw plumbing, re-cut through the dropped slab (mirror of
+    # hp.make_coxa_link_part, seats UNCHANGED): the Phi 5.9 head-access
+    # shafts run from each bench-pinned seat plane up through the well
+    # floor; below each seat the shank clearance (Phi 3.7 drive bolts,
+    # Phi 3.4 centre spline screw) is re-opened through the slab band
+    # the drop slid over it.  The 0.5 mm shank overshoot past the seat
+    # is inside the Phi 5.9 shaft, so the seat annulus is untouched.
+    shaft_top_z = 80.0
+    drive_clear = hp.DISC_HORN_BOLT_OD + 0.3
+    stations = [(0.0, 0.0, hp.YAW_HUB_HORN_CENTRE_SEAT_Z,
+                 hp.HORN_CENTRE_OD)]
+    r = hp.DISC_HORN_BOLT_PCD / 2.0
+    stations += [(r * np.cos(t), r * np.sin(t),
+                  hp.YAW_HUB_HORN_HEAD_SEAT_Z, drive_clear)
+                 for t in hp.DISC_HORN_BOLT_ANGLES_RAD]
+    cuts = list(sweeps)
+    for (sx, sy, seat_z, shank_d) in stations:
+        cuts.append(_cyl_z(hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0, seat_z,
+                           shaft_top_z, x=sx, y=sy, sections=48))
+        cuts.append(_cyl_z(shank_d / 2.0, SLAB_BOT_Z - 1.0, seat_z + 0.5,
+                           x=sx, y=sy, sections=32))
+    body = _diff(body, cuts)
+    z0, z1 = body.bounds[0][2] - 1.0, body.bounds[1][2] + 1.0
     keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
-    return trimesh.boolean.intersection([coxa, keep], engine="manifold")
+    return trimesh.boolean.intersection([body, keep], engine="manifold")
 
 
 def make_chassis_bottom_rigid() -> trimesh.Trimesh:
@@ -903,7 +1013,8 @@ def leg_transforms(i: int, yaw_deg: float = 0.0,
                      hp.CHASSIS_YAW_OUTPUT_Z])
     p = np.deg2rad(femur_deg)
     pt = np.deg2rad(femur_deg + tibia_deg)
-    hip_local = np.array(hp.COXA_HIP_ANCHOR)
+    hip_local = np.array(COXA_HIP_ANCHOR_V)   # SHORTENED coxa: hip axis
+    #                                           rides COL_DROP lower
     knee_local = hip_local + rotation_matrix(p, [0, 1, 0])[:3, :3] \
         @ np.array([hp.FEMUR_LENGTH, 0.0, 0.0])
 
@@ -1162,6 +1273,73 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
           f"rim at the race top ({CHB_RIM_W:.2f}, full 7 mm wrap), "
           f"Phi {BRIM_OD:g} brim hovers {BRIM_GAP:g} above, "
           f"leg + bearing lift straight out")
+
+
+def check_coxa_column(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """The SHORTENED coxa (user, Aug 24 rev 3): the cradle floor sits
+    exactly COL_HEAD_CL over the M3x30 horn-screw heads, the seats did
+    NOT move off their bench-pinned planes, the screw shanks pass the
+    dropped slab, the deleted skirt/platform left nothing below the
+    slab outside the seat ring + brim, and the hip axis (and with it
+    the seated servo) dropped by exactly COL_DROP."""
+    coxa = meshes["coxa_link"]
+
+    # constants: floor derivation and head clearance (guards a future
+    # constant edit from silently burying the screw heads)
+    assert abs((hp.YAW_HUB_PLATFORM_Z1 + hp.COXA_WELL_FLOOR_LIFT)
+               - COXA_FLOOR_Z - COL_DROP) < 1e-9
+    head_top = hp.YAW_HUB_HORN_HEAD_SEAT_Z + hp.INSERT_M3_BOLT_HEAD_H
+    assert COXA_FLOOR_Z - head_top >= 1.2, \
+        f"only {COXA_FLOOR_Z - head_top:.2f} mm over the M3 heads"
+
+    # seat planes bench-pinned: solid seat annulus just under each seat
+    # plane, shaft void just above it (probe between the Phi 3.7 shank
+    # and the Phi 5.9 head shaft)
+    drive_r = hp.DISC_HORN_BOLT_PCD / 2.0
+    stations = [(0.0, 0.0, hp.YAW_HUB_HORN_CENTRE_SEAT_Z)]
+    stations += [(drive_r * np.cos(t), drive_r * np.sin(t),
+                  hp.YAW_HUB_HORN_HEAD_SEAT_Z)
+                 for t in hp.DISC_HORN_BOLT_ANGLES_RAD]
+    for (sx, sy, seat_z) in stations:
+        n = np.hypot(sx, sy)
+        ux, uy = (sx / n, sy / n) if n > 1e-9 else (1.0, 0.0)
+        px, py = sx + 2.4 * ux, sy + 2.4 * uy
+        below, above = coxa.contains(np.array([[px, py, seat_z - 0.3],
+                                               [px, py, seat_z + 0.3]]))
+        assert below and not above, \
+            f"horn-screw seat at ({sx:.1f},{sy:.1f}) not on z {seat_z}"
+        # shank passage open through the dropped slab band
+        assert not coxa.contains(
+            np.array([[sx, sy, SLAB_BOT_Z + 1.5]]))[0], \
+            f"screw shank blocked in the slab at ({sx:.1f},{sy:.1f})"
+
+    # well floor at COXA_FLOOR_Z: the seated servo's belly IS the floor
+    T = leg_transforms(0)
+    sv = meshes["servo_body"].copy()
+    sv.apply_transform(T["hip_cap"])
+    floor_w = hp.CHASSIS_YAW_OUTPUT_Z + COXA_FLOOR_Z
+    assert abs(sv.bounds[0][2] - floor_w) < 0.05, \
+        f"seated servo belly {sv.bounds[0][2]:.2f} != floor {floor_w:.2f}"
+
+    # deleted skirt/platform: below the dropped slab, nothing reaches
+    # past the brim radius (the column is boss + seat ring + brim only)
+    v = coxa.vertices
+    low = v[v[:, 2] < SLAB_BOT_Z - 0.01]
+    r_low = float(np.hypot(low[:, 0], low[:, 1]).max())
+    assert r_low <= BRIM_OD / 2.0 + 0.05, \
+        f"material at r {r_low:.2f} below the slab (skirt/platform back?)"
+
+    # slab bottom clears the static tower rim generously
+    slab_bot_w = hp.CHASSIS_YAW_OUTPUT_Z + SLAB_BOT_Z
+    assert slab_bot_w - CHB_RIM_W >= 2.0
+
+    print(f"  coxa column: floor z {COXA_FLOOR_Z:g} "
+          f"({COXA_FLOOR_Z - head_top:g} mm over the M3x30 heads), "
+          f"seats pinned at {hp.YAW_HUB_HORN_HEAD_SEAT_Z:g}/"
+          f"{hp.YAW_HUB_HORN_CENTRE_SEAT_Z:g}, cradle dropped "
+          f"{COL_DROP:g} mm (hip axis world "
+          f"{hp.CHASSIS_YAW_OUTPUT_Z + COXA_HIP_DROP_V:g}), "
+          f"below-slab column max r {r_low:.1f}")
 
 
 def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -1664,7 +1842,7 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
         axis_pt = [APOTHEM * np.cos(a), APOTHEM * np.sin(a),
                    hp.CHASSIS_YAW_OUTPUT_Z]
         pitch_ax = (_rotz(a)[:3, :3] @ np.array([0.0, 1.0, 0.0])).tolist()
-        hip_pt = (T["coxa"] @ np.array([*hp.COXA_HIP_ANCHOR, 1.0]))[:3]
+        hip_pt = (T["coxa"] @ np.array([*COXA_HIP_ANCHOR_V, 1.0]))[:3]
         knee_pt = (T["femur"] @ np.array([hp.FEMUR_LENGTH, 0.0, 0.0, 1.0]))[:3]
 
         yaw_ids = [
@@ -1827,6 +2005,7 @@ def main() -> None:
     print("static checks ...")
     check_static(meshes)
     check_bottom_joint(meshes)
+    check_coxa_column(meshes)
     check_chassis_variant(meshes)
     check_pillars(meshes)
     check_wago_block(meshes)

@@ -222,10 +222,25 @@ def make_centre_wago_block() -> object:
 
 
 def make_coxa_link_rigid() -> object:
-    """Production coxa + hub seat ring + Phi 38 dust brim, trimmed to the
-    rotation envelope (rv.make_coxa_link_rigid; the old Phi 44 curtain is
-    deleted -- the raised tower houses the full race)."""
-    coxa = step.make_coxa_link()
+    """Production coxa re-assembled with the SHORTENED hub column
+    (rv.make_coxa_link_rigid): the hub sub-solid is truncated at
+    rv.HUB_TRIM_Z with the dust-lip skirt / platform disc deleted, the
+    slab + cradle sub-solid drops rv.COL_DROP as one rigid body, the
+    seat ring + Phi 38 brim are added, the horn-screw shafts are re-cut
+    from the UNCHANGED bench-pinned seat planes (shank clearances
+    re-opened through the dropped slab), and the result is trimmed to
+    the rotation envelope."""
+    hub = step.make_coxa_yaw_hub(one_piece=True)
+    skirt_cut = step._diff(
+        _cyl_z(hp.YAW_HUB_DUST_LIP_OD / 2.0 + 2.0, rv.SLAB_BOT_Z - 1.5,
+               hp.YAW_HUB_BOSS_TOP_Z + 1.0),
+        _cyl_z(20.0, rv.SLAB_BOT_Z - 2.5, hp.YAW_HUB_BOSS_TOP_Z + 2.0),
+    )
+    hub = step._diff(hub, skirt_cut)
+    bb = hub.bounding_box()
+    hub = step._intersect(hub, _cyl_z(60.0, bb.min.Z - 1.0, rv.HUB_TRIM_Z))
+    bracket = (Pos(0.0, 0.0, -rv.COL_DROP)
+               * step.make_coxa_hip_bracket(one_piece=True))
     ring = step._diff(
         _cyl_z(rv.HUB_RING_OD / 2.0, rv.HUB_RING_Z0, rv.HUB_RING_Z1),
         _cyl_z(rv.HUB_RING_ID / 2.0, rv.HUB_RING_Z0 - 1.0,
@@ -236,7 +251,25 @@ def make_coxa_link_rigid() -> object:
         _cyl_z(rv.HUB_RING_ID / 2.0, rv.BRIM_BOT_Z - 1.0,
                rv.BRIM_TOP_Z + 1.0),
     )
-    body = step._union(coxa, ring, brim)
+    body = step._union(hub, bracket, ring, brim)
+    hip_ax_x, _, hip_ax_z = rv.COXA_HIP_ANCHOR_V
+    cuts = [_cyl_y(16.75, ylo, yhi, x=hip_ax_x, z=hip_ax_z)
+            for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))]
+    shaft_top_z = 80.0
+    drive_clear = hp.DISC_HORN_BOLT_OD + 0.3
+    stations = [(0.0, 0.0, hp.YAW_HUB_HORN_CENTRE_SEAT_Z,
+                 hp.HORN_CENTRE_OD)]
+    r = hp.DISC_HORN_BOLT_PCD / 2.0
+    stations.extend(
+        (r * math.cos(t), r * math.sin(t), hp.YAW_HUB_HORN_HEAD_SEAT_Z,
+         drive_clear)
+        for t in hp.DISC_HORN_BOLT_ANGLES_RAD)
+    for sx, sy, seat_z, shank_d in stations:
+        cuts.append(_cyl_z(hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0, seat_z,
+                           shaft_top_z, sx, sy))
+        cuts.append(_cyl_z(shank_d / 2.0, rv.SLAB_BOT_Z - 1.0,
+                           seat_z + 0.5, sx, sy))
+    body = step._diff(body, *cuts)
     bb = body.bounding_box()
     keep = _cyl_z(rv.ROT_ENVELOPE_R, bb.min.Z - 1.0, bb.max.Z + 1.0)
     return step._intersect(body, keep)
