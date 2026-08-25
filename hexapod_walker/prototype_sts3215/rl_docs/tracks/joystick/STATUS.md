@@ -1,6 +1,34 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~02:2x (**LEG-SACRIFICE ROOT-CAUSE DIG-IN
+Last updated: 2026-08-25 ~02:3x (**certfreeze-v9 FAIL, but the
+cleanest read in the whole V6-V9 ladder — the b3 stop-cert stall is
+now a proven real behavior, not a measurement artifact.** V9's own
+fix (`stop_speed_pure_m_s`, excludes wz!=0 ticks from the stop-tick
+accumulator, built to remove the v8 freeze/cert wz-exemption
+confound) fires exactly as designed (`stop_ticks_pure_frac` 0.884 vs
+1.0 — it genuinely now excludes turn ticks) but `walkcurr/frontier`
+still stalls at b3 and the PURE stop speed itself reads 0.0231 m/s,
+still over the 0.015 cap. This settles the b3 dig-in's own open
+question: it is real residual translational drift during
+turn-adjacent stop segments, not a cert-measurement bug — the next
+lever is a dedicated turn-in-place drift/stillness charge or gate
+(not another metric fix), which needs its own scripted twin + bank
+proof before launch (not built this cycle: 5 other joystick arms
+already in flight — v8-hz100-r2, both mesh acq1 arms, and the
+gaitgate-cont1/-scratch1 pair below). Encouraging signal alongside
+the FAIL: held-out 60s joygate falls 3/48 (near-miss vs cap <=2, tied
+with v7, better than v8's 4/48 and hz100-r2's 8/48), slip/m 2.269
+clean (cap 2.9), dir_err med 48.03deg (near-miss vs allow 40), and —
+first time in this entire ladder — **zero leg-sacrifice fingerprint
+anywhere in the 48-episode panel** (per-leg duty spread balanced,
+sacrificed_frac <=0.021 on every leg); DR-0 gate det gait_valid 6/6
+clean too (prog 0.93, slip/m 1.40, dir_err 25.9deg). Video (both
+gate/owncfg contact sheets) confirms real six-leg cycling, level
+body. Champion unchanged (`stotight45-seed13`); DONE gate stays met
+per 08-23. Evidence: `logs/ckpt_eval/cw_arch_hist16_dep1_c1_
+joyfullcurr16_certfreeze_v9_{gate,owncfg,joygate}/`, W&B `zxoxwg3i`.)
+
+Previous entry (2026-08-25 ~02:2x (**LEG-SACRIFICE ROOT-CAUSE DIG-IN
 CLAIMED**: the still-unclaimed cross-lineage leg-sacrifice fingerprint
 ({0,2,5}/{3,5}/{0,2,3,5}, 3 lineages) that's been blocking the
 hardening ladder has an obvious untried lever — `reward.walk_gait_gate`
