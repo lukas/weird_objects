@@ -210,6 +210,25 @@ def test_bad_start_adopts_settled_pose_and_does_not_crash():
     assert saw_bad, "no episode actually started with a way-off joint"
 
 
+def test_reset_start_jitter_works_without_domain_randomization():
+    cfg = {
+        "reset": {
+            "start_jitter_deg": 3.0,
+            "start_bad_prob": 1.0,
+            "start_bad_max_joints": 1,
+            "start_bad_deg_min": 8.0,
+            "start_bad_deg_max": 8.0,
+        }
+    }
+    env = SimHexapodBalanceEnv(cfg=cfg, randomize=False, seed=9)
+    obs, info = env.reset()
+    assert np.all(np.isfinite(obs))
+    assert info["randomization"] is None
+    jitter = info["reset_start_jitter"]
+    assert jitter["bad_start_joints"]
+    assert jitter["start_offset_max_deg"] >= 8.0
+
+
 def test_action_moves_body_reward_worsens():
     env = SimHexapodBalanceEnv(seed=2)
     env.reset()

@@ -462,6 +462,22 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/tft/ready":
             self._json(200, BENCH.tft_ready() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/ui_event":
+            data = body_obj if isinstance(body_obj, dict) else {}
+            name = str(data.get("event") or "ui_event")[:80]
+            payload = {
+                "peer": self._peer(),
+                "path": self.path,
+            }
+            for key in ("view", "button", "disabled", "active", "status"):
+                if key in data:
+                    payload[key] = data[key]
+            try:
+                from event_log import emit
+                emit("ui", name, src="webui", data=payload)
+            except Exception:
+                pass
+            self._json(200, {"ok": True})
         elif path == "/api/wiggle":
             try:
                 data = json.loads(body or "{}")

@@ -38,6 +38,43 @@
   .statusline:empty { display:none; }
   #statuscopy { flex:0 0 auto; min-width:0; padding:5px 10px; font-size:12px;
                 border-radius:8px; }
+  .robot-console { grid-column:1 / -1; min-width:0; display:flex;
+                   flex-direction:column; gap:4px; padding:7px 8px;
+                   border:1px solid #263044; border-radius:10px;
+                   background:#11151e; box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
+  .robot-console-top { display:flex; align-items:center; gap:6px;
+                       min-width:0; flex-wrap:wrap; }
+  .robot-console-title { color:#dfe4ee; font-size:11px; font-weight:900;
+                         letter-spacing:.6px; text-transform:uppercase; }
+  .robot-console-chip { min-height:22px; display:inline-flex;
+                        align-items:center; padding:2px 8px;
+                        border-radius:999px; border:1px solid #333b52;
+                        background:#161b27; color:#9aa3b2;
+                        font-size:11px; font-weight:850; white-space:nowrap; }
+  .robot-console-chip.ok { color:#5fd08a; border-color:#2e7d47;
+                           background:#102218; }
+  .robot-console-chip.warn { color:#e6b35a; border-color:#8a6a2a;
+                             background:#241d12; }
+  .robot-console-chip.bad { color:#ff8a8a; border-color:#7a2b2b;
+                            background:#241416; }
+  .robot-console-detail { flex:1 1 220px; min-width:120px;
+                          overflow:hidden; text-overflow:ellipsis;
+                          white-space:nowrap; color:#b6becd;
+                          font-size:12px; font-weight:700; }
+  .robot-console-lines { display:flex; flex-direction:column; gap:2px;
+                         max-height:4.8em; overflow:hidden; color:#98a2b8;
+                         font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                         font-size:11px; line-height:1.35;
+                         user-select:text; -webkit-user-select:text; }
+  .robot-console-line { overflow:hidden; text-overflow:ellipsis;
+                        white-space:nowrap; }
+  .robot-console-line.error { color:#ffb4b4; }
+  .robot-console-line.warn { color:#e6b35a; }
+  .robot-console-line.ui { color:#7eb6ff; }
+  .robot-console-line.ok { color:#5fd08a; }
+  #rcon-copy { flex:0 0 auto; padding:3px 8px; font-size:12px;
+               border-radius:8px; }
+  #rcon-events { flex:0 0 auto; color:#9bbcff; font-size:12px; }
   #conn { display:inline-flex; align-items:center; min-height:24px;
           padding:3px 9px; border-radius:999px; border:1px solid #333b52;
           background:#161b27; font-size:12px; color:#9aa3b2;
@@ -331,6 +368,7 @@
     #statusbox { justify-content:center; }
     #statuslines { justify-content:center; text-align:center; }
     #sent:not(:empty) { max-width:calc(100vw - 100px); }
+    .robot-console-detail { flex-basis:100%; }
   }
   /* Phone / narrow window: sidebar collapses to a wrapping tab strip on
      top; the arm/status header stays sticky so E-STOP is always visible. */

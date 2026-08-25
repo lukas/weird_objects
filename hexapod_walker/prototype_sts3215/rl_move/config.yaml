@@ -232,6 +232,17 @@ obs:
   gyro_scale: 1.0            # rad/s
   height_scale_m: 0.05       # goal height_ref → unit scale
 
+reset:
+  # Extra explicit start-pose jitter, independent of broad domain
+  # randomization. Defaults off so DR0 baselines stay exact; eval panels
+  # can enable this at DR0 to test "near the sim walk-ready pose, but not
+  # perfectly placed" without also randomizing mass/friction/latency.
+  start_jitter_deg: 0.0
+  start_bad_prob: 0.0
+  start_bad_max_joints: 1
+  start_bad_deg_min: 8.0
+  start_bad_deg_max: 16.0
+
 pd:
   kp_roll: 1.5
   kd_roll: 0.15

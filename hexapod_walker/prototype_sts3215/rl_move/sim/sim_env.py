@@ -592,6 +592,8 @@ class SimHexapodBalanceEnv(_GymBase):
                     _v = _parts[0] if len(_parts) == 1 else _parts
                 setattr(self.randomizer.ranges, _k, _v)
         self._ep_rand: EpisodeRandomization | None = None
+        self._reset_start_offset_rad: np.ndarray | None = None
+        self._reset_start_bad_joints: list[int] = []
 
         self._plant_deg = (np.asarray(plant_deg, dtype=float).reshape(N_JOINTS)
                            if plant_deg is not None else _default_plant_deg())
@@ -973,12 +975,60 @@ class SimHexapodBalanceEnv(_GymBase):
             q[j] = float(np.clip(q[j], lo * DEG2RAD, hi * DEG2RAD))
         return q
 
+    def _sample_reset_start_offset_rad(self) -> np.ndarray | None:
+        """Config-level start jitter, separate from broad DR.
+
+        ``dr.placement_noise_deg`` already covers this in randomized
+        training. The reset.* knobs exist so evaluators can run a DR0
+        "imperfect handoff" panel without also perturbing mass,
+        friction, latency, sensors, or faults.
+        """
+        jitter = float(cfg_get(self.cfg, "reset", "start_jitter_deg",
+                               default=0.0))
+        bad_prob = float(cfg_get(self.cfg, "reset", "start_bad_prob",
+                                 default=0.0))
+        if jitter < 0.0:
+            raise ValueError("reset.start_jitter_deg must be >= 0")
+        if not 0.0 <= bad_prob <= 1.0:
+            raise ValueError("reset.start_bad_prob must be in [0, 1]")
+        if jitter == 0.0 and bad_prob == 0.0:
+            self._reset_start_bad_joints = []
+            return None
+        off = np.zeros(N_JOINTS, dtype=float)
+        if jitter > 0.0:
+            off += self.rng.uniform(-jitter, jitter, N_JOINTS) * DEG2RAD
+        bad_joints: list[int] = []
+        if bad_prob > 0.0 and self.rng.random() < bad_prob:
+            max_joints = int(float(cfg_get(
+                self.cfg, "reset", "start_bad_max_joints", default=1)))
+            max_joints = max(1, min(N_JOINTS, max_joints))
+            lo = float(cfg_get(self.cfg, "reset", "start_bad_deg_min",
+                               default=8.0))
+            hi = float(cfg_get(self.cfg, "reset", "start_bad_deg_max",
+                               default=16.0))
+            if lo < 0.0 or hi < lo:
+                raise ValueError("reset.start_bad_deg_min/max invalid")
+            n_bad = int(self.rng.integers(1, max_joints + 1))
+            bad_joints = list(self.rng.choice(
+                N_JOINTS, size=n_bad, replace=False))
+            for j in bad_joints:
+                mag = float(self.rng.uniform(lo, hi)) * DEG2RAD
+                off[j] = mag if self.rng.random() < 0.5 else -mag
+        self._reset_start_bad_joints = [int(j) for j in bad_joints]
+        return off
+
+    def _apply_reset_start_offset(self, q: np.ndarray) -> np.ndarray:
+        off = self._reset_start_offset_rad
+        if off is None:
+            return q
+        return q + off
+
     def _start_pose_rad(self) -> np.ndarray:
-        """Plant pose plus this episode's placement noise / bad-start
-        offsets, clipped to the hardware joint limits."""
+        """Plant pose plus start-offset channels, clipped to limits."""
         q = self._plant_deg * DEG2RAD
         if self._ep_rand is not None:
             q = q + self._ep_rand.start_offset_rad
+        q = self._apply_reset_start_offset(q)
         return self._clip_to_joint_limits(q)
 
     # Tipped-start hip-fold gain: settled body roll per degree of hip
@@ -1361,6 +1411,7 @@ class SimHexapodBalanceEnv(_GymBase):
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
+        self._reset_start_offset_rad = self._sample_reset_start_offset_rad()
         if self._struct_comp is not None:
             dr = (getattr(self.randomizer, "scale", 1.0)
                   if self.randomizer is not None else 0.0)
@@ -2322,6 +2373,12 @@ class SimHexapodBalanceEnv(_GymBase):
                              - self._tilt_ref0[0]) * RAD2DEG,
             "randomization": None if er is None else er.summary(),
         }
+        if self._reset_start_offset_rad is not None:
+            info["reset_start_jitter"] = {
+                "bad_start_joints": list(self._reset_start_bad_joints),
+                "start_offset_max_deg": round(float(np.max(
+                    np.abs(self._reset_start_offset_rad))) * RAD2DEG, 1),
+            }
         if self._struct_comp is not None and self._struct_comp_k is not None:
             info["struct_compliance"] = self._struct_comp.summary(
                 self._struct_comp_k)

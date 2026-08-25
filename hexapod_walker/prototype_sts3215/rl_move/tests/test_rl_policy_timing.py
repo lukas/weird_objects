@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from pathlib import Path
 import sys
 
+import numpy as np
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -9,10 +10,62 @@ if str(_ROOT / "linux_control") not in sys.path:
     sys.path.insert(0, str(_ROOT / "linux_control"))
 
 import rl_policy  # noqa: E402
+from rl_move.robot_state import RobotState  # noqa: E402
 
 
 def _policy(meta):
     return SimpleNamespace(meta=dict(meta))
+
+
+def _state(*, bus_ok=True):
+    z = np.zeros(rl_policy.N_JOINTS, dtype=float)
+    return RobotState(
+        timestamp=0.0,
+        joint_position=z.copy(),
+        joint_velocity=z.copy(),
+        imu_roll=0.0,
+        imu_pitch=0.0,
+        imu_yaw=0.0,
+        imu_gyro=np.zeros(3, dtype=float),
+        imu_accel=np.zeros(3, dtype=float),
+        commanded_position=z.copy(),
+        bus_ok=bus_ok,
+        imu_ok=True,
+    )
+
+
+class _FakeBus:
+    def __init__(self):
+        self.writes = 0
+
+    def write_all(self, _deg, *, speed, acc):
+        self.writes += 1
+
+
+class _PreflightBus:
+    def __init__(self, q_deg):
+        self.q_deg = list(q_deg)
+
+    def read_all_positions(self):
+        return {j: float(v) for j, v in enumerate(self.q_deg)}
+
+    def read_imu(self, *, apply_calib=True):
+        return {
+            "ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0,
+            "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
+        }
+
+
+class _FakeEstimator:
+    def __init__(self, states):
+        self._states = list(states)
+        self.commanded = []
+
+    def set_commanded(self, q):
+        self.commanded.append(np.asarray(q, dtype=float).copy())
+
+    def update(self):
+        return self._states.pop(0) if self._states else _state()
 
 
 def test_policy_bus_profile_prefers_metadata():
@@ -101,3 +154,130 @@ def test_policy_safety_slew_prefers_trained_metadata():
 
     assert explicit is True
     assert dq == pytest.approx(5.0)
+
+
+def test_walk_start_options_use_sim_start_only():
+    options, err = rl_policy._expected_start_options_deg("walk")  # noqa: SLF001
+
+    assert err == ""
+    assert options is not None
+    names = [name for name, _pose, _tol in options]
+    assert "sim_walk_start" in names
+    assert names == ["sim_walk_start"]
+    pose = dict((name, pose) for name, pose, _tol in options)["sim_walk_start"]
+    assert pose.tolist() == pytest.approx([0.0, 20.0, 80.0] * 6)
+
+
+def test_walk_preflight_reports_sim_walk_start():
+    ok, reason, details = rl_policy.preflight(
+        _PreflightBus([0.0, 20.0, 80.0] * 6), "walk")
+
+    assert ok, reason
+    assert details["start_pose"] == "sim_walk_start"
+    assert details["max_pose_delta_deg"] == pytest.approx(0.0)
+
+
+def test_neutral_drive_command_stays_in_hold():
+    assert not rl_policy._drive_command_is_moving(  # noqa: SLF001
+        0.0, 0.0, 0.0
+    )
+
+
+def test_drive_command_engages_walk_on_translation_or_yaw():
+    assert rl_policy._drive_command_is_moving(  # noqa: SLF001
+        0.001, 0.0, 0.0
+    )
+    assert rl_policy._drive_command_is_moving(  # noqa: SLF001
+        0.0, 0.0, 0.01, walk_obs=93
+    )
+    assert not rl_policy._drive_command_is_moving(  # noqa: SLF001
+        0.0, 0.0, 0.01, walk_obs=72
+    )
+
+
+def test_drive_translation_clamps_to_hardware_trained_band():
+    vx, vy = rl_policy._drive_clamp_translation(0.002, 0.0)  # noqa: SLF001
+
+    assert vx == pytest.approx(rl_policy.WALK_SPEED_MIN)
+    assert vy == pytest.approx(0.0)
+
+    vx, vy = rl_policy._drive_clamp_translation(0.2, 0.0)  # noqa: SLF001
+
+    assert vx == pytest.approx(rl_policy.WALK_SPEED_MAX)
+    assert vy == pytest.approx(0.0)
+
+
+def test_joint_hold_fallback_does_not_use_learned_policy():
+    assert not rl_policy._drive_uses_learned_policy(  # noqa: SLF001
+        "hold", None
+    )
+    assert rl_policy._drive_uses_learned_policy(  # noqa: SLF001
+        "walk", None
+    )
+    assert rl_policy._drive_uses_learned_policy(  # noqa: SLF001
+        "hold", _policy({"obs_dim": 68})
+    )
+
+
+def test_stream_target_tolerates_short_feedback_dropouts():
+    bus = _FakeBus()
+    good0 = _state()
+    good1 = _state()
+    est = _FakeEstimator([
+        _state(bus_ok=False),
+        _state(bus_ok=False),
+        good1,
+        _state(),
+    ])
+
+    out = rl_policy._stream_target(  # noqa: SLF001
+        bus,
+        est,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=4,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=good0,
+        stale_ticks=0,
+        max_stale_ticks=3,
+    )
+
+    state, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    assert err == ""
+    assert state.bus_ok is True
+    assert not rl_policy._stream_state_is_stale(state)  # noqa: SLF001
+    assert stale_ticks == 0
+    assert stale_samples == 2
+    assert bus.writes == 4
+
+
+def test_stream_target_stops_after_stale_feedback_limit():
+    bus = _FakeBus()
+    good0 = _state()
+    est = _FakeEstimator([_state(bus_ok=False) for _ in range(4)])
+
+    out = rl_policy._stream_target(  # noqa: SLF001
+        bus,
+        est,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=4,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=good0,
+        stale_ticks=0,
+        max_stale_ticks=3,
+    )
+
+    _state_out, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    assert err == "feedback stale during stream"
+    assert stale_ticks == 4
+    assert stale_samples == 4
+    assert bus.writes == 4

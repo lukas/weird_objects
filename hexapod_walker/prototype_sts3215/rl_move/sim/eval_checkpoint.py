@@ -366,6 +366,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         "forward_dist_m": round(float(np.linalg.norm(
             env.data.xpos[env._chassis_bid, :2] - chassis0)), 3),
     }
+    if info0.get("reset_start_jitter"):
+        ep["reset_start_jitter"] = info0["reset_start_jitter"]
     # Roll transient statistics (bench_report parity, 08-11 finding 6:
     # "the sim eval side should report the identical statistic so
     # hardware and sim numbers are directly comparable"). peak = max
@@ -756,6 +758,24 @@ def main() -> None:
                          f"= defaults {PINNED_SPEED_DEFAULTS}. Rows "
                          "report as walk@<speed>/<det|sto>. Default "
                          "absent = off, report unchanged.")
+    ap.add_argument("--start-jitter-panel",
+                    action=argparse.BooleanOptionalAction, default=True,
+                    help="add walk-like eval rows with explicit reset.* "
+                         "start-pose jitter at the current DR setting; "
+                         "keeps nominal rows comparable while checking "
+                         "handoff robustness")
+    ap.add_argument("--start-jitter-deg", type=float, default=3.0,
+                    help="per-joint uniform jitter for the start-jitter "
+                         "panel")
+    ap.add_argument("--start-jitter-bad-prob", type=float, default=0.25,
+                    help="chance that the start-jitter panel also offsets "
+                         "one/few joints by start-bad-deg")
+    ap.add_argument("--start-jitter-bad-max-joints", type=int, default=1,
+                    help="max bad joints in the start-jitter panel")
+    ap.add_argument("--start-jitter-bad-deg", nargs=2, type=float,
+                    default=(8.0, 16.0), metavar=("MIN", "MAX"),
+                    help="bad-joint magnitude range for the start-jitter "
+                         "panel")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--video-every", type=int, default=3,
                     help="record every Nth episode per mode (1st always)")
@@ -1051,6 +1071,79 @@ def main() -> None:
                       f"Imax {hot:.2f}A | imbal "
                       f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"
                       f"{extra}")
+
+        jitter_modes = [m for m in modes if m in ("walk", "quadwalk")]
+        if args.start_jitter_panel and jitter_modes:
+            reset_cfg = env.cfg.setdefault("reset", {})
+            jitter_keys = {
+                "start_jitter_deg": float(args.start_jitter_deg),
+                "start_bad_prob": float(args.start_jitter_bad_prob),
+                "start_bad_max_joints": int(args.start_jitter_bad_max_joints),
+                "start_bad_deg_min": float(args.start_jitter_bad_deg[0]),
+                "start_bad_deg_max": float(args.start_jitter_bad_deg[1]),
+            }
+            saved = {k: reset_cfg.get(k, _PIN_MISSING)
+                     for k in jitter_keys}
+            report["start_jitter_panel"] = dict(jitter_keys)
+            try:
+                reset_cfg.update(jitter_keys)
+                for tag, det in passes:
+                    for mode in jitter_modes:
+                        for m in ALL_MODES:
+                            if hasattr(gen, f"p_{m}"):
+                                setattr(gen, f"p_{m}",
+                                        1.0 if m == mode else 0.0)
+                        label = f"{mode}_startjitter"
+                        eps = []
+                        for k in range(args.per_mode):
+                            scheduled = (k == 0
+                                         or k % args.video_every == 0)
+                            ep, frames = run_episode(
+                                env, model, deterministic=det,
+                                video=not args.no_video,
+                                annotate=_annotate_frame,
+                                end_posture_gate=args.end_posture_gate,
+                                valid_plant_gate=args.valid_plant_gate)
+                            if ep.get("mode", mode) != mode:
+                                raise SystemExit(
+                                    f"[eval_checkpoint] start-jitter row "
+                                    f"{label} sampled mode "
+                                    f"'{ep.get('mode')}' — mode forcing "
+                                    "broke; aborting.")
+                            eps.append(ep)
+                            if frames and (scheduled
+                                           or not ep.get("gait_valid",
+                                                         True)):
+                                _save_video(
+                                    frames, out / f"{label}_{tag}_{k}")
+                        report["episodes"][f"{label}/{tag}"] = eps
+                        n_ok = sum(e["success"] for e in eps)
+                        n_valid = sum(bool(e.get("gait_valid"))
+                                      for e in eps)
+                        offs = [
+                            float(e.get("reset_start_jitter", {}).get(
+                                "start_offset_max_deg", 0.0))
+                            for e in eps]
+                        bad = sum(bool(e.get("reset_start_jitter", {}).get(
+                            "bad_start_joints")) for e in eps)
+                        pr = [e["progress_ratio"] for e in eps
+                              if e.get("progress_ratio") is not None]
+                        spm = [e["slip_per_m"] for e in eps
+                               if e.get("slip_per_m") is not None]
+                        line = (f"[{tag}] {label}: {n_ok}/{len(eps)}"
+                                f" | jitter max {np.mean(offs):.1f}deg"
+                                f" bad {bad}/{len(eps)}"
+                                f" | gait_valid {n_valid}/{len(eps)}")
+                        if pr:
+                            line += (f" | prog_ratio {np.mean(pr):.2f}"
+                                     f" slip/m {np.mean(spm):.2f}")
+                        print(line)
+            finally:
+                for k, old in saved.items():
+                    if old is _PIN_MISSING:
+                        reset_cfg.pop(k, None)
+                    else:
+                        reset_cfg[k] = old
 
         if args.pinned_speed_panel is not None:
             speeds = (tuple(args.pinned_speed_panel)

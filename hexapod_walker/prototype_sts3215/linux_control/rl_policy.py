@@ -73,7 +73,7 @@ from rl_move.joint_frame import (                          # noqa: E402
     robot_abs_rad_to_policy_rad,
 )
 from rl_move.robot_state import (                          # noqa: E402
-    DEG2RAD, N_JOINTS, RAD2DEG, RobotStateEstimator,
+    DEG2RAD, N_JOINTS, RAD2DEG, RobotState, RobotStateEstimator,
 )
 from rl_move.safety import AXIS_LIMITS_DEG, SafetyLayer    # noqa: E402
 
@@ -340,25 +340,56 @@ def _inner_stream_plan(policy: "NumpyPolicy", cfg: dict,
     return steps, actual_hz, 1.0 / actual_hz
 
 
+def _stream_state_is_stale(state) -> bool:
+    timing = getattr(state, "timing", {}) or {}
+    return bool(timing.get("stale_feedback"))
+
+
+def _stale_stream_state(last_good_state, stale_ticks: int, q_cmd=None):
+    """Return a last-known-good RobotState marked as stale feedback."""
+    if last_good_state is None:
+        return None
+    timing = dict(getattr(last_good_state, "timing", {}) or {})
+    timing.update({
+        "stale_feedback": True,
+        "stale_ticks": int(stale_ticks),
+    })
+    kwargs = {
+        "timestamp": time.monotonic(),
+        "bus_ok": True,
+        "timing": timing,
+    }
+    if q_cmd is not None and hasattr(last_good_state, "commanded_position"):
+        kwargs["commanded_position"] = np.asarray(
+            q_cmd, dtype=float).copy()
+    return replace(last_good_state, **kwargs)
+
+
 def _stream_target(bus, est: RobotStateEstimator,
                    q_from_robot: np.ndarray, q_to_robot: np.ndarray, *,
                    t_next: float, inner_steps: int, inner_dt: float,
                    write_speed: int, write_acc: int,
-                   abort_check) -> tuple[object | None, float, int, str]:
+                   abort_check, last_good_state=None,
+                   stale_ticks: int = 0,
+                   max_stale_ticks: int = 0
+                   ) -> tuple[object | None, float, int, str, int, int]:
     """Write interpolated servo targets up to q_to_robot.
 
     The caller still runs the policy once per selected policy tick. This
     helper only smooths the command sent to the MCU/bus and returns the
     latest sampled robot state at the end of that policy tick.
     """
-    state_robot = None
+    state_robot = last_good_state
     overruns = 0
+    stale_samples = 0
+    stale_ticks = max(0, int(stale_ticks))
+    max_stale_ticks = max(0, int(max_stale_ticks))
     q_from = np.asarray(q_from_robot, dtype=float)
     q_to = np.asarray(q_to_robot, dtype=float)
     steps = max(1, int(inner_steps))
     for sub in range(1, steps + 1):
         if abort_check():
-            return state_robot, t_next, overruns, "aborted"
+            return state_robot, t_next, overruns, "aborted", stale_ticks, stale_samples
         alpha = sub / steps
         q_cmd = q_to if sub == steps else q_from + (q_to - q_from) * alpha
         est.set_commanded(q_cmd)
@@ -375,21 +406,57 @@ def _stream_target(bus, est: RobotStateEstimator,
 
         state_robot = est.update()
         if state_robot is None or not state_robot.bus_ok:
-            return state_robot, t_next, overruns, "bus dropped during stream"
-    return state_robot, t_next, overruns, ""
+            stale_ticks += 1
+            stale_samples += 1
+            if (last_good_state is not None
+                    and stale_ticks <= max_stale_ticks):
+                state_robot = _stale_stream_state(
+                    last_good_state, stale_ticks, q_cmd=q_cmd)
+                continue
+            return (state_robot, t_next, overruns,
+                    "feedback stale during stream", stale_ticks,
+                    stale_samples)
+        last_good_state = state_robot
+        stale_ticks = 0
+    return state_robot, t_next, overruns, "", stale_ticks, stale_samples
+
+
+
+def _set_weight_bearing_torque(bus) -> None:
+    """Best-effort full torque limit + torque-enable for RL body support."""
+    if bus is None:
+        return
+    try:
+        from feetech_bus import joint_to_servo_id as _sid_for_joint
+    except Exception:  # pragma: no cover - deployed buses use feetech_bus
+        _sid_for_joint = lambda j: j + 2
+    pkt = getattr(bus, "pkt", None)
+    if pkt is not None:
+        for joint in range(N_JOINTS):
+            try:
+                pkt.write2ByteTxRx(
+                    _sid_for_joint(joint), ADDR_TORQUE_LIMIT,
+                    RL_HOLD_TORQUE_LIMIT)
+            except Exception:
+                pass
+    try:
+        bus.enable_all_torque(True)
+    except Exception:
+        pass
 
 
 PREFLIGHT_MAX_TILT_DEG = 12.0
 # Start-pose gates (max per-joint |delta| from the expected pose).
 STAND_START_TOL_DEG = 30.0   # near flat belly pose (logical zero-ish)
-LOWER_START_TOL_DEG = 25.0   # near the captured plant stance
+LOWER_START_TOL_DEG = 25.0   # near the sim-default walk-ready stance
 
 # Walk mode (ppo_goal_cw_dep_vref1_r1, obs 72) — the deployment-contract
 # champion: trained with goal.walk_obs_body_vel=2, i.e. vx/vy_meas := ref
 # IS the training contract, bit-identical to what this runner feeds
 # (verdict PASS 08-10, no erosion vs parent). Still an operator-supervised
 # experiment, tightly bounded:
-# - starts ONLY from the captured plant stance (same gate as lower);
+# - starts from the sim-default walk-ready stance. Stand Up owns the
+#   STEP -> walk-start settle; Start Driving never hides it.
 # - command ramps 0 -> v over 1 s after a 1 s settle (training profile),
 #   holds, then ramps back to 0 for the last second and HOLDS the pose;
 # - speed clamped to the trained band; duration clamped to 20 s;
@@ -406,11 +473,22 @@ WALK_VEL_SCALE = 0.15
 WALK_YAW_SCALE = 0.5         # sim walk_task.WZ_SCALE
 WALK_OBS_DIMS = (72, 74, 93)
 WALK_PHASE_OBS_DIMS = (74, 93)
+WALK_SPEED_MIN = 0.05        # deployed dep-vref walk policies are OOD below
+                             # this; the UI may select slower values for sims,
+                             # but hardware live-drive clamps to the trained band.
 WALK_SPEED_MAX = 0.06        # trained command band is 0.05-0.06 m/s
 WALK_HOLD_S = 1.0
 WALK_RAMP_S = 1.0
 WALK_MAX_TOTAL_S = 20.0
-WALK_START_TOL_DEG = 25.0    # near the captured plant stance
+WALK_START_TOL_DEG = 25.0    # near the sim-default walk-ready stance
+WALK_STEP_START_TOL_DEG = 35.0  # explicit compatibility hook only
+DRIVE_HOLD_REFRESH_S = 0.25     # low-rate active refresh for joint-hold
+RL_HOLD_TORQUE_LIMIT = 1000     # weight-bearing hold torque limit
+ADDR_TORQUE_LIMIT = 48          # STS3215 SRAM max torque/current register
+DRIVE_START_REFRESH_S = 0.45    # re-hold sim walk start through drive arming
+DRIVE_START_REFRESH_SPEED = 260
+DRIVE_START_REFRESH_ACC = 35
+DRIVE_START_DRIFT_TOL_DEG = 8.0  # refuse instead of latching a sagged pose
 # Walk-mode relative-tilt trip. A WORKING gait rocks +-10-20 deg in roll
 # and pitch (operator-measured, scripted gait, 08-09 night); the config's
 # 10 deg trip would terminate exactly the weight transfer a real gait
@@ -469,15 +547,48 @@ class ChiralitySelector:
 
 # Drive session (MuJoCo-viewer-style held-key driving, operator 08-11).
 # The browser holds arrow keys -> POST /api/rl/drive/cmd heartbeats carry
-# the live (vx, vy); release -> (0, 0) -> the hold model. The loop NEVER
+# the live (vx, vy); release -> (0, 0) -> the hold path. The loop NEVER
 # trusts a stale command: refs decay to zero unless a heartbeat younger
 # than DRIVE_CMD_TIMEOUT_S says otherwise, so a closed tab / dropped
-# WiFi degrades to "stand still and hold", not "keep walking".
+# WiFi degrades to "stand still and hold", not "keep walking". With no
+# learned hold policy installed, "hold" is a direct joint hold of the last
+# safe commanded pose. It must not run the walk policy at zero command:
+# several good walking policies were never trained to be still at vx=vy=0.
 DRIVE_CMD_TIMEOUT_S = 0.6    # heartbeats at ~5 Hz; 3 misses = stop
 DRIVE_IDLE_END_S = 120.0     # no heartbeat at all -> end session (hold)
 DRIVE_MAX_SESSION_S = 300.0  # hard cap per session (decel + hold)
 DRIVE_HOLD_SWITCH_S = 1.5    # zero-cmd dwell before flipping to the
                              # hold model (quick taps stay on walk)
+DRIVE_WALK_ENGAGE_S = 0.35   # require a real held direction before gait
+DRIVE_WALK_ACTION_RAMP_S = 1.5  # blend first learned targets from stance
+DRIVE_STREAM_STALE_TICKS = 10  # tolerate ~100 ms snapshot gaps at 100 Hz
+DRIVE_MOVE_EPS_MPS = 1e-4
+DRIVE_YAW_EPS_RAD_S = 1e-4
+
+
+def _drive_clamp_translation(vx: float, vy: float) -> tuple[float, float]:
+    """Clamp nonzero hardware-drive translation into the trained band."""
+    spd = math.hypot(vx, vy)
+    if spd <= DRIVE_MOVE_EPS_MPS:
+        return 0.0, 0.0
+    want = max(WALK_SPEED_MIN, min(WALK_SPEED_MAX, spd))
+    s = want / spd
+    return vx * s, vy * s
+
+
+def _drive_command_is_moving(vx_target: float, vy_target: float,
+                             wz_target: float, walk_obs: int = 72) -> bool:
+    """Whether the live drive session should engage the walk policy."""
+    if math.hypot(vx_target, vy_target) > DRIVE_MOVE_EPS_MPS:
+        return True
+    # Only AMP/yaw-command policies understand yaw-only drive. Legacy obs-72
+    # policies ignore wz, so yaw-only at zero translation must stay in hold.
+    return walk_obs == 93 and abs(wz_target) > DRIVE_YAW_EPS_RAD_S
+
+
+def _drive_uses_learned_policy(active: str, hold_policy) -> bool:
+    """False for the built-in neutral joint hold fallback."""
+    return active == "walk" or hold_policy is not None
 
 
 class DriveCommand:
@@ -654,6 +765,127 @@ def _walk_phase_runs(walk_obs: int, vx_r: float, vy_r: float,
     return phase_run_on_yaw and abs(wz_r) > 1e-3
 
 
+def _json_safe(value):
+    """Best-effort JSON conversion for numpy-heavy live-run diagnostics."""
+    if isinstance(value, np.ndarray):
+        return _json_safe(value.tolist())
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _state_debug(state, *, q_cmd_rad=None, target_robot=None) -> dict:
+    if state is None:
+        return {"state": None}
+    timing = dict(getattr(state, "timing", {}) or {})
+    q = np.asarray(state.joint_position, dtype=float)
+    out = {
+        "bus_ok": bool(getattr(state, "bus_ok", False)),
+        "imu_ok": bool(getattr(state, "imu_ok", False)),
+        "roll_deg": round(float(state.imu_roll) * RAD2DEG, 2),
+        "pitch_deg": round(float(state.imu_pitch) * RAD2DEG, 2),
+        "gyro_dps": [round(float(x) * RAD2DEG, 2)
+                     for x in np.asarray(state.imu_gyro, dtype=float)],
+        "q_deg": [round(float(x) * RAD2DEG, 2) for x in q],
+        "stale_feedback": bool(timing.get("stale_feedback")),
+        "stale_ticks": timing.get("stale_ticks"),
+        "fallback": timing.get("fallback"),
+        "timing_ms": {
+            "pos": round(float(timing.get("t_pos") or 0.0) * 1000.0, 2),
+            "imu": round(float(timing.get("t_imu") or 0.0) * 1000.0, 2),
+            "fb": round(float(timing.get("t_fb") or 0.0) * 1000.0, 2),
+            "total": round(float(timing.get("t_total") or 0.0)
+                           * 1000.0, 2),
+            "full_feedback": bool(timing.get("full_feedback")),
+        },
+    }
+    if q_cmd_rad is not None:
+        cmd = np.asarray(q_cmd_rad, dtype=float)
+        dq = np.abs(q - cmd) * RAD2DEG
+        j = int(np.argmax(dq)) if len(dq) else 0
+        out["cmd_err_max_deg"] = round(float(dq[j]) if len(dq) else 0.0, 2)
+        out["cmd_err_joint"] = j
+    if target_robot is not None:
+        target = np.asarray(target_robot, dtype=float)
+        dq = np.abs(q - target) * RAD2DEG
+        j = int(np.argmax(dq)) if len(dq) else 0
+        out["target_err_max_deg"] = round(float(dq[j]) if len(dq) else 0.0, 2)
+        out["target_err_joint"] = j
+    cur = getattr(state, "servo_current", None)
+    if cur is not None:
+        cur_arr = np.asarray(cur, dtype=float)
+        j = int(np.argmax(np.abs(cur_arr))) if len(cur_arr) else 0
+        out["current_peak_a"] = round(float(abs(cur_arr[j])), 3)
+        out["current_peak_joint"] = j
+    return out
+
+
+class _RunDebug:
+    """JSONL flight recorder for live RL attempts, including early failures."""
+
+    def __init__(self, mode: str, context: dict | None = None):
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        d = _HERE / "logs"
+        d.mkdir(exist_ok=True)
+        self.mode = mode
+        self.path = d / f"rl_{mode}_{stamp}_debug.jsonl"
+        self.name = self.path.name
+        self._t0 = time.monotonic()
+        self._f = self.path.open("w")
+        self._closed = False
+        self.event("debug_start", context=context or {})
+
+    def event(self, name: str, **data) -> None:
+        if self._closed:
+            return
+        rec = {
+            "event": name,
+            "t_s": round(time.monotonic() - self._t0, 4),
+            "mono": round(time.monotonic(), 6),
+            "mode": self.mode,
+        }
+        rec.update(_json_safe(data))
+        try:
+            self._f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+            self._f.flush()
+        except Exception:
+            pass
+        try:
+            from event_log import emit
+            emit("rl_debug", f"{self.mode}: {name}", src="rl_policy",
+                 data={"debug_log": self.name, **_json_safe(data)})
+        except Exception:
+            pass
+
+    def attach(self, result: dict) -> dict:
+        result.setdefault("debug_log", self.name)
+        return result
+
+    def close(self, result: dict | None = None) -> None:
+        if self._closed:
+            return
+        if result is not None:
+            self.event("debug_end", result=result)
+        self._closed = True
+        try:
+            self._f.close()
+        except Exception:
+            pass
+
+
+def _finish_debug(debug: _RunDebug | None, result: dict) -> dict:
+    if debug is not None:
+        debug.attach(result)
+        debug.close(result)
+    return result
+
+
 class _EpisodeLog:
     """Every RL episode leaves a full local trace in ``logs/``.
 
@@ -665,13 +897,15 @@ class _EpisodeLog:
     Pull with receive_robot_logs.py / scp for offline analysis.
     """
 
-    def __init__(self, mode: str, params: dict, obs_dim: int = 0):
+    def __init__(self, mode: str, params: dict, obs_dim: int = 0,
+                 debug: _RunDebug | None = None):
         stamp = time.strftime("%Y%m%d_%H%M%S")
         d = _HERE / "logs"
         d.mkdir(exist_ok=True)
         self.mode = mode
         self.params = params
         self.obs_dim = int(obs_dim)
+        self.debug = debug
         self.csv_path = d / f"rl_{mode}_{stamp}.csv"
         self.sum_path = d / f"rl_{mode}_{stamp}_summary.json"
         self.started_iso = time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -705,13 +939,21 @@ class _EpisodeLog:
             # "mirror": 1 when the mirrored chirality drove this tick
             # (turn= walk moves), 0 naked, "" no selector. Appended
             # after rot60_k for the same index-stability reason.
-            + ["rot60_k", "mirror"])
+            + ["rot60_k", "mirror",
+               "bus_ok", "imu_ok", "stale_feedback", "stale_ticks",
+               "t_pos_ms", "t_imu_ms", "t_fb_ms", "t_total_ms",
+               "q_cmd_err_max_deg", "q_cmd_err_joint", "action_abs_max"])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
                  src="rl_policy", data=params)
         except Exception:
             pass
+        if self.debug is not None:
+            self.debug.event("episode_csv_started",
+                             csv=self.csv_path.name,
+                             summary=self.sum_path.name,
+                             params=params)
 
     def tick(self, t: float, state, action, q_cmd_rad, goal,
              vx_r: float, vy_r: float, max_cur: float,
@@ -719,8 +961,19 @@ class _EpisodeLog:
              mirror_on=None) -> None:
         cur = (state.servo_current.tolist()
                if state.servo_current is not None else [None] * N_JOINTS)
+        timing = dict(getattr(state, "timing", {}) or {})
         obs_cols = ([round(float(o), 4) for o in obs]
                     if obs is not None else [""] * self.obs_dim)
+        if q_cmd_rad is not None:
+            q_err = np.abs(np.asarray(state.joint_position, dtype=float)
+                           - np.asarray(q_cmd_rad, dtype=float)) * RAD2DEG
+            q_err_j = int(np.argmax(q_err)) if len(q_err) else 0
+            q_err_max = round(float(q_err[q_err_j]) if len(q_err) else 0.0, 2)
+        else:
+            q_err_j = ""
+            q_err_max = ""
+        act_abs = (round(float(np.max(np.abs(action))), 4)
+                   if action is not None else "")
         self._w.writerow(
             [round(t, 3), phase,
              round(state.imu_roll * RAD2DEG, 2),
@@ -737,7 +990,16 @@ class _EpisodeLog:
             + ["" if c is None else round(float(c), 3) for c in cur]
             + obs_cols
             + ["" if rot60_k is None else int(rot60_k),
-               "" if mirror_on is None else int(mirror_on)])
+               "" if mirror_on is None else int(mirror_on),
+               int(bool(getattr(state, "bus_ok", False))),
+               int(bool(getattr(state, "imu_ok", False))),
+               int(bool(timing.get("stale_feedback"))),
+               timing.get("stale_ticks", ""),
+               round(float(timing.get("t_pos") or 0.0) * 1000.0, 3),
+               round(float(timing.get("t_imu") or 0.0) * 1000.0, 3),
+               round(float(timing.get("t_fb") or 0.0) * 1000.0, 3),
+               round(float(timing.get("t_total") or 0.0) * 1000.0, 3),
+               q_err_max, q_err_j, act_abs])
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()
@@ -750,6 +1012,7 @@ class _EpisodeLog:
         try:
             self.sum_path.write_text(json.dumps(
                 {"started": self.started_iso, "csv": self.csv_path.name,
+                 "debug_log": self.debug.name if self.debug else None,
                  "ticks_logged": self._n, "params": self.params,
                  "result": result}, indent=1))
         except Exception:
@@ -768,34 +1031,75 @@ class _EpisodeLog:
 
 
 def _read_q_deg(bus) -> tuple[np.ndarray | None, str]:
-    pos = bus.read_all_positions()
-    if not isinstance(pos, dict):
-        return None, "bus read failed"
-    missing = [j for j in range(N_JOINTS) if j not in pos]
+    vals: list[float | None] = [None] * N_JOINTS
+    errors: list[str] = []
+    try:
+        pos = bus.read_all_positions()
+    except Exception as e:
+        pos = None
+        errors.append(str(e))
+    if isinstance(pos, dict):
+        for j, v in pos.items():
+            jj = int(j)
+            if 0 <= jj < N_JOINTS:
+                vals[jj] = float(v)
+    for j in range(N_JOINTS):
+        if vals[j] is not None:
+            continue
+        try:
+            v = bus.read_position_deg(j)
+        except Exception as e:
+            errors.append(f"j{j}: {e}")
+            v = None
+        if v is not None:
+            vals[j] = float(v)
+    missing = [j for j, v in enumerate(vals) if v is None]
     if missing:
-        return None, f"servo IDs not answering: joints {missing}"
-    return np.array([float(pos[j]) for j in range(N_JOINTS)]), ""
+        suffix = f" ({'; '.join(errors[:3])})" if errors else ""
+        return None, f"servo IDs not answering: joints {missing}{suffix}"
+    return np.array([float(v) for v in vals], dtype=float), ""
 
 
-def _expected_start_deg(mode: str) -> tuple[np.ndarray | None, str]:
+def _step_stand_final_deg() -> np.ndarray | None:
+    try:
+        data = json.loads((_HERE / "standup_modes.json").read_text())
+        q = data["modes"]["step"]["keyframes"][-1]["q_deg"]
+        if len(q) != N_JOINTS:
+            return None
+        return np.asarray(q, dtype=float)
+    except Exception:
+        return None
+
+
+def _expected_start_options_deg(
+        mode: str, *, allow_step_stand: bool = False
+        ) -> tuple[list[tuple[str, np.ndarray, float]] | None, str]:
     if mode == "stand":
         # Rise training starts belly-down at logical zero (legs straight
         # out). Partial curls were also trained, so the gate is loose.
-        return np.zeros(N_JOINTS), ""
-    # lower AND walk both start from the captured plant stance.
+        return [("logical_zero", np.zeros(N_JOINTS),
+                 STAND_START_TOL_DEG)], ""
+    # Lower and normal walk start from the simulator's normal walk reset pose,
+    # not from plant_pose.json. The saved plant is a calibration artifact;
+    # letting it redefine q_nom made the hardware drive into a too-low stance.
+    options: list[tuple[str, np.ndarray, float]] = []
     try:
-        from feetech_bus import load_plant_pose
-        plant = load_plant_pose()
-        joints = plant.get("joints_deg")
-        if joints is None or len(joints) != 18:
-            return None, ("no captured plant pose (joints_deg) — stand "
-                          "first or run capture_plant from a good stance")
-        return np.asarray(joints, dtype=float), ""
+        from rl_walk_start import walk_start_pose_degrees
+        options.append(("sim_walk_start",
+                        np.asarray(walk_start_pose_degrees(), dtype=float),
+                        WALK_START_TOL_DEG if mode == "walk"
+                        else LOWER_START_TOL_DEG))
     except Exception as e:  # pragma: no cover
-        return None, f"plant pose unavailable: {e}"
+        return None, f"sim walk start unavailable: {e}"
+    if mode == "walk" and allow_step_stand:
+        step = _step_stand_final_deg()
+        if step is not None:
+            options.append(("step_stand", step, WALK_STEP_START_TOL_DEG))
+    return options, ""
 
 
-def preflight(bus, mode: str) -> tuple[bool, str, dict]:
+def preflight(bus, mode: str, *, allow_step_stand: bool = False
+              ) -> tuple[bool, str, dict]:
     """All checks are read-only. Returns (ok, reason, details)."""
     q_deg, err = _read_q_deg(bus)
     if q_deg is None:
@@ -815,16 +1119,22 @@ def preflight(bus, mode: str) -> tuple[bool, str, dict]:
     roll = math.degrees(math.atan2(imu["ay_g"], imu["az_g"]))
     pitch = math.degrees(math.atan2(-imu["ax_g"],
                                     math.hypot(imu["ay_g"], imu["az_g"])))
-    exp, err = _expected_start_deg(mode)
-    if exp is None:
+    options, err = _expected_start_options_deg(
+        mode, allow_step_stand=allow_step_stand)
+    if options is None:
         return False, err, {}
-    dq = np.abs(q_deg - exp)
-    tol = {"stand": STAND_START_TOL_DEG,
-           "walk": WALK_START_TOL_DEG}.get(mode, LOWER_START_TOL_DEG)
+    checks = []
+    for name, exp, tol_i in options:
+        dq_i = np.abs(q_deg - exp)
+        checks.append((float(np.max(dq_i)), int(np.argmax(dq_i)),
+                       name, float(tol_i), dq_i))
+    best_delta, best_joint, best_name, best_tol, best_dq = min(
+        checks, key=lambda x: x[0])
     details = {
         "roll_deg": round(roll, 1), "pitch_deg": round(pitch, 1),
-        "max_pose_delta_deg": round(float(np.max(dq)), 1),
-        "pose_tol_deg": tol,
+        "max_pose_delta_deg": round(best_delta, 1),
+        "pose_tol_deg": best_tol,
+        "start_pose": best_name,
     }
     if mode in ("stand", "walk") and (abs(roll) > PREFLIGHT_MAX_TILT_DEG
                                       or abs(pitch) > PREFLIGHT_MAX_TILT_DEG):
@@ -846,14 +1156,198 @@ def preflight(bus, mode: str) -> tuple[bool, str, dict]:
         return False, (f"tilt too high for start "
                        f"(roll {roll:+.1f} pitch {pitch:+.1f}){hint}"
                        ), details
-    if float(np.max(dq)) > tol:
-        worst = int(np.argmax(dq))
+    if best_delta > best_tol:
+        worst = best_joint
         want = ("belly-down, legs straight out (logical zero)"
-                if mode == "stand" else "the captured standing plant")
+                if mode == "stand" else
+                "an upright sim walk start (or STEP stand)"
+                if allow_step_stand and mode == "walk"
+                else "the sim walk-ready start")
         return False, (f"pose is not {want}: joint {worst} is "
-                       f"{dq[worst]:.0f} deg from expected (tol {tol:.0f})"
+                       f"{best_dq[worst]:.0f} deg from expected "
+                       f"(tol {best_tol:.0f})"
                        ), details
     return True, "", details
+
+
+def _preflight_start_target_deg(
+        mode: str, details: dict, *,
+        allow_step_stand: bool = False
+        ) -> tuple[np.ndarray | None, str]:
+    """Return the exact pose that the accepted preflight matched."""
+    start_pose = str(details.get("start_pose") or "")
+    options, err = _expected_start_options_deg(
+        mode, allow_step_stand=allow_step_stand)
+    if options is None:
+        return None, err
+    for name, expected, _tol in options:
+        if name == start_pose:
+            return expected.copy(), ""
+    return None, f"preflight start pose {start_pose!r} no longer available"
+
+
+def _max_pose_delta_deg(q_robot_rad: np.ndarray,
+                        target_robot_rad: np.ndarray
+                        ) -> tuple[float, int]:
+    dq = np.abs((np.asarray(q_robot_rad, dtype=float)
+                 - np.asarray(target_robot_rad, dtype=float)) * RAD2DEG)
+    worst = int(np.argmax(dq)) if len(dq) else 0
+    return float(dq[worst]) if len(dq) else 0.0, worst
+
+
+def _direct_start_state(bus, target_robot: np.ndarray,
+                        refresh: dict) -> RobotState | None:
+    """Build a start RobotState from direct reads when stream snapshots stall."""
+    q_deg, err = _read_q_deg(bus)
+    if q_deg is None:
+        refresh["fallback_error"] = err
+        return None
+    try:
+        imu = bus.read_imu(apply_calib=True)
+    except Exception as e:
+        imu = None
+        refresh["fallback_imu_error"] = str(e)
+    imu_ok = isinstance(imu, dict) and "ax_g" in imu
+    if imu_ok:
+        ax = float(imu.get("ax_g", 0.0))
+        ay = float(imu.get("ay_g", 0.0))
+        az = float(imu.get("az_g", 0.0))
+        roll = math.atan2(ay, az)
+        pitch = math.atan2(-ax, math.hypot(ay, az))
+        gyro = np.array([
+            float(imu.get("gx_dps", 0.0)) * DEG2RAD,
+            float(imu.get("gy_dps", 0.0)) * DEG2RAD,
+            float(imu.get("gz_dps", 0.0)) * DEG2RAD,
+        ], dtype=float)
+        accel = np.array([ax * 9.80665, ay * 9.80665, az * 9.80665],
+                         dtype=float)
+    else:
+        roll = pitch = 0.0
+        gyro = np.zeros(3, dtype=float)
+        accel = np.zeros(3, dtype=float)
+    refresh["fallback"] = "direct_position_read"
+    return RobotState(
+        timestamp=time.monotonic(),
+        joint_position=np.asarray(q_deg, dtype=float) * DEG2RAD,
+        joint_velocity=np.zeros(N_JOINTS, dtype=float),
+        imu_roll=float(roll),
+        imu_pitch=float(pitch),
+        imu_yaw=0.0,
+        imu_gyro=gyro,
+        imu_accel=accel,
+        commanded_position=np.asarray(target_robot, dtype=float).copy(),
+        bus_ok=True,
+        imu_ok=bool(imu_ok),
+        dt=0.0,
+        timing={"fallback": "direct_position_read",
+                "stale_feedback": True},
+    )
+
+
+def _refresh_verified_start_pose(
+        bus, est: RobotStateEstimator, target_deg: np.ndarray, *,
+        timing, write_speed: int, write_acc: int, abort_check,
+        label: str, debug: _RunDebug | None = None
+        ) -> tuple[object | None, dict, str]:
+    """Actively re-hold the accepted start pose and refuse if it sags away."""
+    target_deg = np.asarray(target_deg, dtype=float)
+    target_robot = target_deg * DEG2RAD
+    refresh = {
+        "pose": label,
+        "target_deg": [round(float(x), 2) for x in target_deg],
+    }
+    speed = min(int(write_speed), DRIVE_START_REFRESH_SPEED)
+    acc = min(int(write_acc), DRIVE_START_REFRESH_ACC)
+    state_robot = None
+    if debug is not None:
+        debug.event("start_refresh_begin", pose=label, speed=speed,
+                    acc=acc, target_deg=target_deg.tolist(),
+                    duration_s=DRIVE_START_REFRESH_S)
+    try:
+        est.set_commanded(target_robot)
+        bus.write_all(target_deg.tolist(), speed=speed, acc=acc)
+    except Exception as e:
+        refresh["write_error"] = str(e)
+        if debug is not None:
+            debug.event("start_refresh_write_failed", error=str(e),
+                        refresh=refresh)
+        return None, refresh, f"start pose refresh failed: {e}"
+
+    deadline = time.monotonic() + DRIVE_START_REFRESH_S
+    snapshot_samples = 0
+    stale_samples = 0
+    while time.monotonic() < deadline:
+        if abort_check():
+            return state_robot, refresh, "aborted"
+        time.sleep(min(float(timing.policy_dt),
+                       max(0.0, deadline - time.monotonic())))
+        try:
+            sampled = est.update(want_full_feedback=False)
+        except Exception:
+            sampled = None
+        if sampled is not None and sampled.bus_ok:
+            state_robot = sampled
+            snapshot_samples += 1
+        else:
+            stale_samples += 1
+
+    try:
+        sampled = est.update(want_full_feedback=True)
+    except Exception:
+        sampled = None
+    if sampled is not None and sampled.bus_ok:
+        state_robot = sampled
+        snapshot_samples += 1
+    else:
+        stale_samples += 1
+    refresh.update({
+        "snapshot_samples": snapshot_samples,
+        "stale_samples": stale_samples,
+    })
+    if state_robot is None or not state_robot.bus_ok:
+        state_robot = _direct_start_state(bus, target_robot, refresh)
+        if debug is not None:
+            debug.event("start_refresh_fallback",
+                        refresh=refresh,
+                        state=_state_debug(state_robot,
+                                           target_robot=target_robot))
+    if state_robot is None or not state_robot.bus_ok:
+        if debug is not None:
+            debug.event("start_refresh_failed", refresh=refresh)
+        return (state_robot, refresh,
+                "feedback unavailable during start refresh")
+
+    delta, joint = _max_pose_delta_deg(state_robot.joint_position,
+                                       target_robot)
+    refresh.update({
+        "max_pose_delta_deg": round(delta, 1),
+        "worst_joint": joint,
+        "tol_deg": DRIVE_START_DRIFT_TOL_DEG,
+        "speed": speed,
+        "acc": acc,
+    })
+    if delta > DRIVE_START_DRIFT_TOL_DEG:
+        # Leave the servos actively commanded to the plant. The bug we are
+        # preventing is treating the sagged feedback pose as the new nominal.
+        try:
+            est.set_commanded(target_robot)
+            bus.write_all(target_deg.tolist(), speed=speed, acc=acc)
+        except Exception:
+            pass
+        if debug is not None:
+            debug.event("start_refresh_drift_failed",
+                        refresh=refresh,
+                        state=_state_debug(state_robot,
+                                           target_robot=target_robot))
+        return (
+            state_robot, refresh,
+            f"start pose drifted {delta:.1f} deg from {label} "
+            f"on joint {joint} during drive arming")
+    if debug is not None:
+        debug.event("start_refresh_ok", refresh=refresh,
+                    state=_state_debug(state_robot,
+                                       target_robot=target_robot))
+    return state_robot, refresh, ""
 
 
 def run_policy_move(drive, mode: str, *, on_progress=None,
@@ -862,7 +1356,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                     turn: str | None = None,
                     weights_path: Path | None = None,
                     tilt_trip_deg: float | None = None,
-                    extra_hold_s: float = 0.0) -> dict:
+                    extra_hold_s: float = 0.0,
+                    allow_step_stand_start: bool = False) -> dict:
     """Blocking policy episode. Call from a worker thread.
 
     ``drive`` is web_drive's DriveController (bus + arm state).
@@ -985,10 +1480,44 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     write_speed, write_acc = _policy_bus_profile(policy, cfg)
     inner_steps, inner_hz, inner_dt = _inner_stream_plan(
         policy, cfg, timing.policy_hz)
+    debug = _RunDebug(mode, {
+        "policy_path": str(wpath),
+        "policy_name": policy.meta.get("name"),
+        "obs_dim": policy.meta.get("obs_dim"),
+        "joint_frame": joint_frame,
+        "timing": {
+            "policy_hz": timing.policy_hz,
+            "trained_control_hz": timing.trained_control_hz,
+            "runner_config_hz": timing.runner_config_hz,
+            "adapted": timing.adapted,
+            "inner_hz": inner_hz,
+            "inner_steps": inner_steps,
+        },
+        "write_speed": write_speed,
+        "write_acc": write_acc,
+        "command": {"vx": vx, "vy": vy, "duration_s": duration_s,
+                    "turn": turn, "rot60": rot60},
+    })
 
-    ok, reason, details = preflight(bus, mode)
+    ok, reason, details = preflight(
+        bus, mode,
+        allow_step_stand=bool(allow_step_stand_start and mode == "walk"))
+    debug.event("preflight", ok=ok, reason=reason, details=details)
     if not ok:
-        return {"ok": False, "error": f"preflight: {reason}", **details}
+        return _finish_debug(
+            debug, {"ok": False, "error": f"preflight: {reason}", **details})
+    start_target_deg = None
+    if mode == "walk":
+        start_target_deg, start_err = _preflight_start_target_deg(
+            mode, details,
+            allow_step_stand=bool(allow_step_stand_start and mode == "walk"))
+        if start_target_deg is None:
+            return _finish_debug(
+                debug, {"ok": False, "error": f"preflight: {start_err}",
+                        **details})
+        debug.event("start_target_selected",
+                    start_pose=details.get("start_pose"),
+                    target_deg=start_target_deg.tolist())
 
     def limp():
         try:
@@ -1006,9 +1535,14 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             drive.gait.stop()
         except Exception:
             pass
-        if not drive.armed:
-            drive._torque_all(True)
-            drive.armed = True
+        # The cached DriveController.armed flag can survive a UI stop or
+        # controller restart while the servo torque state is actually off.
+        # Force a fresh torque-enable before RL takes ownership; otherwise
+        # the runner can log "hold" while the body physically sags.
+        _set_weight_bearing_torque(bus)
+        drive._torque_all(True)
+        drive.armed = True
+        drive.status = "rl policy armed"
 
     est = RobotStateEstimator(bus, cfg)
     safety = SafetyLayer(cfg)
@@ -1027,25 +1561,67 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         safety.max_pitch = math.radians(t_deg)
     tilt_trip_deg = round(math.degrees(safety.max_roll), 1)
 
-    # Settle reads (no motion): q_nom = the pose we actually start from,
-    # tilt reference = the attitude we actually start at (sim-identical).
-    state_robot = None
-    for _ in range(5):
-        state_robot = est.update(want_full_feedback=True)
-        time.sleep(timing.policy_dt)
-    if state_robot is None or not state_robot.bus_ok:
-        limp()
-        return {"ok": False, "error": "bus dropped during settle"}
-    q_nom_robot = state_robot.joint_position.copy()
+    # Walk policies expect the simulator's normal walk-start frame. Do not let
+    # a sag during arming become the new nominal pose.
+    if mode == "walk" and start_target_deg is not None:
+        state_robot, refresh, start_err = _refresh_verified_start_pose(
+            bus, est, start_target_deg, timing=timing,
+            write_speed=write_speed, write_acc=write_acc,
+            abort_check=abort_check, label=str(details.get("start_pose")),
+            debug=debug)
+        details["start_refresh"] = refresh
+        if start_err:
+            return _finish_debug(
+                debug, {"ok": False, "error": start_err, "held_pose": True,
+                        "limped": False, "preflight": details})
+        q_nom_robot = np.asarray(start_target_deg, dtype=float) * DEG2RAD
+    else:
+        # Stance/lower policies still use the exact pose they start from.
+        state_robot = None
+        for _ in range(5):
+            state_robot = est.update(want_full_feedback=True)
+            time.sleep(timing.policy_dt)
+        if state_robot is None or not state_robot.bus_ok:
+            limp()
+            return {"ok": False, "error": "bus dropped during settle"}
+        q_nom_robot = state_robot.joint_position.copy()
     q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
     est.set_commanded(q_nom_robot)
     bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
     last_q_robot_cmd = q_nom_robot.copy()
     est.reset_episode_filters()
+    warmup_good = 0
+    warmup_stale = 0
     for _ in range(3):
-        state_robot = est.update()
+        try:
+            sampled = est.update(want_full_feedback=False)
+        except Exception:
+            sampled = None
+        if sampled is not None and sampled.bus_ok:
+            state_robot = sampled
+            warmup_good += 1
+        else:
+            warmup_stale += 1
         time.sleep(timing.policy_dt)
+    if state_robot is None or not state_robot.bus_ok:
+        warmup_refresh: dict = {}
+        state_robot = _direct_start_state(bus, q_nom_robot, warmup_refresh)
+        if state_robot is None:
+            return _finish_debug(
+                debug, {"ok": False,
+                        "error": "feedback unavailable during start warmup",
+                        "preflight": details,
+                        "start_warmup": warmup_refresh})
+        details["start_warmup_fallback"] = warmup_refresh
+    if warmup_stale:
+        details["start_warmup"] = {
+            "snapshot_samples": warmup_good,
+            "stale_samples": warmup_stale,
+        }
+    debug.event("start_warmup_done", state=_state_debug(state_robot),
+                warmup=details.get("start_warmup"),
+                fallback=details.get("start_warmup_fallback"))
     state = _state_for_policy_frame(state_robot, joint_frame)
     tilt_ref0 = (state.imu_roll, state.imu_pitch)
     safety.set_nominal(q_nom)
@@ -1061,6 +1637,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     t_next = time.monotonic()
     result: dict = {"ok": True, "mode": mode,
                     "policy_joint_frame": joint_frame}
+    last_good_stream_state = state_robot
+    stale_stream_ticks = 0
+    stale_stream_samples = 0
+    max_stale_stream_ticks_seen = 0
+    stale_stream_bursts = 0
+    first_stale_at_s: float | None = None
+    last_stale_at_s: float | None = None
     elog = _EpisodeLog(mode, obs_dim=int(policy.meta.get("obs_dim", 0)),
                        params={
         "mode": mode, "total_s": round(total_s, 1),
@@ -1080,12 +1663,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
         "tilt_trip_deg": tilt_trip_deg,
+        "debug_log": debug.name,
         "preflight": details,
         **({"vx": round(vx, 3), "vy": round(vy, 3),
             "rot60": canon is not None,
             **({"turn": turn} if turn else {})}
            if mode == "walk" else {}),
-    })
+    }, debug=debug)
 
     phase = 0.0        # walk phase clock (obs-74/93 policies only)
     phase_run_on_yaw = bool(float(policy.meta.get("walk_phase_run_on_yaw",
@@ -1145,24 +1729,69 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
         if action is None:
             limp()
+            debug.event("bad_action", tick=i, t_s=t, error=bad,
+                        obs_len=len(obs), state=_state_debug(state))
             result.update(ok=False, error=f"bad action: {bad}", ticks=i)
             break
         q_prop = _CENTER_RAD + action * _HALF_RAD
         q_safe, status = safety.filter(q_prop, state, action=action)
         if status.terminate:
             limp()
+            debug.event("safety_trip", tick=i, t_s=t,
+                        reason=status.reason, detail=status.detail,
+                        held=status.held, state=_state_debug(state),
+                        q_prop_deg=[round(float(x) * RAD2DEG, 2)
+                                    for x in q_prop],
+                        q_safe_deg=[round(float(x) * RAD2DEG, 2)
+                                    for x in q_safe])
             result.update(ok=False, error=f"safety trip: {status.reason}"
                           + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
         q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
-        state_robot, t_next, extra_overruns, stream_err = _stream_target(
+        prev_stale_ticks = stale_stream_ticks
+        (state_robot, t_next, extra_overruns, stream_err,
+         stale_stream_ticks, stale_added) = _stream_target(
             bus, est, last_q_robot_cmd, q_robot_cmd,
             t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
             write_speed=write_speed, write_acc=write_acc,
-            abort_check=abort_check)
+            abort_check=abort_check,
+            last_good_state=last_good_stream_state,
+            stale_ticks=stale_stream_ticks,
+            max_stale_ticks=DRIVE_STREAM_STALE_TICKS)
         overruns += extra_overruns
+        stale_stream_samples += stale_added
+        if stale_added:
+            burst_peak = max(prev_stale_ticks + stale_added,
+                             stale_stream_ticks)
+            max_stale_stream_ticks_seen = max(
+                max_stale_stream_ticks_seen, burst_peak)
+            last_stale_at_s = t
+            if first_stale_at_s is None:
+                first_stale_at_s = t
+            if prev_stale_ticks == 0:
+                stale_stream_bursts += 1
+                debug.event("stream_feedback_stale_begin", tick=i, t_s=t,
+                            stale_added=stale_added,
+                            stale_ticks=stale_stream_ticks,
+                            state=_state_debug(state_robot,
+                                               q_cmd_rad=q_robot_cmd))
+            if stale_stream_ticks == 0:
+                debug.event("stream_feedback_recovered", tick=i, t_s=t,
+                            previous_stale_ticks=burst_peak,
+                            state=_state_debug(state_robot,
+                                               q_cmd_rad=q_robot_cmd))
+        elif prev_stale_ticks > 0 and stale_stream_ticks == 0:
+            debug.event("stream_feedback_recovered", tick=i, t_s=t,
+                        previous_stale_ticks=prev_stale_ticks,
+                        state=_state_debug(state_robot,
+                                           q_cmd_rad=q_robot_cmd))
         if stream_err:
+            debug.event("stream_error", tick=i, t_s=t, error=stream_err,
+                        stale_ticks=stale_stream_ticks,
+                        stale_samples=stale_stream_samples,
+                        state=_state_debug(state_robot,
+                                           q_cmd_rad=q_robot_cmd))
             if stream_err == "aborted":
                 result.update(ok=False, error="aborted",
                               held_pose=True, ticks=i)
@@ -1173,6 +1802,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             break
         last_q_robot_cmd = q_robot_cmd.copy()
         prev_action = action.copy()
+        if not _stream_state_is_stale(state_robot):
+            last_good_stream_state = state_robot
         state = _state_for_policy_frame(state_robot, joint_frame)
         if state.servo_current is not None:
             max_cur = max(max_cur,
@@ -1215,6 +1846,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                 "pitch_deg": round((state.imu_pitch - tilt_ref0[1])
                                    * RAD2DEG, 2),
                 "max_current_a": round(max_cur, 2),
+                "stale_stream_ticks": stale_stream_ticks,
+                "stale_stream_samples": stale_stream_samples,
                 "overruns": overruns,
             })
     else:
@@ -1270,6 +1903,15 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         max_delta_q_deg=round(max_dq_deg, 4),
         max_delta_q_deg_explicit=max_dq_explicit,
         write_speed=write_speed, write_acc=write_acc,
+        stale_stream_samples=stale_stream_samples,
+        stale_stream_ticks=stale_stream_ticks,
+        stale_stream_bursts=stale_stream_bursts,
+        max_stale_stream_ticks_seen=max_stale_stream_ticks_seen,
+        first_stale_stream_at_s=(round(first_stale_at_s, 3)
+                                 if first_stale_at_s is not None else None),
+        last_stale_stream_at_s=(round(last_stale_at_s, 3)
+                                if last_stale_at_s is not None else None),
+        max_stale_stream_ticks=DRIVE_STREAM_STALE_TICKS,
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         # Attitude bookkeeping, all relative to the episode tilt ref:
@@ -1289,14 +1931,18 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         # post-episode fall detector.
         fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
     )
+    debug.attach(result)
     result["log"] = elog.close(result)
+    debug.event("episode_complete", result=result)
+    debug.close(result)
     return result
 
 
 def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                       abort_check=None, rot60: bool = True,
                       walk_weights: Path | None = None,
-                      hold_weights: Path | None = None) -> dict:
+                      hold_weights: Path | None = None,
+                      allow_step_stand_start: bool = False) -> dict:
     """Blocking persistent drive session (MuJoCo-viewer-style driving).
 
     Same conventions as run_policy_move mode="walk" — plant-stance
@@ -1307,12 +1953,14 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     ramp rate (0 -> full band in WALK_RAMP_S), so a key press feels
     like the training ramp and a release decays to the trained stop.
 
-    Hold model: with ``hold_weights=None`` the walk policy itself
-    holds at zero refs (its trained stop). A separate hold policy
-    (obs 68 stance at height_ref 0, or another obs-72 walk file at
-    zero refs) takes over after DRIVE_HOLD_SWITCH_S of zero command;
-    any new command flips back to walk instantly. Every model switch
-    re-anchors the episode frame (q_nom := present pose,
+    Hold model: with ``hold_weights=None`` the session uses a built-in
+    direct joint hold of the last safe commanded pose. This intentionally
+    does NOT call the walk policy at zero refs: deployed walk champions
+    can produce saturated gait actions at neutral joystick because zero
+    speed was outside their useful hardware contract. A separate hold
+    policy (obs 68 stance at height_ref 0, or another obs-72/74/93 file
+    trained to stand still at zero refs) can take over instead. Every
+    model switch re-anchors the episode frame (q_nom := present pose,
     prev_action := 0) — the same episode re-anchor the sim viewer's
     play.py does on policy handoff.
 
@@ -1380,6 +2028,25 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     write_speed, write_acc = _policy_bus_profile(walk_policy, cfg)
     inner_steps, inner_hz, inner_dt = _inner_stream_plan(
         walk_policy, cfg, timing.policy_hz)
+    debug = _RunDebug("drive", {
+        "walk_policy_path": str(wpath),
+        "walk_policy_name": walk_policy.meta.get("name"),
+        "walk_obs_dim": walk_obs,
+        "hold_policy_path": str(hold_weights) if hold_weights else None,
+        "hold_obs_dim": hold_obs,
+        "joint_frame": joint_frame,
+        "timing": {
+            "policy_hz": timing.policy_hz,
+            "trained_control_hz": timing.trained_control_hz,
+            "runner_config_hz": timing.runner_config_hz,
+            "adapted": timing.adapted,
+            "inner_hz": inner_hz,
+            "inner_steps": inner_steps,
+        },
+        "write_speed": write_speed,
+        "write_acc": write_acc,
+        "rot60": rot60,
+    })
 
     canon = (make_walk_canonicalizer(walk_policy, cfg)
              if rot60 and walk_obs == 72 else None)
@@ -1390,13 +2057,26 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         # Without the canonicalizer only the trained forward wedge is
         # safe; a live joystick can't be trusted to stay inside it.
         # (obs-74 phase policies trained all headings — naked is fine.)
-        return {"ok": False,
-                "error": ("drive session needs the rot-60 canonicalizer "
-                          "(rl_move/sim/rot60.py not deployed)")}
+        return _finish_debug(
+            debug, {"ok": False,
+                    "error": ("drive session needs the rot-60 canonicalizer "
+                              "(rl_move/sim/rot60.py not deployed)")})
 
-    ok, reason, details = preflight(bus, "walk")
+    ok, reason, details = preflight(
+        bus, "walk", allow_step_stand=bool(allow_step_stand_start))
+    debug.event("preflight", ok=ok, reason=reason, details=details)
     if not ok:
-        return {"ok": False, "error": f"preflight: {reason}", **details}
+        return _finish_debug(
+            debug, {"ok": False, "error": f"preflight: {reason}", **details})
+    start_target_deg, start_err = _preflight_start_target_deg(
+        "walk", details, allow_step_stand=bool(allow_step_stand_start))
+    if start_target_deg is None:
+        return _finish_debug(
+            debug, {"ok": False, "error": f"preflight: {start_err}",
+                    **details})
+    debug.event("start_target_selected",
+                start_pose=details.get("start_pose"),
+                target_deg=start_target_deg.tolist())
 
     def limp():
         try:
@@ -1407,15 +2087,69 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             except Exception:
                 pass
 
+    def hold_current_pose_after_stream_loss(
+            fallback_robot: np.ndarray) -> bool:
+        """Keep a weight-bearing walk from turning one bus miss into a drop."""
+        debug.event("hold_after_stream_loss_begin",
+                    fallback_deg=[round(float(x) * RAD2DEG, 2)
+                                  for x in fallback_robot])
+        try:
+            _set_weight_bearing_torque(bus)
+            drive._torque_all(True)
+            drive.armed = True
+        except Exception:
+            pass
+
+        pose = None
+        for _ in range(5):
+            try:
+                sampled = est.update(want_full_feedback=True)
+            except Exception:
+                sampled = None
+            if sampled is not None and sampled.bus_ok:
+                pose = sampled.joint_position.copy()
+                debug.event("hold_after_stream_loss_sampled",
+                            state=_state_debug(sampled))
+                break
+            time.sleep(min(0.05, timing.policy_dt))
+        if pose is None:
+            pose = np.asarray(fallback_robot, dtype=float).copy()
+
+        try:
+            est.set_commanded(pose)
+            bus.write_all((pose * RAD2DEG).tolist(), speed=write_speed,
+                          acc=write_acc)
+            with drive._lock:
+                drive.status = "rl drive holding after stream loss"
+            debug.event("hold_after_stream_loss_ok",
+                        pose_deg=[round(float(x) * RAD2DEG, 2)
+                                  for x in pose])
+            return True
+        except Exception:
+            # If the half-duplex bus is still recovering, the least bad
+            # weight-bearing choice is to leave torque enabled instead of
+            # limping the whole body onto the floor.
+            try:
+                _set_weight_bearing_torque(bus)
+                drive._torque_all(True)
+            except Exception:
+                pass
+            debug.event("hold_after_stream_loss_write_failed")
+            return False
+
     with drive._lock:
         drive.mode = "demo"
         try:
             drive.gait.stop()
         except Exception:
             pass
-        if not drive.armed:
-            drive._torque_all(True)
-            drive.armed = True
+        # Do not trust the cached armed flag here. A stale True with actual
+        # torque disabled lets joint-hold command start pose at ~0A, which
+        # looks like a slow/drop fall when Start Driving is pressed.
+        _set_weight_bearing_torque(bus)
+        drive._torque_all(True)
+        drive.armed = True
+        drive.status = "rl drive armed"
 
     est = RobotStateEstimator(bus, cfg)
     safety = SafetyLayer(cfg)
@@ -1424,23 +2158,57 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     safety.max_roll = math.radians(WALK_MAX_TILT_DEG)
     safety.max_pitch = math.radians(WALK_MAX_TILT_DEG)
 
-    state_robot = None
-    for _ in range(5):
-        state_robot = est.update(want_full_feedback=True)
-        time.sleep(timing.policy_dt)
-    if state_robot is None or not state_robot.bus_ok:
-        limp()
-        return {"ok": False, "error": "bus dropped during settle"}
-    q_nom_robot = state_robot.joint_position.copy()
+    state_robot, refresh, start_err = _refresh_verified_start_pose(
+        bus, est, start_target_deg, timing=timing,
+        write_speed=write_speed, write_acc=write_acc,
+        abort_check=abort_check, label=str(details.get("start_pose")),
+        debug=debug)
+    details["start_refresh"] = refresh
+    if start_err:
+        return _finish_debug(
+            debug, {"ok": False, "error": start_err, "held_pose": True,
+                    "limped": False, "preflight": details})
+    q_nom_robot = np.asarray(start_target_deg, dtype=float) * DEG2RAD
     q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
     est.set_commanded(q_nom_robot)
     bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
     last_q_robot_cmd = q_nom_robot.copy()
+    last_q_policy_cmd = q_nom.copy()
     est.reset_episode_filters()
+    warmup_good = 0
+    warmup_stale = 0
     for _ in range(3):
-        state_robot = est.update()
+        try:
+            sampled = est.update(want_full_feedback=False)
+        except Exception:
+            sampled = None
+        if sampled is not None and sampled.bus_ok:
+            state_robot = sampled
+            warmup_good += 1
+        else:
+            warmup_stale += 1
         time.sleep(timing.policy_dt)
+    if state_robot is None or not state_robot.bus_ok:
+        warmup_refresh: dict = {}
+        state_robot = _direct_start_state(bus, q_nom_robot, warmup_refresh)
+        if state_robot is None:
+            return _finish_debug(
+                debug, {"ok": False,
+                        "error": "feedback unavailable during start warmup",
+                        "held_pose": True,
+                        "limped": False,
+                        "preflight": details,
+                        "start_warmup": warmup_refresh})
+        details["start_warmup_fallback"] = warmup_refresh
+    if warmup_stale:
+        details["start_warmup"] = {
+            "snapshot_samples": warmup_good,
+            "stale_samples": warmup_stale,
+        }
+    debug.event("start_warmup_done", state=_state_debug(state_robot),
+                warmup=details.get("start_warmup"),
+                fallback=details.get("start_warmup_fallback"))
     state = _state_for_policy_frame(state_robot, joint_frame)
     tilt_ref0 = (state.imu_roll, state.imu_pitch)
     safety.set_nominal(q_nom)
@@ -1453,7 +2221,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     phase_run_on_yaw = bool(float(walk_policy.meta.get(
         "walk_phase_run_on_yaw", 0.0)))
     dv_max = WALK_SPEED_MAX * timing.policy_dt / WALK_RAMP_S
-    active = "walk"
+    active = "hold"
+    walk_cmd_since: float | None = None
+    walk_active_since: float | None = None
     zero_since = 0.0            # session time when refs+target went zero
     stopping = None             # reason string once winding down
     overruns = 0
@@ -1462,8 +2232,16 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     t = 0.0
     i = 0
     t_next = time.monotonic()
+    last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
     result: dict = {"ok": True, "mode": "drive",
                     "policy_joint_frame": joint_frame}
+    last_good_stream_state = state_robot
+    stale_stream_ticks = 0
+    stale_stream_samples = 0
+    max_stale_stream_ticks_seen = 0
+    stale_stream_bursts = 0
+    first_stale_at_s: float | None = None
+    last_stale_at_s: float | None = None
     elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
         "mode": "drive", "hz": timing.policy_hz,
         "policy_hz": timing.policy_hz,
@@ -1478,20 +2256,53 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         "policy": dict(walk_policy.meta),
         "hold_policy": (dict(hold_policy.meta)
                         if hold_policy is not None else None),
+        "hold_strategy": ("learned_policy"
+                          if hold_policy is not None else "joint_hold"),
         "policy_joint_frame": joint_frame,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
         "tilt_trip_deg": WALK_MAX_TILT_DEG,
+        "debug_log": debug.name,
         "preflight": details, "rot60": canon is not None,
-    })
+    }, debug=debug)
 
     def reanchor():
         """Episode re-anchor on model switch (q frame + prev_action)."""
-        nonlocal q_nom, prev_action
+        nonlocal q_nom, prev_action, last_q_robot_cmd, last_q_policy_cmd
         q_nom = state.joint_position.copy()
         safety.set_nominal(q_nom)
         prev_action = np.zeros(N_JOINTS, dtype=float)
+        last_q_policy_cmd = q_nom.copy()
+        if state_robot is not None:
+            last_q_robot_cmd = state_robot.joint_position.copy()
+
+    def sample_hold_tick() -> tuple[object | None, float, int, str]:
+        """Wait one policy tick and read state without writing targets."""
+        nonlocal t_next
+        if abort_check():
+            return state_robot, t_next, 0, "aborted"
+        t_next += timing.policy_dt
+        lag = time.monotonic() - t_next
+        overruns_tick = 0
+        if lag > 0:
+            overruns_tick = 1
+            t_next = time.monotonic()
+        else:
+            time.sleep(-lag)
+        sampled = None
+        for attempt in range(4):
+            sampled = est.update()
+            if sampled is not None and sampled.bus_ok:
+                return sampled, t_next, overruns_tick, ""
+            if abort_check():
+                return state_robot, t_next, overruns_tick, "aborted"
+            # Snapshot reads can miss a beat while the MCU is recovering
+            # from a previous stream/glide. In joint-hold mode the servos
+            # already have a safe target, so retry briefly instead of
+            # converting one telemetry miss into an emergency limp.
+            time.sleep(min(0.02, timing.policy_dt * 0.5))
+        return sampled, t_next, overruns_tick, "feedback lost during hold"
 
     while True:
         if abort_check():
@@ -1508,28 +2319,56 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             stopping = f"session cap {DRIVE_MAX_SESSION_S:.0f}s reached"
         if stopping is not None or hb_age > DRIVE_CMD_TIMEOUT_S:
             vx_t = vy_t = wz_t = 0.0
-        # Slew refs toward the target at the trained ramp rate.
-        vx_r += max(-dv_max, min(dv_max, vx_t - vx_r))
-        vy_r += max(-dv_max, min(dv_max, vy_t - vy_r))
-        moving = (math.hypot(vx_r, vy_r) > 1e-4
-                  or math.hypot(vx_t, vy_t) > 0
-                  or abs(wz_t) > 1e-4)
+        vx_t, vy_t = _drive_clamp_translation(vx_t, vy_t)
+        moving_requested = _drive_command_is_moving(
+            vx_t, vy_t, wz_t, int(walk_obs))
+        if moving_requested:
+            if walk_cmd_since is None:
+                walk_cmd_since = t
+            moving = (active == "walk"
+                      or (t - walk_cmd_since) >= DRIVE_WALK_ENGAGE_S)
+        else:
+            walk_cmd_since = None
+            moving = False
         if stopping is not None and not moving:
             # Graceful end: refs decayed to zero, robot HOLDS the pose.
             result.update(ticks=i, ended=stopping)
             break
 
-        # Hold-model handoff (only when a separate hold policy is set).
-        if hold_policy is not None:
-            if moving:
-                zero_since = t
-                if active != "walk":
-                    active = "walk"
-                    reanchor()
-            elif (active == "walk"
-                  and t - zero_since >= DRIVE_HOLD_SWITCH_S):
-                active = "hold"
+        if moving:
+            zero_since = t
+            if active != "walk":
+                prev_active = active
+                active = "walk"
+                walk_active_since = t
                 reanchor()
+                debug.event("drive_model_switch", tick=i, t_s=t,
+                            from_model=prev_active, to_model=active,
+                            vx_cmd=vx_t, vy_cmd=vy_t, wz_cmd=wz_t,
+                            state=_state_debug(state_robot))
+                # Engage inside the policy's trained command band on the
+                # first walk tick. The safety layer still rate-limits joint
+                # motion; this only prevents feeding the actor a 0.002 m/s
+                # ramp value it was never meant to interpret.
+                vx_r, vy_r = vx_t, vy_t
+            else:
+                # Slew refs toward the target at the trained ramp rate, then
+                # keep the nonzero ref inside the trained band.
+                vx_r += max(-dv_max, min(dv_max, vx_t - vx_r))
+                vy_r += max(-dv_max, min(dv_max, vy_t - vy_r))
+                vx_r, vy_r = _drive_clamp_translation(vx_r, vy_r)
+        elif active == "walk":
+            prev_active = active
+            vx_r = vy_r = 0.0
+            active = "hold"
+            walk_active_since = None
+            reanchor()
+            last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
+            debug.event("drive_model_switch", tick=i, t_s=t,
+                        from_model=prev_active, to_model=active,
+                        state=_state_debug(state_robot))
+        else:
+            vx_r = vy_r = 0.0
 
         goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0, height_ref=0.0,
                         unload_leg=None)
@@ -1537,59 +2376,154 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                              tilt_ref=tilt_ref0)
         need_obs = walk_obs if active == "walk" else hold_obs
         wz_r = wz_t if active == "walk" else 0.0
-        if need_obs in WALK_OBS_DIMS:
-            obs = np.concatenate(
-                [base_obs, _walk_obs_tail(need_obs, vx_r, vy_r,
-                                          phase, wz_r)]
-            ).astype(np.float32)
-            if active == "walk":
-                raw_act, _ = (canon.predict(obs) if canon is not None
-                              else (walk_policy.act(obs), None))
-            else:
-                raw_act, _ = (hold_canon.predict(obs)
-                              if hold_canon is not None
-                              else (hold_policy.act(obs), None))
-        else:   # 68-obs stance hold at height_ref 0
-            obs = base_obs
-            raw_act = hold_policy.act(obs)
-        # Phase clock advance (obs-74/93 policies): after obs, gated on a
-        # live command ref. obs-93 AMP policies may also advance on yaw.
-        if _walk_phase_runs(walk_obs, vx_r, vy_r, wz_r,
-                            phase_run_on_yaw=phase_run_on_yaw):
-            phase = (phase + 2.0 * math.pi * phase_hz
-                     * timing.policy_dt) \
-                % (2.0 * math.pi)
-        action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
-        if action is None:
-            limp()
-            result.update(ok=False, error=f"bad action: {bad}", ticks=i)
-            break
-        q_prop = _CENTER_RAD + action * _HALF_RAD
+        obs = None
+        action = None
+        if _drive_uses_learned_policy(active, hold_policy):
+            if need_obs in WALK_OBS_DIMS:
+                obs = np.concatenate(
+                    [base_obs, _walk_obs_tail(need_obs, vx_r, vy_r,
+                                              phase, wz_r)]
+                ).astype(np.float32)
+                if active == "walk":
+                    raw_act, _ = (canon.predict(obs) if canon is not None
+                                  else (walk_policy.act(obs), None))
+                else:
+                    raw_act, _ = (hold_canon.predict(obs)
+                                  if hold_canon is not None
+                                  else (hold_policy.act(obs), None))
+            else:   # 68-obs stance hold at height_ref 0
+                obs = base_obs
+                raw_act = hold_policy.act(obs)
+            # Phase clock advance (obs-74/93 policies): after obs, gated on a
+            # live command ref. obs-93 AMP policies may also advance on yaw.
+            if _walk_phase_runs(walk_obs, vx_r, vy_r, wz_r,
+                                phase_run_on_yaw=phase_run_on_yaw):
+                phase = (phase + 2.0 * math.pi * phase_hz
+                         * timing.policy_dt) \
+                    % (2.0 * math.pi)
+            action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
+            if action is None:
+                limp()
+                debug.event("bad_action", tick=i, t_s=t, active=active,
+                            error=bad, obs_len=len(obs),
+                            state=_state_debug(state))
+                result.update(ok=False, error=f"bad action: {bad}", ticks=i)
+                break
+            q_prop = _CENTER_RAD + action * _HALF_RAD
+            if (active == "walk" and walk_active_since is not None
+                    and DRIVE_WALK_ACTION_RAMP_S > 0.0):
+                alpha = min(1.0, max(
+                    0.0, (t - walk_active_since)
+                    / DRIVE_WALK_ACTION_RAMP_S))
+                q_prop = last_q_policy_cmd + alpha * (
+                    q_prop - last_q_policy_cmd)
+        else:
+            q_prop = last_q_policy_cmd.copy()
         q_safe, status = safety.filter(q_prop, state, action=action)
         if status.terminate:
             limp()
+            debug.event("safety_trip", tick=i, t_s=t, active=active,
+                        reason=status.reason, detail=status.detail,
+                        held=status.held, state=_state_debug(state),
+                        q_prop_deg=[round(float(x) * RAD2DEG, 2)
+                                    for x in q_prop],
+                        q_safe_deg=[round(float(x) * RAD2DEG, 2)
+                                    for x in q_safe])
             result.update(ok=False, error=f"safety trip: {status.reason}"
                           + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
         q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
-        state_robot, t_next, extra_overruns, stream_err = _stream_target(
-            bus, est, last_q_robot_cmd, q_robot_cmd,
-            t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
-            write_speed=write_speed, write_acc=write_acc,
-            abort_check=abort_check)
+        prev_stale_ticks = stale_stream_ticks
+        if _drive_uses_learned_policy(active, hold_policy):
+            (state_robot, t_next, extra_overruns, stream_err,
+             stale_stream_ticks, stale_added) = _stream_target(
+                bus, est, last_q_robot_cmd, q_robot_cmd,
+                t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
+                write_speed=write_speed, write_acc=write_acc,
+                abort_check=abort_check,
+                last_good_state=last_good_stream_state,
+                stale_ticks=stale_stream_ticks,
+                max_stale_ticks=DRIVE_STREAM_STALE_TICKS)
+        else:
+            est.set_commanded(q_robot_cmd)
+            stream_err = ""
+            if t - last_hold_refresh_t >= DRIVE_HOLD_REFRESH_S:
+                try:
+                    bus.write_all((q_robot_cmd * RAD2DEG).tolist(),
+                                  speed=write_speed, acc=write_acc)
+                    last_hold_refresh_t = t
+                except Exception as e:
+                    stream_err = f"hold write failed: {e}"
+            if stream_err:
+                extra_overruns = 0
+                stale_added = 0
+            else:
+                state_robot, t_next, extra_overruns, stream_err = (
+                    sample_hold_tick())
+                stale_added = 0
         overruns += extra_overruns
+        stale_stream_samples += stale_added
+        if stale_added:
+            burst_peak = max(prev_stale_ticks + stale_added,
+                             stale_stream_ticks)
+            max_stale_stream_ticks_seen = max(
+                max_stale_stream_ticks_seen, burst_peak)
+            last_stale_at_s = t
+            if first_stale_at_s is None:
+                first_stale_at_s = t
+            if prev_stale_ticks == 0:
+                stale_stream_bursts += 1
+                debug.event("stream_feedback_stale_begin", tick=i, t_s=t,
+                            active=active, stale_added=stale_added,
+                            stale_ticks=stale_stream_ticks,
+                            state=_state_debug(state_robot,
+                                               q_cmd_rad=q_robot_cmd))
+            if stale_stream_ticks == 0:
+                debug.event("stream_feedback_recovered", tick=i, t_s=t,
+                            active=active,
+                            previous_stale_ticks=burst_peak,
+                            state=_state_debug(state_robot,
+                                               q_cmd_rad=q_robot_cmd))
+        elif prev_stale_ticks > 0 and stale_stream_ticks == 0:
+            debug.event("stream_feedback_recovered", tick=i, t_s=t,
+                        active=active,
+                        previous_stale_ticks=prev_stale_ticks,
+                        state=_state_debug(state_robot,
+                                           q_cmd_rad=q_robot_cmd))
         if stream_err:
+            debug.event("stream_error", tick=i, t_s=t, active=active,
+                        error=stream_err,
+                        stale_ticks=stale_stream_ticks,
+                        stale_samples=stale_stream_samples,
+                        state=_state_debug(state_robot,
+                                           q_cmd_rad=q_robot_cmd))
             if stream_err == "aborted":
                 result.update(ok=False, error="aborted",
                               held_pose=True, ticks=i)
+            elif (stream_err == "feedback lost during hold"
+                  and not _drive_uses_learned_policy(active, hold_policy)):
+                result.update(ok=False, error=stream_err,
+                              held_pose=True, ticks=i)
+            elif (stream_err == "feedback stale during stream"
+                  and active == "walk"):
+                held = hold_current_pose_after_stream_loss(last_q_robot_cmd)
+                result.update(
+                    ok=False,
+                    error=(stream_err + ("; held current pose" if held
+                                         else "; torque left enabled")),
+                    held_pose=held, limped=False, ticks=i)
             else:
                 limp()
                 result.update(ok=False, error=stream_err,
                               limped=True, ticks=i)
             break
         last_q_robot_cmd = q_robot_cmd.copy()
-        prev_action = action.copy()
+        last_q_policy_cmd = q_safe.copy()
+        if action is not None:
+            prev_action = action.copy()
+        if not _stream_state_is_stale(state_robot):
+            last_good_stream_state = state_robot
         state = _state_for_policy_frame(state_robot, joint_frame)
         if state.servo_current is not None:
             max_cur = max(max_cur,
@@ -1601,29 +2535,36 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         # Hold-68 obs would misalign the fixed walk-wide obs columns —
         # blank them for those ticks (walk replay parity is what the
         # offline contract needs).
+        obs_for_log = (obs if obs is not None and len(obs) == elog.obs_dim
+                       else None)
+        display_active = ("arming" if moving_requested and not moving
+                          and stopping is None else active)
         elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
-                  obs=(obs if len(obs) == elog.obs_dim else None),
-                  phase=("stopping" if stopping else active),
+                  obs=obs_for_log,
+                  phase=("stopping" if stopping else display_active),
                   rot60_k=(canon.k if canon is not None
                            and active == "walk" else None))
         snap = {
-            "t_s": round(t, 1), "model": active,
+            "t_s": round(t, 1), "model": display_active,
             "vx_ref": round(vx_r, 3), "vy_ref": round(vy_r, 3),
             "wz_ref": round(wz_r, 3),
             "vx_cmd": round(vx_t, 3), "vy_cmd": round(vy_t, 3),
             "wz_cmd": round(wz_t, 3),
+            "walk_arming": bool(moving_requested and not moving),
             "roll_deg": round((state.imu_roll - tilt_ref0[0]) * RAD2DEG,
                               1),
             "pitch_deg": round((state.imu_pitch - tilt_ref0[1])
                                * RAD2DEG, 1),
             "max_current_a": round(max_cur, 2),
+            "stale_stream_ticks": stale_stream_ticks,
+            "stale_stream_samples": stale_stream_samples,
             "rot60_k": canon.k if canon is not None else None,
             "stopping": stopping, "overruns": overruns,
         }
         cmd.publish(snap)
         if i % 5 == 0:
             on_progress({
-                "msg": (f"drive {active} t={t:5.1f}s "
+                "msg": (f"drive {display_active} t={t:5.1f}s "
                         f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s "
                         f"wz={wz_r:+.2f}rad/s "
                         f"maxI={max_cur:.2f}A"
@@ -1663,6 +2604,15 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         max_delta_q_deg=round(max_dq_deg, 4),
         max_delta_q_deg_explicit=max_dq_explicit,
         write_speed=write_speed, write_acc=write_acc,
+        stale_stream_samples=stale_stream_samples,
+        stale_stream_ticks=stale_stream_ticks,
+        stale_stream_bursts=stale_stream_bursts,
+        max_stale_stream_ticks_seen=max_stale_stream_ticks_seen,
+        first_stale_stream_at_s=(round(first_stale_at_s, 3)
+                                 if first_stale_at_s is not None else None),
+        last_stale_stream_at_s=(round(last_stale_at_s, 3)
+                                if last_stale_at_s is not None else None),
+        max_stale_stream_ticks=DRIVE_STREAM_STALE_TICKS,
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         tilt_rel_max_deg=round(tilt_rel_max, 1),
@@ -1670,5 +2620,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         tail_tilt_max_deg=round(tail_tilt_max, 1),
         fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
     )
+    debug.attach(result)
     result["log"] = elog.close(result)
+    debug.event("episode_complete", result=result)
+    debug.close(result)
     return result

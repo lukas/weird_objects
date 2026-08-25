@@ -1701,6 +1701,19 @@ def main(argv: list[str] | None = None) -> int:
                          "MJX-vs-C behavioral A/B — the eval env is real "
                          "C physics. Default is 5x the campaign's 200k "
                          "because MJX runs ~10x the steps/s.")
+    ap.add_argument("--periodic-start-jitter-panel",
+                    action=argparse.BooleanOptionalAction, default=True,
+                    help="log separate eval/walk_startjitter metrics with "
+                         "explicit reset.* start-pose jitter")
+    ap.add_argument("--periodic-start-jitter-deg", type=float, default=3.0)
+    ap.add_argument("--periodic-start-jitter-bad-prob", type=float,
+                    default=0.25)
+    ap.add_argument("--periodic-start-jitter-bad-max-joints", type=int,
+                    default=1)
+    ap.add_argument("--periodic-start-jitter-bad-deg-min", type=float,
+                    default=8.0)
+    ap.add_argument("--periodic-start-jitter-bad-deg-max", type=float,
+                    default=16.0)
     ap.add_argument("--video-every", type=int, default=2_000_000,
                     help="background telemetry-overlay video reel every "
                          "N steps (0 = off); rendered on a C-MuJoCo env")

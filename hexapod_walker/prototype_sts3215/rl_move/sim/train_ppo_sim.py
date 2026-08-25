@@ -1197,6 +1197,56 @@ def _run_periodic_eval(env, act, args, env_cls, step,
     rnd = getattr(env, "randomizer", None)
     tip_mode = ("walk" if "walk" in modes
                 else "hold" if "hold" in modes else None)
+    # Explicit near-start robustness panel. Broad DR already jitters
+    # start pose during normal randomized training/eval, but logging this
+    # named panel makes brittleness visible even when the headline
+    # walk metric is kept comparable. Uses reset.* so it can operate at
+    # DR0 without mass/friction/latency/sensor perturbations.
+    if gen is not None and "walk" in modes and getattr(
+            args, "periodic_start_jitter_panel", True):
+        for attr in [a for a in vars(gen) if a.startswith("p_")]:
+            setattr(gen, attr, 0.0)
+        setattr(gen, "p_walk", 1.0)
+        reset_cfg = env.cfg.setdefault("reset", {})
+        jitter_keys = {
+            "start_jitter_deg": float(getattr(
+                args, "periodic_start_jitter_deg", 3.0)),
+            "start_bad_prob": float(getattr(
+                args, "periodic_start_jitter_bad_prob", 0.25)),
+            "start_bad_max_joints": int(getattr(
+                args, "periodic_start_jitter_bad_max_joints", 1)),
+            "start_bad_deg_min": float(getattr(
+                args, "periodic_start_jitter_bad_deg_min", 8.0)),
+            "start_bad_deg_max": float(getattr(
+                args, "periodic_start_jitter_bad_deg_max", 16.0)),
+        }
+        saved = {k: reset_cfg.get(k, None) for k in jitter_keys}
+        missing = {k for k in jitter_keys if k not in reset_cfg}
+        try:
+            reset_cfg.update(jitter_keys)
+            stats = _rollout_stats(env, act, per_mode)
+            payload["eval/walk_startjitter/survived_frac"] = (
+                stats["survived"] / stats["episodes"])
+            if "walk_vel_err_mean" in stats:
+                payload["eval/walk_startjitter/vel_err_m_s"] = (
+                    stats["walk_vel_err_mean"])
+                payload["eval/walk_startjitter/speed_m_s"] = (
+                    stats["walk_speed_mean"])
+            if "walk_direction_valid_frac" in stats:
+                payload["eval/walk_startjitter/direction_valid_frac"] = (
+                    stats["walk_direction_valid_frac"])
+            if "walk_direction_err_deg_mean" in stats:
+                payload["eval/walk_startjitter/direction_err_deg"] = (
+                    stats["walk_direction_err_deg_mean"])
+            brief.append(
+                "startjit "
+                f"{stats['survived']}/{stats['episodes']}")
+        finally:
+            for k, old in saved.items():
+                if k in missing:
+                    reset_cfg.pop(k, None)
+                else:
+                    reset_cfg[k] = old
     if rnd is not None and gen is not None and tip_mode is not None:
         for attr in [a for a in vars(gen) if a.startswith("p_")]:
             setattr(gen, attr, 0.0)
@@ -2469,6 +2519,19 @@ def main(argv: list[str] | None = None) -> int:
                          "(the old blocking version cost ~65%% of wall "
                          "clock); rounds are skipped if the previous eval "
                          "is still running.")
+    ap.add_argument("--periodic-start-jitter-panel",
+                    action=argparse.BooleanOptionalAction, default=True,
+                    help="log separate eval/walk_startjitter metrics with "
+                         "explicit reset.* start-pose jitter")
+    ap.add_argument("--periodic-start-jitter-deg", type=float, default=3.0)
+    ap.add_argument("--periodic-start-jitter-bad-prob", type=float,
+                    default=0.25)
+    ap.add_argument("--periodic-start-jitter-bad-max-joints", type=int,
+                    default=1)
+    ap.add_argument("--periodic-start-jitter-bad-deg-min", type=float,
+                    default=8.0)
+    ap.add_argument("--periodic-start-jitter-bad-deg-max", type=float,
+                    default=16.0)
     ap.add_argument("--video-every", type=int, default=250_000,
                     help="log a rendered rollout video to W&B every N "
                          "timesteps (0 disables); renders on the same "

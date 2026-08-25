@@ -14,7 +14,8 @@ the process rules below are what remain).
 1. Limp / hand-set a **known visual** pose (usually legs straight out).
 2. `POST /api/set_zero` — that pose becomes logical 0°.
 3. Tiny air moves; predict then read. Stop if a servo ID is missing/hot.
-4. Capture plant only when the operator likes the stance (`capture_plant`).
+4. Treat `plant_pose.json` as calibration/diagnostics only; RL walk/drive
+   starts from the simulator's canonical walk-ready stance.
 5. **No** autonomous stand-up.
 
 ## RL routes
@@ -38,17 +39,17 @@ the process rules below are what remain).
 | GET | `/api/logs/<name>` | Download one log file; `?tail=N` = last N lines only |
 | GET | `/api/rl/preflight?mode=` | Read-only readiness (`stand`/`lower`/`walk`) |
 | POST | `/api/rl/stand` | RL policy stand-up (preflight-gated; wrong pose → acquires safe zero first, then re-preflights) |
-| POST | `/api/rl/lower` | RL policy lower to belly (wrong pose → acquires the plant stand first, then re-preflights) |
-| POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.03,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; wrong pose → acquires the plant stand first, then re-preflights |
-| POST | `/api/rl/capture_plant` | Save **current** 18 joints (no motion) |
+| POST | `/api/rl/lower` | RL policy lower to belly (wrong pose → acquires the sim walk-ready stand first, then re-preflights) |
+| POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.05,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; motion-free start from current sim walk-ready pose; wrong pose refuses instead of auto-acquiring |
+| POST | `/api/rl/capture_plant` | Deprecated diagnostic: save current 18 joints as `plant_pose.json` (not used for RL walk/drive starts) |
 | POST | `/api/rl/set_stance` | Slow ease to a crouch stance; a big Δq acquires the safe zero start first instead of refusing |
 | POST | `/api/rl/find_plant` | **Disabled** unless `{"force":true}` |
 | POST | `/api/rl/probe_dynamics` | Air-only ±amp per joint → `logs/motor_model.json` |
 | POST | `/api/rl/stop` | Abort worker |
 | GET | `/api/rl/roles` | Role registry: which `policies/` file serves walk / hold / stand / lower |
-| POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = walk@zero for hold) |
+| POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = built-in joint hold for hold) |
 | GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
-| POST | `/api/rl/drive/start` | Start persistent held-key drive session (walk preflight + acquire rules; operator watching) |
+| POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; operator watching) |
 | POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold) |
 | POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
@@ -70,7 +71,9 @@ more than **25°** from present unless the command includes `FORCE`.
   with a 25° relative-tilt envelope; the runner widens its SafetyLayer
   trip to 25° in walk mode to match (stand/lower stay 10°). Command in
   the trained band **0.05–0.06 m/s** (below 0.05 is out-of-distribution);
-  duration clamped to 20 s; starts only from the captured plant stance.
+  duration clamped to 20 s; RL Stand Up now owns the STEP→sim-walk-start
+  settle, while timed/live walk start motion-free from that sim start pose
+  and refuse unsafe/unknown starts instead of auto-moving the stance.
   Still gated `hardware_ready: false` pending contact/current pricing
   calibration (tape-measure distance session).
 
@@ -156,7 +159,6 @@ during walk, `overruns` in the summary for loop-rate health.
 
 ```bash
 uv run python -m rl_move.remote state
-uv run python -m rl_move.remote capture_plant
 # limp:
 curl -X POST --data 'X' http://hexapod.local:8080/cmd
 ```

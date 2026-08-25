@@ -85,7 +85,7 @@ the RL tooling depend on them.
 
 1. *Zero & stand*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
    **Set zero HERE** (top bar) · **Stand up**. If already upright, Stand
-   adjusts/re-verifies the plant stance; otherwise it safe-zeros first,
+   adjusts/re-verifies the sim walk-ready stance; otherwise it safe-zeros first,
    then uses STEP stand-up via `POST /api/zero {pose:"stand"}` ·
    **Preflight** → `GET /api/rl/preflight?mode=lower` (read-only).
 2. *Scripted gait walk*: **Start walk** sends `J vx vy ω` (confirm dialog;
@@ -147,12 +147,12 @@ run through `stream_pose_fn` in `inplace_demos.py`, the stand-up lab's
 stays glide-based and picks it up at the next half-breath. `seconds`
 only applies to air + streamed demos (5–300 s); planted shows keep
 their scripted timing. Standing dances home through the validated 10×
-keyframe stand-up and dance around the captured plant at τ900.
+keyframe stand-up and dance around the standing pose at τ900.
 
 ### RL (`#rl`)
 
 **Stand up / Lower** → smart standard motion outside the Experiments page:
-standing Stand adjusts plant height, not-standing Stand safe-zeros then
+standing Stand adjusts to the sim walk-ready stance, not-standing Stand safe-zeros then
 STEP-ups, standing Lower STEP-downs, not-standing Lower safe-zeros ·
 **Drive — hold keys**: **Start driving** → `POST /api/rl/drive/start`,
 then arrow keys / WASD (or the on-screen pad, pointerdown/up) stream
@@ -166,9 +166,8 @@ window blur releases everything. A page reload reconnects to a live
 session and resumes heartbeats. · **Timed walk** (details block) →
 `POST /api/rl/walk {vx, vy, duration_s}` · **Model roles** selects →
 `GET/POST /api/rl/roles` (which policy file serves walk / hold /
-stand / lower; no motion) · **Stand up** → STEP stand-up ·
-**Capture plant** →
-`POST /api/rl/capture_plant` (no motion) · **Stop** →
+stand / lower; no motion) · **Stand up** → STEP stand-up into the sim
+walk-ready stance · **Stop** →
 `POST /api/rl/stop` · readiness checks →
 `GET /api/rl/preflight?mode=stand|lower|walk` (read-only) · policy info →
 `GET /api/rl/policy`.

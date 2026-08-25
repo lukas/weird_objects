@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=slip1">
+<link rel="stylesheet" href="/style.css?v=console1">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -77,6 +77,19 @@
       <button id="statuscopy" title="Copy all status text (link, robot activity, controller, last command)">Copy</button>
     </div>
   </div>
+  <div id="robotconsole" class="robot-console">
+    <div class="robot-console-top">
+      <span class="robot-console-title">Robot console</span>
+      <span id="rcon-state" class="robot-console-chip">checking</span>
+      <span id="rcon-drive" class="robot-console-chip">drive --</span>
+      <span id="rcon-servos" class="robot-console-chip">servos --</span>
+      <span id="rcon-detail" class="robot-console-detail">Waiting for robot output.</span>
+      <button id="rcon-copy" title="Copy robot console text">Copy</button>
+      <a id="rcon-events" href="/api/events?n=120" target="_blank"
+         title="Open recent robot events as JSON">events</a>
+    </div>
+    <div id="rcon-lines" class="robot-console-lines">No robot output yet.</div>
+  </div>
 </header>
 <div class="wrap">
   <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
@@ -106,7 +119,7 @@
         <b>Stand</b> → <b>Preflight</b>, then walk.</div>
       <div class="btns" style="margin-top:10px">
         <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
-        <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the plant stance.">Preflight</button>
+        <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the expected stance.">Preflight</button>
       </div>
       <div class="hint" id="wpfout">Preflight result shows here.</div>
     </div>
@@ -255,7 +268,7 @@ legs can reach instead of clipping it.">
         stand-up lab's 20&nbsp;Hz pursuit engine — the same technique as the
         Experiments stand/sit — so the <b>speed slider works LIVE</b> while
         they run. Standing demos home via the validated 10× stand-up and
-        dance around the captured plant. Cords OK for planted/standing.<br>
+        dance around the standing pose. Cords OK for planted/standing.<br>
         <b>Pad:</b> hold LB/LT/RB/RT then tap X·Y·A·B —
         LB: breathe heartbeat twinkle shimmy ·
         LT: ripple conductor arms_up <b>walk</b> ·
@@ -455,26 +468,21 @@ legs can reach instead of clipping it.">
       <div class="hint" id="simstatus" style="margin-top:8px">—</div>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2 title="Stand-up adjusts if already standing, otherwise safe-zero then STEP-up. Lower uses STEP-down when standing, otherwise safe-zero recovery. Walk still uses the selected RL policy.">Policy moves</h2>
+      <h2 title="Stand-up uses STEP as needed, then settles to the sim walk-ready stance. Lower uses STEP-down when standing, otherwise safe-zero recovery. Walk still uses the selected RL policy.">Policy moves</h2>
       <div class="btns" style="margin-top:12px">
-        <button id="rlstand" class="on" title="If already standing, adjust the plant stance. Otherwise use safe-zero recovery first, then STEP stand-up.">⬆ Stand up</button>
+        <button id="rlstand" class="on" title="Use STEP stand-up as needed, then settle into the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
         <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
-        <button id="rlcapture" title="Save the current 18-joint pose as
-the plant stance (no motion). Lower and Walk start only from this pose —
-capture while the robot is standing well.">📌 Capture plant</button>
         <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
-      <h2 style="margin-top:16px" title="Start driving, then hold arrow keys, WASD, or the pad. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — hold keys</h2>
+      <h2 style="margin-top:16px" title="Start driving from the sim walk-ready stance, then hold arrow keys, WASD, or the pad. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — hold keys</h2>
       <div class="btns" style="margin-top:10px">
-        <button id="rldrivestart" class="on" title="Start from the captured plant stance. Hold arrows/WASD or the pad to walk; Q/E turns for yaw-command policies.">▶ Start driving</button>
+        <button id="rldrivestart" class="on" title="Start from the sim walk-ready stance. It refuses unsafe starts instead of auto-moving the legs; hold arrows/WASD or the pad to walk.">▶ Start driving</button>
         <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
         <label class="hint">speed
           <select id="rlwalkspeed">
-            <option value="0.02">0.02 m/s (below trained band)</option>
-            <option value="0.03">0.03 m/s (below trained band)</option>
-            <option value="0.04">0.04 m/s (below trained band)</option>
             <option value="0.05" selected>0.05 m/s</option>
+            <option value="0.055">0.055 m/s</option>
             <option value="0.06">0.06 m/s</option>
           </select></label>
       </div>
@@ -841,6 +849,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-<script src="/app.js?v=quadmsg2"></script>
+  <script src="/app.js?v=console1"></script>
 </body>
 </html>

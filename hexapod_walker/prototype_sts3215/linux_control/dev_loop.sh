@@ -83,6 +83,8 @@ files = [
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
     "linux_control/sysid_runner.py",
+    "linux_control/walk_ready_transition.py",
+    "linux_control/rl_walk_start.py",
     "linux_control/urt2_setup/inplace_demos.py",
     "linux_control/urt2_setup/motion_telemetry.py",
     "motor_setup/inplace_demos.py",
@@ -345,6 +347,8 @@ hex_remote_compile() {
       linux_control/bench_api.py \
       linux_control/drive_controller.py \
       linux_control/cpg_controller_loader.py \
+      linux_control/walk_ready_transition.py \
+      linux_control/rl_walk_start.py \
       linux_control/urt2_setup/inplace_demos.py \
       linux_control/urt2_setup/motion_telemetry.py \
       motor_setup/inplace_demos.py \

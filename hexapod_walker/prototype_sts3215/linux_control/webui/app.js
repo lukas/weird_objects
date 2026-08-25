@@ -321,6 +321,8 @@ document.getElementById('statuscopy').onclick = async ()=>{
   if(gpT) parts.push('controller: '+gpT);
   const sentT = sentEl.textContent.trim();
   if(sentT) parts.push('last: '+sentT);
+  const rconT = (document.getElementById('rcon-lines')?.innerText || '').trim();
+  if(rconT) parts.push('robot console:\n'+rconT);
   const t = parts.join('\n');
   try{
     await navigator.clipboard.writeText(t);   // needs https / localhost
@@ -346,6 +348,173 @@ function showSent(line, isErr){
   else if(isOkReceipt(text) && isOkReceipt(errbarText.textContent))
     errbarEl.style.display = 'none';
 }
+
+// Sticky robot console: small, always-visible breadcrumbs from the robot's
+// event stream. It intentionally filters heartbeat/polling/MCU register spam
+// so failures like "button fired but backend refused" are visible immediately.
+const rconState = document.getElementById('rcon-state');
+const rconDrive = document.getElementById('rcon-drive');
+const rconServos = document.getElementById('rcon-servos');
+const rconDetail = document.getElementById('rcon-detail');
+const rconLines = document.getElementById('rcon-lines');
+const rconCopy = document.getElementById('rcon-copy');
+let robotConsoleText = '';
+function rconSetChip(el, text, cls=''){
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'robot-console-chip' + (cls ? ' '+cls : '');
+}
+function rconTime(ts){
+  try{
+    return new Date(ts).toLocaleTimeString([], {
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false,
+    });
+  }catch(e){ return '--:--:--'; }
+}
+function rconShort(s, n=180){
+  s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+  return s.length > n ? s.slice(0, n-1)+'…' : s;
+}
+function rconBodySummary(body){
+  if(body == null || body === '') return '';
+  if(typeof body === 'string') return body;
+  if(typeof body !== 'object') return String(body);
+  const bits = [];
+  for(const k of ['mode','direction','vx','vy','wz','speed','button','status']){
+    if(body[k] != null) bits.push(k+'='+body[k]);
+  }
+  return bits.length ? bits.join(' ') : JSON.stringify(body).slice(0, 140);
+}
+function rconSkipEvent(e){
+  const msg = String(e && e.msg || '');
+  const kind = String(e && e.kind || '');
+  const src = String(e && e.src || '');
+  if(kind === 'mcu' || kind === 'servo_fb') return true;
+  if(msg === 'SCAN' || /^W[12]\b/.test(msg)) return true;
+  if(src === 'http' && kind === 'cmd'){
+    if(/^GET \/api\/(robot|events|errors|ping|calibrate|rl\/drive|rl\/roles|rl\/policies)\b/.test(msg))
+      return true;
+    if(/^GET \/(app\.js|style\.css|favicon\.svg)/.test(msg)) return true;
+  }
+  return false;
+}
+function rconInterestingEvent(e){
+  if(!e || rconSkipEvent(e)) return false;
+  const kind = String(e.kind || '');
+  const src = String(e.src || '');
+  const msg = String(e.msg || '');
+  if(e.level === 'error' || kind === 'error') return true;
+  if(kind === 'ui' || kind === 'standup') return true;
+  if(kind === 'log' && src === 'print') return true;
+  if(src === 'bench') return true;
+  if(kind === 'cmd' && /^POST /.test(msg)) return true;
+  return false;
+}
+function rconEventClass(e){
+  if(e.level === 'error' || e.kind === 'error') return 'error';
+  if(e.kind === 'ui') return 'ui';
+  if(e.kind === 'standup' || e.kind === 'log') return 'ok';
+  return '';
+}
+function rconEventText(e){
+  const data = e.data || {};
+  let msg = String(e.msg || e.kind || 'event');
+  const body = rconBodySummary(data.body || data);
+  if(e.kind === 'ui' && data.status) msg += ' · '+data.status;
+  else if(e.kind === 'cmd' && body) msg += ' · '+body;
+  else if(e.kind === 'error' && data.error && !msg.includes(data.error))
+    msg += ' · '+data.error;
+  return `${rconTime(e.ts)} ${e.kind || 'event'} ${e.src || ''}: ${rconShort(msg)}`;
+}
+function paintRobotConsole(robot, drive, events){
+  if(robot){
+    const act = robot.activity || (robot.armed ? 'armed' : 'limp');
+    rconSetChip(rconState,
+      (robot.armed ? 'ARMED' : 'LIMP')+' · '+act,
+      robot.armed ? 'ok' : 'bad');
+    const servo = robot.servo || {};
+    const live = servo.live != null ? servo.live : '?';
+    const exp = servo.expected != null ? servo.expected : 18;
+    const servoOk = servo.ok && servo.imu_ok && !((servo.missing||[]).length);
+    const hot = (servo.hot || []).length || (servo.tripped || []).length;
+    rconSetChip(rconServos,
+      `${live}/${exp} servos`+(servo.imu_ok ? ' · IMU' : ' · no IMU'),
+      servoOk && !hot ? 'ok' : (servoOk ? 'warn' : 'bad'));
+  } else {
+    rconSetChip(rconState, 'robot ?', 'warn');
+    rconSetChip(rconServos, 'servos ?', 'warn');
+  }
+  if(drive && drive.ok){
+    rconSetChip(rconDrive, drive.active ? 'drive ACTIVE' : 'drive inactive',
+      drive.active ? 'ok' : '');
+  } else {
+    rconSetChip(rconDrive, 'drive ?', 'warn');
+  }
+
+  const detailBits = [];
+  if(robot && robot.detail) detailBits.push(robot.detail);
+  if(robot && robot.drive_status) detailBits.push('drive: '+robot.drive_status);
+  if(drive && drive.result && (drive.result.ended || drive.result.error))
+    detailBits.push('last: '+(drive.result.ended || drive.result.error));
+  if(rconDetail) rconDetail.textContent = rconShort(
+    detailBits.join(' · ') || 'No robot detail yet.', 240);
+
+  const useful = (events || []).filter(rconInterestingEvent).slice(-5);
+  if(useful.length){
+    const html = useful.map(e=>
+      `<div class="robot-console-line ${rconEventClass(e)}">`
+      + htmlEscape(rconEventText(e))+'</div>').join('');
+    if(rconLines && rconLines.innerHTML !== html) rconLines.innerHTML = html;
+    robotConsoleText = useful.map(rconEventText).join('\n');
+  } else if(rconLines && !robotConsoleText){
+    rconLines.textContent = 'No notable robot output yet.';
+  }
+}
+async function refreshRobotConsole(){
+  if(document.visibilityState !== 'visible') return;
+  try{
+    const [rr, dr, er] = await Promise.allSettled([
+      fetch('/api/robot', {cache:'no-store'}),
+      fetch('/api/rl/drive', {cache:'no-store'}),
+      fetch('/api/events?n=120', {cache:'no-store'}),
+    ]);
+    const robot = rr.status === 'fulfilled' && rr.value.ok
+      ? await rr.value.json() : null;
+    const drive = dr.status === 'fulfilled' && dr.value.ok
+      ? await dr.value.json() : null;
+    const ev = er.status === 'fulfilled' && er.value.ok
+      ? await er.value.json() : {};
+    if(robot) paintRobotActivity(robot);
+    paintRobotConsole(robot, drive, ev.events || []);
+  }catch(e){
+    rconSetChip(rconState, 'console offline', 'warn');
+  }
+}
+if(rconCopy){
+  rconCopy.onclick = async ()=>{
+    const parts = [
+      rconState?.textContent || '',
+      rconDrive?.textContent || '',
+      rconServos?.textContent || '',
+      rconDetail?.textContent || '',
+      robotConsoleText,
+    ].filter(Boolean);
+    const t = parts.join('\n');
+    try{ await navigator.clipboard.writeText(t); }
+    catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = t; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    rconCopy.textContent = 'Copied';
+    setTimeout(()=>{ rconCopy.textContent = 'Copy'; }, 1200);
+  };
+}
+setInterval(refreshRobotConsole, 2000);
+refreshRobotConsole();
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') refreshRobotConsole();
+});
 function fmtDeg(v, d=1){
   return (v==null || Number.isNaN(Number(v))) ? '—' : Number(v).toFixed(d);
 }
@@ -353,12 +522,7 @@ function feedbackPitchLabel(fb){
   if(!fb || !fb.ok) return '';
   const body = fb.body_pitch_deg;
   const raw = fb.pitch_deg;
-  const target = fb.body_pitch_target_deg;
-  if(body != null){
-    let line = 'body pitch '+fmtDeg(body)+'°';
-    if(target != null) line += ' / target '+fmtDeg(target)+'°';
-    return line;
-  }
+  if(body != null) return 'body pitch '+fmtDeg(body)+'°';
   if(raw != null) return 'raw pitch '+fmtDeg(raw)+'°';
   return '';
 }
@@ -1769,25 +1933,42 @@ function startRlPoll(){
       } else {
         clearInterval(rlTimer); rlTimer = null;
         rlButtons(false);
+        drvLockRlControls(false);
         const res = d.result || {};
+        const peak = res.max_current_a ?? res.peak_a ?? '?';
         $('rlstatus').textContent = res.ok
-          ? `Done · max ${res.max_current_a ?? '?'} A`
+          ? `Done · max ${peak} A`
              + (res.limped ? ' · limped' : ' · holding')
           : (res.error || 'done');
       }
     }catch(e){ /* keep polling */ }
   }, 500);
 }
+function drvClearHeartbeat(){
+  if(drvHb){ clearInterval(drvHb); drvHb = null; }
+  if(drvPadReleaseTimer){
+    clearTimeout(drvPadReleaseTimer);
+    drvPadReleaseTimer = null;
+  }
+}
+function drvResetLocalInput(){
+  drvKeys.clear();
+  drvPad = null;
+}
 function rlButtons(disabled){
-  for(const id of ['rlstand','rllower','rlcapture','rlwalkfwd',
+  for(const id of ['rlstand','rllower','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
-                   'rldrivestart'])
+                   'rldrivestart','rldriveend'])
     $(id).disabled = disabled;
 }
 async function rlMove(mode, body){
   // No confirms anywhere (operator 08-11: no warning modals);
   // the server preflight refuses bad start poses.
+  if(drvActive){
+    $('rlstatus').textContent = 'End the drive session before starting another RL move.';
+    return;
+  }
   if(mode!=='stand' && mode!=='lower' && body)
     delete body.heading;   // UI-only label, not an API field
   $('rlstatus').textContent = 'Request sent…';
@@ -1813,6 +1994,10 @@ async function rlMove(mode, body){
   }
 }
 async function rlScriptedStand(mode, label, direction='up'){
+  if(drvActive){
+    $('rlstatus').textContent = 'End the drive session before stand/lower.';
+    return;
+  }
   $('rlstatus').textContent = label+' request sent…';
   rlButtons(true);
   try{
@@ -1834,19 +2019,8 @@ async function rlScriptedStand(mode, label, direction='up'){
     rlButtons(false);
   }
 }
-$('rlstand').onclick = ()=> rlScriptedStand('step', 'Stand up');
+$('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlScriptedStand('step', 'Lower', 'down');
-$('rlcapture').onclick = async ()=>{
-  $('rlstatus').textContent = 'Capturing plant pose (no motion)…';
-  try{
-    const r = await fetch('/api/rl/capture_plant', {method:'POST'});
-    const d = await r.json();
-    $('rlstatus').textContent = d.ok
-      ? `Plant captured: hip ${d.hip_deg}° knee ${d.knee_deg}° — `
-        + 'Lower & Walk now start from this pose.'
-      : 'Capture failed: '+(d.error || 'unknown');
-  }catch(e){ $('rlstatus').textContent = 'Capture failed (link?)'; }
-};
 function rlWalk(dx, dy, heading){
   const s = parseFloat($('rlwalkspeed').value);
   const n = Math.hypot(dx, dy) || 1;   // unit heading so speed = |v|
@@ -1876,6 +2050,9 @@ $('rlstop').onclick = async ()=>{
 let drvActive = false, drvHb = null;
 const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
+let drvPadDownAt = 0;
+let drvPadReleaseTimer = null;
+const DRV_TAP_PULSE_MS = 650;
 const DRV_KEYMAP = {
   arrowup:'fwd', w:'fwd', i:'fwd',
   arrowdown:'back', s:'back', k:'back',
@@ -1884,6 +2061,50 @@ const DRV_KEYMAP = {
   q:'yawL', u:'yawL',
   e:'yawR', o:'yawR',
 };
+function drvLockRlControls(active){
+  for(const id of ['rlstand','rllower','rlwalkfwd',
+                   'rlwalkleft','rlwalkright','rlwalkback',
+                   'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
+    $(id).disabled = active;
+  }
+  const start = $('rldrivestart');
+  start.disabled = active;
+  start.textContent = active ? 'Driving active' : '▶ Start driving';
+  $('rldriveend').disabled = !active;
+}
+function drvBlockStart(label, detail){
+  const start = $('rldrivestart');
+  start.disabled = true;
+  start.textContent = label;
+  $('rldriveend').disabled = true;
+  if(detail) $('rldrivestatus').textContent = detail;
+}
+function drvStartReady(detail){
+  const start = $('rldrivestart');
+  start.disabled = false;
+  start.textContent = '▶ Start driving';
+  $('rldriveend').disabled = true;
+  if(detail) $('rldrivestatus').textContent = detail;
+}
+function uiEvent(event, data={}){
+  try{
+    fetch('/api/ui_event', {
+      method:'POST', cache:'no-store', keepalive:true,
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({event, view:activeView}, data)),
+    }).catch(()=>{});
+  }catch(e){}
+}
+function drvClearPad(){
+  if(drvPadReleaseTimer){
+    clearTimeout(drvPadReleaseTimer);
+    drvPadReleaseTimer = null;
+  }
+  if(drvPad){
+    drvPad = null;
+    drvSend();
+  }
+}
 function drvVec(){
   let dx = (drvKeys.has('fwd')?1:0) - (drvKeys.has('back')?1:0);
   let dy = (drvKeys.has('left')?1:0) - (drvKeys.has('right')?1:0);
@@ -1924,9 +2145,9 @@ async function drvSend(){
 }
 async function drvEnded(){
   drvActive = false;
-  if(drvHb){ clearInterval(drvHb); drvHb = null; }
-  drvKeys.clear(); drvPad = null;
-  $('rldrivestart').disabled = false;
+  drvClearHeartbeat();
+  drvResetLocalInput();
+  drvLockRlControls(false);
   try{
     const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
     const res = d.result || {};
@@ -1937,34 +2158,99 @@ async function drvEnded(){
   }catch(e){ $('rldrivestatus').textContent = 'Session ended — holding.'; }
 }
 $('rldrivestart').onclick = async ()=>{
-  $('rldrivestart').disabled = true;
+  // Recover from stale browser state after a service restart/deploy.
+  uiEvent('rl_drive_start_click', {
+    button:'rldrivestart',
+    disabled:$('rldrivestart').disabled,
+    active:drvActive,
+    status:$('rldrivestatus').textContent,
+  });
+  drvActive = false;
+  drvClearHeartbeat();
+  drvResetLocalInput();
+  drvLockRlControls(true);
+  $('rldrivestart').textContent = 'Starting...';
   $('rldrivestatus').textContent = 'Starting session (preflight'
-    + ' — may acquire the stand first)…';
+    + ' — no auto-stance move)…';
   try{
-    const r = await fetch('/api/rl/drive/start', {method:'POST'});
+    const r = await fetch('/api/rl/drive/start', {
+      method:'POST', cache:'no-store'});
     const d = await r.json();
     if(!d.ok){
       $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
       showErr('Drive: '+(d.error || 'refused'));
-      $('rldrivestart').disabled = false;
+      drvLockRlControls(false);
+      $('rldrivestart').textContent = 'Refused';
       return;
     }
     drvActive = true;
     drvKeys.clear(); drvPad = null;
     if(drvHb) clearInterval(drvHb);
     drvHb = setInterval(drvSend, 200);
+    drvSend();  // immediate zero-command heartbeat; no 200 ms blind spot
     drvPaint(d);
   }catch(e){
     $('rldrivestatus').textContent = 'Start failed (link?)';
-    $('rldrivestart').disabled = false;
+    drvLockRlControls(false);
+    $('rldrivestart').textContent = 'Start failed';
   }
 };
 $('rldriveend').onclick = async ()=>{
+  $('rldriveend').disabled = true;
   $('rldrivestatus').textContent = 'Ending session (rolls to a stop, holds)…';
   try{ await fetch('/api/rl/drive/stop', {method:'POST'}); }catch(e){}
   // Heartbeats keep flowing until the server reports inactive, so the
   // decel + wind-down is visible in the status line.
 };
+drvLockRlControls(false);
+
+async function refreshRlRuntimeState(){
+  let rlMoveRunning = false;
+  try{
+    const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
+    const d = await r.json();
+    rlMoveRunning = !!(d.running && (d.name||'').startsWith('rl_policy'));
+    if(rlMoveRunning){
+      $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
+      rlButtons(true);
+      if(!rlTimer) startRlPoll();
+      return true;
+    }
+    if(rlTimer){ clearInterval(rlTimer); rlTimer = null; }
+  }catch(e){
+    return false;
+  }
+
+  try{
+    const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
+    if(d.active){
+      drvActive = true;
+      drvLockRlControls(true);
+      if(!drvHb) drvHb = setInterval(drvSend, 200);
+      drvPaint(d);
+      return true;
+    }
+  }catch(e){
+    return false;
+  }
+
+  drvActive = false;
+  drvClearHeartbeat();
+  drvResetLocalInput();
+  drvLockRlControls(false);
+  try{
+    const rb = await (await fetch('/api/robot', {cache:'no-store'})).json();
+    if(rb && !rb.armed){
+      drvBlockStart('Stand up first',
+        'Blocked: robot is limp/disarmed. Use RL Stand Up / Walk Ready first.');
+      return true;
+    }
+  }catch(e){}
+  drvStartReady('Ready — Start driving, then hold arrows/WASD or the pad.');
+  return true;
+}
+
+setInterval(()=>{ if(activeView === 'rl') refreshRlRuntimeState(); }, 2000);
 // Keys drive ONLY from the RL tab (the Drive tab's own key loop streams
 // scripted-gait J commands — never both at once). Leaving the tab or
 // window counts as releasing everything.
@@ -1992,8 +2278,22 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   const dv = b.dataset.dv.split(',').map(Number);
   if(!dv[0] && !dv[1]) continue;          // center "hold" cell
   const down = (e)=>{ e.preventDefault();
-    if(!drvActive) return; drvPad = dv; drvSend(); };
-  const up = ()=>{ if(drvPad === dv){ drvPad = null; drvSend(); } };
+    if(!drvActive) return;
+    if(drvPadReleaseTimer){
+      clearTimeout(drvPadReleaseTimer);
+      drvPadReleaseTimer = null;
+    }
+    drvPad = dv;
+    drvPadDownAt = performance.now();
+    drvSend();
+  };
+  const up = ()=>{
+    if(drvPad !== dv) return;
+    const heldMs = performance.now() - drvPadDownAt;
+    const delayMs = Math.max(0, DRV_TAP_PULSE_MS - heldMs);
+    if(drvPadReleaseTimer) clearTimeout(drvPadReleaseTimer);
+    drvPadReleaseTimer = setTimeout(drvClearPad, delayMs);
+  };
   b.addEventListener('pointerdown', down);
   b.addEventListener('pointerup', up);
   b.addEventListener('pointerleave', up);
@@ -2442,27 +2742,9 @@ async function refreshRlTab(){
       : (d.error || 'no policy');
   }catch(e){ $('rlpolicyinfo').textContent = 'policy info unavailable'; }
   await rlLoadPicker();
-  try{
-    const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
-    const d = await r.json();
-    if(d.running && (d.name||'').startsWith('rl_policy')){
-      $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
-      rlButtons(true);
-      startRlPoll();
-    }
-  }catch(e){}
-  // Reconnect to a drive session that survived a page reload: resume
-  // heartbeats (the robot has been holding since ours went stale).
-  try{
-    const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
-    if(d.active && !drvActive){
-      drvActive = true;
-      $('rldrivestart').disabled = true;
-      if(drvHb) clearInterval(drvHb);
-      drvHb = setInterval(drvSend, 200);
-      drvPaint(d);
-    }
-  }catch(e){}
+  // Reconcile controls from live robot truth. This fixes stale browser state
+  // after stand/lower completion, service restarts, or a missed poll tick.
+  await refreshRlRuntimeState();
 }
 
 // ---- Policy picker (linux_control/policies/ registry) ---------------------
@@ -3292,7 +3574,7 @@ function updateArmUI(){
     bar.classList.remove('armed', 'disarmed');
     $('armstate').textContent = '● SIM';
     $('armbtn').textContent = 'Stand';
-    $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
+    $('armbtn').title = 'Reset the MuJoCo sim to the standing pose.';
     zeroBtn.disabled = true;
     zeroBtn.title = robotConfigured
       ? 'Switch Robot active to run safe zero on the real robot.'

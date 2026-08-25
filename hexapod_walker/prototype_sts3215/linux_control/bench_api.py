@@ -89,7 +89,7 @@ def _env_truthy(name: str, default: bool = False) -> bool:
 # pose counts as "at stand" when every live joint is within this many
 # degrees of the captured stand pose. Must tolerate a gait stopped
 # mid-stride: the loaded tripod freezes in its push posture, measured
-# up to 17.4 deg from the captured plant (tape session 08-10, leg2b —
+# up to 17.4 deg from the old plant gate (tape session 08-10, leg2b —
 # 15 deg refused the Sit button after EVERY walk). A wrong-zero pose
 # reads knees ~160 deg off the plant, so 30 deg is still unambiguous.
 
@@ -819,11 +819,11 @@ class BenchAPI:
             self._bus_hot_end()
 
     def _enter_stand_hold(self) -> None:
-        """Keep re-holding walk-plant after stand zero / planted demos."""
+        """Keep re-holding the sim walk-ready stance after planted demos."""
         d = self.drive
         try:
-            from feetech_bus import standing_pose_degrees
-            stand = standing_pose_degrees()
+            from rl_walk_start import walk_start_pose_degrees
+            stand = walk_start_pose_degrees()
         except Exception:
             stand = None
         # Full torque for weight-bearing hold (demos leave soft limits on).
@@ -1661,12 +1661,12 @@ class BenchAPI:
         to forget:
 
         * Normal descent from a good upright stance uses baked STEP-down.
-          This includes either the walking/captured plant stance
-          (``standing_pose_degrees``) or STEP's own final high-knee stance.
+          This includes either the sim walk-ready stance or STEP's own final
+          high-knee stance.
         * Safe zero is reserved for tangled, tipped, unknown, or already-low
           poses where the collision-aware planner is the right tool.
         * A stand command issued while already upright does not run another
-          rise. It re-holds/adjusts the plant stance height instead.
+          rise. It re-holds/adjusts the sim walk-ready stance instead.
 
         The classifier is deliberately conservative. Belly-zero can be only
         ~28 deg from the default plant knee, so pose delta alone would produce
@@ -1691,9 +1691,9 @@ class BenchAPI:
 
         refs: list[tuple[str, list[float], float]] = []
         try:
-            from feetech_bus import standing_pose_degrees
-            refs.append(("plant", [float(v) for v in
-                                   standing_pose_degrees()], 25.0))
+            from rl_walk_start import walk_start_pose_degrees
+            refs.append(("sim_walk_start", [float(v) for v in
+                                            walk_start_pose_degrees()], 25.0))
         except Exception:
             pass
         try:
@@ -1723,7 +1723,7 @@ class BenchAPI:
 
     def _settle_stand_pose_sync(self, *, abort_check,
                                 on_progress=None) -> dict:
-        """Adjust an already-upright robot to the captured plant stance."""
+        """Legacy tuck-stand adjust path for non-RL planted stand helpers."""
         try:
             from inplace_demos import CurrentPeakTracker, go_to_stand_pose
         except ImportError as e:
@@ -1753,6 +1753,189 @@ class BenchAPI:
             return {"ok": False, "error": f"standing adjust failed: {why}"}
         return {"ok": True, "settled_stand": True,
                 "stand_check": result}
+
+    def _step_to_rl_walk_ready_start_sync(self, *, abort_check,
+                                          on_progress=None) -> dict:
+        """Step or settle from the current upright pose to sim walk start.
+
+        This intentionally ignores plant_pose.json. The RL walk policy start
+        should match the simulator reset pose, while plant_pose.json is only a
+        mutable calibration/contact artifact.
+        """
+        try:
+            from inplace_demos import (
+                CurrentPeakTracker, _enable_torque, _live_robot_ids,
+                _set_torque_limit, _write_pose,
+            )
+            from rl_walk_start import walk_start_pose_degrees
+            from walk_ready_transition import build_tripod_plant_transition
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+
+        bus = self.drive.bus
+        if bus is None:
+            return {"ok": False, "error": "no bus"}
+        present, missing = self._present_pose18()
+        if missing:
+            return {"ok": False,
+                    "error": f"missing joints during walk-ready start: {missing}"}
+        try:
+            target = [float(v) for v in walk_start_pose_degrees()]
+            delta = self._pose_delta(present, target)
+            frames = ([] if delta is not None and delta <= 5.0
+                      else build_tripod_plant_transition(present, target))
+        except Exception as e:
+            return {"ok": False,
+                    "error": f"could not plan walk-ready start step: {e}"}
+
+        def _prog(msg: str, **extra) -> None:
+            if not on_progress:
+                return
+            try:
+                on_progress({"msg": msg, **extra})
+            except Exception:
+                pass
+
+        live = _live_robot_ids(bus)
+        if len(live) < N_JOINTS:
+            return {"ok": False,
+                    "error": (f"only {len(live)}/18 servos live during "
+                              "walk-ready start")}
+        tracker = CurrentPeakTracker()
+        _set_torque_limit(bus, live, 1000)
+        _enable_torque(bus, live)
+        started = time.monotonic()
+        if not frames:
+            _prog("walk-ready start: settle", phase="settle", stage=0,
+                  frame=1, of=1, legs=[])
+            try:
+                _write_pose(bus, target, live, speed=180, acc=20)
+            except Exception as e:
+                return {"ok": False,
+                        "error": f"walk-ready start write failed: {e}"}
+            deadline = time.monotonic() + 1.0
+            while time.monotonic() < deadline:
+                if abort_check():
+                    return {"ok": False, "aborted": True,
+                            "error": "walk-ready start aborted"}
+                time.sleep(min(0.08, max(0.0, deadline - time.monotonic())))
+                try:
+                    tracker.sample(bus, live)
+                except Exception:
+                    pass
+                if tracker.peak_a > 4.0:
+                    return {"ok": False,
+                            "error": (f"walk-ready start current trip "
+                                      f"{tracker.peak_a:.2f} A on joint "
+                                      f"{tracker.peak_joint}"),
+                            "peak_a": round(tracker.peak_a, 2),
+                            "peak_joint": tracker.peak_joint}
+            try:
+                _emit_servo_fb("walk-ready start: settle", tracker,
+                               target=target)
+            except Exception:
+                pass
+        for idx, frame in enumerate(frames, 1):
+            if abort_check():
+                return {"ok": False, "aborted": True,
+                        "error": "walk-ready start aborted"}
+            legs = ",".join(str(x) for x in frame.legs)
+            label = (f"walk-ready start: {frame.phase}"
+                     + (f" legs {legs}" if legs else ""))
+            _prog(label, phase=frame.phase, stage=frame.stage,
+                  frame=idx, of=len(frames), legs=list(frame.legs))
+            speed = 360 if frame.phase == "lift" else 260
+            acc = 45 if frame.phase == "lift" else 35
+            if frame.phase == "swing":
+                speed, acc = 320, 40
+            if frame.phase == "support":
+                speed, acc = 180, 25
+            if frame.phase == "settle":
+                speed, acc = 180, 20
+            try:
+                _write_pose(bus, frame.q_deg, live, speed=speed, acc=acc)
+            except Exception as e:
+                return {"ok": False,
+                        "error": f"walk-ready start write failed: {e}"}
+            deadline = time.monotonic() + max(0.05, float(frame.seconds))
+            while time.monotonic() < deadline:
+                if abort_check():
+                    return {"ok": False, "aborted": True,
+                            "error": "walk-ready start aborted"}
+                time.sleep(min(0.08, max(0.0, deadline - time.monotonic())))
+                try:
+                    tracker.sample(bus, live)
+                except Exception:
+                    pass
+                if tracker.peak_a > 4.0:
+                    return {"ok": False,
+                            "error": (f"walk-ready start current trip "
+                                      f"{tracker.peak_a:.2f} A on joint "
+                                      f"{tracker.peak_joint}"),
+                            "peak_a": round(tracker.peak_a, 2),
+                            "peak_joint": tracker.peak_joint}
+            try:
+                _emit_servo_fb(label, tracker, target=frame.q_deg)
+            except Exception:
+                pass
+
+        # Final re-hold is the same target every leg already has; it refreshes
+        # the servo target without introducing another stance change.
+        try:
+            _write_pose(bus, target, live, speed=180, acc=20)
+        except Exception:
+            pass
+        time.sleep(0.3)
+        verify_pose, verify_missing = self._present_pose18()
+        if verify_missing and getattr(tracker, "last_fb", None):
+            for fb in tracker.last_fb:
+                try:
+                    j = int(fb["joint"])
+                    if 0 <= j < N_JOINTS:
+                        verify_pose[j] = float(fb["deg"])
+                except (KeyError, TypeError, ValueError):
+                    pass
+            verify_missing = [j for j, v in enumerate(verify_pose)
+                              if v is None]
+        worst, worst_j = 0.0, None
+        for j, val in enumerate(verify_pose):
+            if val is None:
+                continue
+            err = abs(float(target[j]) - float(val))
+            if err >= worst:
+                worst, worst_j = err, j
+        check = {
+            "ok": not verify_missing and worst <= 5.0,
+            "max_err_deg": round(worst, 2),
+            "worst_joint": worst_j,
+            "worst_name": (joint_label(worst_j, self.names)
+                           if worst_j is not None else None),
+            "tol_deg": 5.0,
+            "missing_joints": verify_missing,
+            "goal": "sim_walk_start",
+        }
+        if not check["ok"]:
+            if verify_missing:
+                check["error"] = (
+                    "walk-ready feedback missing joints "
+                    + ",".join(str(j) for j in verify_missing))
+            else:
+                check["error"] = (
+                    f"walk-ready pose is {worst:.1f}° off on "
+                    f"{check['worst_name']} (need ≤5°)")
+        result = {
+            "ok": bool(check.get("ok")),
+            "mode": "rl_walk_ready_start",
+            "frames": len(frames) if frames else 1,
+            "duration_s": round(time.monotonic() - started, 2),
+            "peak_a": round(tracker.peak_a, 2),
+            "peak_joint": tracker.peak_joint,
+            "stand_check": check,
+        }
+        if not result["ok"]:
+            result["error"] = ("walk-ready start failed verification: "
+                               + str(check.get("error") or check))
+        return result
 
     def go_zero(self, pose: str = "sit", *, force: bool = False) -> dict:
         """Go to sit zero (legs out) or stand zero (standing stance) — SAFELY.
@@ -2070,15 +2253,19 @@ class BenchAPI:
         tuck_stand = raw_kind in ("stand_tuck", "tuck_stand",
                                   "quad_stand")
         kind = "stand" if raw_kind.startswith("stand") else "zero"
+        d = self.drive
         acquired: list[str] = []
         if kind == "stand":
             present, missing = self._present_pose18()
             standing = (None if missing else
                         self._normal_standing_pose(present))
             if standing:
-                res = self._settle_stand_pose_sync(
+                res = (self._settle_stand_pose_sync(
                     abort_check=self._demo_abort.is_set,
-                    on_progress=on_progress)
+                    on_progress=on_progress) if tuck_stand else
+                    self._step_to_rl_walk_ready_start_sync(
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=on_progress))
                 if not res.get("ok"):
                     return {"ok": False, "acquired": acquired,
                             "error": str(res.get("error") or "failed")}
@@ -2114,30 +2301,21 @@ class BenchAPI:
                               + str(rs.get("error") or "aborted"))}
         acquired.append("standup_step")
         if not tuck_stand:
-            # The baked step stand-up ends in a high +80° knee pose.  RL
-            # walk/lower preflight expects the learned plant from
-            # standing_pose_degrees(), so settle onto that target before
-            # reporting the start as acquired.
-            try:
-                from inplace_demos import CurrentPeakTracker, go_to_stand_pose
-                settle_result: dict = {}
-                _prog({"msg": "acquiring start: settle to captured plant…"})
-                tracker = CurrentPeakTracker()
-                ok = go_to_stand_pose(
-                    d.bus, abort_check=self._demo_abort.is_set,
-                    seconds=4.5, current_tracker=tracker,
-                    result=settle_result)
-            except Exception as e:
-                return {"ok": False, "acquired": acquired,
-                        "error": f"could not settle to plant start: {e}"}
-            if not ok:
+            # The baked step stand-up ends near the simulator's walk reset
+            # pose. Re-hold/verify that explicit pose here; do not read
+            # plant_pose.json, which is only a calibration artifact.
+            _prog({"msg": "acquiring start: sim walk-ready pose…"})
+            settle_result = self._step_to_rl_walk_ready_start_sync(
+                abort_check=self._demo_abort.is_set,
+                on_progress=_prog)
+            if not settle_result.get("ok"):
                 why = (settle_result.get("error")
                        or ("aborted" if settle_result.get("aborted")
                            else "failed"))
                 return {"ok": False, "acquired": acquired,
                         "limp": bool(settle_result.get("limp")),
-                        "error": f"could not settle to plant start: {why}"}
-            acquired.append("plant")
+                        "error": f"could not reach walk-ready start: {why}"}
+            acquired.append("sim_walk_start")
         return {"ok": True, "acquired": acquired}
 
     def pinned_tip_state(self) -> dict:
@@ -6325,8 +6503,9 @@ class BenchAPI:
     # "stand" and "lower". Stored on the board's home dir (like
     # ~/.hexapod_cal.json), NOT in the repo. A role of None keeps the
     # pre-roles behavior: the live slot file (rl_policy_select). The
-    # special hold value "walk" (the default) means "the walk policy at
-    # zero command" — its trained stop, no model switch at all.
+    # special hold value "walk" (the default) now means the built-in
+    # joint-hold fallback: keep the last safe commanded pose and do not
+    # run the walk policy at zero joystick command.
     ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
     _ROLE_OBS = {"walk": (72, 74, 93), "hold": (68, 72, 74, 93),
                  "stand": (68,), "lower": (68,)}
@@ -6345,7 +6524,7 @@ class BenchAPI:
 
     def _role_weights(self, role: str) -> Path | None:
         """Weights-file override for a role; None = default behavior
-        (the live slot file, or walk@zero for the hold role)."""
+        (the live slot file, or built-in joint hold for the hold role)."""
         v = self._roles().get(role)
         if not v or v == "walk":
             return None
@@ -6364,7 +6543,7 @@ class BenchAPI:
                 except Exception:
                     resolved = p.name
             elif role == "hold":
-                resolved = "walk policy @ zero command"
+                resolved = "built-in joint hold"
             else:
                 slot = "walk" if role == "walk" else "stance"
                 resolved = f"live {slot} slot"
@@ -6526,11 +6705,11 @@ class BenchAPI:
     def rl_drive_start(self) -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
-        Same start contract as the episodic walk: read-only preflight
-        from the captured plant stance, with the moderate-tilt/pose
-        auto-acquire (scripted stand) fallback. Then the loop runs
-        until stop / heartbeat silence / cap / safety trip, driven
-        live by rl_drive_cmd. THE OPERATOR MUST BE WATCHING.
+        Motion-free start contract: read-only preflight accepts the
+        sim walk-ready pose, then the loop runs until stop /
+        heartbeat silence / cap / safety trip, driven live by
+        rl_drive_cmd. It must not surprise-glide to another stance before
+        keys are pressed. THE OPERATOR MUST BE WATCHING.
         """
         try:
             from rl_policy import DriveCommand, preflight, run_drive_session
@@ -6548,21 +6727,26 @@ class BenchAPI:
         hold_w = self._role_weights("hold")
 
         ok, reason, details = preflight(self.drive.bus, "walk")
-        acquire_first = False
-        if not ok and (reason.startswith("pose is not")
-                       or reason.startswith("tilt too high")):
-            # Same moderate-tilt descent rule as rl_policy_move: a
-            # sprawled-but-level robot may acquire the stand first; a
-            # truly tipped or half-dead robot always refuses.
-            r = abs(float(details.get("roll_deg", 90.0)))
-            p = abs(float(details.get("pitch_deg", 90.0)))
-            if r <= 35.0 and p <= 35.0:
-                acquire_first = True
-            else:
-                return {"ok": False,
-                        "error": f"preflight: {reason}", **details}
-        elif not ok:
-            return {"ok": False, "error": f"preflight: {reason}", **details}
+        if not ok:
+            try:
+                from event_log import emit
+                emit("rl_debug", "drive preflight failed", src="bench",
+                     level="warn",
+                     data={"reason": reason, "preflight": details})
+            except Exception:
+                pass
+            return {"ok": False,
+                    "error": (f"preflight: {reason}. Start Driving no "
+                              "longer auto-moves to a walk start; use "
+                              "Policy moves → RL Stand Up / Walk Ready "
+                              "first if needed."),
+                    **details}
+        try:
+            from event_log import emit
+            emit("rl_debug", "drive preflight ok", src="bench",
+                 data={"preflight": details})
+        except Exception:
+            pass
 
         self._demo_gen += 1
         gen = self._demo_gen
@@ -6574,7 +6758,7 @@ class BenchAPI:
             self._demo_status = "drive session starting"
             self._demo_params = {
                 "walk": walk_w.name if walk_w else "slot",
-                "hold": hold_w.name if hold_w else "walk@zero"}
+                "hold": hold_w.name if hold_w else "joint_hold"}
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("rl_policy", "RL drive")
@@ -6589,24 +6773,6 @@ class BenchAPI:
 
             try:
                 self._bus_hot_begin()
-                if acquire_first:
-                    with d._lock:
-                        d.mode = "demo"
-                        if not d.armed:
-                            d._torque_all(True)
-                            d.armed = True
-                    _on_progress({"msg": "acquiring stand start pose…"})
-                    res_a = self._acquire_start(
-                        "stand", gen=gen, on_progress=_on_progress)
-                    if not res_a.get("ok"):
-                        raise RuntimeError(
-                            "could not reach the start pose — "
-                            + str(res_a.get("error") or "aborted"))
-                    ok2, reason2, _d2 = preflight(d.bus, "walk")
-                    if not ok2:
-                        raise RuntimeError(
-                            "still failing preflight after acquiring "
-                            f"stand: {reason2}")
                 result = run_drive_session(
                     d, cmd, on_progress=_on_progress,
                     abort_check=self._demo_abort.is_set,
@@ -6654,7 +6820,93 @@ class BenchAPI:
         self._demo_thread.start()
         return {"ok": True, "mode": "drive",
                 "walk": walk_w.name if walk_w else "live slot",
-                "hold": hold_w.name if hold_w else "walk@zero"}
+                "hold": hold_w.name if hold_w else "joint_hold"}
+
+    def _rl_walk_ready_stand(self) -> dict:
+        """RL-tab Stand Up: STEP stand, then visible sim walk-start settle.
+
+        The deployed walk policy should start where the simulator's normal
+        walk episodes start, not at whatever mutable plant_pose.json currently
+        says. STEP stand-up already ends close to that high-knee stance; this
+        route re-holds/verifies it before Start Driving.
+        """
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if self._drive_active():
+                if not self._preempt_demo_thread(
+                        reason="drive → walk-ready stand", timeout=8.0):
+                    return {"ok": False,
+                            "error": "drive session did not stop"}
+            else:
+                return {"ok": False, "error": "stop the running job first"}
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "rl_policy_stand"
+            self._demo_status = "STEP stand → sim walk-ready starting"
+            self._demo_params = {"mode": "stand", "route": "walk_ready"}
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("rl_policy", "STEP stand → sim walk-ready")
+
+        def _worker():
+            d = self.drive
+
+            def _on_progress(p: dict) -> None:
+                with self._lock:
+                    self._cal_progress = dict(p)
+                    self._demo_status = str(
+                        p.get("msg") or "STEP stand → sim walk-ready")
+
+            result: dict = {}
+            try:
+                self._bus_hot_begin()
+                with d._lock:
+                    d.mode = "demo"
+                    d._torque_all(True)
+                    d.armed = True
+                    d.status = "rl stand armed"
+                result = self._acquire_start(
+                    "stand", gen=gen, on_progress=_on_progress)
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    self._demo_status = (
+                        "done · sim walk-ready"
+                        if result.get("ok") else
+                        f"error: {result.get('error') or 'failed'}")
+                    self._cal_progress = {"msg": self._demo_status}
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                result = {"ok": False, "error": str(e)}
+                with self._lock:
+                    self._cal_result = result
+                    self._demo_status = f"error: {e}"
+                    self._cal_progress = {"msg": self._demo_status}
+            finally:
+                self._bus_hot_end()
+                if gen != self._demo_gen:
+                    return
+                if result.get("ok"):
+                    self._enter_stand_hold()
+                    self._set_activity("armed", "sim walk-ready")
+                else:
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    self._set_activity("armed" if d.armed else "limp",
+                                       self._demo_status)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "mode": "stand", "route": "walk_ready",
+                "calibrate": self.calibrate_state(),
+                "robot": self.robot_state()}
 
     def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
                        vy: float = 0.0, duration_s: float = 6.0,
@@ -6666,7 +6918,7 @@ class BenchAPI:
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
         Read-only preflight refuses to move unless all 18 servos answer,
         the IMU is alive, and the present pose matches the expected start
-        (captured plant for walk).
+        (sim walk-ready pose for walk).
         ``mode="stand"`` and ``mode="lower"`` deliberately delegate to
         the STEP stand-up keyframes instead of the experimental learned
         stance policies.
@@ -6681,8 +6933,7 @@ class BenchAPI:
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
         if mode == "stand":
-            return self.standup(mode="step", speed=10.0,
-                                direction="up")
+            return self._rl_walk_ready_stand()
         if mode == "lower":
             return self.standup(mode="step", speed=10.0,
                                 direction="down")
@@ -6709,27 +6960,13 @@ class BenchAPI:
         # instant and motion-free.
         ok, reason, details = preflight(self.drive.bus, mode)
         acquire_first: str | None = None
-        if not ok and (reason.startswith("pose is not")
-                       or reason.startswith("tilt too high")):
-            # RL moves from any pose (operator 08-11): when the pose
-            # or a MODERATE tilt is all that fails (servos + IMU
-            # healthy), the worker ACQUIRES the expected start first —
-            # safe zero for stand; safe zero + the validated step
-            # stand-up for walk — then re-preflights (strict
-            # gates) and runs. A sprawled robot resting crooked on
-            # folded legs reads 15-25 deg of tilt — the descent
-            # flattens it. A truly tipped robot (roll toward 90)
-            # still refuses, as do servo / IMU failures — never
-            # auto-move a tipped or half-dead robot.
-            r = abs(float(details.get("roll_deg", 90.0)))
-            p = abs(float(details.get("pitch_deg", 90.0)))
-            if r <= 35.0 and p <= 35.0:
-                acquire_first = "zero" if mode == "stand" else "stand"
-            else:
-                return {"ok": False,
-                        "error": f"preflight: {reason}", **details}
-        elif not ok:
-            return {"ok": False, "error": f"preflight: {reason}", **details}
+        if not ok:
+            return {"ok": False,
+                    "error": (f"preflight: {reason}. Walk no longer "
+                              "auto-moves to a walk start; use Policy "
+                              "moves → RL Stand Up / Walk Ready first if "
+                              "needed."),
+                    **details}
 
         self._demo_gen += 1
         gen = self._demo_gen
@@ -6774,9 +7011,11 @@ class BenchAPI:
                 if acquire_first:
                     with d._lock:
                         d.mode = "demo"
-                        if not d.armed:
-                            d._torque_all(True)
-                            d.armed = True
+                        # Force torque-enable; d.armed may be stale after a
+                        # previous stop even when the bus is physically limp.
+                        d._torque_all(True)
+                        d.armed = True
+                        d.status = "rl policy armed"
                     _on_progress({"msg": (f"acquiring {acquire_first} "
                                           "start pose first…")})
                     res_a = self._acquire_start(
@@ -7038,7 +7277,7 @@ class BenchAPI:
 
         ``direction="up"`` normally starts from the ZERO pose (belly down,
         legs straight out); if the robot is already upright, it adjusts
-        and verifies the plant stance instead of re-running a rise.
+        and verifies the sim walk-ready stance instead of re-running a rise.
         Otherwise it ACQUIRES zero first (08-11 directive), then plays
         the keyframes. ``direction="down"`` plays the same keyframes in
         reverse only when the robot is normally upright; down from a
@@ -7080,6 +7319,11 @@ class BenchAPI:
         except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
         down = str(direction) == "down"
+        if sync_gen is None and self._drive_active():
+            return {"ok": False,
+                    "error": ("drive session active/stopping; use End "
+                              "session and wait for 'Session ended' before "
+                              "stand/lower")}
         if sync_gen is None and (self._demo_thread
                                  and self._demo_thread.is_alive()):
             if not self._preempt_demo_thread(reason="→ standup",
@@ -7088,7 +7332,7 @@ class BenchAPI:
 
         if not force:
             # State machine for ordinary stand/lower requests:
-            # - UP + already upright: adjust/verify the plant stance.
+            # - UP + already upright: adjust/verify the sim walk-ready stance.
             # - UP + not upright: safe-zero first, then STEP-up below.
             # - DOWN + upright: play the selected reverse keyframes
             #   (standard callers select STEP).
@@ -7317,7 +7561,7 @@ class BenchAPI:
                     # the fold, and loaded feet can't slide inward —
                     # re-seat them on the narrow stance by tripods.
                     # If the robot already stands narrow (old-stance
-                    # or RL-plant start) skip the wide frame instead
+                    # or RL walk-ready start) skip the wide frame instead
                     # of easing outward pointlessly.
                     with self.drive._lock:
                         w_wide, _ = (self.drive
