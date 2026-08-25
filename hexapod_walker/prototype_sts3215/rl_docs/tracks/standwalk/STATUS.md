@@ -1,6 +1,36 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:2x (**ANCHOR-DOSE-UP AXIS CLOSED for rise:
+Last updated: 2026-08-25 ~16:5x (**RUNG-9 BUILT, PROVEN, AND FUNDED:
+a mesh-native scripted rise reference now exists, is torque-feasible
+on the mesh model, and a 2-seed canary pair is training.** New tool
+`rl_move/sim/make_rise_ref_scripted.py` (snapshot 25941468) mints a
+belly→plant reference from geometry alone — NO checkpoint extraction:
+tuck feet to the plant footprint while the belly carries the mass,
+then a symmetric quasi-static Cartesian press via the trusted
+`tripod_gait` FK/IK, then hold; the candidate must survive an
+open-loop replay on the training model with a hard current bar
+(p95<=1.5A) plus held-out-seed robustness before it may be written.
+TWO KEY MEASUREMENTS from its probes: (1) the legacy
+primitive-extracted ref's pacing sits far above the ~31 deg/s servo
+velocity limit — at that pace even a clean symmetric scripted press
+reproduces the 2.64A pin OPEN-LOOP as a pure command-lag convergence
+transient (no policy involved); (2) at quasi-static pacing (tuck 3s /
+press 5s / hold 2.5s) the full belly→plant rise runs at **0.53A max**,
+ends +83mm and 0.8° RMS from plant — so a <=1.5A mesh rise IS
+physically feasible; the task was never torque-blocked, the reference
+content/pacing was the defect. Shipped
+`rl_move/sim/refs/rise_ref_mesh_scripted.npz` (T=526, dt=0.02s,
+ramp_i0=245, validation PASS). FUNDED: 2M canary pair
+`riseonly-bcchain3-meshref` (seed 0) / `-meshref-s1` (seed 1), exact
+slowchain recipe with ONLY `reward.rise_ref_path` swapped, judged
+jointly as a pass-rate — VERIFIED RUNNING train-0/train-1. If both
+FAIL with anchor loss converged, reference content is refuted
+alongside pace/budget/dose and the next suspect is the
+reward/termination pricing itself. Evidence: generator output in this
+entry (reproducible via the command above), snapshot tag
+`exp/cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref`.)
+
+Prior entry: 2026-08-25 ~16:2x (**ANCHOR-DOSE-UP AXIS CLOSED for rise:
 `-slowchain-anchordose6`/`-anchordose10` BOTH CANARY FAIL - MECHANISM,
 dose-insensitive between 6.0 and 10.0.** Doubling/3.3x-ing the BC-anchor
 coef (3.0->6.0/10.0) off slowchain's own working half-pace does NOT
