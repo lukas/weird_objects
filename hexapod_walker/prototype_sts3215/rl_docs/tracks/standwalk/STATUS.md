@@ -1,6 +1,34 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~13:5x (**rung-8 rise canary read:
+Last updated: 2026-08-25 ~13:5x (**rung-8 lower canary read:
+`loweronly-bcchain3` CANARY PASS — the IK-descent BC-anchor chain
+(`bc_anchor_lower=1`, coef 3.0) produces the FIRST honest sit-down on
+the 3.5 kg mesh model.** DR-0 det 6/6 honest descents: full commanded
+drop (height_err_end 0.1–3.7 mm, >>60 % bar), zero terminations, zero
+over_current, roll clean (peak <=1.0 deg); det video = level six-foot
+descent from plant to crouch, feet grounded throughout, held to
+truncation. Own-DR(0.2) det also 6/6. Honest caveats: (1) sto 0/6 at
+DR-0 AND own-DR, all fell (tilt/over_current) — the exact un-annealed
+policy_std~1.0 signature the hold rung had before stdanneal took sto
+0/6->6/6 by anneal alone; (2) the crouch is HOT as the 08-25 dig-in
+predicted (det cur_max 2.17–2.26 A, cur_s_above_soft up to 10.2 s, no
+over_current term) — watch whether anneal cools it like hold
+(0.53->0.44 A); `goal.lower_height_mm` belly-rest recalibration stays
+the fallback if acquisition can't. FUNDED the pre-registered
+follow-up: `cw-standwalk-stance-mesh2-loweronly-bcchain3-stdanneal`
+(8M acquisition, warm-start from the canary ckpt, log-std 0->-4.0
+anneal-frac 0.5, recipe otherwise unchanged, VERIFIED RUNNING
+train-0), mirroring the hold/rise stdanneal recipe — all three
+mode-isolated stdanneal acquisitions now in flight (hold PASSED,
+rise + lower running). `stancemix-bcchain3` (goal-mix composition
+read) still training — its triage decides whether stage-1 unifies via
+goal-mix or via stage-2 distillation of the isolated champions.
+Watcher SUSPECT on loweronly-bcchain3 was a false alarm
+(budget-complete clean exit at 2.03M, W&B synced). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_loweronly_bcchain3_{gate,owncfg}/`,
+W&B `kysdqcu1`.)
+
+Prior entry: 2026-08-25 ~13:5x (**rung-8 rise canary read:
 `riseonly-bcchain3` CANARY PASS (partial) — the state-aligned BC-anchor
 chain DRIVES THE RISE on the 3.5 kg mesh model, first belly->stand in
 eight rungs, but the terminal plant fails on quality.** DR-0 det: 0/6
