@@ -1,7 +1,7 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~03:3x (operator registration — track
-created, nothing launched yet).
+Last updated: 2026-08-25 ~04:4x (stage-1 bank-checked on mesh +
+3-seed batch queued: cw-standwalk-stance-mesh1/-seed1/-seed2).
 
 ## Goal (operator, 08-24 evening)
 
@@ -62,14 +62,44 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-Nothing launched. Track registered by the operator 08-24 evening.
+Stage-1 batch queued 08-25 ~04:4x per the operator kick:
+`cw-standwalk-stance-mesh1` + `-seed1`/`-seed2` (3 seeds, one wave per
+the batching rule). Recipe: footlow2-lineage joint_goal from scratch
+on the mesh default @100 Hz — goal-mix hold=.1/rise=.45/lower=.45,
+15 s episodes, DR 0.2, fresh-init field standard (log-std 0, ent
+.005), rise-ref tracking + posture/income/finish gates + hold gates +
+rise RSI, MESH-recalibrated heights; NO warm start, NO bc_anchor
+(primitive-family, families do not transfer), NO endpost shaping
+extras (k_stance_clearance/k_end_posture/k_load_even/k_still/
+k_current_* all BREAK bank orderings on mesh — measured 08-25:
+partial-honest drops below cheats, or k_still pays the refusal).
+
+Stage-1 mesh calibration facts (measured 08-25, this cycle):
+- Mesh plant settles at h_rel = **82.96 mm** (primitive tibia-150:
+  131.94) => `goal.rise_height_mm=[79,87]`, `actions.max_height_mm=88`.
+- The 25 Hz `rise_ref_belly2plant.npz` EXECUTES on mesh: time-aligned
+  open-loop replay ends valid plant 3/3 seeds (footprint/attitude/
+  support clean). The bank's replay was rate-broken at hz=100
+  (advanced one 25 Hz ref row per 100 Hz env step -> 4x-speed rise,
+  toppled); fixed test-side (`_ref_row`), training consumer
+  (`_rise_ref_clock`) was always time-based.
+- Bank-check ON MESH under the exact launch stack: RISE replay 2703
+  (plant 3/3) > mesh-honest partial 536 > flagleg 395 > stilt -47 >
+  freeze -707 / thrash -1005; LOWER honest 2131 > partial 629 >
+  refuse -64 (<0), posture-strict accepts honest / rejects
+  outrig+aloft; HOLD quiet 1472 > stepping 870 > flag 50 (quiet
+  plants 3/3). Recorded caveats: (a) LOWER thrash seed 2 lucky-
+  collapses the 3.5 kg body onto the belly target and banks 1852
+  (thrash mean 869 > partial 629, mesh-only) — honest still dominates
+  2.4x; triage must watch lower videos for crash-lowering; (b) the
+  committed bank's "partial" (primitive j_half row) yields h=1 mm on
+  mesh — a mesh partial must hold ref row ~283 (~50 mm), verified.
 
 ## Next
 
-1. Stage-1 arm: pull `stance_dr10`'s exact recipe from the ledger,
-   port to mesh@100Hz (no legacy pins), bank-check the stance reward
-   on mesh, launch `cw-standwalk-stance-mesh1` (+ seed pair per the
-   batching rule).
+1. DONE 08-25 ~04:4x (see Now): recipe ported (option (a): from-
+   scratch footlow2-style minus init/bc-anchor), bank-checked on
+   mesh, `cw-standwalk-stance-mesh1` + seed pair queued.
    RECIPE ARCHAEOLOGY (08-25 ~04:0x cycle, saves the re-dig):
    `stance_dr10` is PRE-LEDGER (no extra_args entry); its W&B config
    (run `cw-stance-dr10`, 2026-08-08) shows: task `joint_goal`,
