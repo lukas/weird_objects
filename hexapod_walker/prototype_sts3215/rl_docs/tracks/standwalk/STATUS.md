@@ -1,6 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~14:2x (**rung-8 rise stdanneal read:
+Last updated: 2026-08-25 ~14:4x (**operator kick fb_20260825T140238_d43b35
+(footlow2 raw-18 curriculum = binding priority) + rung-8 mix canary
+read: `stancemix-bcchain3` CANARY PASS (partial) — the footlow2
+anchor bundle prevents the rung-1-6 mix collapse for the first time,
+but from-scratch mix buys three HOT half-skills.** DR-0 det: hold
+planted (valid_plant 6/6, herr 8.7 mm) yet 6/6 `hold_min_load` trips
+~8 s in — load-shedding shuffle (slip 1.6 m) at cur_max 2.62 A vs the
+hold champion's 0.44 A; rise first in-mix det successes 2/6 (herr
+3–8 mm, 2 over_current); lower det 0/6 (stalls 18–32 mm high) but sto
+4/6 — noise dithers it down. Every mode strictly worse than its
+isolated sibling at matched 2M (loweronly det was 6/6 clean).
+KEY STRUCTURAL FACT vs the footlow2 evidence the operator named: the
+primitive footlow2 mix PASSes (`hard1`/`-s1`/`-stable1`) were NEVER
+from-scratch — all warm-started an already-competent stance policy;
+mix was always HARDENING. So the honest mesh2/100 Hz footlow2 analog
+is warm-mix. FUNDED (2M canary pair, VERIFIED RUNNING):
+`cw-standwalk-footlow2raw18-mesh2-hz100-warmmix1` (exact mix recipe
+init-from the hold stdanneal champion, `--warm-log-std-override=-1.0`,
+train-3) and `-warmmix2-lowstd` (same, champion's annealed std ~0.018
+kept — separates noise-dose from warm-init; train-2). Gates in the
+ledger; mode-isolated rise/lower acquisitions remain the primary
+stage-1 path. Canonical-recipe ruling encoded in CURRENT_TRUTHS
+"STANDWALK CANONICAL STANCE RECIPE" + Next item 0. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_bcchain3_{gate,owncfg}/`,
+W&B `tj2k8oxo`.)
+
+Prior entry: 2026-08-25 ~14:2x (**rung-8 rise stdanneal read:
 `riseonly-bcchain3-stdanneal` PARTIAL — std-anneal delivers the FIRST
 valid mesh rises but deep starts stay current-pinned.** DR-0 det 2/6 +
 sto 2/6 valid_plant, own-DR(0.2) det 1/6 + sto 4/6 (parent: 0/6
