@@ -723,3 +723,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 22:46 [standwalk] rung2-hha1 (seed0) -> PASS: full-range height elevator clean 12/12 DR-0, zero terms; trace leg5 lightening 2 sto eps (duty 0.87/0.89) — joint call with -s1 pending 
 - 08-25 22:56 rung2-hha1-s1 CANARY PASS + JOINT RUNG-2 CALL PASS: [-40,20]mm height-cmd clean cross-seed (12/12 DR-0, 0 min-load terms, trace 0.89 duty residual shrinking); rung-3 kind-mix pair next from s1 ckpt w/ min-load tripwire 
 - 08-25 22:56 acq8m-s1 ACQ PASS: 8M solves seed-1 flat rise — flat probe 12/12 valid_plant (2M: 0/12, 11/12 fell), h_err<=4.4mm, genuine tuck->press on video; gate 4/6+4/6 ~parent incl first-ever flat gate pass; joint call pends seed-0 twin 
+- 08-25 22:58 [standwalk] tuckclock-acq8m (seed0) -> PASS: FLAT-START RISE SOLVED on mesh — flat probe 12/12 valid (canary was 0/12), non-flat >= parent; joint call with -s1 next cycle 

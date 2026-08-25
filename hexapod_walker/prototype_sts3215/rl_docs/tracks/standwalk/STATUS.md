@@ -1,6 +1,63 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~22:2x (**STAND_HEIGHT rung-1 JOINT CALL:
+Last updated: 2026-08-25 ~23:0x (**FLAT-START RISE SOLVED on seed 0 —
+`tuckclock-acq8m` PASS: the campaign-wide flat-start blocker is
+broken. Plus rung-2 height-elevator seed 0 PASS with a trace caveat.**
+This cycle verdicted its two assigned seed-0 runs; BOTH registered
+joint calls land with their `-s1` twins' cycles:
+
+1. `cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock-acq8m`
+   (8M, seed 0) **PASS** — the robot stands up from lying splayed flat
+   on the 3.5 kg mesh model. Flat-pinned pod probe
+   (`goal.rise_flat_frac=1.0/partial=0/rsi=0`, DR-0, n=6+6): **12/12
+   valid_plant, h_err_end 0.3–3.8 mm** vs the 2M canary's 0/12 at
+   37.7–62.0 mm; roll peak/tail 1.0/0.8°, settled 12/12, zero
+   falls/terms; video = genuine splay→tuck-under→level six-foot plant
+   held to end. Non-flat standard DR-0 gate det 6/6 + sto 4/6 ≥
+   meshref parent (5/6+4/6) — both gate clauses met for this seed.
+   Residuals: cur_max still kisses 2.46–2.64 A in the tuck/press
+   phase (structural ceiling, now non-terminal at DR-0); own-DR 0.2 =
+   10/12 with 2 over_current rsi terms; one sto rsi fell. Reward rose
+   all run (-15.4/-149.5/548.1/1290.9). **NEXT (for the `-acq8m-s1`
+   cycle — s1 FINISHED its full 8M cleanly ~22:3x, its in-run final
+   eval already showed rise f2/2 b2/2 c2/2; the watcher SUSPECT on it
+   was the final W&B flush, benign):** run/read s1's flat probe, make
+   the registered joint call; on joint PASS promote
+   `train.bc_anchor_flat_time_indexed=1` + `rise_ref_mesh_scripted.npz`
+   as THE mesh rise recipe and port into stancemix (warm-start from
+   `ppo_goal_..._stancemix_bcchain3_stdanneal.zip` per the slowchain
+   precedent, or per that arm's outcome). SKILLS.md row added.
+   Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_
+   bcchain3_meshref_tuckclock_acq8m_{gate,owncfg,flatprobe}/`, W&B
+   h2zqn1ev. This also supersedes the tuckexempt-i0 dig-in's
+   "SURVIVING DESIGN" note below — the script-progress floor redesign
+   is MOOT if the joint call passes (tuckclock already tracks through
+   the tuck).
+
+2. `cw-standwalk-stance-mesh2-holdheight-rung2-hha1` (2M canary, seed
+   0, full [-40,20] mm height range) **PASS with a letter-breach
+   caveat** — DR-0 12/12 valid_plant, ZERO hold_min_load terms,
+   h_err_end 0.2–3.7 mm, det duty all ≥0.98, det cur_max 0.75–1.06 A
+   (band-adjacent to rung-1's 0.66–1.03 A), video level/planted.
+   CAVEAT: 2/6 sto episodes lighten leg idx5 to duty 0.89/0.87
+   (<0.9 gate letter) with 27–28 micro-swings, sto cur_max to 1.38 A
+   — same lightening family as rung-1 seed 1, at trace magnitude,
+   zero terms, sub-visual on video. Own-DR 0.2: 11/12, one det
+   hold_min_load term — DR hardening still open. **NEXT (for the
+   `-rung2-hha1-s1` cycle, still training):** registered joint call;
+   recommendation PROCEED if s1 is comparably clean, but the
+   pre-registered S-gate/min-load-pricing fallback condition ("EITHER
+   seed reproduces min-load dips") is arguably met at trace level —
+   fire it at the next rung if dips grow instead of shrink. Evidence:
+   `logs/ckpt_eval/cw_standwalk_stance_mesh2_holdheight_rung2_hha1_
+   {gate,owncfg}/`, W&B nngk147g.
+
+No new launches this cycle: both refills are the twins' registered
+joint calls (s1 runs finished/finishing, cycles imminent); amp DONE
+(sim), cpg closed, walkcurr [operator]-blocked — no other runnable
+topmost work.)
+
+Prior entry: 2026-08-25 ~22:2x (**STAND_HEIGHT rung-1 JOINT CALL:
 PROCEED — height-aware anchor proven cross-seed; rung-2 pair
 LAUNCHED.** This cycle verdicted `holdheight-rung1-hha1-s1` (seed 1):
 CANARY PASS - MECHANISM with a residual caveat — the anchor fix
