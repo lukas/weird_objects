@@ -133,6 +133,7 @@ def _ref_row(env, step: int, ref_dt: float, ramp_ref: int) -> int:
 def _rollout(env, mode: str, behavior: str, model) -> dict:
     obs, _ = env.reset()
     ref = np.load(RISE_REF)
+    psum: dict = {}
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
     ref_dt = float(ref["dt"])
     q0 = env.data.qpos[env._qadr].copy()
@@ -150,6 +151,16 @@ def _rollout(env, mode: str, behavior: str, model) -> dict:
             ep_start = np.zeros((1,), dtype=bool)
         elif behavior == "replay":            # honest rise
             j = _ref_row(env, step, ref_dt, ramp_ref)
+            act = q_rad_to_action(q_ref[min(max(j, 0), n_ref - 1)])
+        elif behavior == "replay_script":     # honest rise, teacher-timed
+            # Absolute-time replay: play the ref rows on the SCRIPT's
+            # own clock (row 0 at t=0), ignoring the env's commanded
+            # ramp timing. For flat starts this is the mesh teacher's
+            # genuine tuck-then-press; the ramp-aligned 'replay' above
+            # compresses/skips the tuck when the env ramp starts before
+            # the script's own ramp_i0 (e.g. rise_hold_min_s=0.5s vs a
+            # 2.45s scripted tuck) and slams the press.
+            j = int(round(step * env.dt / ref_dt))
             act = q_rad_to_action(q_ref[min(max(j, 0), n_ref - 1)])
         elif behavior == "hold_quiet":        # honest hold
             act = q_rad_to_action(q0)
@@ -184,6 +195,9 @@ def _rollout(env, mode: str, behavior: str, model) -> dict:
             raise SystemExit(f"unknown behavior {behavior!r}")
         obs, r, term, trunc, info = env.step(np.asarray(act).ravel())
         total += float(r)
+        for k, v in info.items():
+            if k.startswith("reward_") and isinstance(v, (int, float)):
+                psum[k] = psum.get(k, 0.0) + float(v)
         step += 1
         cur = env._state.servo_current
         if cur is not None:
@@ -200,11 +214,14 @@ def _rollout(env, mode: str, behavior: str, model) -> dict:
             "reason": reason, "cur_max": round(cur_max, 3),
             "cur_mean": round(cur_mean_acc / max(step, 1), 3),
             "h_err_mm": round(1000 * h_err, 1),
-            "plant_ok": plant_ok}
+            "plant_ok": plant_ok,
+            "parts": {k: round(v, 1) for k, v in sorted(psum.items())
+                      if abs(v) >= 0.05}}
 
 
 HONEST = {"rise": "replay", "hold": "hold_quiet", "lower": "lower_desc"}
-EXTRA = {"rise": ("partial", "flagleg", "stilt", "freeze")}
+EXTRA = {"rise": ("replay_script", "partial", "flagleg", "stilt",
+                  "freeze")}
 
 
 def main() -> None:
@@ -220,7 +237,18 @@ def main() -> None:
                     help="also roll the scripted bank cheats (rise "
                          "partial/flagleg/stilt/freeze) to verify the "
                          "pricing preserves bank orderings")
+    ap.add_argument("--ref", type=Path, default=None,
+                    help="alternate rise ref npz (e.g. the mesh-native "
+                         "rise_ref_mesh_scripted.npz): used for BOTH the "
+                         "honest replay rows and the env's own "
+                         "reward.rise_ref_path tracking kernel. Default "
+                         "None = legacy rise_ref_belly2plant.npz, "
+                         "bit-exact prior behavior.")
     args = ap.parse_args()
+    if args.ref is not None:
+        global RISE_REF
+        RISE_REF = args.ref.resolve()
+        LAUNCH_OVERRIDES[("reward", "rise_ref_path")] = str(RISE_REF)
 
     from rl_move.sim.gru_policy import load_checkpoint_auto
     model = load_checkpoint_auto(args.ckpt, device="cpu")

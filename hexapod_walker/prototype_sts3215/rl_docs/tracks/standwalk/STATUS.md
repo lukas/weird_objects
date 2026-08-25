@@ -1,6 +1,74 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~21:0x (**SCRIPT-INDEX FLOOR AXIS CLOSED —
+Last updated: 2026-08-25 ~21:2x (**STAND_HEIGHT RUNG-1 CANARY FAIL —
+CROSS-SEED FLAG-LEG CHEAT.** `holdheight-rung1` (verdicted this cycle)
+and its seed twin `-s1` (gate report peeked for the registered joint
+pass-rate judgment; verdict belongs to its own cycle) both learn the
+±15mm/8mm/s commanded-height elevator — height_err_end 0.3–8.8mm on
+terminated episodes — but pay for it by FLAGGING ONE LEG: seed 0
+unloads/waves leg 4 (duty 0.29–0.86, swing 3–6 det), seed 1 the SAME
+cheat on leg 2 (duty 0.23–0.70). Different flagged leg per seed =
+recipe-level exploration basin, not seed luck. DR-0 gate 0/6 det +
+0/6 sto both seeds (needed 5/6+4/6, zero hold_min_load; actual 8/12
+hold_min_load terms seed 0). Reward rose all run (quarters
+15.6/11.9/34.4/75.7) and training min-load terms decayed 120→1-2/
+window → 08-21 ruling: a basin/incentive problem to repair. The bank
+ranks honest 6-foot tracking >2x above a flag, PPO just never finds
+honest tracking from this init (hold_load_factor plateaus ~0.81 = a
+~19% income haircut it happily eats; std annealed to 0.018 locks it
+in). NEXT per the run's own pre-registered FAIL branch +
+STAND_HEIGHT.md's height-blind-anchor note: implement the
+height-AWARE hold BC anchor — IK-solved at the CURRENT commanded
+height every tick, the exact mechanism `train.bc_anchor_lower`
+already uses via `BodyOffset(height=g_next.height_ref)` — new cfg,
+default off/bit-exact, bank rows + unit tests, then relaunch the
+2-seed rung-1 canary. S-gate strengthening is the registered
+fallback. Reward/env code → DIG-IN flagged. Also this cycle: the
+watcher's SUSPECT on `holdheight-rung1-s1` was a false alarm (run
+finished cleanly at 2.03M, W&B synced; checkup fired during the final
+flush). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+holdheight_rung1{,_s1}_{gate,owncfg}/`, W&B `tp53jcv8`.)
+
+Prior entry: 2026-08-25 ~21:5x (**TUCK DIG-IN RESOLVED WITH NUMBERS —
+the reward was never misaligned; the honest TIMING was never taught.
+New lever launched: `train.bc_anchor_flat_time_indexed`.** This cycle
+picked up the 21:0x DIG-IN flag and ran the pricing question through
+`probe_stance_pricing` (extended: `--ref` for the mesh ref, per-part
+sums, and a new `replay_script` behavior — teacher-timed absolute-
+clock replay; probe artifacts `logs/probe_tuck_pricing_*.json`).
+FINDINGS: (1) under the LAUNCHED pricing (hot1a2+term3) every
+reachable behavior is deeply negative — freeze -704, ramp-aligned
+replay -706 WITH an over_current trip, learned policy -770 — and NO
+hot dose fixes the ordering (grid a=2.2-2.55: stilt stays the paid
+optimum via +385 ref-kernel income). (2) BUT the mesh scripted ref
+replayed on ITS OWN CLOCK from flat earns **+2021, plant_ok, Imax
+0.575A, zero over_current, under the exact launched pricing** — the
+honest tuck sweep makes the press nearly effortless; the 2.64A
+press-up was never necessary. The reward's optimum IS the gate
+behavior; nothing in training ever EXECUTED that timing: state-aligned
+pursuit stalls with the robot (freeze converges to low anchor loss),
+and the legacy ramp-aligned clock starts ~2s INTO the 2.45s tuck
+(env `rise_hold_min_s=0.5` vs ref `ramp_i0=245`), slamming the press —
+that is the entire 15-arm anchor-plumbing campaign explained. (3)
+Bonus bug found+documented: `reward.rise_score_strip_pen=1` is a
+NO-OP as implemented (strips only `reward_task`, which is never
+negative; the documented k_height-penalty strip never happened) — no
+repair needed now since the probe shows ordering is correct with the
+penalty live, but the code comment is wrong; noted so nobody
+re-derives pricing from it. FIX (landed, snapshotted): sim_env
+flat-start absolute-script-clock anchor targets — new cfg
+`train.bc_anchor_flat_time_indexed` (default 0 = bit-exact; 3 new
+unit tests, 65/65 test_bc_anchor green): pure-flat non-RSI rise
+episodes anchor to ref row `round(step*dt/ref_dt)+1` (the target
+advances by itself, so freeze ACCUMULATES loss instead of converging
+on it); partial/crouch/rsi/bank keep state-aligned pursuit untouched.
+Chained end-to-end on the launch-exact mesh stack: +2029 return,
+81.5mm stand on a 79mm target, 0.58A, plant_ok=True. Launched the
+pre-registered 2M canary pair `...meshref-tuckclock1`/`-s1` (single
+lever vs the meshref parent — NO tuck_exempt/tuck_lookahead, those
+are refuted).)
+
+Prior entry: 2026-08-25 ~21:0x (**SCRIPT-INDEX FLOOR AXIS CLOSED —
 `tucklook1`/`-s1` CANARY FAIL-MECHANISM, both seeds, cross-verified.
 This cycle picked up the 19:5x/20:1x DIG-IN flag (idle fleet, no other
 track had fundable work) and implemented the surviving design named
@@ -1967,13 +2035,19 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
    commandable height) are the scope; rungs 4-5 (recover-then-track
    from non-solid, compose with rise/lower) stay OUT OF SCOPE until
    the rise mechanism above is solved (no honest non-solid-but-
-   recoverable start distribution exists without it). NOT launched
-   this cycle (no GPU spent) — the doc's own "first science arm"
-   (rung-1 respec of the deployed hold champion, `holdminload40_
-   bcanchor3_stdanneal`, WITHOUT `train.bc_anchor_coef`) is
-   pre-registered and ready; the next cycle with standwalk capacity
-   (or this one, if capacity allows after the rise triage) should
-   launch it.
+   recoverable start distribution exists without it). UPDATE 08-25
+   ~21:2x: the pre-registered rung-1 2-seed canary
+   (`holdheight-rung1`/`-s1`, WITHOUT `train.bc_anchor_coef`) ran and
+   FAILED on a cross-seed flag-leg cheat — height tracking itself is
+   good (0.3–8.8mm) but each seed sacrifices a different single leg
+   (leg 4 / leg 2) and trips hold_min_load; its own pre-registered
+   FAIL branch fired (see Last-updated entry). Next arm on this line:
+   implement the height-AWARE hold BC anchor (IK at the commanded
+   height per tick, `bc_anchor_lower`'s
+   `BodyOffset(height=height_ref)` mechanism, new default-off cfg +
+   bank rows + unit tests), then relaunch rung-1 2-seed; S-gate
+   strengthening is the registered fallback. DIG-IN flagged
+   (reward/env code, not a triage patch).
 
 ## Landmines
 

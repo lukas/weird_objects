@@ -4052,7 +4052,52 @@ class SimHexapodBalanceEnv(_GymBase):
                 # rise-ref TRACKING REWARD keeps the shared clock
                 # (semantics banks untouched; its income is
                 # grounded-feet-gated so it cannot fund flag poses).
-                if float(cfg_get(self.cfg, "train",
+                # FLAT-START ABSOLUTE SCRIPT CLOCK (08-25, tucklook1
+                # dig-in / probe_stance_pricing replay_script rows).
+                # The whole 15-arm anchor-plumbing campaign (floors,
+                # exemptions, script-index lookaheads) chased pursuit-
+                # target geometry, but the measured optimum was TIMING:
+                # replaying the mesh scripted ref on ITS OWN CLOCK from
+                # a flat start earns +2021 (plant_ok, Imax 0.575A, no
+                # over_current — the honest tuck sweep makes the press
+                # nearly effortless) under the exact launched pricing
+                # where every pursuit-taught behavior lands at -50..-770
+                # (freeze -704, 2.64A ramp-aligned catch-up press -706
+                # WITH an over_current trip). Nothing in the stack ever
+                # supervised that timing: state-aligned pursuit lets
+                # the matched index stall (freeze), while the legacy
+                # ramp-aligned clock starts at ref ramp_i0 minus the
+                # env's OWN hold window (~0.5s), skipping ~2s of the
+                # 2.45s tuck and slamming the press. When
+                # train.bc_anchor_flat_time_indexed > 0 and the episode
+                # is a PURE FLAT rise start (non-RSI, start_at "zero",
+                # start_curl 0 — the script's own start state, where
+                # absolute time is honest), index the anchor by the
+                # EPISODE's absolute clock (row 0 at t=0, one env tick
+                # ahead, exactly the +2021 replay): the target advances
+                # by itself, so a freeze accumulates loss instead of
+                # converging on it. Every other start kind (partial,
+                # crouch, bridge probes, rsi, bank) keeps state-aligned
+                # pursuit unchanged — mid-path states have no honest
+                # absolute clock. Reads only _step_i/_goal_traj/
+                # _rsi_ref_tick0 (all SNAP_ATTRS) — pool-restore safe.
+                # Default 0 = off, bit-exact.
+                _bc_gt = self._goal_traj
+                _bc_flat_clock = (
+                    float(cfg_get(self.cfg, "train",
+                                  "bc_anchor_flat_time_indexed",
+                                  default=0.0)) > 0.0
+                    and self._rsi_ref_tick0 is None
+                    and getattr(_bc_gt, "start_at", None) == "zero"
+                    and float(getattr(_bc_gt, "start_curl", 0.0)
+                              or 0.0) == 0.0)
+                if _bc_flat_clock:
+                    _bc_j = min(int(round(
+                        self._step_i * self.dt / _bc_ref["dt"])),
+                        len(_bc_ref["q"]) - 1)
+                    _bc_ahead = max(
+                        int(round(self.dt / _bc_ref["dt"])), 1)
+                elif float(cfg_get(self.cfg, "train",
                                  "bc_anchor_state_aligned",
                                  default=0.0)) > 0.0:
                     _bc_qnow = np.asarray(
@@ -4345,6 +4390,41 @@ class SimHexapodBalanceEnv(_GymBase):
             _q_hold_base = (self._q_nom
                             if getattr(self, "_seq_pose_anchor", None)
                             is None else self._seq_pose_anchor)
+            # HEIGHT-AWARE HOLD REFERENCE (08-25, train.bc_anchor_
+            # hold_height_aware, default 0 = legacy height-BLIND
+            # constant-q_nom target, bit-exact). The holdheight-rung1
+            # mechanism canary (goal.hold_height_cmd_frac, moving
+            # height_ref on hold episodes) trained WITHOUT any pose
+            # anchor at all (a moving target would fight the fixed
+            # q_nom pose), and lost the champion's clean quiet-stand
+            # current/load profile even on the STATIC height_ref=0
+            # DR-0 gate (cur_max 2.0-2.63A vs the champion's
+            # 0.67-0.71A, 5/6 det episodes tripping hold_min_load) —
+            # dropping the anchor entirely threw out its general pose
+            # regularization, not just its height-blindness. Fix:
+            # re-target the anchor at the pose that reaches the NEXT
+            # commanded height (same one-tick-ahead FixedFootBodyIK
+            # convention `bc_anchor_lower` already uses), so the
+            # anchor keeps supervising pose quality while tracking a
+            # moving target instead of fighting it. Only engages on
+            # "hold" (not "track", which commands attitude the offset
+            # would fight) and only when the commanded height is
+            # actually nonzero (bit-exact no-op for
+            # hold_height_cmd_frac=0 and the flat legacy hold).
+            _hha = float(cfg_get(self.cfg, "train",
+                                 "bc_anchor_hold_height_aware",
+                                 default=0.0))
+            if (_hha > 0.0 and self._goal_traj is not None
+                    and self._goal_traj.mode == "hold"):
+                _g_next_h = self._goal_traj.at(self._step_i + 1)
+                if float(_g_next_h.height_ref) != 0.0:
+                    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+                    _ik_h = FixedFootBodyIK()
+                    _ik_h.reset(_q_hold_base)
+                    _res_h = _ik_h.solve(BodyOffset(
+                        height=float(_g_next_h.height_ref)))
+                    if _res_h.ok:
+                        _q_hold_base = _res_h.q_rad
             _q_tgt = _q_hold_base
             # TIP-AWARE HOLD REFERENCE (08-13, train.bc_anchor_tilt_comp,
             # default 0 = legacy constant-q_nom target, bit-exact).

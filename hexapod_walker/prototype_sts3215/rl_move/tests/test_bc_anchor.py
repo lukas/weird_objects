@@ -1571,3 +1571,91 @@ def test_tilt_from_settle_captured_at_tipped_reset():
     e_good = foot_world_error(q_tgt, feet_ref, off_good)
     assert e_good < 0.005, f"counter-rotation error {e_good*1e3:.1f}mm"
     env.close()
+
+
+# ---------------------------------------------------------------------------
+# train.bc_anchor_flat_time_indexed (08-25, tucklook1 dig-in): absolute
+# script-clock anchor targets for pure FLAT rise starts — the measured
+# +2021 replay_script optimum (probe_stance_pricing) that no pursuit
+# variant ever taught. Non-flat/RSI episodes keep state-aligned pursuit.
+# ---------------------------------------------------------------------------
+
+def _flat_clock_env(flat_clock, seed=3, force="flat", extra=None):
+    ov = {("train", "bc_anchor_coef"): 1.0,
+          ("train", "bc_anchor_state_aligned"): 1.0,
+          ("train", "bc_anchor_lookahead_s"): 0.5,
+          ("goal", "rise_rsi_frac"): 0.0}
+    if flat_clock is not None:
+        ov[("train", "bc_anchor_flat_time_indexed")] = float(flat_clock)
+    ov.update(extra or {})
+    env = _make_env(seed, ov)
+    env._goal_gen.force_rise_start = force
+    return env
+
+
+def _collect_targets(env, n=60, freeze=True):
+    env.reset()
+    act = q_rad_to_action(env.data.qpos[env._qadr])
+    out = []
+    for _ in range(n):
+        _o, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+        if "bc_target" in info:
+            out.append(info["bc_target"].copy())
+            if not freeze:
+                act = info["bc_target"]
+    env.close()
+    return np.asarray(out)
+
+
+def test_flat_time_indexed_default_off_bit_exact():
+    """Absent and explicitly 0.0 must emit byte-identical targets —
+    the new branch's default path is the legacy state-aligned
+    pursuit."""
+    a = _collect_targets(_flat_clock_env(None))
+    b = _collect_targets(_flat_clock_env(0.0))
+    assert a.shape == b.shape and np.array_equal(a, b)
+
+
+def test_flat_time_indexed_targets_follow_the_script_clock():
+    """On a flat start the emitted target must be the ref row at the
+    episode's own absolute clock (+1 env tick), advancing tick for
+    tick even while the robot holds still — the anti-freeze property
+    the state-aligned pursuit lacks (its matched index stalls with the
+    robot)."""
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+
+    def tick_of(target) -> int:
+        q_t = action_to_q_rad(np.asarray(target, dtype=float))
+        return int(np.argmin(
+            ((ref["q"] - q_t[None, :]) ** 2).mean(axis=1)))
+
+    env_probe = _flat_clock_env(1.0)
+    dt_ratio = env_probe.dt / float(ref["dt"])
+    env_probe.close()
+    out = _collect_targets(_flat_clock_env(1.0), n=40, freeze=True)
+    assert len(out) >= 30
+    ticks = np.array([tick_of(t) for t in out])
+    # Row i of `out` was emitted at _step_i = i+1 -> clock row
+    # round((i+1)*dt/ref_dt), + max(round(dt/ref_dt),1) lookahead.
+    # tick_of round-trips through the action map so allow +-1 row.
+    ahead = max(int(round(dt_ratio)), 1)
+    expect = np.array([int(round((i + 1) * dt_ratio)) + ahead
+                       for i in range(len(out))])
+    assert np.max(np.abs(ticks - expect)) <= 1, (
+        f"flat-clock targets do not track the script clock: "
+        f"got {ticks[:8]}... expected {expect[:8]}... "
+        f"(dt_ratio {dt_ratio:.3f})")
+    # Strictly advancing on a FROZEN robot (allowing flat spots from
+    # action-map quantization, but net motion over any 10-tick span).
+    assert all(ticks[i + 10] > ticks[i] for i in range(len(ticks) - 10))
+
+
+def test_flat_time_indexed_nonflat_starts_unchanged():
+    """Crouch starts must keep the state-aligned pursuit byte-for-byte
+    — the absolute clock is only honest from the script's own start
+    state (pure flat)."""
+    a = _collect_targets(_flat_clock_env(None, seed=5, force="crouch"))
+    b = _collect_targets(_flat_clock_env(1.0, seed=5, force="crouch"))
+    assert a.shape == b.shape and np.array_equal(a, b)
