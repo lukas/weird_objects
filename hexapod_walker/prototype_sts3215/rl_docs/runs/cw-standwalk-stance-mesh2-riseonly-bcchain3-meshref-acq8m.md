@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T17:01:31+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref
+
+**wandb_id**: 08k9lmkm
 
 **hypothesis**: Can the robot finish learning to stand up from every start posture now that it copies a demonstration its motors can actually afford? The 2M meshref canary pair (s0+s1, joint det 10/12) proved the mesh-native scripted rise ref unpins the deep starts that every old-ref arm ground into the 2.64A ceiling; the residual failures (flat-start det pinned both seeds, 2 sto rsi pins, a few valid episodes at 1.6-2.25A) look like unfinished acquisition, not a structural wall. The prior 'budget is not a lever' finding was measured against the INFEASIBLE old ref (anchor loss plateaued at a posture the mesh model cannot hold); with the feasible ref the anchor has real tracking headroom left at 2M. Exact meshref recipe (mesh-native ref, half-pace chain, anchor 3.0, stdanneal), 8M from scratch, seed 0 — the pre-registered promotion from the canary's PARTIAL branch. Prediction-if-true: rung PASS bar met, incl. flat start. Prediction-if-false: flat start still pins at 8M with anchor loss converged — the flat/belly segment of even the scripted ref needs its own treatment (tuck-phase content), a targeted next arm.
 
