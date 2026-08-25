@@ -1,6 +1,44 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~05:4x (**Operator kick (08-24 load-probe
+Last updated: 2026-08-25 ~06:0x (**gaitgate-scratch1-seed1 FAIL, worse
+than its own already-FAILing parent -- walk_gait_gate-from-scratch is
+now CLOSED as a leg-sacrifice prevention mechanism on mesh, 2/2 seeds.**
+Plain English: the seed replicate of `gaitgate-scratch1` (reward-side
+gate baked in from step 0, meant to stop the policy from parking legs)
+came back even worse than the already-failed base recipe. Held-out 60s
+joygate: 48/48 falls (scratch1 itself was 39/48; the ungated pre-gate
+ancestor was only 12/48 -- the gate makes things WORSE, not better),
+gait_valid_frac 0.167, slip/m med 4.214 (cap 2.9). Term signature is
+mixed this seed (62 tilt_pitch + 34 over_current segment-terms across
+the panel, vs the pure over_current seen on the sibling mesh
+architectures) with leg 4 sacrificed in the large majority of episodes
+(76/~135 sacrifice-hits) and leg 3 a distant second (25) -- consistent
+with the mesh model's real +4mm boot asymmetry on legs 0/4 (nailed in
+the hist64-mesh-acq1 dig-in) compounding the gate's known inability to
+prevent sacrifice cheating. Reward rose the whole run (-677 valley ->
++630.8 final quarter) while the gate got catastrophically worse: a
+clean 08-21 misalignment read, but now on a SECOND independent seed --
+per this lineage's own pre-registered joint-reading rule (2-3/3
+PASS=robust mechanism, 1/3 or 0/3=seed-dependent/non-working), 2 FAILs
+out of the 3-seed batch already settles it as non-working regardless of
+`-seed2`'s (concurrent cycle's) read. **`reward.walk_gait_gate` alone,
+applied from step 0, is CLOSED as a fix for the mesh-family
+leg-sacrifice/over_current basin -- do not fund further from-scratch or
+continuation arms on this exact lever.** The already-launched
+current-dwell-charge trio (`cw-arch-hist64-joyfullcurr13-v7-hz100-
+movecur1` / `-movecur1-gaitgate` / `cw-arch-tf64-mesh-...-movecur1`,
+another cycle's territory) is the next mesh-family lever and is
+unaffected by this closure (different mechanism: pricing sustained
+current dwell before the trip fires, not a min-across-legs gait gate).
+DR-0 gate/own-DR passes for this run were still computing on-pod at
+verdict time (control.hz=100 + 60s episodes is slow); read them from
+`logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_gaitgate_scratch1_seed1_{gate,owncfg}/`
+if ever needed, but the joygate result alone is decisive and consistent
+with the sibling FAIL, so this verdict does not block on them.
+Evidence: `logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_gaitgate_scratch1_seed1_joygate/`,
+W&B `d6ynyx6r`.)
+
+Previous entry (2026-08-25 ~05:4x (**Operator kick (08-24 load-probe
 session) executed: two effort-pricing arms launched off walk champion
 ppo_goal_cw_walk_longdist_r2 + a new posture/load probe landed.**
 Plain English: the operator measured the production walk champion
