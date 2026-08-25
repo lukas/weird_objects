@@ -164723,7 +164723,7 @@
       "reward.walk_stop_grace_s=0.2"
     ],
     "created": "2026-08-24T02:27:12+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -164766,7 +164766,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi-cw-arch-his since 2026-08-24T03:57:57"
+    "triage": "done",
+    "verdict": "Orphaned run recovered (same 3-point grace-dose bracket as -hi, launched 08-24 ~02:2x, finished 40M steps, never triaged until this cycle). This is the LOW dose (grace_s=0.2, half the base 0.4s). Held-out 60s joygate: 19/48 falls (WORST of the bracket: lo 19 -> base 14 -> hi 12), slip/m med 2.333 (cap 2.9, passes), direction_err med 47.64deg (allow 40, FAILS -- worse than base's 40.17 and hi's 38.72), gait_valid_frac 0.917 (worst of the 3). DR0 30s walk battery clean (0/12 terminations). Confirms the dose-response direction from the -hi sibling: LESS grace is monotonically worse on every axis (falls, direction, gait-valid), not just noise -- the full bracket now reads lo(worst) < base < hi(best), a clean monotonic result. FAIL, no promotion; the redirect (movecur1's current-dwell charge, already running) supersedes chasing this axis further. Evidence: logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr8_stopgrace_lo_{gate,joygate}/, W&B 9ftrzr8y."
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi",
@@ -164855,7 +164856,7 @@
       "reward.walk_stop_grace_s=0.8"
     ],
     "created": "2026-08-24T02:29:02+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -164898,7 +164899,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi-cw-arch-his since 2026-08-24T03:57:57"
+    "triage": "done",
+    "verdict": "Orphaned run recovered (launched 08-24 ~02:2x as part of a 3-point grace-dose bracket alongside the base -stopgrace 0.4s [already FAIL-verdicted 08-24 04:11] and -lo 0.2s; finished 40M steps 08-24 but never triaged -- picked up this cycle since evals were already pre-staged and sitting complete). This is the HIGH dose (grace_s=0.8, 2x the base). Held-out 60s joygate: 12/48 falls (BEST of the 3-point bracket: lo 19/48, base 14/48, hi 12/48), slip/m med 2.242 (cap 2.9, PASSES), direction_err med 38.72deg (allow 40, PASSES -- first arm in this lineage to clear BOTH slip and direction), gait_valid_frac 0.9375. Still FAIL overall (zero_falls and gait_valid_all both required, neither cleared) but this is a genuine, monotonic DOSE-RESPONSE across the bracket: more stop-charge grace = fewer falls AND tighter direction tracking (lo 47.6deg -> base 40.2deg -> hi 38.7deg; lo 19 falls -> base 14 -> hi 12). DR0 30s walk battery is clean (0/12 terminations, video shows upright six-leg cycling, good posture -- much less crouched than the effort-pricing lineage). This nuances the base run's own verdict ('settle-grace softens slip/dir but does not fix over_current, next lever is a direct current charge not stop-speed pricing'): grace dose DOES help monotonically, just not enough alone at any tested dose to clear the strict zero-falls bar -- consistent with (not contradicting) that verdict's redirect, since the already-launched movecur1 family (a direct current-dwell charge, on top of a similar recipe) is the compounding next step, not a reason to chase a higher grace dose in isolation. Evidence: logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr8_stopgrace_hi_{gate,joygate}/, W&B gscw2nh1."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-gru",
@@ -179246,6 +179248,132 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdonly1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdonly1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1/cur1-seed1 both failed EVERY mode including hold (which starts from an already-planted pose and just needs to stand still) -- hold is only 10% of the training goal-mix (0.1 of 1.0) alongside rise/lower at 0.45 each, so a plausible root cause is that hold gets starved of gradient signal, not that balance itself is unlearnable on the mesh model. This arm isolates hold: same cur1 pricing/recipe, goal-mix forced to hold=1.0/rise=0/lower=0, 2M-step discovery budget. Prediction-if-true (starved, not broken): quiet standing emerges within 2M -- DR-0 hold panel gets several ok/6 with roll settling, no tilt_roll/over_current pattern. Prediction-if-false: hold-only ALSO fails the same way (tilt_roll fall, similar reward trajectory to cur1'\"'\"'s hold slice) -- balance itself is broken on the mesh/100Hz stack (a gains/PID/contact issue, not a curriculum-weight issue), and the next escalation is a physics/servo-gain audit, not a goal-mix split. Strongest alternative: 2M is too short even for hold-only (rung needs more budget regardless of split).' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-holdonly1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdonly1.log",
     "wandb_id": "khyece06",
-    "verified": "2026-08-25T06:51:18+00:00"
+    "verified": "2026-08-25T06:51:18+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T06:56:27+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2060,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ]
+  },
+  {
+    "run": "cw-standwalk-stance-mesh2-riseonly1",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: cur1/cur1-seed1's rise mode topples onto its side within the first couple seconds instead of pushing up, despite a demonstrated 25Hz reference (rise_ref_belly2plant.npz, k_rise_ref_track=2.0) that bank-checks as followable on mesh (replay ends valid plant 3/3). This arm isolates rise: same pricing/ref-tracking recipe, goal-mix forced to rise=1.0 (100% of training instead of 45%), 2M discovery. Prediction-if-true (rise was undertrained/diluted by the mix): rise ends closer to a valid plant (PLANT_SPEC height/attitude) on a majority of DR-0 episodes, tilt_pitch/over_current terminations become rare. Prediction-if-false: rise-only ALSO topples the same way -- the k_rise_ref_track=2.0 weight is simply too weak against the other shaping terms regardless of curriculum share (matches the mesh1-seed1 dig-in's own suspicion), and the next lever is a k_rise_ref_track dose increase (10-20x), not more curriculum share. Strongest alternative: 2M is too short regardless.",
+    "gate": "Discovery/canary read at 2M: pod_eval stance panel, rise mode only, n=6 det DR-0. PASS-qualitative: majority (>=4/6) end in a PLANT_SPEC-valid or near-valid plant (height_err <30mm, no immediate topple), video shows a genuine push-up motion not a sideways roll. FAIL: same immediate-topple signature as cur1 -- escalate to a k_rise_ref_track dose sweep instead.",
+    "parent": "cw-standwalk-stance-mesh2-cur1",
+    "track": "standwalk",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.005",
+      "--log-std-init",
+      "0",
+      "--goal-mix",
+      "hold=0.0,rise=1.0,lower=0.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_standwalk_stance_mesh2_riseonly1",
+      "--cfg-set",
+      "actions.max_height_mm=88",
+      "--cfg-set",
+      "goal.rise_height_mm=[79,87]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "goal.rise_rsi_frac=0.5",
+      "--cfg-set",
+      "goal.rise_hold_min_s=0.5",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_score_strip_pen=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.hold_still_gate=1.0",
+      "--cfg-set",
+      "reward.hold_flag_fade=1.0",
+      "--notes",
+      "respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1/cur1-seed1's rise mode topples onto its side within the first couple seconds instead of pushing up, despite a demonstrated 25Hz reference (rise_ref_belly2plant.npz, k_rise_ref_track=2.0) that bank-checks as followable on mesh (replay ends valid plant 3/3). This arm isolates rise: same pricing/ref-tracking recipe, goal-mix forced to rise=1.0 (100% of training instead of 45%), 2M discovery. Prediction-if-true (rise was undertrained/diluted by the mix): rise ends closer to a valid plant (PLANT_SPEC height/attitude) on a majority of DR-0 episodes, tilt_pitch/over_current terminations become rare. Prediction-if-false: rise-only ALSO topples the same way -- the k_rise_ref_track=2.0 weight is simply too weak against the other shaping terms regardless of curriculum share (matches the mesh1-seed1 dig-in's own suspicion), and the next lever is a k_rise_ref_track dose increase (10-20x), not more curriculum share. Strongest alternative: 2M is too short regardless.",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "reward.k_current_hot=1.0",
+      "--cfg-set",
+      "reward.current_hot_a=2.0",
+      "--cfg-set",
+      "reward.term_cost_per_remaining_s=3.0",
+      "--cfg-set",
+      "reward.term_cost_max=60.0"
+    ],
+    "created": "2026-08-25T06:55:48+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 3,
+      "code_sha_local": "56edab6872894e017c824240d0504d780387a07b",
+      "code_sha_pod": "56edab6872894e017c824240d0504d780387a07b",
+      "wandb_env_on_pod": true,
+      "pid": "2183735",
+      "log_growth_bytes": [
+        18881,
+        25551
+      ],
+      "wandb_id": "myzj5aoo",
+      "trainer_pid": "2183735",
+      "global_step_window": [
+        1310720,
+        1966080
+      ],
+      "fps_estimate": 21845.3
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1/cur1-seed1'\"'\"'s rise mode topples onto its side within the first couple seconds instead of pushing up, despite a demonstrated 25Hz reference (rise_ref_belly2plant.npz, k_rise_ref_track=2.0) that bank-checks as followable on mesh (replay ends valid plant 3/3). This arm isolates rise: same pricing/ref-tracking recipe, goal-mix forced to rise=1.0 (100% of training instead of 45%), 2M discovery. Prediction-if-true (rise was undertrained/diluted by the mix): rise ends closer to a valid plant (PLANT_SPEC height/attitude) on a majority of DR-0 episodes, tilt_pitch/over_current terminations become rare. Prediction-if-false: rise-only ALSO topples the same way -- the k_rise_ref_track=2.0 weight is simply too weak against the other shaping terms regardless of curriculum share (matches the mesh1-seed1 dig-in'\"'\"'s own suspicion), and the next lever is a k_rise_ref_track dose increase (10-20x), not more curriculum share. Strongest alternative: 2M is too short regardless.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-riseonly1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly1.log",
+    "wandb_id": "myzj5aoo",
+    "verified": "2026-08-25T06:59:31+00:00"
   }
 ]
