@@ -676,3 +676,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 17:00 meshref s1 CANARY PASS (PARTIAL branch): det 5/6 replicated — joint 10/12 det, mesh-native ref lever is seed-robust 
 - 08-25 17:02 standwalk rung9: mesh-native rise ref CANARY PASS (PARTIAL-strong) — det 5/6 sto 4/6 vs 3/6+2/6, cur median 1.36A; flat-start tuck is the residue; promoting to 8M acquisition 
 - 08-25 17:02 standwalk rung9 s1: replicates seed-0 exactly — det 5/6 sto 4/6, cur median 1.19A, same flat-start residue; pair result solid 
+- 08-25 17:19 standwalk rung9 promotion: funded 8M acquisition grid off the meshref CANARY PASS — seeds 1/2 launched (meshref-8m-s1 train-3, -8m-s2 train-2); killed own seed-0 copy meshref-8m as exact duplicate of the concurrent cycle's meshref-acq8m (triage-overlap race, same read both sides); grid = acq8m(s0)+8m-s1+8m-s2, judged jointly vs the full PASS bar incl. zero over_current 

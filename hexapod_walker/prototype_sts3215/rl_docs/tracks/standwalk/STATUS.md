@@ -1,6 +1,41 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:5x (2 verdicts, both reinforcing rung-9:
+Last updated: 2026-08-25 ~17:0x (**RUNG-9 CANARY PAIR: CANARY PASS,
+PARTIAL-strong — the mesh-native scripted rise reference IS the
+lever the whole rung-8 dose grid was missing.** Both seeds
+(`meshref`/`meshref-s1`, 2M, exact slowchain recipe with only
+`reward.rise_ref_path` swapped to `rise_ref_mesh_scripted.npz`)
+replicate each other almost exactly on the DR-0 rise gate: det 5/6 +
+sto 4/6 valid_plant vs parent slowchain's 3/6+2/6; valid-episode
+cur_p95 median 1.36A (s0) / 1.19A (s1) vs slowchain's 1.85A
+bridge-press; deep starts (bridge/rsi) rise cleanly on video
+(sprawl → six-feet plant → full stand, tilt<2°, h_err_end 3-9mm).
+Missed the strict PASS bar only on the zero-over_current clause:
+3/12 terms per seed — the flat-prone det/0 start plus 2 rsi-sto
+episodes, where a splayed FRONT leg never tucks under the body and
+the press against the extended lever arm pins 2.64A MID-RISE
+(h_err_end 16-38mm — qualitatively different from slowchain's
+freezes at 76-79mm/0.3A). Reward-quarter swings (12→-382) match
+slowchain's own shape; recipe-normal, not collapse. FUNDED per the
+canary's own promotion clause: 3-seed 8M acquisition grid — seed 0 =
+`meshref-acq8m` (launched 17:01 by the concurrent cycle in a
+triage-overlap race; both cycles independently reached the same
+CANARY PASS read and funded the same promotion, and this cycle's own
+seed-0 copy `meshref-8m` was KILLED as an exact duplicate) + seeds
+1/2 = `meshref-8m-s1`/`-8m-s2` (this cycle) — exact recipe, only
+budget changes; the 2M canary had already annealed std to 0.018, so
+the 8M schedule's slower anneal is the exploration that could
+convert the flat-start tuck. RUNNING train-0/train-3/train-2, judged
+jointly as a pass-rate (grid gate on `meshref-8m-s1`) with a
+pre-registered FAIL route to a targeted tuck mechanism (start-mix
+weighting toward flat, or tuck-phase anchor dose). SKILLS.md deliberately NOT updated: the canary gate forbids
+skill-acquisition claims; the 8m grid's full bar owns that. Once a
+rise recipe passes in isolation, re-run the stancemix mix with the
+mesh ref (per the stancemix FAIL verdict below). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_
+{gate,s1_gate}/`, W&B 5wdood22 / axy001yj.)
+
+Prior entry: 2026-08-25 ~16:5x (2 verdicts, both reinforcing rung-9:
 **anchordose10 CANARY FAIL - MECHANISM** — anchor coef 3.0→10.0 on
 the slowchain recipe is monotonically DOWN (DR-0 valid_plant 2/12 vs
 parent 5/12, over_current 9/12 vs 3/12, all pinned 2.64A;
@@ -1265,6 +1300,17 @@ Zero falls, directions followed, slip/m within the joystick band
 lower session harness is stage-2 tooling to build.
 
 ## Now
+
+**RISE, 08-25 ~17:0x:** rung-9 mesh-native ref canary pair = CANARY
+PASS (PARTIAL-strong, see Last-updated entry); 3-seed 8M acquisition
+grid `meshref-acq8m`(s0)/`meshref-8m-s1`/`-8m-s2` RUNNING. On grid
+PASS (>=2/3 seeds at the full bar): promote the best seed as the
+mesh rise recipe and re-run the stancemix mix with
+`reward.rise_ref_path=rise_ref_mesh_scripted.npz`. On grid FAIL at
+canary levels: budget is refuted for the flat-start tuck residue;
+next rung is a targeted tuck mechanism (start-mix weighting toward
+flat starts, or tuck-phase anchor dose) — never more undirected
+budget.
 
 **STANCEMIX-BCCHAIN3-STDANNEAL PASSED its pre-registered DR-0 gate
 (08-25 ~15:5x):** the full hold=.1/rise=.45/lower=.45 mix + log-std
