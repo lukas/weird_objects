@@ -183483,7 +183483,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-dose5x-acq1 since 2026-08-25T11:58:06"
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdminload40-s1",
@@ -183783,7 +183784,7 @@
       "safety.hold_min_load_terminate_grace_s=1.0"
     ],
     "created": "2026-08-25T10:36:08+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -183816,7 +183817,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdminload40-s1 --steps 6000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdminload40_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdterm40: Plain English: seed replicate of holdminload40 -- with the min-load termination lever added, does a SECOND seed also converge to (or return to) the six-foot stance, or does it only work for one optimization path? Every rung in this campaign (holdload1min, holdprod, holdterm40) has found a DIFFERENT basin per seed, so a single-seed pass is weak evidence. Byte-identical to holdminload40 except seed=1. Prediction-if-true: same PASS shape as seed 0 (>=10/12 valid plant at 6M). Prediction-if-false: seed 1 lands in a different escape basin (or the same alternative-cheat basin) while seed 0 passes -- joint read decides whether rung-6 needs a dose adjustment or a DR/entropy pairing.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 > /tmp/train_cw-standwalk-stance-mesh2-holdminload40-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdminload40-s1.log",
     "wandb_id": "cvacvokp",
-    "verified": "2026-08-25T10:39:51+00:00"
+    "verified": "2026-08-25T10:39:51+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T10:44:56+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": ".74096\nwandb:     env/height_ref_mm 3.52086\nwandb:  env/hold_feet_factor 0.11121\nwandb:  env/hold_load_factor 0.12368\nwandb: env/hold_still_factor 0.91378\nwandb:     env/max_current_a 1.87558\nwandb:    env/mean_current_a 0.45997\nwandb:                   +82 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-holdminload40-s1 at: https://wandb.ai/l2k2/hexapod-balance/runs/cvacvokp\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_103725-cvacvokp/logs\n"
+      }
+    ],
+    "verdict": "Seed-1 twin confirms holdminload40's own reading, 2/2 seeds: DR-0 det gate 0/6 valid_plant (5/6 hold_low_height, 1/6 tilt_roll), height_err pinned at the same 40mm boundary, cur_max_a still pinned near 2.64A. Own-DR(0.2) 0/12: hold_min_load fires 3/6 sto (mechanism live, matches seed0), remaining sto splits tilt_roll(2)/hold_low_height(1). Reward -95.9/-237.6/-309.0/-264.8 -- worsens overall despite a small Q3->Q4 recovery, still far below Q1, not a genuine 08-21 continue case (task metric flat-zero all 6M). Confirms rung-6 (min-load termination) is CLOSED as a standalone lever: 2/2 seeds, same chassis-hover-at-boundary signature as rung-5. Escalating to a pose-anchor mechanism (direct joint-space tracking to the known honest six-foot plant pose, using the already-validated rise-ref replay's settled final frame as the static target) as rung-7 -- termination/income shaping alone cannot teach the policy WHAT the target posture looks like, only that it must avoid two proxy boundaries.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdminload40",
@@ -183912,7 +183923,7 @@
       "safety.hold_min_load_terminate_grace_s=1.0"
     ],
     "created": "2026-08-25T10:38:17+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -183945,6 +183956,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdminload40 --steps 6000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdminload40 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdterm40: Plain English: does terminating hold episodes when a foot stays functionally UNLOADED (not just when the body sinks) finally get the mesh stance policy to keep all six feet planted, instead of learning to hover right at the height-drop line? holdterm40'\"'\"'s own gate showed the exact predicted alternative cheat: every episode ends with height_err pinned at 40.0-40.3mm (right at the drop boundary) with hold_feet_factor flat 0.10-0.17 the whole 6M run -- a body-height proxy cannot see a foot that stays unloaded while the chassis itself stays inside the line. Single lever off holdterm40 (its scratch recipe + height-drop term untouched): safety.hold_min_load_terminate_s=1.0 + hold_min_load_terminate_n=0.3N + grace=1.0s terminates hold episodes whose WORST (min-over-feet) touch force stays below 0.3N for 1s straight (reason hold_min_load), bank-proved 4/4 green (test_hold_minload_* in test_task_semantics.py): the CURRENT live stack (height-drop already on) is blind to the scripted hover/hover1 crouch-park poses (they survive to truncation un-terminated), and the new lever catches both within a few seconds while leaving the honest quiet stand byte-identical. Prediction-if-true: hold panel >=10/12 valid six-foot plant by 6M, hold_feet_factor recovering and staying high, terminations/hold_min_load high early then falling. Prediction-if-false: the policy finds a THIRD basin the load floor also can'\"'\"'t see (e.g. all feet loaded just above the 0.3N floor without real weight-bearing, or oscillating in/out of the floor faster than the 1s sustain) -- next lever would be a stricter floor/longer sustain dose, or a DR/entropy axis on top of this mechanism.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 > /tmp/train_cw-standwalk-stance-mesh2-holdminload40.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdminload40.log",
     "wandb_id": "jbnbyrdm",
-    "verified": "2026-08-25T10:41:58+00:00"
+    "verified": "2026-08-25T10:41:58+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T10:47:57+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": " -19.15932\nwandb:     env/height_ref_mm 3.85658\nwandb:  env/hold_feet_factor 0.16212\nwandb:  env/hold_load_factor 0.16805\nwandb: env/hold_still_factor 0.9038\nwandb:     env/max_current_a 1.79114\nwandb:    env/mean_current_a 0.42603\nwandb:                   +82 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-holdminload40 at: https://wandb.ai/l2k2/hexapod-balance/runs/jbnbyrdm\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_103934-jbnbyrdm/logs\n"
+      }
+    ],
+    "verdict": "Rung-6 min-load termination lever does NOT produce an honest six-foot plant. Evidence: DR-0 det gate 0/6 valid_plant, all 6 episodes end TERM hold_low_height at height_err_end_mm pinned 40.0-40.4mm (right at the drop line) with cur_max_a pinned 2.64A (both height AND current constraints binding simultaneously) -- the SAME chassis-hover-at-the-boundary signature as rung-5's holdterm40, now also crossing the term line by episode end instead of surviving just inside it. Own-DR(0.2): 0/12, sto mode shows the new hold_min_load reason firing 3/6 times (mechanism verified live) plus 3/6 tilt_roll real falls -- min-load correctly catches the previously-invisible unloaded-foot cheat but the policy has nowhere honest to go once caught. Training reward WORSENED every quarter (-97.8/-223.6/-347.6/-355.1), never recovering -- genuine FAIL per the 08-21 ruling (bank-proven, aligned mechanism; task metric flat-zero the whole 6M run). Video: crouched crab-like stance, legs bent under a lowered chassis, symmetric but never a level six-foot plant. Rung-6 mechanism lever CLOSED; joint read with seed1 below.",
+    "triage": "done"
   }
 ]
