@@ -47,6 +47,25 @@ follow-ups.
   suite pins itself to primitive (`rl_move/tests/conftest.py`);
   mesh-family coverage is `rl_move/tests/test_model_source.py`. Full
   note: ORCHESTRATOR_PROMPT.md "SIM MODEL CHANGE".
+  **CORRECTION/ENFORCEMENT (08-25, gaitgate-scratch1/-cont1 dig-in):**
+  this CONTINUITY FACT had ZERO code enforcement until this cycle — a
+  `--parent` launch/respec with no explicit `env.model_source` cfg-set
+  silently inherited the code default (`"mesh"`, since commit
+  47110285 @ 2026-08-24T23:24:13Z), even when warm-starting a
+  primitive-family checkpoint. Confirmed to have actually happened
+  (`gaitgate-scratch1`, and almost certainly `gaitgate-cont1`: both
+  launched post-flip off a pre-flip primitive checkpoint with no
+  override, both show the mesh-family over_current signature instead
+  of primitive's tilt_pitch-topple signature). Fixed:
+  `launch_run.py` now REFUSES any `--parent` launch whose resolved
+  family mismatches the parent lineage's own implied family
+  (`_lineage_model_source`, walks the chain; root's `created` vs the
+  flip timestamp decides it absent any explicit override anywhere in
+  the chain), mirroring the `control.hz` enforcement
+  (`--allow-model-source-mismatch` escape hatch). Any verdict recorded
+  BEFORE 2026-08-25 ~04:4x that compared a post-flip `--parent` launch
+  against a pre-flip parent "controlling for one lever" should be
+  re-read as potentially confounded by an undisclosed family switch.
 - 100 Hz CONTROL CADENCE (operator 08-24, fb_20260824T174619_c49b7e —
   binding, implemented + snapshotted 08-24 ~18Z): every NEW PPO/MJX
   policy trains at `control.hz=100` with `safety.max_delta_q_deg=0.375`

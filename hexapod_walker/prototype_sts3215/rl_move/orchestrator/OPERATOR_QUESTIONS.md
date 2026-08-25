@@ -2551,3 +2551,93 @@ dig-in still open for the other ~48.
   pods train-0/2/3/4 recreated with the dshm-4Gi manifest + bootstrap.
 - ANSWER (operator): (pending)
 - rulebook change: none yet.
+
+## 2026-08-25 ~04:5x — model-source continuity rule had ZERO code enforcement (found + FIXED this cycle; no operator action needed)
+Triaging `cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1`
+(FAIL) and `cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1` (FAIL,
+joint w/ its MLP-mesh sibling) surfaced a fleet-wide gap: the SIM
+MODEL CHANGE continuity rule (CURRENT_TRUTHS — "any resume of a
+pre-08-24 checkpoint MUST set `env.model_source=primitive`, families
+do NOT transfer") had no code behind it at all. `servo_model.
+resolve_model_source` defaults to `"mesh"` (commit 47110285, landed
+2026-08-24T23:24:13Z) whenever no `env.model_source` cfg-set is
+present, and `launch_run.py` never checked a `--parent` launch's
+resolved family against the checkpoint being warm-started. Concretely:
+`cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1` was launched
+(by a prior cycle, ~02:16Z on 08-25, i.e. AFTER the flip) with NO
+`env.model_source` override, described as "byte-identical to
+`scratch-s0-r1` except `walk_gait_gate`" — but `scratch-s0-r1` was
+created ~19:06Z on 08-24, BEFORE the flip (genuinely primitive-family:
+its own failure mode is tilt_pitch topple, near-zero over_current).
+`gaitgate-scratch1` silently trained on MESH instead (confirmed:
+over_current-dominated failure, zero tilt_pitch across 40M steps,
+Imax pinned ~2.64-2.70A matching the independently-established mesh
+over_current signature) — two variables changed at once (the reward
+lever AND the physics), not the one the hypothesis named.
+`cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-cont1` (a continuation
+of the SAME primitive checkpoint, also launched post-flip with no
+override, verdicted FAIL by a concurrent cycle ~03:18Z) almost
+certainly carries the identical undisclosed confound — its "the gate
+makes leg-sacrifice worse" reading may be partly/wholly a silent
+family-switch artifact, not purely a reward-mechanism result. Likely
+also affects the still-running seed replicates
+`gaitgate-scratch1-seed1` (RUNNING, train-5) and `-seed2` (REFUSED,
+re-queued) launched earlier this cycle-window — same recipe, same gap.
+**Decision (assume-and-go, no operator input needed — this is a
+code-correctness gap, not a values question): fixed it this cycle.**
+`launch_run.py` now walks any `--parent` chain
+(`_lineage_model_source`) to find the family the lineage actually
+trained on (nearest ancestor's explicit `env.model_source` cfg-set,
+else primitive/mesh by whether the chain's root predates the flip
+timestamp) and REFUSES a launch whose own resolved family doesn't
+match, mirroring the existing `control.hz` enforcement exactly
+(`--allow-model-source-mismatch` escape hatch for a deliberate,
+recorded cross-family experiment; wired through `launch`/`respec`/
+`backlog add`/drain). 16 new unit tests
+(`rl_move/tests/test_launch_run_model_source_continuity.py`, pure
+pre-refuse logic, no ledger I/O), verified against real ledger data
+(reproduces the exact `gaitgate-cont1`/`gaitgate-scratch1` violation
+pattern). Snapshotted: tag `exp/model-source-continuity-guard`.
+**Recommended next step for whoever triages `gaitgate-scratch1-seed1`/
+`-seed2` or re-reads `gaitgate-cont1`**: treat their model family as
+MESH (not primitive) when interpreting results, and note the original
+"prevention vs rescue" primitive-family question this diagnostic pair
+was meant to answer is still technically open — a genuinely
+primitive-family repeat (with `--cfg-set env.model_source=primitive`
+now mechanically required by the new guard) would be needed to answer
+it cleanly, though given the mesh-family finding (walk_gait_gate makes
+things worse, not better) and the fact primitive-family already has
+its own separate, well-evidenced over_current-free failure mode
+(pure tilt_pitch topple), the practical value of re-running the
+primitive-family version is probably low relative to just building the
+walk-tick current-dwell charge both mesh arms now point at.
+status: resolved (code shipped + tested this cycle) — flagged
+prominently because it may retroactively explain part of today's
+"reward-side gate can't fix leg-sacrifice" reading, and because any
+uncommitted-parent respec today before this landed should be treated
+as family-unconfirmed until re-checked.
+
+## 2026-08-25 ~04:5x — seed1/seed2 (this cycle's gaitgate-scratch1 seed-robustness pair) CONFIRMED same mesh-family confound as scratch1/cont1 (no operator action needed, informational)
+Direct-checked (grep the on-pod train log, not inferred):
+`cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1-seed1`
+(train-5) and `-seed2` (train-8) — launched this cycle, both BEFORE
+the model-source-continuity-guard fix landed (04:31:42Z) — both print
+`[servo_model] full mesh model not generated ... using the checked-in
+primitive-collision twin hexapod_mesh_mjx.xml`, i.e. they are on the
+SAME mesh family as `gaitgate-scratch1` itself (also unguarded,
+verdicted FAIL this cycle by a concurrent triage). This is internally
+consistent — all three (scratch1/seed1/seed2) are the same recipe on
+the same (mesh) family, so seed1/seed2 vs scratch1 is still a clean
+seed-replication read once scratch1 finishes triage. It is NOT
+consistent with the pair's own written hypothesis text, which frames
+the comparison against `scratch-s0-r1` (confirmed primitive-family) as
+the "matched-recipe no-gate control" — that control is now the WRONG
+family for this comparison (two levers, not one), exactly the defect
+already named for scratch1/cont1. Net effect: triage seed1/seed2
+against EACH OTHER and against scratch1 (all mesh) for the seed-
+robustness question; do not cite `scratch-s0-r1` as their control.
+Whether `walk_gait_gate` helps/hurts on the PRIMITIVE family remains
+untested by this trio. No relaunch needed — not wrong, just
+mislabeled; flagging so the eventual triage cycle doesn't re-derive
+this from scratch.
+status: informational — no operator input needed.
