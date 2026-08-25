@@ -1,6 +1,39 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~04:5x (**hz100-r2-v8 FAIL: V8's diet-scope
+Last updated: 2026-08-25 ~05:4x (**Operator kick (08-24 load-probe
+session) executed: two effort-pricing arms launched off walk champion
+ppo_goal_cw_walk_longdist_r2 + a new posture/load probe landed.**
+Plain English: the operator measured the production walk champion
+walking in a sprawled crouch ~40 mm below its plant stance, wasting
+most of its hip torque on posture (1.1-1.5 N*m per stance hip vs 0.23
+at plant pose; left hip-pitch servos railing the 2.2 N*m clamp on
+stance ticks) and asked for a walk-lineage run that prices effort.
+Launched (both RUNNING, 40M, warm off longdist_r2, primitive family +
+control.hz=25 + max_delta_q_deg=1.5 legacy pins, joystick track):
+`cw-walk-posture-eff12-ds1` (reward.k_walk_effort=1.2, the
+operator-probed dose) and `cw-walk-posture-eff24-ds1` (dose x2 hedge,
+since k=1.2 ALONE was refuted-as-paid in cw-walk-effort), BOTH with
+the audit-landed per-stance drag charge k_drag_stance=8000/6mm/0.25mm
+(bank re-run green this cycle). Why this isn't a repeat of the old
+single-lever refutations: the crouch is what makes current expensive
+(~5x plant-pose hip torque), so the effort charge now carries a
+posture gradient the closed income-gate lever (hgt1/hgt2/tall-gate1)
+never had, and the drag charge closes the skate escape; 40M vs the 2M
+retrofit that failed. NEW TOOL: `rl_move/sim/probe_walk_posture_load.py`
+(deterministic 20 s @ 0.055 m/s: body-z offset vs anchor, per-hip-pitch
+stance |qfrc_actuator| mean/p95, clamp-rail duty >2.15 N*m, L/R
+asymmetry) — validated against the operator's local numbers on the
+champion: z off -39.5 mm (operator -40), rails stance-only and
+left-only (L1 2.45% of stance ticks), L/R asym 28.1% (operator
+30-50%), stance hip tau p95 1.58. Baseline JSON:
+`logs/probe_posture_load/longdist_r2_baseline.json`. Triage gates for
+both arms: usual 30 s walk battery + z off >= -10 mm, rail duty ~0,
+stance hip tau p95 <= 1.2, L/R asym < 20%. If both arms come back
+"charges paid, posture unchanged", combined pricing is refuted on
+this lineage and the posture fix belongs to the BC-teacher /
+standwalk mesh-retrain route — no k iteration beyond these two.)
+
+Previous entry (2026-08-25 ~04:5x (**hz100-r2-v8 FAIL: V8's diet-scope
 fix generalizes to 100Hz (frontier cleared b1, reached b3/side90_20s,
 promotions=3 -- matches certfreeze-v8's 25Hz read), closing that half
 of the question, but the run still misses its own pre-registered PASS
