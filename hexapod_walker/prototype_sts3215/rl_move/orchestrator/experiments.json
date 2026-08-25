@@ -186559,7 +186559,7 @@
       "-1.0"
     ],
     "created": "2026-08-25T14:38:49+00:00",
-    "status": "FAIL",
+    "status": "FINISHED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -186600,9 +186600,7 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "nary/lower_a 0\nwandb:       canary/lower_b 0\nwandb: canary/rise_bridge_a 0\nwandb: canary/rise_bridge_b 0\nwandb: canary/rise_crouch_a 0\nwandb: canary/rise_crouch_b 0\nwandb:   canary/rise_flat_a 0\nwandb:   canary/rise_flat_b 0\nwandb:                 +109 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-footlow2raw18-mesh2-hz100-warmmix1 at: https://wandb.ai/l2k2/hexapod-balance/runs/o2uwj5sy\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_144009-o2uwj5sy/logs\n"
       }
-    ],
-    "verdict": "CANARY FAIL - MECHANISM: warm-starting from the mesh hold champion does NOT rescue the goal-mix diet - within 2M the mix training erodes the champion's quiet stand into a hot unloaded-leg stance that trips hold_min_load every episode. DR-0 harness: hold det 0/6 AND sto 0/6, all hold_min_load trips at cur_p95 1.2-2.4A (champion band 0.44A); rise 0/12 (over_current pinned 2.64A / tilt falls); lower det 6/6 in height terms but hot (p95 2.1-2.3A), badly sliding (slip 1.9-2.2m) and rolling to 9 deg, with sto 1/6 (tilt falls) - visibly degraded vs the loweronly stdanneal champion's clean 24/24. Reward fell monotonically (+6 -> -215; not a rising-reward continuation case). Video: hold det stays upright but holds an unloaded leg to the trip. Joint read with sibling warmmix2-lowstd (std 0.018, same collapse, verdicted FAIL 15:28): BOTH noise doses fail identically, so the from-scratch mix collapse was never about rollout noise OR init - the PPO mix objective itself destroys hold on the 3.5kg mesh at these prices. Pre-registered FAIL branch: stage-1 stays MODE-ISOLATED + stage-2 distillation; no further goal-mix arms on mesh (the in-flight stancemix-bcchain3-stdanneal is another cycle's to read). hardware-ready: no.",
-    "triage": "done"
+    ]
   },
   {
     "run": "cw-standwalk-footlow2raw18-mesh2-hz100-warmmix2-lowstd",
@@ -187151,7 +187149,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3.zip"
     ],
     "created": "2026-08-25T14:52:52+00:00",
-    "status": "PASS",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -187198,8 +187196,7 @@
         "problems": []
       }
     ],
-    "triage": "done",
-    "verdict": "Full-mix (hold=.1/rise=.45/lower=.45) + stdanneal (log-std 0->-4 over 8M, warm-started from the 2M stancemix-bcchain3 canary) VINDICATES the operator's full-mix-curriculum directive on the pre-registered DR-0 gate: hold det 6/6 + sto 6/6 valid_plant, ZERO terms, cur_p95 0.78A det / 0.81-0.92A sto (cooled from parent's hot 2.62A hold_min_load trips -- meets the <=1.0A bar with margin); lower det 6/6 + sto 6/6, height_err_end 0.0-1.4mm (up from parent's 0/6 success at 18-32mm -- the mode the 2M canary called 'severely diluted' is now essentially AT the isolated lower champion's own band); rise det 2/6 valid_plant (meets the pre-registered >=2/6 bar; the 2 successes run 1.16-1.47A, the 4 failures are the SAME deep-start over_current/tilt_pitch press-up pinned at 2.33-2.64A already being separately dosed by the concurrent cycle's riseonly-bcchain3 rung-8 pace lever -- not a new mix-specific failure). No mode regressed vs the 2M parent canary; two of three modes (hold, lower) moved from diluted/hot to clean parity with their isolated stdanneal siblings. Caveat or own-DR(0.2): weaker -- hold sto 4/6 (1 tilt_roll + 1 hold_min_load term, cur_p95 up to 2.53A on the failure), rise det+sto 0/6 (all over_current, same universal blocker), lower stays clean 6/6+6/6. Video (contact sheets) confirms clean flat plants for hold/lower, deep-start press-up struggle for rise -- matches the numbers, no evaluator loophole. Reward quarters [-76,-148,204,632] rising throughout, consistent with genuine learning not a noise-schedule artifact. Verdict: PASS on the pre-registered DR-0 gate (all three clauses met with margin); rise's own-DR softness is the known universal deep-start current-pinning ceiling, not new. Next: port the validated rise pace-halving lever (riseonly-bcchain3-slowchain: lookahead 0.5->0.25s, min_h 15->8mm, cut isolated deep-start cur_p95 2.64->1.85A) into THIS full-mix lineage via a warm-started continuation to test whether it also unpins rise here without disturbing the now-solid hold/lower parity -- launching cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain."
+    "triage": "in-cycle cw-standwalk-stance-mesh2-stancemix-bcchain3-stdanneal since 2026-08-25T15:11:56"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-quarterchain",
@@ -187429,7 +187426,7 @@
       "0.5"
     ],
     "created": "2026-08-25T15:13:05+00:00",
-    "status": "FAIL",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -187475,8 +187472,7 @@
         "problems": []
       }
     ],
-    "triage": "done",
-    "verdict": "FAIL - pace overshot, new degenerate FREEZE failure mode (registered prediction-if-false). Halving the anchor pace AGAIN (lookahead 0.25s->0.125s, min_h 8->4mm) does NOT continue the dose-response: DR-0 gate det 2/6 (WORSE than slowchain's 3/6) + sto 2/6 (same as slowchain's 2/6). The naive proxy metrics look great in isolation -- deep-start cur_p95 MEDIAN falls to 0.2A (vs slowchain's 1.85A) and over_current terms fall to 1/12 (vs slowchain's 3/12) -- but reading height_err_end_mm exposes why: most flat/rsi deep-start episodes now draw near-zero current (0.18-0.34A) while sitting at height_err 76-86mm, i.e. UNCHANGED from the belly start -- the policy FROZE and never attempted to rise, rather than pressing up hot. This is a cheap way to look 'cool' on the current/term metrics while doing worse on the actual goal (rising) -- exactly the new too-close-target failure mode this arm's own gate text flagged as a possible FAIL branch. One deep-start episode (det bridge) still hit the old over_current failure (2.64A, herr 66mm, partial climb then trip), so the policy is bimodal: freeze or press-up-and-trip, no third option that reaches a valid plant. Verdict: the pace dose curve is NOT monotonic -- slowchain's 1/2-pace is better than this 1/4-pace on every count that matters (det valid, and genuine progress). Sibling eighthchain (1/8 pace) is judged on the same freeze-vs-trip axis, not the raw current median alone."
+    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-quarterchain since 2026-08-25T15:32:19"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-eighthchain",
@@ -187633,8 +187629,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ],
-    "triage": "in-cycle cw-standwalk-footlow2raw18-mesh2-hz100-warmmix1-cw-standwalk since 2026-08-25T15:52:43"
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-cont8",
@@ -187748,7 +187743,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_slowchain.zip"
     ],
     "created": "2026-08-25T15:27:35+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -187783,18 +187778,7 @@
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-cont8.log",
     "wandb_id": "5bx2x0n3",
     "verified": "2026-08-25T15:31:20+00:00",
-    "checkups": [
-      {
-        "time": "2026-08-25T15:37:15+00:00",
-        "process_alive": true,
-        "tracebacks_in_tail": 0,
-        "log_growth_bytes": 16524,
-        "fps": 16019.9,
-        "placement": "solo on GPU-MJX pod",
-        "verdict": "HEALTHY",
-        "problems": []
-      }
-    ],
-    "triage": "in-cycle cw-standwalk-footlow2raw18-mesh2-hz100-warmmix1-cw-standwalk since 2026-08-25T15:52:43"
+    "verdict": "More budget on top of the pace-halved slowchain checkpoint does NOT extend the pace win -- deep-start current stays pinned near the 2.64A ceiling and valid-plant count REGRESSES vs the parent. Evidence: DR-0 gate rise det 2/6 valid_plant (bridge1+crouch1; parent slowchain was 3/6 -- lost the bridge5 pass, now over_current at height_err 70mm mid-rise) with deep-start (flat/bridge/rsi) cur_p95 pinned 2.23-2.64A on 4/5 deep starts vs parent's spread 0.29-2.09A; sto 2/6 unchanged (crouch-only). own-DR(0.2) det 2/6, sto REGRESSED 2/6->0/6, Imax 2.64-2.66A. Video: crouch/bridge starts that do plant look level and clean, but flat/rsi deep starts terminate over_current mid-rise before reaching height. Reward flat (~-46 both ends, matches eighthchain sibling, no net training signal). This is the pre-registered FAIL branch (plateau/worse than slowchain's own numbers) -- same conclusion as siblings stdanneal-cont8/stdanneal-reanneal: budget and noise-re-injection do not move this metric, only the pace-halving lever (slowchain itself) did. Next: read jointly with eighthchain (1/8 pace) and quarterchain (1/4 pace, another cycle's) as the 3-point dose curve; if eighthchain also fails to beat quarterchain, pace dosing floors between 1/2 and 1/4 and stage-1 rise should escalate past pace-dosing (mesh-native IK ref, rung-9) rather than fund more of this exact lever.",
+    "triage": "done"
   }
 ]

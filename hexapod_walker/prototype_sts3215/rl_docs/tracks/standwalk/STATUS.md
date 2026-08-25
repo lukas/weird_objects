@@ -1,31 +1,6 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~15:4x (**STANCEMIX warm-start fork CLOSED —
-both warm-mix canaries FAIL: the goal-mix diet erodes the warm hold
-champion at BOTH noise doses, refuting init AND noise-dose as the
-mix-collapse cause.** `warmmix1` (std 0.37): DR-0 hold det 0/6 AND
-sto 0/6, every episode a hold_min_load trip at cur_p95 1.2–2.4 A
-(champion 0.44 A); rise 0/12 (2.64 A over_current press-ups/tilts);
-lower det 6/6 by height but hot (p95 2.1–2.3 A), sliding 1.9–2.2 m,
-sto 1/6 tilt falls. `warmmix2-lowstd` (std frozen 0.018): hold det
-0/6 min_load trips @2.45 A (sto 5/6 hot), rise det 1/6, lower 12/12
-but hot/slippy; approx_kl spiked to 7.0 at tiny std, BC anchor losses
-converged (rise 0.37→0.09) while behavior degraded. Both rewards fell
-monotonically (+6→−215 / +15→−351) — genuine FAILs, not 08-21
-continuation cases. Video both: upright stand held to the
-unloaded-leg trip, no falls. Read: PPO under the mix objective itself
-destroys the quiet hold on 3.5 kg mesh at current prices — supervised
-anchors can't outweigh it. Remaining mix levers per the operator
-full-mix directive (Next 0): the in-flight
-`stancemix-bcchain3-stdanneal` anneal read (another cycle's triage);
-if that also fails, next honest levers are mix reward pricing
-(hold_min_load pricing / hold weight) or distill-then-mix-finetune —
-stage-1 otherwise stays mode-isolated + stage-2 distillation.
-Evidence: `logs/ckpt_eval/cw_standwalk_footlow2raw18_mesh2_hz100_
-warmmix{1,2_lowstd}_gate/`, W&B `o2uwj5sy`/`bry34j1u`. warmmix1's
-watcher prestage never fired; pulled + podeval'd manually.)
-
-Prior entry: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
+Last updated: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
 PACE IS THE LEVER, not budget or noise — the "mint a mesh-native IK
 ref" branch is NOT triggered.** All three arms shared the same 8M
 budget off the `riseonly-bcchain3-stdanneal` parent (DR-0 gate 2/6 det
@@ -1042,14 +1017,9 @@ lower session harness is stage-2 tooling to build.
 RUNG-8 tally (08-25 ~15:1x): HOLD PASS, LOWER PASS (both stdanneal),
 RISE PARTIAL — the pace-dose batch (`quarterchain`/`eighthchain`/
 `slowchain-cont8`, all VERIFIED RUNNING off free capacity) is the live
-lever; see the ~15:1x entry for the cont8/reanneal FAIL + slowchain
-PARTIAL evidence that ruled it in. STANCEMIX: warm-start fork CLOSED
-(warmmix1 + warmmix2-lowstd both CANARY FAIL 08-25 ~15:4x — mix diet
-erodes the warm hold champion at both noise doses; see Last-updated
-entry); the mix line's one in-flight lever is
-`stancemix-bcchain3-stdanneal` (another cycle's triage). Absent a mix
-rescue, stage-1 completes mode-isolated (hold+lower champions done,
-rise pace-dose batch running) and unifies via stage-2 distillation.
+lever; see Last-updated entry for the cont8/reanneal FAIL + slowchain
+PARTIAL evidence that ruled it in. STANCEMIX still PARTIAL
+(warmmix1/2 triage belongs to a concurrent cycle).
 
 Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
 `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`
