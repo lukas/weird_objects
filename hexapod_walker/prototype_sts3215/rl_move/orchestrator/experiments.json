@@ -189296,7 +189296,7 @@
       "0.5"
     ],
     "created": "2026-08-25T17:01:31+00:00",
-    "status": "RUNNING",
+    "status": "DEAD",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -189346,7 +189346,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-8m-cw-st since 2026-08-25T17:19:31"
+    "triage": "done",
+    "verdict": "DEAD - INFRASTRUCTURE (no behavioral read): killed ~5 min in (~200k steps, W&B 08k9lmkm finalized cleanly at 17:02) as collateral of the -fullpace2 attempt-1 launch, which raced the pod-freeness check onto train-0 (source-run's-pod default) and repaired away this trainer. Not a training failure. Relaunched once per DEAD-retry rule as -acq8m-r1 on a free pod, same spec verbatim."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-8m",
