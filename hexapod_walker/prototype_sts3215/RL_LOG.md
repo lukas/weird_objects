@@ -672,3 +672,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 16:46 decouple-c PARTIAL: floor 15mm rescues eighthchain collapse 0/12->6/12 valid, zero freezes -- floor=anti-freeze lever confirmed, lookahead flat, 2D grid closed; deep-start over_current wall stands, meshref is the lever 
 - 08-25 16:49 decouple-b PARTIAL (floor rescues quarterchain's freeze to 0/12 but oc terms rise 1->6/12, 5/12 valid) -- closes the floor x lookahead 2D grid jointly with decouple-a FAIL / decouple-c PARTIAL: floor>=15mm gives a flat 5-6/12 ceiling at every lookahead, same over_current wall; rung-9 meshref is the only lever left 
 - 08-25 16:49 stancemix-slowchain FAIL: hold 12/12 + lower 12/12 clean but rise deep-starts still pinned 2.64A (2/12); anchor loss 0.027<plateau w/ raise_success 0 — ref infeasibility confirmed, meshref is the lever 
+- 08-25 16:59 meshref s0 CANARY PASS (PARTIAL branch): det 5/6 vs 3/6, deep starts unpinned 0.6-2.3A — mesh-native ref IS the lever; funding acq8m + fullpace redose 
+- 08-25 17:00 meshref s1 CANARY PASS (PARTIAL branch): det 5/6 replicated — joint 10/12 det, mesh-native ref lever is seed-robust 

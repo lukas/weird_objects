@@ -188860,7 +188860,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:34:17+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188907,7 +188907,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-cw-stand since 2026-08-25T16:48:52"
+    "triage": "done",
+    "verdict": "CANARY PASS (pre-registered PARTIAL branch; judged jointly with seed-0 -meshref, near-identical episode-for-episode): seed replication confirms the mesh-native scripted rise reference unpins deep starts. DR-0 det 5/6 valid_plant (bridge 2/2, rsi 2/2, crouch 1/1; herr_end 3.4-9.4mm, clean) vs slowchain 3/6; sto 4/6; valid-episode cur_p95 0.59-2.10A. Same residuals as s0: flat-start det pinned 2.64A, 2 sto rsi pinned (3/12 oc), bridge det 2.10A above the 1.5A bar. Joint pass-rate across seeds: det 10/12, sto 8/12 \u2014 not seed noise. Reference content confirmed as the rung-8 blocker. Follow-ups funded via seed-0 verdict (acq8m + fullpace redose). Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_s1_gate/, W&B run for -s1."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref",
@@ -189019,7 +189020,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:36:40+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -189064,6 +189065,7 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-cw-stand since 2026-08-25T16:48:52"
+    "triage": "done",
+    "verdict": "CANARY PASS (pre-registered PARTIAL branch fires decisively; judged jointly with -s1, near-identical): the mesh-native scripted rise reference UNPINS the deep starts \u2014 the first rise mechanism in this whole rung to do so. DR-0 det 5/6 valid_plant (bridge 2/2, rsi 2/2, crouch 1/1; herr_end 3.3-9.4mm, clean rolls) vs slowchain's 3/6; sto 4/6. Deep-start current on valid episodes 0.58-2.25A (most <=1.5A) vs slowchain's everything-pinned-2.64A. Prediction-if-true landed exactly. Short of full PASS bar: flat-start det still pins 2.64A (both seeds), 2 sto rsi episodes pin (3/12 oc, equal to slowchain's not below), and 3 valid episodes sit 1.64-2.25A above the 1.5A bar. Video det_1: clean symmetric bridge->plant press, six feet down, held. Reference content was the rung blocker, confirmed closed-loop after pace/budget/dose all failed. NEXT (funded this cycle): promote to 8M acquisition (meshref-acq8m) + fullpace re-dose canary against the new ref. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_gate/, W&B 5wdood22."
   }
 ]
