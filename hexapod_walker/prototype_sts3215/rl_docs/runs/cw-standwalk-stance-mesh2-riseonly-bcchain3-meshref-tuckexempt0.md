@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T19:08:39+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckfloor0
+
+**wandb_id**: 46px3v47
 
 **hypothesis**: Does gating the BC-anchor height-floor OFF only inside the mesh ref's tuck segment (< ramp_i0) fix the flat-start never-tucks defect WITHOUT reproducing tuckfloor0's total-freeze regression? tuckfloor0/-s1 (this campaign, joint pair, CANARY FAIL - MECHANISM) proved the floor's press-phase anti-freeze role was load-bearing: removing min_h_ahead_mm globally (8->0) collapsed flat starts into a duty_cycle=0.0 total freeze (not tuck-then-press) AND broke previously-clean bridge/crouch/rsi starts into the same freeze/2.64A-pin mix, worse than the meshref parent's own 5/6+4/6. New code this cycle: train.bc_anchor_min_h_tuck_exempt_i0 (default 0 = legacy, bit-exact; 4 new unit tests green, 59/59 in test_bc_anchor.py) makes the floor a no-op ONLY while the state-aligned matched reference index is still below the reference's OWN tuck/press boundary (ref['ramp_i0'], a fixed file property, not the episode clock) -- pure time-lookahead pursuit through the tuck (genuine tuck supervision, no skip-ahead) -- and restores the exact legacy floor unchanged once the match reaches/passes ramp_i0 (press phase keeps its anti-freeze protection). Single lever vs the meshref parent: min_h_ahead_mm stays 8 (parent's own value, restored from tuckfloor0's 0), min_h_tuck_exempt_i0 flips 0->1. Prediction-if-true: flat-pinned probe shows genuine tuck motion (feet sweep to plant footprint, duty_cycle>0 during the tuck window) converting toward valid_plant, WHILE bridge/crouch/rsi hold at-or-above the meshref parent's own 5/6+4/6 (the floor restored past ramp_i0 should reproduce, not regress, that baseline). Prediction-if-false: flat stays 0-1/12 valid with either the SAME 2.64A press-up pin (floor scoping wrong / anchor supervision not the binding constraint -> tuck-segment start curriculum next) or the SAME duty=0 freeze (the tuck itself, not just the floor's skip-ahead, is the unsupervised gap -> needs direct tuck-phase reward/curriculum, not just anchor plumbing).
 
