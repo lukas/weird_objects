@@ -116,7 +116,41 @@ Also this cycle: ran `ops.sh podeval` by hand (unclaimed, pods idle,
 no eval report existed) for three sibling discovery arms that
 finished earlier without a prestaged read —
 `cw-standwalk-stance-mesh2-loweronly1`, `-riseonly1`,
-`-cur1-reftrack10` — results pending in the next banner entry.)
+`-cur1-reftrack10` — all three now VERDICTED FAIL at their 2M canary
+gate, but with a genuinely useful pattern: **isolated single-mode
+training (rise alone, lower alone) produces CLEAN, non-pathological
+motion** (rise: smooth push-up to a level plant; lower: an upright
+stand, just not low enough) — a completely different failure shape
+from the full goal-mix's rearing/splay collapse (cur1/seed1/seed2/
+refgain15, all 0/36). What kills both isolated arms is the SAME thing
+in both cases: every det episode pins at the actuator current ceiling
+(cur_p95 2.5-2.65A) holding the near-target pose and trips
+over_current — the MOTION is right, the HOLD is too hot. Reward was
+still declining (not flat) at 2M in both, matching the
+already-validated holdonly1->holdonly1-acq1 continuation shape, so
+**launched `cw-standwalk-stance-mesh2-riseonly1-acq1` and
+`-loweronly1-acq1`** (+8M each, 10M total, single lever = budget,
+same recipe/pricing), both VERIFIED RUNNING (train-2, train-0), gated
+on >=4/6 det+sto valid-plant with cur_p95<=1.5A at 10M; pre-registered
+fallback if still current-pinned at 10M is a torque/effort shaping
+term or goal.lower_height_mm mesh recalibration (lower only).
+`cur1-reftrack10` (the 2M full-goal-mix sibling of refgain15, dose
+10.0 instead of 15.0) closes the ref-track-weight axis for good (0/6
+rise, matching refgain15's 15.0 dose and cur1's own 2.0 — three doses,
+zero effect) but also surfaced a side lead worth flagging for rung-3:
+at just 2M, LOWER alone scored 4/6 clean success even embedded in the
+full competing goal-mix — far better than cur1's own 0/36-at-20M
+collapse — while reward quarters START positive (32.1) and decline
+thereafter (unlike cur1's flat-negative-from-Q1 shape). Reads as the
+full-mix recipe finding a partially-good policy early and drifting
+AWAY from it with more training under this exact pricing (a
+misalignment story, not "needs more budget") — worth an intermediate-
+checkpoint pull + panel read before trusting a 20M full-mix
+continuation. Not acted on this cycle (single unreplicated 2M read);
+flagged here for whichever cycle designs the rung-3 full-mix recipe.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_{loweronly1,
+riseonly1,cur1_reftrack10}_{gate,owncfg}/`, W&B `1dg40jin`/`myzj5aoo`/
+`fhk6ir7p`.)
 
 Previous entry (2026-08-25 ~07:2x (**FIRST isolation result:
 `cw-standwalk-stance-mesh2-holdonly1` VERDICTED PASS on its canary

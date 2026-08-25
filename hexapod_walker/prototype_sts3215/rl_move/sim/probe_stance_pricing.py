@@ -85,15 +85,24 @@ def _parse_pricing(tag: str) -> dict:
             ov[("reward", "term_cost_per_remaining_s")] = float(m.group(1))
             ov[("reward", "term_cost_max")] = 60.0
             continue
-        # loadX / loadXmin: measured-load gate on hold income
-        # (reward.hold_feet_load, sim_env ~3094). 'min' selects the
-        # min-over-feet variant (hold_feet_load_min=1) built after the
-        # product form was defeated by one-foot shedding.
-        m = re.fullmatch(r"load([0-9.]+)(min)?", part)
+        # loadX / loadXmin / loadX[min]fF: measured-load gate on hold
+        # income (reward.hold_feet_load, sim_env ~3094). 'min' selects
+        # the min-over-feet variant (hold_feet_load_min=1) built after
+        # the product form was defeated by one-foot shedding. Optional
+        # 'fF' suffix (08-25, holdload1min triage) sets the floor for
+        # the selected variant — hold_load_floor for the product path
+        # (e.g. load1f0.1 = product with per-unloaded-foot factor 0.1,
+        # min-strength tax WITH per-foot gradient), hold_load_min_floor
+        # for the min path.
+        m = re.fullmatch(r"load([0-9.]+)(min)?(?:f([0-9.]+))?", part)
         if m:
             ov[("reward", "hold_feet_load")] = float(m.group(1))
             if m.group(2):
                 ov[("reward", "hold_feet_load_min")] = 1.0
+                if m.group(3):
+                    ov[("reward", "hold_load_min_floor")] = float(m.group(3))
+            elif m.group(3):
+                ov[("reward", "hold_load_floor")] = float(m.group(3))
             continue
         raise SystemExit(f"unknown pricing token {part!r} in {tag!r}")
     return ov

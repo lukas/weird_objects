@@ -1,6 +1,57 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~08:2x (**`movecur1-acq1r2` (hist64 MLP,
+Last updated: 2026-08-25 ~08:4x (**MOVECUR1 TRIO CLOSED: all 3 arms
+(MLP-alone, MLP+`walk_gait_gate` combo, transformer replicate) FAIL
+at matched 38-40M budget — `k_walk_move_current=2.0` does not fix the
+mesh-family over_current/leg-sacrifice exploit under ANY tested
+combination.** Plain English: the third and last sibling,
+`cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1-acq1` (transformer
+architecture, current-charge alone), is now read and converges to the
+IDENTICAL signature as its own uncharged `tf64-mesh-acq1` reference —
+held-out 60s joygate 38/48 falls (exactly matching the reference's own
+38/48), gait_valid_frac 0.0 (worse than the reference's 0.5),
+`cur_max_a` pinned bit-exactly at 2.64A on every own-cfg DR-0 episode,
+`walkcurr/frontier`/`promotions` both 0. This answers the architecture
+question the trio was built to ask: the MLP-hist64 finding (verdicted
+this same cycle, see below) generalizes to the transformer — the
+failure is mechanism-level, not architecture-specific. Combined with
+the sibling cycle's own ledger note on `movecur1-gaitgate-acq1r3`
+(charge+gate combo, own report read this cycle: 24/24 walk/det +
+23/24 walk/sto/startjitter over_current terminations, gait_valid 0/6
+in every group — reproduces the raw over_current lock, the combo does
+not rescue either lever), **all 3 pre-registered movecur1 arms are now
+FAIL. `k_walk_move_current=2.0` is CLOSED across every tested
+combination (architecture x gate)** — do not fund further same-dose
+continuations or architecture replicates on this lever. The next
+decision (raise the charge dose further vs. a structural per-leg
+current-clamp curriculum vs. deferring this specific exploit entirely
+to the `standwalk` track's from-scratch mesh stance-retrain + teacher
+distillation — which is already fixing the analogous primitive-family
+walk-champion crouch/posture problem via a teacher rather than a
+reward-shaping proxy, and per the posture-pricing closure below is the
+track's own precedent for "reward pricing alone can't fix a stance
+basin") is a fork decision, not a same-cycle call — **flagged DIG-IN**.
+Evidence: `logs/ckpt_eval/cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_
+movecur1_acq1_{gate,joygate}/`, W&B `y03eby83`;
+`logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1_
+gaitgate_acq1r3_gate/report.json` (own-cfg gate report, read this
+cycle, sibling cycle owns that run's own verdict).
+
+**Separately, this cycle also found (not yet resolved): the
+`test_task_semantics.py` full-bank regression flagged 08-25 ~02:1x
+(54 failed / 186 passed, was "159 pass, 1 known-red" as of 08-23/24,
+root cause OPEN) is STILL RED as of this cycle's own fresh run — every
+reward-mechanism launch decision on this track (including the
+movecur1 next-lever choice above) is operating without a trustworthy
+bank until that regression is root-caused. Also flagged DIG-IN; see
+`OPERATOR_QUESTIONS.md` 08-25 ~02:1x for the investigation so far
+(hz-flip hypothesis tested and rejected; `struct_comp` torsional-
+compliance model — landed 08-21, `enabled:1` by default, NOT gated by
+`HEXAPOD_MODEL_SOURCE` — is an untested lead for whoever picks this
+up, checked this cycle only for its landing date, not yet run against
+the bank).**
+
+Previous entry (2026-08-25 ~08:2x (**`movecur1-acq1r2` (hist64 MLP,
 charge alone) FAIL at 38M: the current-dwell charge does NOT dislodge
 the mesh-family locked-leg-tripod exploit.** Plain English: the
 current-charge continuation of the movecur1 trio to matched
