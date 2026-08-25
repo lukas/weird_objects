@@ -187896,7 +187896,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:02:18+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -187941,7 +187941,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-anchor since 2026-08-25T16:13:06"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: doubling the BC-anchor coef (3.0->6.0) on slowchain's own working half-pace makes things WORSE, not better, and via a DIFFERENT failure mode than the pace-dose siblings. DR-0 gate det 1/6 valid_plant (slowchain: 3/6), sto 2/6 (slowchain: 2/6), 9/12 over_current terms (slowchain: 3/12); own-DR(0.2) det 1/6/sto 0/6, 11/12 over_current. Unlike quarterchain/eighthchain's 'stalled/frozen splay' pathology (near-zero current, never engaging), THIS run's video (rise_det_0) shows a genuine, more aggressive rise attempt -- body visibly lifting/tucking across the clip -- that then trips over_current mid-motion; env/max_current_a climbs to 1.7-2.1A range through training and terminations/over_current SPIKES in the final report window (125 in the last chunk) rather than settling. bc_anchor_loss_rise also ends WORSE (0.098) than the established ~0.05-0.06 plateau every coef=3.0 sibling reaches, after briefly dipping to 0.072 mid-run -- the higher dose does not converge tracking better, it destabilizes it. Reward quarters fall every quarter (8.2/-23.0/-219.5/-420.6), a flat-to-falling aligned signal consistent with the bad eval (08-21 rule: not a 'needs more budget' case). CONCLUSION: raising anchor supervision strength ABOVE the hold/lower-inherited 3.0 default overshoots into a hotter, more over_current-prone tracking regime on this rung -- the opposite direction from what helped on hold/lower at lower doses. Read jointly with the paired -anchordose10 arm (same cycle): both land in the same worse-than-slowchain over_current signature, closing the anchor-dose-up axis for rise. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_slowchain_anchordose6_{gate,owncfg}/, W&B r0htou5e."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stancemix-bcchain3-slowchain",
@@ -188220,7 +188221,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:06:42+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188261,7 +188262,8 @@
         "log_tail": "height_mm 26.10544\nwandb:     env/height_ref_mm 17.33357\nwandb:  env/hold_feet_factor 0.74743\nwandb:  env/hold_load_factor 0.74743\nwandb: env/hold_still_factor 0.98498\nwandb:     env/max_current_a 1.71197\nwandb:                   +97 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-anchordose10 at: https://wandb.ai/l2k2/hexapod-balance/runs/yei41azm\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_160804-yei41azm/logs\n"
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-anchor since 2026-08-25T16:18:13"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: 10.0 anchor coef (3.3x default) confirms -anchordose6's read, dose-insensitive between 6.0 and 10.0 -- both land in the same worse-than-slowchain hot-overcurrent signature. DR-0 gate det 1/6 valid_plant, sto 2/6, 9/12 over_current terms (slowchain: 3/6+2/6, 3/12); own-DR(0.2) det 2/6/sto 1/6, 9/12 over_current -- essentially identical numbers to dose6 (det1/sto2/terms9 gate; det2/sto1/terms9 owncfg vs dose6's det1/sto0/terms11), not a monotonic worsening with dose, just a flat plateau at 'worse than 3.0'. Reward trajectory nearly overlays dose6's quarter-for-quarter (8.1/-23.5/-222.4/-418.6 vs 8.2/-23.0/-219.5/-420.6) -- both doses converge to the same bad basin, confirming this is a real dose-insensitive regime change (crossing some threshold between 3.0 and 6.0 that pushes the anchor term into fighting the current-hot penalty) rather than a continued dose-response. CONCLUSION (joint with anchordose6): the anchor-dose-UP axis is CLOSED for rise -- 3.0 remains the best-known dose; supervision strength is not the fix for the deep-start pathology in either direction tried (this cycle's 6.0/10.0 up-dose, or the campaign's implicit floor at 3.0 -- never tested below 3.0 for rise specifically, that remains a small open gap but low-priority given hold/lower's own dose grid already showed 0.5 was too weak). Combined with the pace-dose grid's own exhaustion (quarterchain/eighthchain/slowchain-cont8, verdicted by a concurrent cycle this same window), BOTH pace and anchor-dose axes are now closed for rung-8 rise -- rung-9 (mint a mesh-native rise ref from scripted IK) or a direct posture-reward redesign on the flat/bridge/rsi segment are the remaining levers, per STATUS.md. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_slowchain_anchordose10_{gate,owncfg}/, W&B yei41azm."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-a",
@@ -188406,7 +188408,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-a --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_decouple_a --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain: Root-cause decoupling of the pace dose (this cycle'\"'\"'s eighthchain/slowchain-cont8 triage): every pace arm so far (quarterchain/slowchain/eighthchain) moved bc_anchor_lookahead_s AND bc_anchor_min_h_ahead_mm TOGETHER as one '\"'\"'pace'\"'\"' scalar, conflating two different mechanisms -- lookahead_s sets how far ahead the pursuit target sits in a genuinely-climbing region (torque aggressiveness), while min_h_ahead_mm sets how hard the anchor escapes the reference'\"'\"'s ~5s flat dead-zone (anti-freeze; sim_env'\"'\"'s height-floor search literally jumps forward until h clears the floor). eighthchain'\"'\"'s total-freeze collapse (0/6+0/6, several deep starts at exactly 0 duty on all six legs) landed at the SMALLEST floor (2mm) as well as the smallest lookahead -- this arm isolates whether the freeze was actually caused by the weak floor, not the short lookahead. Reverts min_h_ahead_mm to the ORIGINAL bcanchor3-stdanneal value (15mm, known to produce genuine partial rises, never a total freeze) while independently testing slowchain'\"'\"'s already-working lookahead_s=0.25s. Prediction-if-true: matches or beats slowchain'\"'\"'s 3/6 det + 2/6 sto valid_plant with a floor strong enough to prevent any freeze episodes. Prediction-if-false: unmoved vs slowchain (floor alone doesn'\"'\"'t help) -- lookahead_s is the real lever after all, not the floor.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.25 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-a.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-a.log",
     "wandb_id": "ahz9mrwq",
-    "verified": "2026-08-25T16:16:05+00:00"
+    "verified": "2026-08-25T16:16:05+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T16:21:48+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 19417,
+        "fps": 17476.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-b",
@@ -188554,7 +188568,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-b --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_decouple_b --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain: Sibling of decouple-a (same cycle, same isolation): tests quarterchain'\"'\"'s SHORTER lookahead_s=0.125s (which already showed a NEW freeze failure at quarterchain'\"'\"'s paired floor of 4mm) but with the floor reverted to the strong original 15mm. If a strong floor rescues quarterchain'\"'\"'s freeze while keeping its gentler (shorter) pursuit jump, this decouples the two mechanisms cleanly: floor strength prevents freezing, lookahead length controls current aggressiveness, and they can be dosed independently instead of as one scalar. Prediction-if-true: det/sto valid_plant >= quarterchain'\"'\"'s own 2/6+2/6, freeze-signature episodes (all-six-leg duty=0) disappear even at this short lookahead. Prediction-if-false: freeze reappears despite the strong floor -- short lookahead itself (not the floor) is what starves the forward pull.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.125 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-b.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-b.log",
     "wandb_id": "z36jhugx",
-    "verified": "2026-08-25T16:19:30+00:00"
+    "verified": "2026-08-25T16:19:30+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T16:24:38+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 20869,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-c",
@@ -188666,7 +188692,7 @@
       "0.5"
     ],
     "created": "2026-08-25T16:17:57+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -188677,7 +188703,19 @@
       "running_experiments_before": 2,
       "code_sha_local": "b7c0268172e7b2ba5d6553c017ac2af3f805a352",
       "code_sha_pod": "b7c0268172e7b2ba5d6553c017ac2af3f805a352",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "124247",
+      "log_growth_bytes": [
+        19388,
+        33079
+      ],
+      "wandb_id": "yz8pe501",
+      "trainer_pid": "124247",
+      "global_step_window": [
+        1179648,
+        1638400
+      ],
+      "fps_estimate": 15291.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -188685,6 +188723,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Healthy canary: cw-standwalk-stance-mesh2-riseonly-bcchain3 (CANARY PASS partial, 08-25): 5/6 DR-0 det episodes rise belly->level standing posture on the mesh model (height_err_end 4.5-19mm), anchor machinery converging (footz 41->7, hold-segment loss 0.16->0.013); videos in logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_gate/. Full-budget precedent: cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal (FULL PASS, 08-25): identical 8M + log-std anneal 0->-4.0 on the same bc_anchor=3.0 recipe took the hold plant from sto 0/6 @2.64A to det+sto 24/24 @0.5A.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-c --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_decouple_c --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain: Sibling of decouple-a/b (same cycle): the most extreme test, eighthchain'\"'\"'s own collapsed lookahead_s=0.0625s but with the floor reverted to 15mm (vs eighthchain'\"'\"'s paired 2mm that produced total 0/6+0/6 collapse with multiple all-six-leg duty=0 freeze episodes). If a strong floor alone rescues even this most-aggressive pace from total collapse, floor strength is confirmed as THE anti-freeze lever, independent of lookahead length, and pace-dosing should be re-run as a 2D grid (lookahead x floor) instead of the 1D scalar tried so far. Prediction-if-false: still collapses like eighthchain -- 0.0625s lookahead is simply too short for the anchor to supervise anything useful regardless of floor, closing this direction and confirming rung-9 (mesh-native ref / flat-segment fix) as the only remaining lever.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.0625 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-c.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-c.log"
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-decouple-c.log",
+    "wandb_id": "yz8pe501",
+    "verified": "2026-08-25T16:21:43+00:00"
   }
 ]

@@ -1,6 +1,33 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:2x (**Root-cause decoupling of the pace
+Last updated: 2026-08-25 ~16:2x (**ANCHOR-DOSE-UP AXIS CLOSED for rise:
+`-slowchain-anchordose6`/`-anchordose10` BOTH CANARY FAIL - MECHANISM,
+dose-insensitive between 6.0 and 10.0.** Doubling/3.3x-ing the BC-anchor
+coef (3.0->6.0/10.0) off slowchain's own working half-pace does NOT
+extend hold/lower's "more dose helps" precedent to rise — it overshoots
+into a DIFFERENT, worse failure mode than the pace-dose siblings' cold
+stalling: DR-0 gate det 1/6 valid_plant + sto 2/6 + 9/12 over_current
+BOTH doses (slowchain baseline: 3/6 det + 2/6 sto + 3/12 terms); video
+(dose6 rise_det_0) shows a genuinely MORE aggressive rise attempt
+(body visibly lifting/tucking) that then trips hot mid-motion, not a
+frozen splay — raising supervision strength pushes the policy to chase
+the reference harder than the current budget allows, the opposite
+direction from what helped hold/lower at low dose. Both arms' reward
+trajectories overlay almost exactly (quarters ~8/-23/-220/-420) and
+`bc_anchor_loss_rise` ends WORSE (0.098) than the ~0.05-0.06 plateau
+every coef=3.0 sibling reaches — this is a real regime change at the
+3.0->6.0 boundary, not a continued dose-response, so no intermediate
+dose is worth probing. Combined with the pace-dose grid's own
+exhaustion (quarterchain/eighthchain/slowchain-cont8, consolidated
+below) and now this axis, BOTH named levers in every rise-rung gate
+text to date are closed — rung-9 (mesh-native IK rise ref) and the
+decouple-a/b/c floor-vs-lookahead split (launched this same window,
+see entry below) are what's left in flight; a direct posture-reward
+redesign on the flat/bridge/rsi segment remains unbuilt/unfunded.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_
+slowchain_anchordose{6,10}_{gate,owncfg}/`, W&B `r0htou5e`/`yei41azm`.)
+
+Prior entry: 2026-08-25 ~16:2x (**Root-cause decoupling of the pace
 scalar — LAUNCHED, a third parallel lever alongside the anchor-dose
 grid and rung-9.** This cycle's own triage of `eighthchain` (verdicted
 FAIL, matches the consolidated read below) found the mechanism behind

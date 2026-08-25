@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T16:17:57+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain
+
+**wandb_id**: yz8pe501
 
 **hypothesis**: Sibling of decouple-a/b (same cycle): the most extreme test, eighthchain's own collapsed lookahead_s=0.0625s but with the floor reverted to 15mm (vs eighthchain's paired 2mm that produced total 0/6+0/6 collapse with multiple all-six-leg duty=0 freeze episodes). If a strong floor alone rescues even this most-aggressive pace from total collapse, floor strength is confirmed as THE anti-freeze lever, independent of lookahead length, and pace-dosing should be re-run as a 2D grid (lookahead x floor) instead of the 1D scalar tried so far. Prediction-if-false: still collapses like eighthchain -- 0.0625s lookahead is simply too short for the anchor to supervise anything useful regardless of floor, closing this direction and confirming rung-9 (mesh-native ref / flat-segment fix) as the only remaining lever.
 
