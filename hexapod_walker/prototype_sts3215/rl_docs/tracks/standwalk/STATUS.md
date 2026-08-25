@@ -1,6 +1,62 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~10:2x (**rung-5 (`holdterm40`) VERDICTED
+Last updated: 2026-08-25 ~12:1x (**rung-6 (`holdminload40`) CLOSED,
+2/2 seeds FAIL — min-load termination alone still can't break the
+chassis-hover-at-40mm basin; rung-7 (BC-anchor pose imitation) LAUNCHED
+as a 2M mechanism-health canary.** Plain English: `cw-standwalk-
+stance-mesh2-holdminload40` (seed 0) and `-s1` (seed 1) both finished
+6M with the identical failure signature rung-5 (`holdterm40`) already
+showed, now with the min-load lever also firing: DR-0 det gate 0/6
+valid_plant both seeds, every episode `TERM hold_low_height` at
+`height_err_end_mm` pinned 40.0-40.4mm (right at the drop line) with
+`cur_max_a` pinned ~2.64A (height AND current constraints both
+binding at once); own-DR(0.2) sto shows the new `hold_min_load` reason
+firing 3/6 times each seed (mechanism verified LIVE — it correctly
+catches the previously-invisible unloaded-foot cheat) plus the
+remainder split tilt_roll/hold_low_height. Training reward WORSENED
+every quarter both seeds (seed0 -97.8/-223.6/-347.6/-355.1; seed1
+-95.9/-237.6/-309.0/-264.8) — genuine FAIL per the 08-21 ruling
+(bank-proven aligned mechanism, task metric flat-zero the whole 6M).
+Video: crouched crab-like stance, legs bent under a lowered chassis,
+never a level six-foot plant. CONCLUSION: pure income/termination
+shaping is now closed as a lever across SIX rungs (pricing grid,
+income-gradient variants x2, height-drop term, min-load term) — the
+missing ingredient is not a better penalty/gate, it's a signal for
+WHAT the honest target posture actually looks like.
+RUNG-7 (launched, single lever, 2M canary): `train.bc_anchor_coef=1.0`
+on the holdminload40 recipe unchanged — the already-built HOLD/TRACK
+BC-anchor machinery (`sim_env.py`, `bc_anchor.py`, built 08-11 for the
+primitive-era `footlow2` champion, hold-scoped bank tests already
+green: `test_bc_anchor.py -k hold` 3/3) supervises the policy's mean
+action toward `self._q_nom` — the settled six-foot plant pose captured
+at episode reset (these are `start_kind=plant` hold episodes, so
+`_q_nom` literally IS the honest target, not a proxy) — every tick,
+independent of the RL reward. This is the same lever `footlow2` used
+successfully, previously assumed off-limits on mesh only because that
+prior recipe ALSO warm-started a (now cross-family-incompatible)
+primitive checkpoint; the anchor target itself (`_q_nom`) needs no
+warm start, so it is usable from-scratch. `cw-standwalk-stance-mesh2-
+holdminload40-bcanchor1` VERIFIED launching on train-0, 2M steps,
+MECHANISM-HEALTH CANARY gate only (>=4/6 det valid_plant + rising
+hold_feet_factor/hold_load_factor = fund an 8M continuation; 0/6 with
+the same 40mm/2.64A pinned signature = bc_anchor itself refuted for
+this task, escalate to operator re: accepting the primitive-family
+footlow2 champion as an interim teacher). Second seed and/or longer
+budget deliberately withheld until this canary reads — six of six
+prior rungs converged to the identical basin, so a single cheap read
+is the right amount of commitment for an unproven 7th lever.
+Side note: `test_bc_anchor.py` has 3 PRE-EXISTING RED tests unrelated
+to hold (`test_state_aligned_chain_climbs_to_the_plant`,
+`test_lower_anchor_chain_descends_with_feet_planted`,
+`test_min_h_ahead_unpins_the_plateau_traversal` — all rise/lower
+floor-climb assertions pinned to primitive-era height numbers, likely
+stale against the mesh mass/height defaults) — not touched by or
+relevant to this diff, flagged for whichever cycle next works rise/
+lower floor-climb BC chains.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40{,_s1}_{gate,owncfg}/`,
+W&B `jbnbyrdm`/`cvacvokp`.)
+
+Previous entry: 2026-08-25 ~10:2x (**rung-5 (`holdterm40`) VERDICTED
 FAIL; rung-6 (min-load termination) landed, bank-proven, and LAUNCHED
 as a 2-seed batch.** `cw-standwalk-stance-mesh2-holdterm40`'s gate
 report confirms rung-5's own pre-registered "alternative cheat" bit
