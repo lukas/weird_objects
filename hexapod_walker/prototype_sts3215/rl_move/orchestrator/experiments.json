@@ -176219,7 +176219,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "3rd/3rd seed of the walk_gait_gate-from-scratch trio: closes the lever for good. Held-out 60s joygate falls 39/48 (dr0 alone 24/24 = every episode falls), gait_valid_frac 0.667, slip/m med 3.439 (cap 2.9), dir_err med 46.87deg (allow 40) -- worse than the ungated pre-gate ancestor (12/48 falls). Video (walk_det_0/2, walk_sto_0) shows the same signature as its siblings: starts six-leg cycling then rears back nose-up onto stiff planted hind legs and topples, never sustains real walking. Per-leg sacrificed_frac spreads 0.04-0.27 across all six legs (no single flag leg) -- the min-across-legs gate stops one leg from being fully zeroed but does nothing for the underlying over_current/rearing basin. Reward rose the whole 40M run (quarters -411/157/483/568) while joygate got no better than its two siblings -- textbook 08-21 MISALIGNED-and-refuted, not undertrained: scratch1 (39/48), seed1 (48/48), seed2 (39/48) = 0/3 PASS, joint reading settles it. reward.walk_gait_gate applied from scratch is CLOSED as a fix for the mesh-family leg-sacrifice/over_current/rearing basin on this recipe; the current-dwell-charge trio (movecur1/-gaitgate/tf64-movecur1, in flight on other pods) is the untouched next lever and needs no further seed spend here."
+    "verdict": "Third and final seed of the walk_gait_gate-from-scratch trio (reward.walk_gait_gate baked in from step 0, mesh family, 100Hz, 40M) -- confirms the STATUS.md's already-closed joint read (2/3 already FAIL) with a 3rd independent FAIL, no surprises. DR0 gate: 24/24 episodes terminated, ALL over_current (Imax pinned at the saturation ceiling), gait_valid 20/24. Held-out 60s joygate: 39/48 falls (cap <=2), slip/m med 3.439 (cap 2.9), dir_err med 46.87deg (allow <=40), gait_valid_frac 0.667 -- same magnitude as the base scratch1 read (39/48) and clearly better than -seed1 48/48, but still a hard FAIL on every clause. Video: rigid tripod-lock, rear legs plant stiff and nose the body up/forward while never releasing into six-leg cycling -- same rigid-lock/over_current signature as both siblings, not a new pathology. TALLY: 3/3 seeds of walk_gait_gate-from-scratch now FAIL -- reconfirms this STATUS's existing verdict that a reward-side anti-sacrifice gate baked in from step 0 does NOT fix the mesh-family leg-sacrifice/over_current basin. No further action needed on this lever; recorded for completeness/closure of the 3rd seed slot. Evidence: logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_gaitgate_scratch1_seed2_{gate,joygate}/, W&B 23i9tpjm."
   },
   {
     "run": "cw-standwalk-stance-mesh1-seed1",
@@ -178062,7 +178062,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "FAIL on the experiment's own posture hypothesis -- WORST of the 3-arm posture batch on posture, best-but-still-failing on safety. Plain English: this arm added a per-motor torque hinge (reward.k_tau_over=2.0 above 1.0 N*m per tick) on top of the eff12-ds1 recipe, hypothesizing that pricing torque PEAKS (not just mean current) would push the champion toward the plant-height stance where peaks are naturally low. Instead the crouch got even deeper than either un-hinged sibling. probe_walk_posture_load (seed0, 20s@0.055m/s primitive): body z-offset -64.2mm (baseline -39.5mm, eff12-ds1 -54.3mm, eff24-ds1 -56.5mm -- this is the deepest crouch of any arm in the batch); hip clamp-rail duty 0.0 (charge paid); L/R stance-hip asym 33.3% -- WORSE than the un-priced baseline (28.1%), the only arm in the batch to regress this metric past its own parent. Matches this run's own pre-registered 'if-false (starve/park)' branch in spirit (dose pushes the wrong way) though the specific failure mode (crouch deepens further, asymmetry worsens) wasn't one of the three explicitly named outcomes -- a 4th, unanticipated-but-clear failure: the hinge is not just redundant, it compounds the same wrong-direction effect as the base effort/drag pricing. Session hard-gate FAILs (over_current at sit, fwd z=49.5mm dz=-60.4mm vs 109.9mm plant target). Held-out 60s joygate (dr0 only) is comparatively the SAFEST-looking number in isolation (4/24 falls, slip/m 2.003, gait_valid_frac 1.0, zero sacrificed legs) -- better than eff24-ds1's 12/24 but worse than eff12-ds1's 2/24, and still FAILs outright on direction_err (41.7 vs 40 allow) same as every sibling. DR-0 walk-battery pass still finishing on-pod at verdict time (slow hz=25+video run) -- will land at logs/ckpt_eval/cw_walk_posture_eff12_ds1_tau1_gate/ for a future cycle; not needed to settle this verdict since the posture probe (the experiment's actual target metric) is unambiguous. Read jointly with eff12-ds1 and eff24-ds1 (both FAIL, both verdicted this cycle): 3/3 arms deepen the crouch monotonically with more pricing pressure (mean/hinge torque and drag charges are being paid exactly as priced, but the policy's cheapest way to cut priced torque is to crouch lower, which needs less hip torque at this leg geometry -- the reverse of the intended fix). CLOSES the effort/torque/drag-pricing class for posture-fix on this lineage: no further k or hinge-threshold iteration warranted; per the STATUS's own pre-registered fallback, the posture fix belongs to the BC-teacher/standwalk mesh-retrain route (already in flight, standwalk track mesh2-cur1). Evidence: /tmp/probe_tau1_full.txt, logs/ckpt_eval/cw_walk_posture_eff12_ds1_tau1_{joygate,session}/, W&B 5r5vkyh3."
+    "verdict": "The operator-amended posture arm (direct per-motor peak-torque hinge, reward.k_tau_over=2.0 above 1.0 N*m, on top of the eff12-ds1 base pricing) gets its own targeted charge PAID -- but the crouch it was meant to fix gets WORSE, the deepest of any tested arm. probe_walk_posture_load: body-z offset vs anchor -64.2mm (gate >=-10mm; parent -39.5mm, eff24-ds1 sibling -56.5mm -- this is now the WORST of three tested posture arms), stance hip tau p95 1.121 N*m (gate <=1.2; PASSES, first arm to clear this one), clamp-rail duty 0.0 (PASSES, best of all arms), but L/R stance-hip asymmetry 33.3% (gate <20%; parent 28.1%, eff24 27.3% -- also WORSE than every prior reading). Walk battery itself is actually the cleanest of the three arms: DR0 det+sto ZERO terminations (12/12, first fully-clean read in this posture-pricing family), median fwd ~1.3m (gate >=1.2), gait_valid 12/12, det slip/m median ~0.95 (gate <=1.24) -- one sto episode shows a high-slip near-stumble (slip/m 35.97, fwd 0.445m) without a formal termination. Video confirms a low, wide splayed stance, six legs cycling, no flag leg. ROOT CAUSE (extends the eff24-ds1 finding to a THIRD, more targeted mechanism): hinging directly on per-motor PEAK torque (not just mean current/effort) still gets paid via a lower+wider stance rather than a taller one -- a wider base shortens the effective lever arm and cuts peak hip torque independent of body height, so torque-only charges (mean, dose-scaled, or peak-hinged) cannot distinguish 'cheap because upright' from 'cheap because sprawled'. This is now 3/3 independently-designed torque/current-pricing arms (eff12-ds1's own concurrent-cycle read pending, but eff24-ds1 and this hinge both directly measured) confirming the SAME wrong-direction result on the SAME metric. HYPOTHESIS REFUTED (if-false 'no delta vs control: hinge redundant' -- it did change torque metrics, but not in service of the actual goal; the operative if-false is 'paid, posture not fixed', same as eff24-ds1). NEXT: no further torque/current-based pricing variant on this walk lineage -- the whole family (mean-current effort charge, per-stance drag charge, per-motor peak-torque hinge) is now closed by 08-25 evidence; posture fix ownership stays with the standwalk track's mesh-era stance retrain + teacher distillation (a policy that can be shaped to target the plant HEIGHT directly, not a current/torque proxy). Evidence: logs/ckpt_eval/cw_walk_posture_eff12_ds1_tau1_gate--pod/report.json, on-pod probe /tmp/probe_tau1.json (probe_walk_posture_load), W&B 5r5vkyh3."
   },
   {
     "run": "cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-movecur1",
@@ -178316,7 +178316,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "Realigned pricing (k_current_hot=1.0@2.0A + term_cost_per_remaining_s=3) DID kill the pure current-saturation grind exploit -- but no honest stance behavior emerged in its place. All 36 DR-0 + 36 own-DR(0.2) episodes are 0/6 across hold/rise/lower, det+sto: hold/lower terminate tilt_pitch, rise terminates over_current -- three DIFFERENT genuine failure modes (not one uniform grind signature), each with real 185-287mm drag and non-settled roll. Reward is flat the whole 20M run (quarters -293/-339/-276/-285, ends where it started, no rising trend) -- video (hold/rise/lower contact sheets) shows real struggling: hold slowly lists and slides sideways from an initially-planted pose, rise pitches over onto its side within the first couple seconds instead of pushing up, lower ends splayed. This is flat-reward + flat-task + wrong video = genuine FAIL per the interpretation ruling (not misaligned-continue: the grind's reward-rising signature is gone). Root cause is probably budget/teacher, not pricing: this recipe has zero warm-start and zero bc_anchor (impossible cross-family per CURRENT_TRUTHS), so it's asking PPO to discover a 3.5kg body's whole-body balance/rise motion from scratch in 20M ticks at 100Hz with only a reward gradient -- the pre-registered 'strongest alternative' fork. Read jointly with cw-standwalk-stance-mesh2-cur1-seed1 (this cycle, same signature: 0/6 all modes, tilt_roll/tilt_pitch/over_current mix, flat reward) -- 0/2 healthy already caps the batch at <=1/3 even before seed2 reads, so the pre-registered '0-1/3 = escalate the named fork' branch is live regardless of seed2's individual result. Next: do NOT spend a 4th same-recipe seed; escalate via either (a) a rise-reference-guided/DAgger-style teacher signal despite the cross-family gap (query the primitive rise_ref at matched joint-space targets, not raw actions), or (b) a budget ladder (this from-scratch mesh stance problem may just need more than 20M), or (c) split hold-only-first per the STATUS's own fallback list. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_cur1_{gate,owncfg}/, W&B 9jgempi8."
+    "verdict": "3-seed batch (cur1/-seed1/-seed2, the realigned recipe after the mesh1 saturation-grind dig-in fix: k_current_hot=1.0 @ current_hot_a=2.0 + term_cost_per_remaining_s=3) is a JOINT 0/3 FAIL -- this seed (base, seed0): 36/36 stance episodes terminated (hold/rise/lower, det+sto, DR-0), 100% fall rate, all tilt_pitch (hold/lower: nose-down topple) or tilt_pitch/over_current mixed (rise). Video: hold_det starts in a passable compact stance but progressively noses forward into a ground-press collapse over the episode; rise_det never reaches a valid plant, stays sprawled/press-up the whole clip. In-training eval confirms this isn't a late-training regression: eval/hold+raise+lower survived_frac sat at 0 for 11 of 12 logged checkpoints across the full 20M budget (one n=2 flicker at step 2.4M, matching the STATUS.md's own prior 'flicker, not a real pass' finding for this lineage) -- reward AND task metrics both flat/failing the entire run (quarters -293/-339/-276/-285, no clear trend), a genuine FAIL per the 08-21 ruling, not undertraining. GOOD NEWS: the pricing fix DID work as intended -- zero sign of the previous saturation-grind exploit (no sustained 2.6A servo-vs-servo current fight); the failure mode changed from 'profitable cheat basin' to 'honest attempt topples', i.e. the mesh recipe still cannot hold basic balance, in ANY stance mode, at this budget/architecture. Joint read with seed1 (35/36 term, tilt_roll-dominant) and seed2 (35/36 term, tilt_roll-dominant): 0/3 seeds pass any clause of the pre-registered gate (need >=5/6 det+sto per mode) -- per the pre-registered rule ('0-1/3 = escalate the named fork, not more seeds'), this closes the cur1 recipe as insufficient to reach a stable mesh/100Hz stance policy at 20M steps. NEXT: escalate per the pre-registered fallback -- the recipe needs either a bigger rung-2 budget, a stability-first curriculum change (e.g. a hold-only-first rung so balance is learned before rise/lower complexity, matching the rung-2 lever candidates already named in this track's own STATUS for the sibling mesh1 lineage), or a direct balance/posture-recovery shaping term -- not a same-recipe seed re-run (0/3 already settles seed lottery is not the story). Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_cur1_gate/report.json, W&B 9jgempi8."
   },
   {
     "run": "cw-standwalk-stance-mesh2-cur1-seed1",
@@ -178445,7 +178445,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "Second seed of the cur1 realigned-pricing batch, identical joint reading to cw-standwalk-stance-mesh2-cur1 (this cycle): pricing kills the current-grind (no more uniform over_current-everywhere signature) but the policy still fails every stance mode honestly. All 36 DR-0 + 36 own-DR episodes 0/6 across hold/rise/lower det+sto -- hold TERM tilt_roll, rise TERM tilt_pitch, lower TERM over_current (three distinct failure modes, matching cur1's mixed signature). Reward flat the whole 20M run (quarters -318/-533/-311/-297, dips then returns to ~where it started -- no sustained rise). Video (contact sheet) matches cur1: hold starts planted then slides/lists sideways (drag 267-428mm), rise topples onto its side within the first couple seconds instead of pushing up, lower ends dragged/splayed. This is flat-reward+flat-task+wrong-video = genuine FAIL, not misalignment (the reward-rising grind signature from mesh1 is gone). JOINT READ (per the pre-registered gate): 0/2 of this cycle's two seeds are healthy, which already caps the 3-seed batch at <=1/3 regardless of cw-standwalk-stance-mesh2-cur1-seed2's own result (concurrent/uncredited) -- the '0-1/3 = escalate the named fork, not more seeds' branch is live now. Do not launch a same-recipe seed3 or seed4; the next lever is teacher signal, a longer from-scratch budget, or a hold-only-first split (see cur1's verdict for the full fork list). Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_cur1_seed1_{gate,owncfg}/, W&B h8nqxuk2."
+    "verdict": "Seed replicate of the cur1 batch, JOINT FAIL 0/3 (see cw-standwalk-stance-mesh2-cur1 for the full joint writeup). This seed: 35/36 stance episodes terminated (hold/rise/lower, det+sto, DR-0), term signature tilt_roll-dominant (14) + over_current (13) + tilt_pitch (8). Video (rise_det): starts already collapsed/press-up (front nose to ground, legs splayed sideways), never reaches a valid plant across the clip -- same sprawled-press-up signature as seed0. Reward quarters -318/-533/-311/-297 (dip-and-partial-recover, no real trend). Confirms 0/3 (not a single-seed fluke): the realigned mesh2/cur1 pricing fix closes the saturation-grind exploit but the honest attempt still topples in every mode at 20M steps. Next: rung-2 escalation as recorded on the base seed (budget/curriculum/balance-shaping), not more same-recipe seeds. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_cur1_seed1_gate/report.json, W&B h8nqxuk2."
   },
   {
     "run": "cw-standwalk-stance-mesh2-cur1-seed2",
@@ -178527,7 +178527,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T06:00:15+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -178577,7 +178577,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-cur1-seed2-cw-walk-posture-eff12-d since 2026-08-25T06:46:16"
+    "triage": "done",
+    "verdict": "Seed replicate of the cur1 batch, JOINT FAIL 0/3 (see cw-standwalk-stance-mesh2-cur1 for the full joint writeup). This seed: 35/36 stance episodes terminated (hold/rise/lower, det+sto, DR-0), term signature tilt_roll-dominant (18) + over_current (9) + tilt_pitch (8). Video (hold_det): starts in a passable compact tripod-like stance, holds briefly, then progressively rolls/slides toward the end of the episode into a tilt_roll termination. Reward quarters -315/-516/-298/-364 (dip then ends WORSE than it started -- no learning progress, matches the 08-21 'genuine FAIL' bar). Confirms 0/3: the realigned pricing fix stops the saturation-grind cheat but this seed also cannot hold stance through a full episode in any mode. Next: rung-2 escalation as recorded on the base seed, not more same-recipe seeds. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_cur1_seed2_gate/report.json, W&B yeef6cxg."
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-acq1",
@@ -179132,5 +179133,119 @@
         "problems": []
       }
     ]
+  },
+  {
+    "run": "cw-standwalk-stance-mesh2-holdonly1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: cur1/cur1-seed1 both failed EVERY mode including hold (which starts from an already-planted pose and just needs to stand still) -- hold is only 10% of the training goal-mix (0.1 of 1.0) alongside rise/lower at 0.45 each, so a plausible root cause is that hold gets starved of gradient signal, not that balance itself is unlearnable on the mesh model. This arm isolates hold: same cur1 pricing/recipe, goal-mix forced to hold=1.0/rise=0/lower=0, 2M-step discovery budget. Prediction-if-true (starved, not broken): quiet standing emerges within 2M -- DR-0 hold panel gets several ok/6 with roll settling, no tilt_roll/over_current pattern. Prediction-if-false: hold-only ALSO fails the same way (tilt_roll fall, similar reward trajectory to cur1's hold slice) -- balance itself is broken on the mesh/100Hz stack (a gains/PID/contact issue, not a curriculum-weight issue), and the next escalation is a physics/servo-gain audit, not a goal-mix split. Strongest alternative: 2M is too short even for hold-only (rung needs more budget regardless of split).",
+    "gate": "Discovery/canary read at 2M: pod_eval stance panel, hold mode only, n=6 det DR-0. PASS-qualitative: majority (>=4/6) survive the full 15s without a tilt_pitch/tilt_roll/over_current termination, roll_tail settling <5deg. FAIL: 0-2/6 survive or the same tilt_roll signature as cur1 -- escalate to a physics/gains audit instead of more curriculum splits.",
+    "parent": "cw-standwalk-stance-mesh2-cur1",
+    "track": "standwalk",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.005",
+      "--log-std-init",
+      "0",
+      "--goal-mix",
+      "hold=1.0,rise=0.0,lower=0.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_standwalk_stance_mesh2_holdonly1",
+      "--cfg-set",
+      "actions.max_height_mm=88",
+      "--cfg-set",
+      "goal.rise_height_mm=[79,87]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "goal.rise_rsi_frac=0.5",
+      "--cfg-set",
+      "goal.rise_hold_min_s=0.5",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_score_strip_pen=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.hold_still_gate=1.0",
+      "--cfg-set",
+      "reward.hold_flag_fade=1.0",
+      "--notes",
+      "respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1/cur1-seed1 both failed EVERY mode including hold (which starts from an already-planted pose and just needs to stand still) -- hold is only 10% of the training goal-mix (0.1 of 1.0) alongside rise/lower at 0.45 each, so a plausible root cause is that hold gets starved of gradient signal, not that balance itself is unlearnable on the mesh model. This arm isolates hold: same cur1 pricing/recipe, goal-mix forced to hold=1.0/rise=0/lower=0, 2M-step discovery budget. Prediction-if-true (starved, not broken): quiet standing emerges within 2M -- DR-0 hold panel gets several ok/6 with roll settling, no tilt_roll/over_current pattern. Prediction-if-false: hold-only ALSO fails the same way (tilt_roll fall, similar reward trajectory to cur1's hold slice) -- balance itself is broken on the mesh/100Hz stack (a gains/PID/contact issue, not a curriculum-weight issue), and the next escalation is a physics/servo-gain audit, not a goal-mix split. Strongest alternative: 2M is too short even for hold-only (rung needs more budget regardless of split).",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "reward.k_current_hot=1.0",
+      "--cfg-set",
+      "reward.current_hot_a=2.0",
+      "--cfg-set",
+      "reward.term_cost_per_remaining_s=3.0",
+      "--cfg-set",
+      "reward.term_cost_max=60.0"
+    ],
+    "created": "2026-08-25T06:47:36+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 3,
+      "code_sha_local": "35d9c5ec62ac1b07cb5842b6432b57f5932f3a22",
+      "code_sha_pod": "35d9c5ec62ac1b07cb5842b6432b57f5932f3a22",
+      "wandb_env_on_pod": true,
+      "pid": "43424",
+      "log_growth_bytes": [
+        19100,
+        31446
+      ],
+      "wandb_id": "khyece06",
+      "trainer_pid": "43424",
+      "global_step_window": [
+        1638400,
+        2031616
+      ],
+      "fps_estimate": 13107.2
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdonly1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdonly1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1/cur1-seed1 both failed EVERY mode including hold (which starts from an already-planted pose and just needs to stand still) -- hold is only 10% of the training goal-mix (0.1 of 1.0) alongside rise/lower at 0.45 each, so a plausible root cause is that hold gets starved of gradient signal, not that balance itself is unlearnable on the mesh model. This arm isolates hold: same cur1 pricing/recipe, goal-mix forced to hold=1.0/rise=0/lower=0, 2M-step discovery budget. Prediction-if-true (starved, not broken): quiet standing emerges within 2M -- DR-0 hold panel gets several ok/6 with roll settling, no tilt_roll/over_current pattern. Prediction-if-false: hold-only ALSO fails the same way (tilt_roll fall, similar reward trajectory to cur1'\"'\"'s hold slice) -- balance itself is broken on the mesh/100Hz stack (a gains/PID/contact issue, not a curriculum-weight issue), and the next escalation is a physics/servo-gain audit, not a goal-mix split. Strongest alternative: 2M is too short even for hold-only (rung needs more budget regardless of split).' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-holdonly1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-holdonly1.log",
+    "wandb_id": "khyece06",
+    "verified": "2026-08-25T06:51:18+00:00"
   }
 ]
