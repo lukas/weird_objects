@@ -153,6 +153,42 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   sized to fit them with 0.3 mm clearance, so they just become a bonus
   shear key.
 
+### What still stands at the corner flats (verified, Aug 24)
+
+After the tray delete the corner flats were re-probed (both the mesh
+and the BREP-derived STL): **nothing wago-era survives** above the
+sheet top anywhere on the plate.  The walls still visible next to each
+pillar foot are NOT tray remnants — they are, per feature:
+
+* the two **yaw-servo cradle shells** flanking every corner flat (the
+  2.4 mm printed walls with the notched inboard ends; each one has a
+  yaw servo inside it and carries the servo-mount deck) — production
+  geometry, fully load-bearing;
+* the **yaw_servo_retainer** corner pads (a separate bolt-on part, not
+  chassis) that keep the servo from dropping out of its well;
+* the variant's own **pillar foot bar + inboard tab**.
+
+They read like tray walls because they are the same wall thickness and
+a similar height, but every one of them holds a servo.  Do not cut
+them.  (`corner_flat_owners.png` — a z=8 section of the corner flat
+with per-part colours — shows the ownership.)
+
+### Why the joint column is as tall as it is (nothing arbitrary)
+
+On the leg axis the chassis ends at the tower rim, z 19.75 — only
+9.5 mm above its own deck (z 10.25), and that 9.5 mm is fully
+accounted for: 5.5 mm of disc-horn stack (horn top / coxa mount plane
+at 15.25, race seat 0.5 above it at 15.75 — the race cannot sit lower
+or its spinning inner ring hits the static horn and screws) plus
+4.0 mm of race engagement in the pocket.  Everything above the rim is
+the 6805's proud band (to 22.75) hidden behind the coxa's Φ44 dust
+skirt (curtain 20.25 → brim 26.25) — the skirt continues the tower at
+the SAME diameter, which is why the whole thing reads as one tall
+chassis column.  Total column height is pinned by race top (horn
+15.25 + 0.5 + 7 mm race) + skirt roof; it cannot come down without a
+thinner bearing.  `joint_column_annotated.png` is the full annotated
+section — every height band, what it is, why it is there.
+
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
 | z (mm) | plane |
