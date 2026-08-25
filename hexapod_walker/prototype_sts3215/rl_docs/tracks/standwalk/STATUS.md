@@ -1,6 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~13:1x (**HOLD RUNG CLOSED — `bcanchor3-stdanneal`
+Last updated: 2026-08-25 ~13:5x (**rung-8 rise canary read:
+`riseonly-bcchain3` CANARY PASS (partial) — the state-aligned BC-anchor
+chain DRIVES THE RISE on the 3.5 kg mesh model, first belly->stand in
+eight rungs, but the terminal plant fails on quality.** DR-0 det: 0/6
+valid_plant, yet 5/6 episodes visibly rise to a level six-foot standing
+posture (height_err_end 4.5–18.9 mm vs the 40 mm hover / 79 mm
+belly-freeze of rungs 1–7); failures are current pinned at the 2.64 A
+actuator max (p95 1.3–2.6 A vs the 1.5 A bar), footprint creep (slip
+0.66–1.98 m/15 s), 1/6 press-up freeze, 1 over_current term per pass.
+Mechanism diagnosis from W&B: `bc_anchor_loss_hold` converged
+(0.16->0.013, matching the hold passer) but `bc_anchor_loss_rise`
+PLATEAUED at ~0.22 (hold reached 0.003) — under un-annealed
+policy_std~1.0 the policy tracks the moving chain only loosely, the
+exact imprecision signature log-std annealing alone fixed on the hold
+rung (sto 0/6->6/6, 2.64 A->0.5 A). NOT the refuted branch (no
+belly-freeze majority). FUNDED the pre-registered follow-up:
+`cw-standwalk-stance-mesh2-riseonly-bcchain3-stdanneal` (8M
+acquisition, log-std 0->-4.0 anneal-frac 0.5, recipe otherwise
+unchanged, VERIFIED RUNNING train-1). Its FAIL branch names the next
+lever: mesh-native rise ref minted from scripted IK, not dose.
+`loweronly-bcchain3` (lower rung mirror) still training — triage on
+finish. Watcher SUSPECT on riseonly-bcchain3 was a false alarm
+(budget-complete clean exit at 2.03M, W&B synced). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_{gate,owncfg}/`,
+W&B `lnqbzq5g`.)
+
+Prior entry: 2026-08-25 ~13:1x (**HOLD RUNG CLOSED — `bcanchor3-stdanneal`
 (8M acquisition, dose 3.0 + log-std anneal 0->-4.0, final std 0.018)
 is a FULL PASS: DR-0 det 6/6 + sto 6/6 AND own-DR(0.2) det 6/6 + sto
 6/6 valid_plant, ZERO terminations in all 24 episodes, cur_p95
