@@ -1014,6 +1014,13 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+RUNG-8 tally (08-25 ~15:1x): HOLD PASS, LOWER PASS (both stdanneal),
+RISE PARTIAL — the pace-dose batch (`quarterchain`/`eighthchain`/
+`slowchain-cont8`, all VERIFIED RUNNING off free capacity) is the live
+lever; see Last-updated entry for the cont8/reanneal FAIL + slowchain
+PARTIAL evidence that ruled it in. STANCEMIX still PARTIAL
+(warmmix1/2 triage belongs to a concurrent cycle).
+
 Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
 `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`
 (24/24 valid_plant across DR-0+own-DR det+sto, zero terms — see Last
