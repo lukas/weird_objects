@@ -1,6 +1,111 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~03:4x (**hist64-mesh-acq1 FAIL + the mesh
+Last updated: 2026-08-25 ~04:5x (**hz100-r2-v8 FAIL: V8's diet-scope
+fix generalizes to 100Hz (frontier cleared b1, reached b3/side90_20s,
+promotions=3 -- matches certfreeze-v8's 25Hz read), closing that half
+of the question, but the run still misses its own pre-registered PASS
+bar on the leg-sacrifice/joygate half.** Plain English: held-out 60s
+joygate falls 7/48 (cap <=2), DR-0 det gait_valid only 2/6 (need
+>=5/6), own-DR(0.5) det 1/6; leg 3 is named in the sacrificed set in
+4/6 DR-0-det, 2/6 DR-0-sto, 3/6 own-DR-det and 1/6 own-DR-sto episodes
+(video: walk_det_1/2/4/5 show one leg held rigid off the ground while
+the other five cycle). Not a hard 100% lock though -- walk_det_0/3
+show genuinely clean six-leg cycling with real forward progress
+(0.53-1.46x clone-scale), so the policy CAN produce a healthy gait,
+just not reliably. Zero falls/terminations across all 24 DR-0/own-DR
+episodes (terms=0 every group) -- the pathology here is an
+intermittent leg-3 freeze, not topple; the held-out joygate's longer
+60s/direction-changing sessions are what convert the same intermittent
+freeze into 7 real falls. ep_rew_mean quarters
+1289.8/606.9/1297.0/1066.0 -- dipped then partially recovered, ending
+below its own Q3 peak while gait_valid/falls stayed bad the whole run:
+reads as plateaued at a mediocre optimum (08-21 ruling: stuck
+mechanism, not undertrained). Matches this run's own pre-registered
+FAIL branch on the joygate/leg-3 clause even though frontier itself
+cleared b1. This run is confirmed PRIMITIVE-family (pre-dates the
+08-24 mesh flip, warm-started from a primitive parent with no
+model_source override at a point before the continuity-guard gap
+existed) -- unlike gaitgate-scratch1 below, no family confound here.
+**No same-recipe continuation**: the decisive lever for leg-sacrifice
+(`reward.walk_gait_gate`, absent from this V8/100Hz recipe) is already
+being tested by the concurrent `gaitgate-scratch1`/`-seed1`/`-seed2`
+trio (see below -- NOTE all three turned out to be mesh-family, not
+the primitive family this run uses, so they don't directly settle
+whether the gate helps THIS family). This run's own open question (does
+V8's diet fix generalize to 100Hz) is now closed: yes. Also this
+cycle: the watcher's `pod_eval.py` prestage process for this run died
+silently after both on-pod passes finished (no SYNCED line, no local
+copy, no crash trace found) -- recovered manually via `kubectl cp`;
+worth a checkup-cycle look if it recurs. Evidence: `logs/ckpt_eval/
+cw_arch_hist16_dep1_c1_joyfullcurr15_v8_hz100_r2_{gate,owncfg,
+joygate}/`, W&B `4tddgstm`.)
+
+Previous entry (2026-08-25 ~04:4x (**gaitgate-scratch1 FAIL (worse than
+its ungated parent) + tf64-mesh-acq1 FAIL (joint w/ MLP-mesh sibling,
+same over_current signature) + a SYSTEMIC continuity-guard gap FOUND
+AND FIXED.** `cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1`
+(reward.walk_gait_gate baked in from step 0, the decisive "prevention"
+half of this cycle's leg-sacrifice diagnostic pair) is not just FAIL
+but WORSE than the ungated parent: held-out 60s joygate falls 39/48
+(parent 12/48), gait_valid_frac 0.146, term_reason=over_current every
+DR-0 episode (Imax 2.64-2.70A), duty_cycle showing a rigid 3-legs-
+locked/3-legs-airborne tripod (video confirms: rears nose-up onto
+stiff planted legs, never six-leg cycling). Jointly with the
+concurrent cycle's `gaitgate-cont1` FAIL, this is 2/2: reward-side
+anti-sacrifice gating (continuation OR from-scratch) cannot
+prevent/dislodge this basin -- closes that lever. **Bigger finding
+underneath it**: this run's own stated parent-comparison
+(`scratch-s0-r1`, byte-identical "except the gate") was FALSE --
+`scratch-s0-r1` trained pre-08-24-mesh-flip (implicitly
+primitive-family: its failure is tilt_pitch topple, near-zero
+over_current) while `gaitgate-scratch1` (created 08-25, no
+`env.model_source` override anywhere) silently defaulted to the
+NEW mesh code default (confirmed: over_current-dominated, ZERO
+tilt_pitch across 40M steps, Imax pinned ~2.64-2.70A matching the
+established mesh over_current signature) -- two levers changed at
+once, not one. `gaitgate-cont1` (a continuation of the SAME primitive
+checkpoint, also created post-flip with no override) almost certainly
+has the identical undisclosed confound. **Root cause: the binding SIM
+MODEL CHANGE continuity rule ("any resume of a pre-08-24 checkpoint
+MUST set env.model_source=primitive") had ZERO code enforcement** --
+unlike the analogous control.hz rule, nothing in launch_run.py checked
+it, so any `--parent` launch with no explicit cfg-set silently
+inherited the code default at run time. **Fixed this cycle**:
+`launch_run.py` now walks the `--parent` chain
+(`_lineage_model_source`) to find the family the lineage actually
+trained on (explicit cfg-set at any ancestor, else primitive/mesh by
+whether the root predates the 2026-08-24T23:24:13Z flip) and REFUSES
+a launch whose own resolved family mismatches it, mirroring the
+control.hz enforcement (`--allow-model-source-mismatch` escape hatch
+for a deliberate cross-family test); 16 new unit tests
+(`test_launch_run_model_source_continuity.py`), snapshotted (tag
+`exp/model-source-continuity-guard`). **Any future resume of the
+`scratch-s0`/`scratch-s0-r1`/`gaitgate-*` lineage, or any other
+pre-08-24 lineage, now needs an explicit `--cfg-set
+env.model_source=primitive` or it will be REFUSED, not silently
+drifted.** Separately, `cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1`
+(the tf64 transformer's explicit-mesh 40M acquisition) is ALSO FAIL,
+with the IDENTICAL signature as its MLP-mesh sibling
+(`hist64-mesh-acq1`, FAIL, previous entry): reward healthy/rising
+(valley -975 -> +680) while frontier stays pinned at b0, DR-0 gate 0/6
+every sub-mode, over_current every episode (Imax 2.64-2.70A, zero
+tilt_pitch across the whole 38M-step training), held-out joygate
+38/48 falls / gait_valid_frac 0.5 (leg 3 mainly sacrificed). Answers
+the architecture question NO -- both architectures fail identically
+via the same shared reward exploit, so this is not a tf64-specific
+problem and doesn't license further seed/architecture arms on this
+recipe. **Next lever for BOTH mesh-family architectures (not yet
+built)**: a walk-tick current-dwell charge (`reward.k_walk_current`),
+analogous to the already-proven `reward.k_walk_stop_current` for
+stop-ticks -- the min-across-legs `walk_gait_gate` is now proven
+insufficient (gameable via brief token swings + an otherwise-rigid
+lock, and actually less safe than no gate at all on this recipe).
+Evidence: `logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_
+gaitgate_scratch1_{gate,owncfg,joygate}/`, `logs/ckpt_eval/
+cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_acq1_{gate,owncfg,joygate}/`,
+W&B `hvyjdmch` / `ibzoqf7g`.)
+
+Previous entry (2026-08-25 ~03:4x (**hist64-mesh-acq1 FAIL + the mesh
 over_current root cause is NAILED (dig-in, measured).** The MLP-mesh
 40M acquisition hit its own pre-registered FAIL branch: reward rose
 the whole run (-633 valley -> +528; mesh-family valley reference
