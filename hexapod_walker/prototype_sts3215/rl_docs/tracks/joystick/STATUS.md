@@ -1,6 +1,36 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~08:4x (**MOVECUR1 TRIO CLOSED: all 3 arms
+Last updated: 2026-08-25 ~10:1x (**`movecur1-dose5x` mechanism-health
+canary CANARY PASS: 5x the current-dwell charge (k_walk_move_current
+2.0->10.0, single lever off the closed movecur1 2M base) knocks
+`cur_max_a` off the 2.64A pinned safety-trip edge that closed the
+whole k=2.0 trio.** Plain English: this answers the fork the previous
+cycle flagged DIG-IN instead of deciding same-cycle (dose-insensitive/
+structural vs. just underdosed at k=2.0). Evidence: W&B
+`env/walk_move_current_max_a` falls from a 2.64A plateau to
+0.37-0.43A by ~900k-1030k steps and only partially re-rises to
+1.36-1.9A by 2M, never re-pinning; `terminations/over_current`
+collapses from 1587/440 in the first two report windows to single
+digits (2-9) for the rest of the run. Fresh DR-0 det gate eval
+confirms it out-of-training: `walk/det` mode is clean on the
+mechanism axis, `cur_max_a` 2.17-2.29A every episode, 0/6 terminated,
+0/6 over_current (was 6/6 pinned-2.64A/terminated at k=2.0 on this
+exact recipe). Noisier modes (sto/startjitter) still hit 2.64A and
+over_current on SOME episodes (not all) -- a real but partial dose
+response, not a clean full close. Video: static all-six-legs-
+sacrificed crouch, zero translation -- the gate's own accepted
+'generic-early-valley' look, not walking yet. **REFILL: launched
+`cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-dose5x-acq1`** (same
+single lever, `--init-from-source`, 40M steps, matching the k=2.0
+trio's own 38-40M acquisition precedent) to see whether real walking
+emerges once cmd_prog moves, or the exploit re-locks once the policy
+commits to a gait (the way `-acq1r2` re-converged to the pinned
+signature by 20-38M despite a clean-looking early read). VERIFIED
+RUNNING train-4. Evidence: `logs/ckpt_eval/
+cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1_dose5x_gate/report.json`,
+W&B `ff5xgy92`.)
+
+Previous entry (2026-08-25 ~08:4x (**MOVECUR1 TRIO CLOSED: all 3 arms
 (MLP-alone, MLP+`walk_gait_gate` combo, transformer replicate) FAIL
 at matched 38-40M budget — `k_walk_move_current=2.0` does not fix the
 mesh-family over_current/leg-sacrifice exploit under ANY tested
