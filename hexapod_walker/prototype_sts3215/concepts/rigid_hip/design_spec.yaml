@@ -24,23 +24,33 @@
 # open-top phi 37.15 pocket (the production LOWER-race position; seat
 # and drop-in path are print-proven).  The bolt-on yaw_bearing_cap is
 # DELETED (-6 prints, -18 M3 screws): its radial-housing job moves to
-# the pocket's 4 mm press band, its retention job splits by direction
+# the tower press band, its retention job splits by direction
 # (hanging loads: hub seat ring -> inner race -> outer race -> tower
 # seat; standing loads: up through the TOP bearing into the plate
 # shoulder).  The coxa hub grows a phi 29 seat ring down to the
 # relocated race top (the coxa is already a variant print).  Bearing
 # couple ~65 mm mid-plane to mid-plane.  Net 12 bearings per robot,
-# same as production.  The race's top 3 mm stands proud of the tower
-# rim; a phi 44 DUST SKIRT on the coxa covers it (user, Aug 24:
-# "should a ring from the coxa link come down and cover part of the
-# bearing that's sticking up?") with 0.5 mm non-contact labyrinth
-# gaps -- it never scrapes the chassis.
+# same as production.
+#
+# Joint-column redesign (user, Aug 24 rev 2: "the bearing should be
+# just above the horn and the motor should sit just above that --
+# feel free to redesign"): the tower rim is RAISED 3 mm to the
+# race-top plane (world 22.75) so the bearing is FULLY housed (7 mm
+# outer-race wrap, +75% press area vs the production 4 mm band) and
+# the phi 44 column ends exactly at the bearing top.  The earlier
+# phi 44 skirt+curtain on the coxa (which continued the tower
+# cylinder and made the column read 16 mm tall) is DELETED; a small
+# phi 38 DUST BRIM hovers 0.5 above the rim/race plane, stepped 3 mm
+# inside the tower OD.  Stack (world z): deck 10.25 -> horn top /
+# coxa mount 15.25 -> race seat 15.75 -> race + rim top 22.75 ->
+# brim 23.25..25.25 -> coxa hub above.  Non-contact everywhere.
 #
 # Chassis variant (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2: "the multiple curves
 # should all match"): chassis_bottom_rigid trims the six square tower
 # platforms to the tower's own phi 44 cylinder (one matching curve
-# from belly to bearing pocket), shaves the dead cap-bolt ear lugs
+# from belly to bearing pocket), raises the six tower rims to the
+# race-top plane, shaves the dead cap-bolt ear lugs
 # (outboard + tangential; the inboard one stays merged with the well
 # collar) and prints in the 18 pillar-foot holes.  All functional
 # surfaces stay production geometry.
@@ -411,13 +421,14 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — tower-trimmed platforms, ears shaved, foot holes, trays deleted (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, full-wrap raised rims, ears shaved, foot holes, trays deleted (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
-      The production chassis_bottom with four variant edits (user,
+      The production chassis_bottom with five variant edits (user,
       Aug 24: "round the corners on the chassis bottom below where the
       bearings go"; rev 2: "the multiple curves should all match";
-      rev 3: "remove the wago slots").
+      rev 3: "remove the wago slots"; rev 4: "the bearing should be
+      just above the horn and the motor should sit just above that").
       (1) PLATFORM CORNERS: the square outboard platform under each
       yaw tower (face x 121.2 in the leg frame, half-width 21.25 above
       the sheet / 18.9 for the belly skirt) poked 8.4 mm diagonally
@@ -436,16 +447,22 @@ parts:
       (az 210) column flush to the servo-mount deck top (z 10.25),
       its root left merged with the well-mouth collar below the deck.
       Above the deck nothing pokes past the tower cylinder at any
-      azimuth (asserted).  (3) FOOT HOLES:
+      azimuth (asserted).  (3) RAISED RIMS: each tower is extended
+      3 mm up at the same phi 44 / phi 37.15 wall, from the production
+      rim (world 19.75, a 4 mm race wrap that left the race's top
+      3 mm proud) to the race-top plane (world 22.75) -- the single
+      bearing is FULLY housed (7 mm outer-race wrap, +75% press
+      area) and the chassis column ends exactly at the bearing top,
+      so the stack reads horn -> bearing -> coxa.  (4) FOOT HOLES:
       the 18 phi 3.4 pillar-foot bolt holes are printed through the
-      sheet at the same PILLAR_* constants as the feet.  (4) WAGO
+      sheet at the same PILLAR_* constants as the feet.  (5) WAGO
       TRAYS DELETED: the six corner tray wall sets (2.4 mm U-walls,
       6.5 tall) are dead geometry once the splices consolidated into
       centre_wago_block, so everything above the sheet top is cut
       away (the 1 mm embed band inside the sheet stays); pillar feet
-      register on their bolts.  Net -22 cm3 (313 vs 335).  A stock
-      chassis print can be bench-modded to match (saw/sand + drill)
-      instead of reprinting.
+      register on their bolts.  Net -17 cm3 (318 vs 335).  A stock
+      chassis print can be bench-modded to match (saw/sand + drill +
+      a glued/printed rim collar) instead of reprinting.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_chassis_bottom_rigid"
@@ -464,6 +481,21 @@ parts:
             label: "Trim radius about the yaw axis (tower r22 + 0.02)"
             value: 22.02
             code_name: CHB_TRIM_R
+      raised_rim:
+        label: "Full-wrap tower rim at the race-top plane (x6)"
+        kind: "boss"
+        purpose: >-
+          Extends the phi 44 / phi 37.15 tower wall 3 mm up so the
+          pocket wraps the full 7 mm outer-race width and the rim is
+          exactly the race-top plane (world 22.75): nothing stands
+          proud, the coxa sits directly above the bearing, and the
+          press band grows 4 -> 7 mm (+75% area).  Unioned after all
+          variant cuts so the ear shaves never nick it.
+        dimensions:
+          rim_z_world:
+            label: "Rim plane (world z) = bearing top"
+            value: 22.75
+            code_name: CHB_RIM_W
       foot_holes:
         label: "18x phi 3.4 pillar-foot through-holes"
         kind: "hole"
@@ -477,7 +509,7 @@ parts:
             value: 3.4
             code_name: HOLE_D
   coxa_link:
-    label: "coxa_link_rigid — rounded corners + seat ring + dust skirt (concept)"
+    label: "coxa_link_rigid — rounded corners + seat ring + dust brim (concept)"
     aliases: ["rigid coxa", "rounded coxa", "coxa link rigid", "servo holder"]
     description: >-
       The production coxa_link with three variant edits.  (1) ENVELOPE
@@ -494,17 +526,17 @@ parts:
       position); the ring bears only on the phi 25..29 inner-race
       land, the same contact the uflange made one race higher, and
       replaces the deleted yaw_bearing_cap's retention.  (3) DUST
-      SKIRT (user, Aug 24: "should a ring from the coxa link come
-      down and cover part of the bearing that's sticking up?"): the
-      race's top 3 mm stands proud of the tower rim, so a phi 44 brim
-      roofs it 0.5 above the race top and a phi 38..44 curtain wall
-      drops around the proud band to 0.5 above the rim, continuing
-      the tower's own cylinder.  Non-contact everywhere (no scraping
-      the chassis): the 0.5 gaps form a three-turn labyrinth that
-      rides out print tolerance and bearing play.  Hub, horn drive,
-      cradle pilots and cap seat are untouched.  NOTE: this makes the
-      coxa a VARIANT print (6x), replacing the stock coxa_link on
-      this build.
+      BRIM (user, Aug 24 rev 2: the earlier phi 44 skirt+curtain
+      continued the tower cylinder and made the joint read as one
+      tall chassis column -- deleted): with the tower rim raised to
+      the race-top plane the bearing is fully housed, so all that
+      remains coxa-side is a phi 38 x 2 mm brim hovering 0.5 above
+      the rim/race plane, stepped 3 mm inside the tower phi 44.  It
+      roofs the 2RS seal + outer-race band and touches nothing; the
+      0.5 gap rides out print tolerance and bearing play.  Hub, horn
+      drive, cradle pilots and cap seat are untouched.  NOTE: this
+      makes the coxa a VARIANT print (6x), replacing the stock
+      coxa_link on this build.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_coxa_link_rigid"
@@ -540,33 +572,30 @@ parts:
             label: "Ring underside (coxa-local z) = race top"
             value: 7.5
             code_name: HUB_RING_Z0
-      dust_skirt:
-        label: "Phi 44 non-contact dust skirt over the bottom race"
+      dust_brim:
+        label: "Phi 38 non-contact dust brim over the housed race"
         kind: "shroud"
         purpose: >-
-          Covers the race band standing proud of the tower rim with a
-          brim + curtain labyrinth: 0.5 axial over the rim, 0.5
-          radial past the race OD, 0.5 axial under the brim.  Touches
-          neither chassis nor race -- a contact wiper would drag,
-          squeak and wear.  OD 44 continues the tower cylinder the
-          chassis corners were trimmed to.
+          Roofs the 2RS seal + outer-race band, hovering 0.5 above the
+          race-top / raised-rim plane.  Touches neither chassis nor
+          race -- a contact wiper would drag, squeak and wear.  OD 38
+          (race OD + 2x gap) stops 3 mm inside the tower phi 44, so
+          the brim reads as part of the rotating coxa, not as a
+          continuation of the chassis column (the old phi 44 curtain
+          did exactly that and was deleted).
         dimensions:
-          skirt_od:
-            label: "Skirt OD (= tower cylinder)"
-            value: 44.0
-            code_name: SKIRT_OD
-          curtain_id:
-            label: "Curtain ID (race OD 37 + 2x gap)"
+          brim_od:
+            label: "Brim OD (race OD 37 + 2x gap)"
             value: 38.0
-            code_name: SKIRT_ID
+            code_name: BRIM_OD
           gap:
-            label: "Labyrinth gap, axial and radial"
+            label: "Running gap over rim and race, axial"
             value: 0.5
-            code_name: SKIRT_GAP
-          curtain_bottom_z:
-            label: "Curtain bottom (coxa-local z; rim at 4.5)"
-            value: 5.0
-            code_name: SKIRT_BOT_Z
+            code_name: BRIM_GAP
+          brim_bottom_z:
+            label: "Brim underside (coxa-local z; rim/race top at 7.5)"
+            value: 8.0
+            code_name: BRIM_BOT_Z
   femur_link:
     label: "Production femur_link (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."
@@ -595,9 +624,10 @@ parts:
       (coxa-local z 0.5..7.5; the mesh is the production upper-race
       model instanced 7 mm down).  Inner race pressed on the hub boss
       against the coxa's phi 29 seat ring; outer race radially housed
-      by the pocket's 4 mm band and seated on the z 0.5 shoulder.  The
-      production yaw_bearing_cap that used to house it is deleted in
-      this variant.
+      over its FULL 7 mm width by the raised tower (rim = race-top
+      plane) and seated on the z 0.5 shoulder.  The production
+      yaw_bearing_cap that used to house it is deleted in this
+      variant.
   tibia_tube:
     label: "Phi 8 carbon tibia tube — COTS"
     description: "Unchanged production part."

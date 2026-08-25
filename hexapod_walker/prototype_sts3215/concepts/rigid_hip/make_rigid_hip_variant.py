@@ -41,20 +41,25 @@ pair.  This variant closes the loop from the TOP:
     edits: servo-cradle corners rounded to the 38.2 mm yaw envelope
     (max 2.16 mm off two vertical wall corners), the hub uflange
     extended DOWN as a Phi 29 seat ring to the relocated bottom race
-    (see BEARING COUNT), and a Phi 44 DUST SKIRT that roofs the
-    exposed race and drops a curtain to 0.5 above the tower rim --
-    non-contact, continuing the tower cylinder (see the SKIRT_*
-    constants).  All other interfaces untouched.
+    (see BEARING COUNT), and a small Phi 38 DUST BRIM hovering 0.5
+    above the race-top / tower-rim plane -- non-contact, stepped 3 mm
+    INSIDE the tower Phi 44 so the coxa reads as coxa, not as more
+    chassis column (see the BRIM_* constants).  All other interfaces
+    untouched.
   * ``chassis_bottom_rigid`` (x1) -- the production chassis with the
     six tower platforms trimmed to the tower's own Phi 44 cylinder
     (user, Aug 24: corners rounded; rev 2: all corner curves must
-    match -- so the tower curve is now the ONLY curve), the dead
-    cap-bolt ear lugs shaved (outboard + tangential + the inboard one
-    cut flush to the servo-mount deck, its root left merged with the
-    well collar below it), the 18 pillar-foot holes
-    printed in, and the six corner Wago TRAY WALL SETS DELETED (user,
-    Aug 24 -- the splices live in centre_wago_block now, so the trays
-    are dead geometry).  See the CHB_* constant block.
+    match -- so the tower curve is now the ONLY curve), each tower
+    RIM RAISED 3 mm to the race-top plane so the single bearing is
+    FULLY housed (full 7 mm outer-race wrap; the Phi 44 column ends
+    exactly at the bearing top -- user, Aug 24: "the bearing should
+    be just above the horn and the motor should sit just above
+    that"), the dead cap-bolt ear lugs shaved (outboard + tangential
+    + the inboard one cut flush to the servo-mount deck, its root
+    left merged with the well collar below it), the 18 pillar-foot
+    holes printed in, and the six corner Wago TRAY WALL SETS DELETED
+    (user, Aug 24 -- the splices live in centre_wago_block now, so
+    the trays are dead geometry).  See the CHB_* constant block.
     Every functional surface (pocket, seat, walls, slots) is
     production geometry.
   * ``centre_wago_block`` -- the corner Wagos are gone (pillars stand
@@ -79,10 +84,10 @@ pair.  This variant closes the loop from the TOP:
   hub's new Phi 29 seat ring -> inner race -> outer race -> tower
   seat.  -6 printed caps, -18 M3x8 cap screws, and the leg + bearing
   lift straight out once the plate is off (horn centre screw only).
-  The race's top 3 mm stands proud of the tower rim; the coxa's new
-  DUST SKIRT covers it with a non-contact labyrinth (user, Aug 24 --
-  see the SKIRT_* constants).  Net bearings per robot: 12, same as
-  production.
+  The tower rim is RAISED to the race-top plane (full 7 mm wrap), so
+  nothing stands proud and the coxa sits directly on the bearing
+  (user, Aug 24 -- see the TOWER RIM / BRIM constants).  Net bearings
+  per robot: 12, same as production.
 
 TRADE-OFF (measured by the sweep in this script): the full-size top
 plate caps the femur's UP-swing.  The production workspace envelope is
@@ -237,34 +242,43 @@ ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
 # hanging legs load hub -> ring -> inner race -> outer race -> tower
 # seat; standing loads go up through the TOP bearing into the plate
 # shoulder -- each bearing takes one direction, no cap lip needed.
-# The race is radially housed by the pocket's 4 mm band (production
-# gave it 4 mm tower + 3 mm cap; the extra 3 mm was cap housing, not
-# seat).  With the cap gone the race's top 3 mm (z 4.5..7.5) stands
-# proud of the tower rim (hp.YAW_SPLIT_Z = 4.5), seal face open to the
-# sky.  A DUST SKIRT on the coxa covers it (user, Aug 24: "should a
-# ring from the coxa link come down and cover part of the bearing
-# that's sticking up?"): a brim roofs the race 0.5 above its top face
-# and a curtain wall drops around the proud band to 0.5 above the
-# tower rim -- Phi 44 OD, continuing the tower's own cylinder (the
-# production cap's dust lip reborn coxa-side).  It touches
-# NOTHING: grit has to turn under the curtain (0.5 axial over the
-# rim), climb the 0.5 radial moat past the race OD, then turn again
-# under the brim -- a three-turn labyrinth, no scraping, no friction.
-# The remaining az-210 cap-bolt ear tops out AT the rim (z 4.5), so
-# the curtain clears it by the same 0.5.
+# TOWER RIM (user, Aug 24: "the bearing should be just above the horn
+# and the motor should sit just above that -- feel free to redesign").
+# The race is radially housed by the tower pocket, whose rim is RAISED
+# from the production split plane (hp.YAW_SPLIT_Z = 4.5, a 4 mm wrap
+# that left the race's top 3 mm proud) to the RACE-TOP plane (z 7.5):
+# the full 7 mm outer-race width is wrapped (+75% press area vs the
+# 4 mm band -- more is strictly better here, the production 4/3 split
+# was cap housing, not a design optimum), nothing stands proud, and
+# the Phi 44 chassis column ends exactly at the bearing top.  An
+# earlier revision instead covered the proud band with a Phi 44
+# skirt+curtain hanging from the coxa, flush with the tower -- which
+# made tower + race + skirt read as ONE 16 mm chassis column (the
+# user complained twice).  The curtain is DELETED; what remains is a
+# small Phi 38 DUST BRIM on the coxa, hovering 0.5 above the rim /
+# race-top plane and stepped 3 mm inside the tower OD, so the visual
+# stack is horn -> bearing (in the tower) -> coxa.  Grit now has one
+# turn (under the brim, through the 0.5 axial gap) to reach the 2RS
+# seal instead of three -- acceptable: the seal is the real barrier,
+# and the brim still roofs the seal + outer-race band completely.
+# Non-contact everywhere: brim-to-rim and brim-to-race gaps are both
+# BRIM_GAP, and the rotating seat ring keeps 4.0 mm radial to the
+# pocket bore.  The remaining az-210 cap-bolt ear root is below the
+# deck (z 10.25 world), far under the raised rim.
 YAWBR_DROP = -hp.YAW_BEARING_W            # -7: race to the tower pocket
 HUB_RING_OD = hp.YAW_BEARING_INNER_OD     # 29 -- production uflange OD
 HUB_RING_ID = 24.0                        # overlaps the boss wall (22..25.15)
 HUB_RING_Z0 = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- relocated race TOP
 HUB_RING_Z1 = hp.YAW_BEARING_UPPER_TOP_Z + 1.5   # 16 -- well into the uflange
-SKIRT_GAP = 0.5                           # every labyrinth gap, axial + radial
-SKIRT_OD = hp.YAW_BEARING_OD + 2.0 * hp.YAW_TOWER_WALL   # 44 -- flush with the
-                                          # tower cylinder (production's dust
-                                          # lip was 52.4, out over the cap ears)
-SKIRT_ID = hp.YAW_BEARING_OD + 2.0 * SKIRT_GAP   # 38 -- clears the static race OD
-SKIRT_BOT_Z = hp.YAW_SPLIT_Z + SKIRT_GAP  # 5.0 -- hovers over the tower rim
-BRIM_BOT_Z = HUB_RING_Z0 + SKIRT_GAP      # 8.0 -- roof 0.5 above the race top
-BRIM_TOP_Z = 11.0                         # 3 mm roof, fuses over the seat ring
+BRIM_GAP = 0.5                            # running gap, axial + radial
+TOWER_RIM_Z = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- raised rim = race top
+                                          # (coxa-local; world 22.75)
+BRIM_OD = hp.YAW_BEARING_OD + 2.0 * BRIM_GAP     # 38 -- roofs the seal + outer
+                                          # race (r 18.5) plus the gap; 3 mm
+                                          # inside the Phi 44 tower so the
+                                          # brim reads as coxa, not chassis
+BRIM_BOT_Z = TOWER_RIM_Z + BRIM_GAP       # 8.0 -- hovers 0.5 over rim AND race
+BRIM_TOP_Z = 10.0                         # 2 mm brim, fuses into the seat ring
 
 # CHASSIS VARIANT (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2 same day: "I don't like
@@ -309,6 +323,11 @@ CHB_DECK_TOP = 10.25          # servo-mount deck top face (measured); the
 CHB_TOWER_R = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL   # 22.0
 CHB_TRIM_R = CHB_TOWER_R + 0.02   # corner trim = the tower cylinder itself
 CHB_KEEP_R = CHB_TOWER_R - 0.05   # ear cuts bite 0.05 into the tower skin
+CHB_RIM_OLD_W = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_SPLIT_Z    # 19.75 -- the
+                              # production rim (4 mm race wrap), world z;
+                              # the raise ring overlaps 1 mm below it
+CHB_RIM_W = hp.CHASSIS_YAW_OUTPUT_Z + TOWER_RIM_Z           # 22.75 -- raised
+                              # rim = race-top plane, world z (full 7 mm wrap)
 CHB_EAR_R = 6.6               # covers the Phi 9 ear boss with margin
 CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
@@ -667,10 +686,11 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         The ring bears only on the Phi 25..29 inner-race land -- same
         contact the production uflange made one race higher -- and
         merges with the boss wall over Phi 24..25.15.
-      * DUST SKIRT: a Phi 44 brim (z 8..11) roofs the exposed race
-        0.5 above its top face and a curtain wall (Phi 38..44) drops
-        around the proud race band to 0.5 above the tower rim.
-        Non-contact everywhere -- see the SKIRT_* constants.
+      * DUST BRIM: a Phi 38 brim (z 8..10) roofs the seal + outer-race
+        band, hovering 0.5 above the race-top / raised-rim plane and
+        stopping 3 mm inside the tower Phi 44.  The old Phi 44
+        skirt+curtain is deleted (it read as more chassis column) --
+        see the TOWER RIM / BRIM_* constants.
 
     Every other interface (hub, horn drive, cradle pilots, cap seat) is
     untouched.  This makes the coxa a VARIANT print (6x)."""
@@ -680,14 +700,10 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         [_cyl_z(HUB_RING_ID / 2.0, HUB_RING_Z0 - 1.0, HUB_RING_Z1 + 1.0,
                 sections=128)])
     brim = _diff(
-        _cyl_z(SKIRT_OD / 2.0, BRIM_BOT_Z, BRIM_TOP_Z, sections=192),
+        _cyl_z(BRIM_OD / 2.0, BRIM_BOT_Z, BRIM_TOP_Z, sections=192),
         [_cyl_z(HUB_RING_ID / 2.0, BRIM_BOT_Z - 1.0, BRIM_TOP_Z + 1.0,
                 sections=128)])
-    curtain = _diff(
-        _cyl_z(SKIRT_OD / 2.0, SKIRT_BOT_Z, BRIM_BOT_Z + 0.5, sections=192),
-        [_cyl_z(SKIRT_ID / 2.0, SKIRT_BOT_Z - 1.0, BRIM_BOT_Z + 1.5,
-                sections=192)])
-    coxa = _union([coxa, ring, brim, curtain])
+    coxa = _union([coxa, ring, brim])
     z0, z1 = coxa.bounds[0][2] - 1.0, coxa.bounds[1][2] + 1.0
     keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
     return trimesh.boolean.intersection([coxa, keep], engine="manifold")
@@ -705,6 +721,12 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         cylinder from belly to bearing pocket -- no second corner
         radius anywhere.  The trim is 0.02 proud of the tower wall,
         so pocket/walls/rim keep production geometry.
+      * RAISED RIM: each tower is extended 3 mm up (same Phi 44 /
+        Phi 37.15 wall, unioned AFTER the cuts so the ear shaves
+        never nick it) from the production rim (world 19.75) to the
+        race-top plane (world 22.75) -- the single bearing is fully
+        housed, full 7 mm outer-race wrap, and the chassis column
+        ends exactly at the bearing top.
       * DEAD EARS: the outboard (az 330) cap-bolt ear is shaved flush
         to the tower cylinder, the tangential (az 90) ear flush to the
         rim-wall face, and the inboard (az 210) ear flush to the
@@ -766,7 +788,18 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
                  center=(0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0))
         c.apply_transform(M)                                 # local z0 = sheet top
         cutters.append(c)
-    return _diff(cb, cutters)
+    cb = _diff(cb, cutters)
+    rims = []                                                # (f) raised rims
+    for i in range(6):
+        R = _rotz((i + 0.5) * np.pi / 3.0)
+        rim = _diff(
+            _cyl_z(CHB_TOWER_R, CHB_RIM_OLD_W - 1.0, CHB_RIM_W,
+                   x=APOTHEM, y=0.0, sections=192),
+            [_cyl_z(POCKET_BORE / 2.0, CHB_RIM_OLD_W - 2.0, CHB_RIM_W + 1.0,
+                    x=APOTHEM, y=0.0, sections=192)])
+        rim.apply_transform(R)
+        rims.append(rim)
+    return _union([cb, *rims])
 
 
 def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
@@ -1049,11 +1082,13 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
 def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
     """ONE tower-seated bottom bearing, NO cap (user, Aug 24): the race
     sits in the production pocket on its z=0.5 seat with only the
-    Phi 25.15 boss press touching the coxa, the hub's new Phi 29 ring
-    lands exactly on the race top, the dust skirt hovers its SKIRT_GAP
-    labyrinth over the tower rim without touching chassis or race, and
-    with the plate off the leg + bearing lift straight out of the
-    pocket (horn centre screw only)."""
+    Phi 25.15 boss press touching the coxa, the raised tower rim wraps
+    the FULL race width and stops exactly at the race-top plane (the
+    Phi 44 column ends at the bearing top -- nothing continues it), the
+    hub's new Phi 29 ring lands exactly on the race top, the Phi 38
+    dust brim hovers its BRIM_GAP over rim and race without touching
+    either, and with the plate off the leg + bearing lift straight out
+    of the pocket (horn centre screw only)."""
     T = leg_transforms(0)
     br = meshes["yaw_bearing_upper"].copy()
     br.apply_transform(T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]))
@@ -1080,26 +1115,39 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
                                   [ax + r_mid, ay, race_top - 0.3]]))
     assert got[0] and not got[1], "hub seat ring does not land on the race top"
 
-    # dust skirt: curtain wall present around the proud race band, its
-    # bottom edge hovering exactly SKIRT_GAP above the tower rim (the
-    # chassis owns the space below the gap; nobody owns the gap itself),
-    # and the curtain ID standing SKIRT_GAP off the static race OD
-    assert SKIRT_ID / 2.0 - hp.YAW_BEARING_OD / 2.0 == SKIRT_GAP
-    assert SKIRT_BOT_Z - hp.YAW_SPLIT_Z == SKIRT_GAP
-    assert SKIRT_BOT_Z < HUB_RING_Z0, "curtain does not reach the proud band"
-    rim_w = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_SPLIT_Z          # tower rim, world
-    r_cur = (SKIRT_ID + SKIRT_OD) / 4.0                       # mid-curtain
+    # full-wrap tower: the rim IS the race-top plane -- wall solid just
+    # below it, open sky just above it (at the tower radius: neither
+    # chassis nor coxa continues the Phi 44 column past the bearing),
+    # and the brim constants keep their derivations
+    assert abs(CHB_RIM_W - race_top) < 1e-9, "tower rim is not the race top"
+    assert BRIM_BOT_Z - TOWER_RIM_Z == BRIM_GAP
+    assert BRIM_OD / 2.0 - hp.YAW_BEARING_OD / 2.0 == BRIM_GAP
+    assert BRIM_OD / 2.0 <= CHB_TOWER_R - 2.0, "brim reads as chassis column"
+    r_wall = (POCKET_BORE / 2.0 + CHB_TOWER_R) / 2.0          # mid rim wall
     probes = np.array([
-        [ax + r_cur, ay, rim_w + SKIRT_GAP + 0.3],   # in the curtain wall
-        [ax + r_cur, ay, rim_w + SKIRT_GAP - 0.3],   # in the labyrinth gap
-        [ax + r_cur, ay, rim_w - 0.3],               # in the tower rim
+        [ax + r_wall, ay, CHB_RIM_W - 0.3],          # in the raised rim wall
+        [ax + r_wall, ay, CHB_RIM_W + 0.3],          # air above the rim
+        [ax + r_wall, ay, CHB_RIM_OLD_W + 0.3],      # in the raise band
     ])
-    assert coxa.contains(probes[:1])[0], "dust-skirt curtain missing"
-    in_cx = coxa.contains(probes[1:2])[0]
-    in_ch = meshes["chassis_bottom"].contains(probes[1:2])[0]
-    assert not in_cx and not in_ch, "labyrinth gap is not open"
-    assert meshes["chassis_bottom"].contains(probes[2:])[0], \
-        "no tower rim under the curtain"
+    in_ch = meshes["chassis_bottom"].contains(probes)
+    assert in_ch[0], "tower does not wrap the full race width"
+    assert not in_ch[1], "tower rises past the race top"
+    assert in_ch[2], "raise ring did not fuse onto the production rim"
+    assert not coxa.contains(probes[1:2])[0], \
+        "coxa continues the tower column above the rim (curtain back?)"
+    # dust brim: present over the seal band, hovering BRIM_GAP over the
+    # rim/race plane, gap open where brim and rim overlap radially
+    r_brim = (HUB_RING_OD / 2.0 + BRIM_OD / 2.0) / 2.0        # mid brim
+    r_gap = (POCKET_BORE / 2.0 + BRIM_OD / 2.0) / 2.0         # overlap band
+    brim_pts = np.array([
+        [ax + r_brim, ay,
+         hp.CHASSIS_YAW_OUTPUT_Z + (BRIM_BOT_Z + BRIM_TOP_Z) / 2.0],
+        [ax + r_gap, ay, CHB_RIM_W + BRIM_GAP / 2.0],
+    ])
+    assert coxa.contains(brim_pts[:1])[0], "dust brim missing"
+    in_cx = coxa.contains(brim_pts[1:])[0]
+    in_ch = meshes["chassis_bottom"].contains(brim_pts[1:])[0]
+    assert not in_cx and not in_ch, "brim running gap is not open"
 
     # service: plate off -> leg + bearing lift straight out of the pocket
     for dz in (2.0, 5.0, 12.0, 30.0):
@@ -1111,7 +1159,8 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
                 f"lift +{dz}: {name} fouls chassis_bottom ({v:.1f} mm3)"
     print(f"  bottom joint: race on the tower seat (world z {seat_w:.2f}), "
           f"NO cap; coxa/race contact = boss press ({v_press:.1f} mm3), "
-          f"dust skirt hovers {SKIRT_GAP:g} over the rim, "
+          f"rim at the race top ({CHB_RIM_W:.2f}, full 7 mm wrap), "
+          f"Phi {BRIM_OD:g} brim hovers {BRIM_GAP:g} above, "
           f"leg + bearing lift straight out")
 
 
@@ -1120,12 +1169,14 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     top NOTHING outboard of the hex edge survives past the tower
     cylinder (the corner trim leaves one matching curve), the trim
     never bit the tower wall, above the servo-mount deck nothing pokes
-    past the tower cylinder at ANY azimuth (all three dead ears cut,
-    the az-210 root left merged below the deck), the printed foot
-    holes are open exactly where the pillar feet expect them, and the
-    six Wago tray wall sets are GONE above the sheet with the sheet
-    still solid underneath.  (Pocket seat and retainer territory are
-    re-verified against THIS mesh by the other checks.)"""
+    past the tower cylinder at ANY azimuth all the way to the raised
+    rim (all three dead ears cut, the az-210 root left merged below
+    the deck), all six towers carry the full-wrap raise ring to the
+    race-top plane, the printed foot holes are open exactly where the
+    pillar feet expect them, and the six Wago tray wall sets are GONE
+    above the sheet with the sheet still solid underneath.  (Pocket
+    seat and retainer territory are re-verified against THIS mesh by
+    the other checks.)"""
     cb = meshes["chassis_bottom"]
     assert cb.body_count == 1, "chassis variant not a single body"
     v = trimesh.transform_points(cb.vertices, _rotz(-0.5 * np.pi / 3.0))
@@ -1154,10 +1205,27 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     got = cb.contains(trimesh.transform_points(ring, Rz))
     assert got.all(), "tower wall bitten by a variant cut"
 
+    # raised rim present all the way around on ALL SIX towers (wall
+    # solid mid-band just under the race-top rim, air just above it)
+    for i in range(6):
+        Ri = _rotz((i + 0.5) * np.pi / 3.0)
+        r_wall = (hp.YAW_TOWER_BORE_OD / 2.0 + CHB_TOWER_R) / 2.0
+        rim_ring = np.column_stack([ax + r_wall * np.cos(ang),
+                                    r_wall * np.sin(ang),
+                                    np.full(24, CHB_RIM_W - 0.3)])
+        assert cb.contains(trimesh.transform_points(rim_ring, Ri)).all(), \
+            f"leg {i}: raised rim incomplete"
+        above = rim_ring + [0.0, 0.0, 0.6]
+        assert not cb.contains(trimesh.transform_points(above, Ri)).any(), \
+            f"leg {i}: material above the race-top rim"
+
     # ears: above the servo-mount deck (z 10.25; ears ran to 19.75),
-    # NOTHING pokes past the tower cylinder at any azimuth -- az 330/90
-    # were shaved before, and the az-210 column is now cut to the deck
-    band = near[(near[:, 2] > CHB_DECK_TOP + 0.1) & (near[:, 2] < 19.9)]
+    # NOTHING pokes past the tower cylinder at any azimuth, all the
+    # way up to the raised rim -- az 330/90 were shaved before, the
+    # az-210 column is cut to the deck, and the raise ring itself
+    # stays at the tower radius
+    band = near[(near[:, 2] > CHB_DECK_TOP + 0.1)
+                & (near[:, 2] < CHB_RIM_W + 0.1)]
     d = band[:, :2] - [ax, 0.0]
     rr = np.hypot(d[:, 0], d[:, 1])
     n_out = int((rr > CHB_TOWER_R + 0.05).sum())
@@ -1210,7 +1278,8 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
         "tray delete cut bit into the sheet"
 
     print(f"  chassis variant: tower bases trimmed to one r {CHB_TRIM_R:g} "
-          f"cylinder (outboard max r {r_max:.2f}), all 3 dead ears shaved "
+          f"cylinder (outboard max r {r_max:.2f}), rims raised to the "
+          f"race top (world {CHB_RIM_W:g}), all 3 dead ears shaved "
           f"(az 210 flush to the deck), 18 foot holes printed in, "
           f"6 wago trays deleted, {abs(cb.volume) / 1000.0:.0f} cm3")
 
@@ -1577,7 +1646,7 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
             "transform": _mat16(M)})
         return iid
 
-    inst("chassis_bottom", "chassis_bottom RIGID (tower-trimmed, NEW)",
+    inst("chassis_bottom", "chassis_bottom RIGID (full-wrap towers, NEW)",
          np.eye(4))
     inst("chassis_top_rigid", "chassis_top_rigid FRAME (NEW)", np.eye(4))
     inst("top_hatch_rigid", "top_hatch (NEW, removable)", np.eye(4))
@@ -1709,11 +1778,11 @@ def render_preview(meshes) -> None:
          "hip cap + pedestal + boss (NEW)"),
         ("bearing_6805", T["hip_cap"], "#303030", "top 6805-2RS (NEW)"),
         ("coxa_link", T["coxa"], "#7ba1d1",
-         "coxa_link RIGID (rounded + seat ring + dust skirt, NEW)"),
+         "coxa_link RIGID (rounded + seat ring + dust brim, NEW)"),
         ("yaw_bearing_upper", T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]),
-         "#303030", "bottom 6805-2RS (tower-seated, cap DELETED)"),
+         "#303030", "bottom 6805-2RS (fully housed, cap DELETED)"),
         ("chassis_bottom", np.eye(4), "#8b93a6",
-         "chassis_bottom RIGID (tower-trimmed, NEW)"),
+         "chassis_bottom RIGID (full-wrap towers, NEW)"),
         ("servo_body", T["hip_cap"], "#c9a227", "hip servo"),
     ]
     fig, ax = plt.subplots(figsize=(10.5, 6.2), dpi=130)

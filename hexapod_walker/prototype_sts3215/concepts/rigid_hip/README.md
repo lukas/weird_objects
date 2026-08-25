@@ -32,15 +32,18 @@ servo — is a cantilever.  This variant closes the structure from the top:
   variant edits — servo-cradle corners rounded to the 38.2 mm yaw
   envelope so the plain columns clear the swinging leg by 5 mm at
   every angle, the hub flange extended down as a Φ29 seat ring to the
-  relocated bottom bearing, and a Φ44 dust skirt that covers the
-  exposed race with a non-contact labyrinth (see below).
+  relocated bottom bearing, and a small Φ38 dust brim hovering 0.5 mm
+  above the bearing top (see below).
 * **`chassis_bottom_rigid`** (print 1): the production chassis with the
   six square tower platforms trimmed to the tower's own Φ44 cylinder —
-  one matching curve from belly to bearing pocket — the dead cap-bolt
-  ear lugs shaved off, the 18 pillar-foot bolt holes printed in, and
-  the six corner Wago tray wall sets deleted (dead geometry in this
-  variant — see below).  Every functional surface — bearing pocket,
-  seat, well walls, strap slots — is production geometry.
+  one matching curve from belly to bearing pocket — each tower rim
+  raised 3 mm to the race-top plane so the bearing is fully housed
+  (the Φ44 column ends exactly at the bearing top — see below), the
+  dead cap-bolt ear lugs shaved off, the 18 pillar-foot bolt holes
+  printed in, and the six corner Wago tray wall sets deleted (dead
+  geometry in this variant — see below).  Every functional surface —
+  bearing pocket, seat, well walls, strap slots — is production
+  geometry.
 * **`centre_wago_block`** (print 1): the corner Wago trays are gone
   (pillars stand there), so the power tree consolidates — 4× 5-port
   221-415 (two per net, jumpered) in one press-fit block at the
@@ -74,32 +77,30 @@ Aug 24):
   print.
 * The **`yaw_bearing_cap` is deleted**: −6 prints, −18 M3×8 screws,
   and one less part in the race-to-race tolerance stack.  Its two jobs
-  moved: *radial housing* → the pocket's 4 mm press band (production
-  gave this race 4 mm tower + 3 mm cap; the cap's 3 mm was housing,
-  not seat), *axial retention* → split by direction.  Hanging loads
-  run hub → seat ring → inner race → outer race → tower seat; standing
-  loads run up through the TOP bearing into the plate shoulder.  Each
-  bearing takes one direction; no lip needed.
-* With the cap gone the race's top 3 mm stands proud of the tower rim.
-  A **dust skirt on the coxa** covers it (user, Aug 24: *"should a
-  ring from the coxa link come down and cover part of the bearing
-  that's sticking up?"*): a brim roofs the race 0.5 mm above its top
-  face and a Φ38→Φ44 curtain wall drops around the proud band to
-  0.5 mm above the tower rim, continuing the tower's own Φ44 cylinder.
-  It **touches nothing** — no scraping: grit has to turn under the
-  curtain (0.5 axial over the rim), climb the 0.5 radial moat past the
-  race OD, then turn again under the brim.  A contact wiper would add
-  friction, squeak PETG-on-PETG, and wear; 0.5 mm rides out print
-  tolerance and bearing play while keeping gravel and grit off the
-  seal.  See `skirt_section.png` / `skirt_closeup.png` (generated with
-  `buildviz section`).
-  **The curtain OD is intentionally FLUSH with the tower's Φ44** —
-  from the side, tower + curtain read as one continuous column with
-  only a 0.5 mm shadow line at the gap, which is why the skirt can
-  look like it "doesn't come down" in renders: it does, to 0.5 mm
-  above the rim, it just doesn't overhang.  (An overhanging
-  roof-flashing look — curtain OD > tower OD — is a possible later
-  variant, not this one.)
+  moved: *radial housing* → the tower press band, *axial retention* →
+  split by direction.  Hanging loads run hub → seat ring → inner race
+  → outer race → tower seat; standing loads run up through the TOP
+  bearing into the plate shoulder.  Each bearing takes one direction;
+  no lip needed.
+* **The tower wraps the full race** (user, Aug 24 rev 2: *"the bearing
+  should be just above the horn and the motor should sit just above
+  that — feel free to redesign"*): the rim is raised 3 mm from the
+  production split plane (a 4 mm wrap that left the race's top 3 mm
+  proud) to the **race-top plane** — the Φ37.15 pocket now houses the
+  full 7 mm outer-race width (+75% press area; production's 4/3 split
+  between tower and cap was a cap-housing artifact, not an optimum)
+  and the Φ44 column ends exactly at the bearing top.  An earlier
+  revision instead covered the proud band with a Φ44 skirt+curtain
+  hanging from the coxa, flush with the tower — deleted: it made
+  tower + race + skirt read as one continuous 16 mm chassis column.
+  What remains coxa-side is a **Φ38 × 2 mm dust brim** hovering 0.5 mm
+  above the rim/race plane and stopping 3 mm inside the tower Φ44, so
+  it reads as coxa.  It **touches nothing** — a contact wiper would
+  add friction, squeak PETG-on-PETG, and wear; 0.5 mm rides out print
+  tolerance and bearing play.  The brim fully roofs the 2RS seal and
+  outer-race band, and the seal itself remains the real dirt barrier
+  (grit now has one turn under the brim instead of the old curtain's
+  three — an accepted trade for the clean stack).
 * Dropping the race 7 mm also stretches the bearing couple: mid-plane
   to mid-plane goes from ~58 mm (cap-held) to ~65 mm.
 
@@ -146,12 +147,17 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   geometry — everything above the sheet top is cut away (the 1 mm
   embed band inside the sheet stays as interior material).  The pillar
   feet register on their three M3 bolts instead of the old wall key.
-* Net: −22 cm³ (313 vs 335).  **On an existing stock chassis print**
-  all of this is a bench mod instead: saw/sand the corners back to the
-  tower barrel and shave the ear lugs, drill the foot holes using the
-  pillar feet as jigs.  The stock tray walls can stay — the feet were
-  sized to fit them with 0.3 mm clearance, so they just become a bonus
-  shear key.
+* **Tower rims raised 3 mm** to the race-top plane (world 22.75) —
+  the full-wrap housing described in the bottom-bearing section; the
+  raise ring is unioned after every variant cut so the ear shaves
+  never nick it.
+* Net: −17 cm³ (318 vs 335).  **On an existing stock chassis print**
+  most of this is a bench mod instead: saw/sand the corners back to
+  the tower barrel and shave the ear lugs, drill the foot holes using
+  the pillar feet as jigs, and glue a printed Φ44/Φ37.15 × 3 mm rim
+  collar onto each tower top (the one edit that adds material).  The
+  stock tray walls can stay — the feet were sized to fit them with
+  0.3 mm clearance, so they just become a bonus shear key.
 
 ### What still stands at the corner flats (verified, Aug 24)
 
@@ -173,21 +179,34 @@ a similar height, but every one of them holds a servo.  Do not cut
 them.  (`corner_flat_owners.png` — a z=8 section of the corner flat
 with per-part colours — shows the ownership.)
 
-### Why the joint column is as tall as it is (nothing arbitrary)
+### The joint column: horn → bearing → coxa (redesigned Aug 24)
 
-On the leg axis the chassis ends at the tower rim, z 19.75 — only
-9.5 mm above its own deck (z 10.25), and that 9.5 mm is fully
-accounted for: 5.5 mm of disc-horn stack (horn top / coxa mount plane
-at 15.25, race seat 0.5 above it at 15.75 — the race cannot sit lower
-or its spinning inner ring hits the static horn and screws) plus
-4.0 mm of race engagement in the pocket.  Everything above the rim is
-the 6805's proud band (to 22.75) hidden behind the coxa's Φ44 dust
-skirt (curtain 20.25 → brim 26.25) — the skirt continues the tower at
-the SAME diameter, which is why the whole thing reads as one tall
-chassis column.  Total column height is pinned by race top (horn
-15.25 + 0.5 + 7 mm race) + skirt roof; it cannot come down without a
-thinner bearing.  `joint_column_annotated.png` is the full annotated
-section — every height band, what it is, why it is there.
+The user read the old column as "rising higher than one bearing for
+no reason": the Φ44 curtain hanging from the coxa was flush with the
+Φ44 tower, so tower + proud race band + skirt looked like one 16 mm
+chassis column (10.25 → 26.25).  Redesigned to the minimal legible
+stack — the bearing sits just above the horn, the coxa (carrying the
+hip motor) sits just above the bearing, and the Φ44 column now ends
+exactly at the bearing top:
+
+| world z (mm) | old | new |
+|---|---|---|
+| 10.25 | servo-mount deck top | unchanged |
+| 15.25 | disc-horn top = coxa mount plane | unchanged |
+| 15.75 | race seat (0.5 over the horn — the spinning inner ring must clear the static horn and screws) | unchanged |
+| 15.75–22.75 | 6805 race (7 mm); tower wraps 4 mm, top 3 mm proud | 6805 race, **fully housed** |
+| 19.75 | tower rim (Φ44) | *(rim raised — no edge here)* |
+| 20.25–23.75 | coxa Φ44 curtain, flush with the tower | *(deleted)* |
+| 22.75 | race top, hidden behind the curtain | **tower rim = race top; Φ44 column ends here** |
+| 23.25–26.25 | Φ44 brim roof | — |
+| 23.25–25.25 | — | **Φ38 dust brim** (0.5 above rim/race, 3 mm inset) |
+| 22.75 up | Φ29 seat ring → coxa hub → hip servo | unchanged (ring lands on the inner-race top) |
+
+The remaining heights are pinned by hardware: horn stack 15.25 +
+0.5 mm horn clearance + 7 mm bearing = 22.75; the column cannot come
+down further without a thinner bearing.  `joint_column_annotated.png`
+is the annotated section of the NEW stack — every height band, what
+it is, why it is there.
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
@@ -250,7 +269,7 @@ territory outside every swing envelope):
 * **`coxa_link_rigid`** (print 6): the production coxa with its two
   servo-cradle corner edges rounded to the 38.2 mm arc — at most
   2.16 mm comes off (they used to reach 40.36 mm) — plus the Φ29 hub
-  seat ring and Φ44 dust skirt for the tower-seated bearing (previous
+  seat ring and Φ38 dust brim for the tower-seated bearing (previous
   section).  Hub, horn drive, cradle pilots and cap seat are
   untouched — the price of a plain column instead of a scalloped one
   is a variant coxa print.
@@ -325,10 +344,11 @@ one printed block at the chassis centre:
 | race shoulder | 34 | `YAW_TOWER_SHOULDER_OD` |
 | ring wall | 44 = 37 + 2×3.5 | `YAW_TOWER_WALL` |
 | hub seat ring → inner-race land | 29 (axial seat, not a fit) | `YAW_BEARING_INNER_OD` |
-| dust skirt (curtain ID / OD) | 38 / 44 — 0.5 mm gap everywhere, never touches | `SKIRT_*` in the generator |
+| dust brim (OD, over the housed race) | 38 = race OD + 2×0.5 — hovers 0.5 mm, never touches | `BRIM_*` in the generator |
 
-Boss tip has a Φ24×0.8 stepped lead-in; pocket mouths have a 0.8 mm
-lead-in ring.
+Boss tip has a Φ24×0.8 stepped lead-in; the top plate's pocket mouths
+have a 0.8 mm lead-in ring (the bottom tower keeps production's plain
+open-top bore — drop-in, not blind-pressed).
 
 ## Measured workspace trade-off (from the build-time sweep)
 
@@ -384,10 +404,10 @@ variation only moves parts that stay outboard/below the plate.
    `coxa_link_rigid` in place of the stock coxa; press ONE 6805 onto
    each coxa's hub boss from below until it seats against the Φ29
    seat ring, then drop the leg + bearing into the tower pocket (the
-   production lower-race seat — no `yaw_bearing_cap`, no cap bolts)
-   and couple the horn as production; and use `hip_clamp_cap_rigid`
-   in place of the stock hip cap — same 2× M3 into the same cradle
-   pilots.
+   production lower-race seat — no `yaw_bearing_cap`, no cap bolts;
+   the raised rim swallows the full race, top flush) and couple the
+   horn as production; and use `hip_clamp_cap_rigid` in place of the
+   stock hip cap — same 2× M3 into the same cradle pilots.
 2. Re-splice power at the centre: VHB `centre_wago_block` to the floor
    centred on the origin (footprint verified/asserted against the real
    chassis solid), seat 4× 221-415, jumper each pair, land the battery
@@ -470,11 +490,11 @@ serviceable option.
   supports.
 * `coxa_link_rigid`: print exactly like the production coxa (same
   orientation and supports).  The rounded corners change nothing; the
-  Φ29 seat ring, dust-skirt brim and Φ44 curtain all print as
-  horizontal cylinder bands exactly like the uflange above them (the
-  coxa prints on its side).
+  Φ29 seat ring and Φ38 dust brim print as horizontal cylinder bands
+  exactly like the uflange above them (the coxa prints on its side).
 * `chassis_bottom_rigid`: print exactly like the production chassis
-  (belly up, same supports).  The tower-cylinder trim, shaved ears and
+  (belly up, same supports).  The tower-cylinder trim, raised rims
+  (a straight continuation of the Φ44/Φ37.15 barrel), shaved ears and
   foot holes change nothing about the print strategy.
 * `centre_wago_block`: floor down — flat print, no supports; walls are
   plain vertical extrusions like the production trays.
@@ -517,15 +537,16 @@ uv run --no-project --python 3.12 --with build123d --with trimesh --with numpy \
 
 Checks run at build time: watertightness, seated-stack placement, the
 bottom joint (race on the tower seat, coxa/race contact = boss press
-only, seat ring lands on the race top, dust-skirt labyrinth open on
-both sides of the gap with the rim proven under the curtain, leg +
-bearing lift-out path),
+only, seat ring lands on the race top, rim proven AT the race-top
+plane with air above it — nothing continues the Φ44 column — brim
+present with its 0.5 running gap open, leg + bearing lift-out path),
 the chassis variant (nothing outboard survives past the tower
 cylinder, the trim never bit the tower wall, nothing past the tower
-cylinder above the servo-mount deck at any azimuth with the az-210
-root still solid below it, foot holes open where the pillar feet
-expect them, all six Wago tray wall sets gone with the sheet still
-solid underneath), full 360° yaw sweep vs the
+cylinder above the servo-mount deck at any azimuth up to the raised
+rim with the az-210 root still solid below it, the full-wrap raise
+ring complete on all six towers, foot holes open where the pillar
+feet expect them, all six Wago tray wall sets gone with the sheet
+still solid underneath), full 360° yaw sweep vs the
 plate, straight-down plate descent over all six bearings, pillar
 clearances (seated robot, ±45° operating yaw with margin, and an
 informational full hand-spin scan) and the femur pitch×yaw contact

@@ -222,8 +222,9 @@ def make_centre_wago_block() -> object:
 
 
 def make_coxa_link_rigid() -> object:
-    """Production coxa + hub seat ring + dust skirt, trimmed to the rotation
-    envelope (rv.make_coxa_link_rigid)."""
+    """Production coxa + hub seat ring + Phi 38 dust brim, trimmed to the
+    rotation envelope (rv.make_coxa_link_rigid; the old Phi 44 curtain is
+    deleted -- the raised tower houses the full race)."""
     coxa = step.make_coxa_link()
     ring = step._diff(
         _cyl_z(rv.HUB_RING_OD / 2.0, rv.HUB_RING_Z0, rv.HUB_RING_Z1),
@@ -231,16 +232,11 @@ def make_coxa_link_rigid() -> object:
                rv.HUB_RING_Z1 + 1.0),
     )
     brim = step._diff(
-        _cyl_z(rv.SKIRT_OD / 2.0, rv.BRIM_BOT_Z, rv.BRIM_TOP_Z),
+        _cyl_z(rv.BRIM_OD / 2.0, rv.BRIM_BOT_Z, rv.BRIM_TOP_Z),
         _cyl_z(rv.HUB_RING_ID / 2.0, rv.BRIM_BOT_Z - 1.0,
                rv.BRIM_TOP_Z + 1.0),
     )
-    curtain = step._diff(
-        _cyl_z(rv.SKIRT_OD / 2.0, rv.SKIRT_BOT_Z, rv.BRIM_BOT_Z + 0.5),
-        _cyl_z(rv.SKIRT_ID / 2.0, rv.SKIRT_BOT_Z - 1.0,
-               rv.BRIM_BOT_Z + 1.5),
-    )
-    body = step._union(coxa, ring, brim, curtain)
+    body = step._union(coxa, ring, brim)
     bb = body.bounding_box()
     keep = _cyl_z(rv.ROT_ENVELOPE_R, bb.min.Z - 1.0, bb.max.Z + 1.0)
     return step._intersect(body, keep)
@@ -249,7 +245,8 @@ def make_coxa_link_rigid() -> object:
 def make_chassis_bottom_rigid() -> object:
     """Production chassis bottom + corner trim to the tower cylinder, all
     three dead-ear shaves (az 210 flush to the deck top), pillar-foot
-    holes, and wago-tray deletes (rv.make_chassis_bottom_rigid)."""
+    holes, wago-tray deletes, and the six raised full-wrap tower rims
+    (rv.make_chassis_bottom_rigid)."""
     cb = step.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0
     cutters = []
@@ -296,7 +293,17 @@ def make_chassis_bottom_rigid() -> object:
             * _box((2.0 * rv.TRAY_HALF_X + 0.4, 2.0 * rv.TRAY_HALF_Y + 0.4,
                     hp.WAGO_MOUNT_WALL_H + 1.0),
                    (0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0)))
-    return step._diff(cb, *cutters)
+    body = step._diff(cb, *cutters)
+    rims = []                                    # raised full-wrap rims
+    for i in range(6):
+        deg = math.degrees((i + 0.5) * math.pi / 3.0)
+        rim = step._diff(
+            _cyl_z(rv.CHB_TOWER_R, rv.CHB_RIM_OLD_W - 1.0, rv.CHB_RIM_W,
+                   x=rv.APOTHEM),
+            _cyl_z(rv.POCKET_BORE / 2.0, rv.CHB_RIM_OLD_W - 2.0,
+                   rv.CHB_RIM_W + 1.0, x=rv.APOTHEM))
+        rims.append(Rotation(0, 0, deg) * rim)
+    return step._union(body, *rims)
 
 
 # --- specs, checks, main -----------------------------------------------------
@@ -338,13 +345,14 @@ def rigid_hip_part_specs() -> list[StepPart]:
             "coxa_link_rigid",
             make_coxa_link_rigid,
             base / "coxa_link_rigid.stl",
-            "Production coxa + hub seat ring + dust skirt, envelope-rounded (6x).",
+            "Production coxa + hub seat ring + dust brim, envelope-rounded (6x).",
         ),
         StepPart(
             "chassis_bottom_rigid",
             make_chassis_bottom_rigid,
             base / "chassis_bottom_rigid.stl",
-            "Production chassis bottom with tower-cylinder corners and foot holes.",
+            "Production chassis bottom with tower-cylinder corners, full-wrap "
+            "raised rims and foot holes.",
         ),
     ]
 
