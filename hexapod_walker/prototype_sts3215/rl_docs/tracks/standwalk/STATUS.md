@@ -1,6 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~20:1x (**MECHANICAL/CORROBORATING NOTE — this
+Last updated: 2026-08-25 ~21:0x (**SCRIPT-INDEX FLOOR AXIS CLOSED —
+`tucklook1`/`-s1` CANARY FAIL-MECHANISM, both seeds, cross-verified.
+This cycle picked up the 19:5x/20:1x DIG-IN flag (idle fleet, no other
+track had fundable work) and implemented the surviving design named
+there: `train.bc_anchor_tuck_lookahead_s` (new cfg, default 0=off/
+bit-exact, 3 new unit tests `test_bc_anchor.py`, 62/62 green,
+snapshot `6014ed69`) — while the state-aligned match is still inside
+the tuck (`< ramp_i0`), widen the pursuit lookahead itself to a fixed
+1.25s SCRIPT-INDEX offset from the CURRENT match (never from achieved
+height, so unlike the height-floor it cannot get stuck measuring a
+frozen height) — composed with `tuck_exempt_i0=1` (floor off in-tuck,
+unchanged) on the meshref recipe. RESULT: no better than plain
+tuck_exempt alone. Flat-pinned probe on BOTH seeds: 0/6 det valid,
+byte-IDENTICAL height_err_end (79.3/83.9/85.5/84.8/81.4/84.4mm) and
+byte-identical curmax (0.53A)/duty(0)/swing(0) to tuckexempt0's own
+flat probe — the widened lookahead changed NOTHING measurable about
+the freeze. WORSE: the standard DR-0 gate, clean on the meshref parent
+(det 5/6 + sto 4/6), collapsed to 0/6 det + 0/6 sto on BOTH seeds
+(own-DR replicates on s1) — bridge/crouch/rsi starts that used to
+plant cleanly now fail too (freeze-adjacent height misses or
+over_current pins), so the lever also broke press-phase starts the
+tuck-scoping was supposed to leave untouched. Video: same one-instant
+splayed->tucked-under-body snap-fold as every prior freeze, then
+total static hold, never a stand. Reward quarters both seeds decline
+the same shape ([12.7,4.8,0.1,-61.1] / [14.2,4.6,-0.0,-46.3]) —
+recipe-consistent, not seed noise. READ: either 1.25s (~25% of the
+4.9s tuck) still under-doses the pose delta, or non-flat starts
+transiently state-align into the tuck-index range too and the
+widened target teaches an overshoot that destabilizes them, or the
+near-collapsed policy std (0.018 by this point in the anneal) means no
+anchor-target change escapes whichever basin PPO fell into early
+regardless of magnitude — any of these makes "more bc_anchor
+lookahead/floor plumbing" a bad next bet. **The anchor-mechanism axis
+(pace, budget, dose, height-floor, tuck-exempt, script-index-floor —
+every named lever) is now EXHAUSTED across ~15 canary arms this
+campaign.** Per this run's own pre-registered FAIL branch and the
+tuckexempt0 dig-in's fallback: the next lever is a direct TUCK-PHASE
+REWARD/CURRICULUM term (price genuine sweep-to-footprint progress
+directly, e.g. a foot-to-plant-footprint distance income scoped to
+the tuck segment) rather than any further BC-anchor pursuit-shaping —
+DIG-IN flagged (reward-semantics design + bank rows, not a quick
+triage patch). Also folded in this cycle: the concurrent cycle's
+`tuckrise45`/`-s1` verdicts (CANARY FAIL-MECHANISM, killed early,
+ref-content axis refuted by construction) are corroborated by an
+independent flat-pinned probe this cycle ran on the completed
+`tuckrise45` checkpoint before reading that verdict: 2/6 det valid,
+but both "valid" episodes are the same snap/drag-fold-to-tuck-pose
+(swing_count=0 on every episode, all six legs, `drag_mm`>0) landing
+AT the tuck/press boundary rather than genuine mid-tuck progress —
+same conclusion, independent evidence, no re-verdict needed (already
+recorded by the concurrent cycle). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tucklook1{,_s1}_
+{gate,owncfg,flatprobe_det,flatprobe_sto}/`, W&B `6ewwghw3`/`zxnx3fb3`.)
+
+Prior entry: 2026-08-25 ~20:1x (**MECHANICAL/CORROBORATING NOTE — this
 cycle's own read independently reaches the same conclusion as the
 19:5x entry below, plus one caught infra bug and one self-caught
 redundant launch.** (1) Triaged the assigned run `tuckexempt0` (this
