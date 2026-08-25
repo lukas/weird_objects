@@ -653,6 +653,21 @@ DRIVE_STREAM_STALE_TICKS = 10  # tolerate ~100 ms snapshot gaps at 100 Hz
 DRIVE_MOVE_EPS_MPS = 1e-4
 DRIVE_YAW_EPS_RAD_S = 1e-4
 
+# Live body-height nudges (gamepad D-pad up/down, operator 08-25). Only a
+# LEARNED obs-68 stance hold policy tracks goal height refs, so the drive
+# session honors dh only while HOLDING with one assigned (role "hold");
+# the built-in joint hold and walk-as-hold policies ignore it. The ref
+# integrates at DRIVE_HEIGHT_RATE_MPS — inside the trained stand/lower
+# ramp rates (50 mm / 4 s rise = 12.5 mm/s, 45 mm / 5 s lower = 9 mm/s) —
+# and clamps to the trained envelope from a plant start (goal config:
+# lower target -45 mm, raise canary +10..30 mm). Walk champions trained
+# at height_ref 0, so a move command first ramps the height back to the
+# walk anchor and the gait engages only once |ref| < DRIVE_HEIGHT_EPS_M.
+DRIVE_HEIGHT_RATE_MPS = 0.010
+DRIVE_HEIGHT_MIN_M = -0.045
+DRIVE_HEIGHT_MAX_M = 0.030
+DRIVE_HEIGHT_EPS_M = 0.003
+
 
 def _drive_clamp_translation(vx: float, vy: float) -> tuple[float, float]:
     """Clamp nonzero hardware-drive translation into the trained band."""
@@ -692,6 +707,7 @@ class DriveCommand:
         self._vx = 0.0
         self._vy = 0.0
         self._wz = 0.0
+        self._dh = 0.0
         # Counts as a heartbeat so the idle-end clock starts at session
         # birth instead of firing instantly (refs are zero until the
         # browser actually sends commands).
@@ -699,24 +715,27 @@ class DriveCommand:
         self._stop = False
         self._live: dict = {}
 
-    def set(self, vx: float, vy: float, wz: float = 0.0) -> None:
+    def set(self, vx: float, vy: float, wz: float = 0.0,
+            dh: float = 0.0) -> None:
         spd = math.hypot(vx, vy)
         if spd > WALK_SPEED_MAX:
             s = WALK_SPEED_MAX / spd
             vx, vy = vx * s, vy * s
         wz = max(-WALK_YAW_SCALE, min(WALK_YAW_SCALE, float(wz)))
+        dh = max(-1.0, min(1.0, float(dh)))
         with self._lock:
             self._vx, self._vy, self._wz = float(vx), float(vy), float(wz)
+            self._dh = dh
             self._t_cmd = time.monotonic()
 
     def request_stop(self) -> None:
         with self._lock:
             self._stop = True
 
-    def get(self) -> tuple[float, float, float, float, bool]:
-        """(vx, vy, wz, seconds_since_heartbeat, stop_requested)."""
+    def get(self) -> tuple[float, float, float, float, float, bool]:
+        """(vx, vy, wz, dh, seconds_since_heartbeat, stop_requested)."""
         with self._lock:
-            return (self._vx, self._vy, self._wz,
+            return (self._vx, self._vy, self._wz, self._dh,
                     time.monotonic() - self._t_cmd, self._stop)
 
     @property
@@ -2065,6 +2084,10 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     prev_action := 0) — the same episode re-anchor the sim viewer's
     play.py does on policy handoff.
 
+    Height: heartbeats may carry ``dh`` in [-1, 1] (gamepad D-pad).
+    Only an obs-68 stance hold policy tracks the resulting height ref,
+    and only while holding; see the DRIVE_HEIGHT_* constants.
+
     Ends by: operator stop (decel then HOLD pose), abort (hold),
     heartbeat silence > DRIVE_IDLE_END_S (browser gone -> hold),
     session cap DRIVE_MAX_SESSION_S (hold), or safety trip (limp).
@@ -2317,6 +2340,10 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
 
     prev_action = np.zeros(N_JOINTS, dtype=float)
     vx_r = vy_r = 0.0
+    # Live height ref (D-pad up/down): only a learned obs-68 stance hold
+    # can track it; everyone else keeps the trained height_ref = 0.
+    height_can_track = hold_policy is not None and hold_obs == 68
+    height_ref = 0.0
     phase = 0.0     # walk phase clock (obs-74/93 policies only); like the
                     # sim it starts at 0 and freezes at zero command
     phase_run_on_yaw = bool(float(walk_policy.meta.get(
@@ -2359,6 +2386,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                         if hold_policy is not None else None),
         "hold_strategy": ("learned_policy"
                           if hold_policy is not None else "joint_hold"),
+        "height_can_track": height_can_track,
         "policy_joint_frame": joint_frame,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
@@ -2411,7 +2439,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                           ticks=i)
             break
         t = i * timing.policy_dt
-        vx_t, vy_t, wz_t, hb_age, stop_req = cmd.get()
+        vx_t, vy_t, wz_t, dh_t, hb_age, stop_req = cmd.get()
         if stop_req and stopping is None:
             stopping = "stopped"
         if hb_age > DRIVE_IDLE_END_S and stopping is None:
@@ -2420,14 +2448,22 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             stopping = f"session cap {DRIVE_MAX_SESSION_S:.0f}s reached"
         if stopping is not None or hb_age > DRIVE_CMD_TIMEOUT_S:
             vx_t = vy_t = wz_t = 0.0
+            dh_t = 0.0
+        if not height_can_track:
+            dh_t = 0.0
         vx_t, vy_t = _drive_clamp_translation(vx_t, vy_t)
         moving_requested = _drive_command_is_moving(
             vx_t, vy_t, wz_t, int(walk_obs))
+        # A crouched/raised body must return to the walk anchor height
+        # before the gait engages (walk champions trained at ref 0).
+        height_returning = (moving_requested and active != "walk"
+                            and abs(height_ref) > DRIVE_HEIGHT_EPS_M)
         if moving_requested:
             if walk_cmd_since is None:
                 walk_cmd_since = t
             moving = (active == "walk"
-                      or (t - walk_cmd_since) >= DRIVE_WALK_ENGAGE_S)
+                      or ((t - walk_cmd_since) >= DRIVE_WALK_ENGAGE_S
+                          and not height_returning))
         else:
             walk_cmd_since = None
             moving = False
@@ -2471,7 +2507,21 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         else:
             vx_r = vy_r = 0.0
 
-        goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0, height_ref=0.0,
+        # Height ref: 0 while walking (trained contract), ramp back to 0
+        # when a move command wants the gait, else integrate held D-pad.
+        if active == "walk":
+            height_ref = 0.0
+        elif height_returning:
+            step = DRIVE_HEIGHT_RATE_MPS * timing.policy_dt
+            height_ref = (0.0 if abs(height_ref) <= step
+                          else height_ref - math.copysign(step, height_ref))
+        elif dh_t:
+            height_ref = max(DRIVE_HEIGHT_MIN_M,
+                             min(DRIVE_HEIGHT_MAX_M,
+                                 height_ref + dh_t * DRIVE_HEIGHT_RATE_MPS
+                                 * timing.policy_dt))
+
+        goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0, height_ref=height_ref,
                         unload_leg=None)
         base_obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                              tilt_ref=tilt_ref0)
@@ -2651,6 +2701,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             "wz_ref": round(wz_r, 3),
             "vx_cmd": round(vx_t, 3), "vy_cmd": round(vy_t, 3),
             "wz_cmd": round(wz_t, 3),
+            "height_ref_mm": round(height_ref * 1000.0, 1),
+            "height_live": height_can_track,
+            "height_returning": height_returning,
             "walk_arming": bool(moving_requested and not moving),
             "roll_deg": round((state.imu_roll - tilt_ref0[0]) * RAD2DEG,
                               1),
@@ -2668,7 +2721,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                 "msg": (f"drive {display_active} t={t:5.1f}s "
                         f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s "
                         f"wz={wz_r:+.2f}rad/s "
-                        f"maxI={max_cur:.2f}A"
+                        + (f"h={height_ref * 1000:+.0f}mm "
+                           if height_ref else "")
+                        + f"maxI={max_cur:.2f}A"
                         + (f" · {stopping}" if stopping else "")),
                 **snap})
         i += 1

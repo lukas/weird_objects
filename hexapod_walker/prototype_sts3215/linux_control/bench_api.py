@@ -6683,14 +6683,16 @@ class BenchAPI:
         return out
 
     def rl_drive_cmd(self, *, vx: float = 0.0, vy: float = 0.0,
-                     wz: float = 0.0) -> dict:
+                     wz: float = 0.0, dh: float = 0.0) -> dict:
         """Heartbeat from the browser: body-frame (vx, vy) m/s and yaw
-        rate wz rad/s while keys are held. Never touches the bus —
-        the 25 Hz session loop reads it. Stale heartbeats (> 0.6 s)
-        decay to zero server-side, so this must keep streaming."""
+        rate wz rad/s while keys are held, plus dh in [-1, 1] (D-pad
+        body-height nudge; tracked only while HOLDING with an obs-68
+        stance hold policy). Never touches the bus — the 25 Hz session
+        loop reads it. Stale heartbeats (> 0.6 s) decay to zero
+        server-side, so this must keep streaming."""
         if not self._drive_active():
             return {"ok": False, "error": "no drive session", "active": False}
-        self._drive_cmd.set(float(vx), float(vy), float(wz))
+        self._drive_cmd.set(float(vx), float(vy), float(wz), float(dh))
         with self._lock:
             status = self._demo_status
         return {"ok": True, "active": True, "status": status,

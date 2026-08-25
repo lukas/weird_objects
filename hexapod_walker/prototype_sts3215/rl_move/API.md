@@ -50,7 +50,7 @@ the process rules below are what remain).
 | POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = built-in joint hold for hold) |
 | GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
 | POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; operator watching) |
-| POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold) |
+| POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0,"wz":0,"dh":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold). `dh` ∈ [-1,1] = D-pad body-height nudge: ref integrates at 10 mm/s, clamped −45..+30 mm, tracked only while HOLDING with an obs-68 stance model in the `hold` role; a move command ramps the height back to 0 before the gait engages |
 | POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
 | POST | `/api/zero` | Sit/stand — acquires the pose safely (sit = safe-zero plan; stand = safe zero → validated plant stand-up); never refuses on Δq, errors + stops if acquisition fails |

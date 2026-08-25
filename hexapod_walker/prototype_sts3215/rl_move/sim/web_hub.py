@@ -340,7 +340,9 @@ class SimTarget:
         if path == "/api/rl/drive/cmd":
             return RouteResponse.json(s.rl_drive_cmd(
                 vx=float(data.get("vx", 0.0)),
-                vy=float(data.get("vy", 0.0))))
+                vy=float(data.get("vy", 0.0)),
+                wz=float(data.get("wz", 0.0)),
+                dh=float(data.get("dh", 0.0))))
         if path == "/api/rl/drive/stop":
             return RouteResponse.json(s.rl_drive_stop())
         if path == "/api/rl/policies":

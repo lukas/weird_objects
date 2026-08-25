@@ -157,9 +157,14 @@ STEP-ups, standing Lower STEP-downs, not-standing Lower safe-zeros ·
 **Drive — keys / joystick**: **Start driving** is optional; holding arrow
 keys / WASD, pressing the on-screen pad, or moving a browser Gamepad API
 controller left stick starts `POST /api/rl/drive/start` automatically.
-Left stick streams analog `{vx, vy}` and right-stick X streams `{wz}`;
-keys/pad stream full-speed commands. While active the browser posts
-`POST /api/rl/drive/cmd {vx, vy, wz}` heartbeats at 5 Hz — held input =
+Left stick streams analog `{vx, vy}`; right-stick X streams `{wz}`
+(stick right = turn right = −wz, matching the Q/E keys' +wz = CCW);
+D-pad up/down streams `{dh}` = body height nudge (server integrates
+10 mm/s, clamp −45..+30 mm — tracked only while HOLDING with an obs-68
+stance model assigned to the `hold` role; a move command first ramps the
+body back to walk height, then the gait engages). Keys/pad stream
+full-speed commands. While active the browser posts
+`POST /api/rl/drive/cmd {vx, vy, wz, dh}` heartbeats at 5 Hz — held input =
 walk that way, released = the robot decels and holds (the robot treats a
 heartbeat older than 0.6 s as "keys released", so a dead tab stops it).
 **End session** →
