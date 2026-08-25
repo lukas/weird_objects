@@ -33,9 +33,10 @@ servo — is a cantilever.  This variant closes the structure from the top:
   envelope so the plain columns clear the swinging leg by 5 mm at
   every angle, a Φ29 seat ring down to the relocated bottom bearing,
   a small Φ38 dust brim hovering 0.5 mm above the bearing top, and
-  the vertical hub column **shortened 4 mm** (Φ52.4 skirt + platform
-  disc deleted, cradle dropped) so the hip servo sits just above the
-  bearing (see below).
+  the vertical hub column **shortened 9 mm** (Φ52.4 skirt + platform
+  disc deleted, **horn screws swapped M3×30 → M3×25** — see the
+  hardware note below — cradle dropped) so the hip servo sits just
+  above the bearing (see below).
 * **`chassis_bottom_rigid`** (print 1): the production chassis with the
   six square tower platforms trimmed to the tower's own Φ44 cylinder —
   one matching curve from belly to bearing pocket — each tower rim
@@ -56,6 +57,16 @@ Load path: hip moment → cap boss → top bearing → top plate →
 **six rim pillars** → chassis_bottom + the five other legs.  Each yaw
 axis becomes simply-supported instead of cantilevered, holding the hip
 servo rigidly.
+
+> **⚠ PURCHASED-HARDWARE CHANGE (Aug 24 rev 4): the 30 yaw-horn screws
+> are M3×25 SHCS on this variant, not the production M3×30s.**  Every
+> seat plane sits exactly 5 mm deeper so the tips — and the thread
+> engagement in the disc horn / output spline — are identical to the
+> bench-tuned production stack.  Do not install M3×30s in a
+> `coxa_link_rigid` print: their tips bottom out on the servo case
+> under the disc 5 mm early, jamming the horn off its seat and leaving
+> the heads proud into the servo well.  See "The coxa hub column"
+> below.
 
 ## One tower-seated bottom bearing — the yaw bearing cap is deleted
 
@@ -230,7 +241,7 @@ is the annotated section of the NEW stack — every height band, what
 it is, why it is there (regenerate with
 `make_joint_column_figure.py`).
 
-### The coxa hub column: shortened 4 mm (redesigned Aug 24 rev 3)
+### The coxa hub column: shortened 9 mm (Aug 24 rev 3 + rev 4)
 
 The user read the band ~25–40 mm above the deck as "largely
 unnecessary" — and the audit agreed.  In the production coxa that
@@ -240,50 +251,71 @@ disc** (world ~29–39.25 — a dust guard for the production
 UPPER-bearing position, which this variant vacated when the race
 moved down into the tower; the Φ38 brim at 23.25 already roofs the
 relocated race, so the skirt+disc roofed air), and 2 mm of well-floor
-lift.  What actually pins the coxa's height is the **M3×30 horn
-screws living inside the hub**: their bench-pinned seat planes
-(coxa-local 17.75 head / 16.75 centre) put the head tops at world
-36.0, and the servo belly cannot sit below the heads.
+lift.  **Rev 3** deleted the skirt+disc and dropped the cradle 4 mm,
+down to the M3×30 horn screw heads.  What then still pinned the
+height was **screw length alone**: the hub band between the bearing
+brim and the servo well floor existed almost entirely to house the
+M3×30s.  **Rev 4** (user: *"shorten the screws thats fine, that
+middle section is pointless"*) swaps all five horn screws per hub
+(4 drive + 1 centre) to **M3×25** and sinks every seat plane by
+exactly the 5 mm length delta — tip = seat − length, so the tip
+planes and thread engagement never move off the bench-tuned
+production stack: the corner tips still break the Φ20 tapped disc's
+far face by 0.25 mm (full 2 mm engagement), the centre screw still
+reaches the same depth in the output spline's tapped bore.
+`check_coxa_column` asserts seat drop == length delta on every
+rebuild.  **M3×20 does not fit**: another −5 would put the rotating
+cradle slab 3.5 mm *below* the static tower rim — collision — so 25
+is the shortest standard length for this joint; it lands the slab
+1.5 mm over the rim (≥ 0.5 rotating-vs-static required).
 
-| world z (mm) | old | new |
+| world z (mm) | M3×30 build (rev 3) | M3×25 build (rev 4) |
 |---|---|---|
-| 22.75–29.75 | Φ29 seat ring (to the uflange) | Φ29 seat ring (continues to 30.25) |
-| 29.25 | *(mid-skirt)* | **cradle slab underside — the whole slab+cradle drops 4 mm as one rigid body** |
-| 30.0 | *(mid-boss)* | hub boss truncated (keeps 0.75 into the slab) |
-| ~29–39.25 | Φ52.4 dust-lip skirt + platform disc | **deleted** |
-| 33.25 | hub boss top = cradle slab underside | — |
-| 36.0 | M3×30 horn screw head tops | unchanged (seat planes bench-pinned) |
-| 41.25 | servo well floor (5.25 over the heads) | **37.25** (1.25 over the heads) |
-| 53.65 | hip axis | **49.65** |
+| 22.75 | tower rim = bearing top | unchanged |
+| 23.25–25.25 | Φ38 dust brim | unchanged |
+| seat ring top | 30.25 | **25.25** (still 1 mm inside the slab; ring now 7.5→10 coxa-local) |
+| cradle slab underside | 29.25 | **24.25** (1.5 over the rim) |
+| hub boss truncation | 30.0 | **25.0** (keeps 0.75 into the slab) |
+| horn screw head seats | 33.0 head / 32.0 centre | **28.0 / 27.0** (5 mm deeper, tips unchanged) |
+| horn screw head tops | 36.0 | **31.0** |
+| servo well floor | 37.25 | **32.25** (still 1.25 over the heads) |
+| hip axis | 49.65 | **44.65** |
+| hip cap face | 71.55 | **66.55** |
+| top-plate race seat | 77.05 | **72.05** |
+| top sheet | 84.05..88.05 | **79.05..83.05** |
+| corner pillar length | 81.95 | **76.95** |
 
-The horn mount interface is untouched: same bolt pattern, same seat
-depths, same screws — the head-access shafts and shank clearance
-holes are re-cut through the dropped slab from the original seat
-planes.  The remainder is the minimum for this screw stack: well
-floor = head seat 17.75 + 3.0 head + 1.25 clearance; going lower
-means shorter screws and re-tuning the bench-pinned seats.  Checked
-on every rebuild (`check_coxa_column`): floor position, head
-clearance, seat planes, shank passage, and the sub-slab silhouette
-staying inside the seat ring + brim envelope.
+The horn mount interface AT the horn is untouched: same bolt
+pattern, same tip depths, same engagement — the head-access shafts
+and shank clearance holes are re-cut through the dropped slab from
+the deeper seat planes.  The remainder is the minimum for the M3×25
+stack: well floor = head seat 12.75 + 3.0 head + 1.25 clearance
+(coxa-local).  Checked on every rebuild (`check_coxa_column`): floor
+position, head clearance, seat planes, the seat-drop == length-delta
+engagement guard, shank passage, the sub-slab silhouette staying
+inside the seat ring + brim envelope, and the slab-to-rim clearance.
 
-Everything above rides down 4 mm with the cradle: hip axis
-53.65 → 49.65, hip cap face 75.55 → 71.55, top-plate race seat
-81.05 → 77.05, sheet 88.05..92.05 → **84.05..88.05**, pillars
-85.95 → 81.95 mm long.  The robot's top deck drops 4 mm — a shorter,
-stiffer sandwich (same members, less column length).
+Everything above rides down with the cradle (9 mm total vs the
+production-coxa stack, 5 mm vs rev 3): hip axis 53.65 → 49.65 →
+**44.65**, hip cap face → **66.55**, top-plate race seat → **72.05**,
+sheet → **79.05..83.05**, pillars → **76.95 mm** long.  The robot's
+top deck drops 9 mm — a shorter, stiffer sandwich (same members,
+less column length).
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
 | z (mm) | plane |
 |---|---|
-| 71.55 | hip cap outer face (stock) |
-| 77.05 | pedestal top = inner-race seat |
-| 77.55 | plate ring bottom (0.5 clearance over the race seat) |
-| 84.05 | race top = Φ34 shoulder = sheet bottom |
-| 88.05 | deck face |
+| 66.55 | hip cap outer face (stock) |
+| 72.05 | pedestal top = inner-race seat |
+| 72.55 | plate ring bottom (0.5 clearance over the race seat) |
+| 79.05 | race top = Φ34 shoulder = sheet bottom |
+| 83.05 | deck face |
 
-(All five planes are 4 mm lower than the pre-shortening build —
-they key off the hip axis, which dropped with the coxa cradle.)
+(All five planes are 9 mm lower than the pre-shortening build — 4 mm
+from the rev-3 skirt/platform delete plus 5 mm from the M3×25 horn
+screws — they key off the hip axis, which dropped with the coxa
+cradle.)
 
 Yaw axes sit exactly on the hex edge midpoints (apothem 100), so each
 Φ44 boss bulges half-outboard — same as the bottom towers.
@@ -323,7 +355,7 @@ corner azimuths (rho 81.6, between adjacent legs — the only rim
 territory outside every swing envelope):
 
 * **Column**: plain solid ellipse, 20 mm radial × 14 mm tangential,
-  z 2 → 83.95, ~25 g each in PETG.  Clearance to the swinging legs is
+  z 2 → 78.95, ~23 g each in PETG.  Clearance to the swinging legs is
   **not** the column's problem: every part that rotates with a yaw
   joint is kept inside a **38.2 mm envelope** about its own axis (the
   coxa's cradle corners are rounded to that arc — see
@@ -426,7 +458,7 @@ envelope was femur −80°…+30°):
 * femur vs the boss/bearing stack: first contact at **−60°**
 * ⇒ **safe femur up-limit −47.5°** (1 grid step + 2.5° margin), baked
   into the scene's hip joint limits.
-* The 4 mm coxa shortening did **not** move these numbers: plate, hip
+* The 9 mm coxa shortening did **not** move these numbers: plate, hip
   axis and femur pivot all dropped together, so the relative geometry
   (and the limit) is unchanged — re-verified by the sweep after the
   drop.
@@ -439,13 +471,19 @@ variation only moves parts that stay outboard/below the plate.
 
 ## BOM delta vs production
 
+* **30× M3×25 SHCS replace the 30 M3×30 yaw-horn screws** (5 per hub:
+  4 drive + 1 centre) — **purchased-hardware change**, the only screw
+  spec that differs from the production build.  The M3×25 seats are
+  cut 5 mm deeper so tip depth / horn engagement is identical; M3×30s
+  physically do not fit the rev-4 coxa (tips bottom out on the servo
+  case)
 * 6805-2RS count unchanged (12): the 6 upper yaw bearings move up to
   become the 6 top-plate bearings; the 6 lower ones stay in their
   production tower pockets
 * **−6 `yaw_bearing_cap` prints and −18 M3×8 cap join screws** — the
   cap is deleted (see "One tower-seated bottom bearing")
-* 4× M3 standoff stacks, ~86 mm (bottom sheet top z≈2 → hatch underside
-  88.05; e.g. 50+36 F-F, or M3 threaded rod in printed sleeves) + M3
+* 4× M3 standoff stacks, ~81 mm (bottom sheet top z≈2 → hatch underside
+  83.05; e.g. 45+36 F-F, or M3 threaded rod in printed sleeves) + M3
   screws down through the hatch into the stack tops — **non-structural**
   in this variant (hatch/electronics anchors only)
 * 6× M3×16 button-heads for the hatch perimeter (through lid + frame

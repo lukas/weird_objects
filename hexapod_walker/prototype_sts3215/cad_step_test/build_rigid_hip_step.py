@@ -227,9 +227,11 @@ def make_coxa_link_rigid() -> object:
     rv.HUB_TRIM_Z with the dust-lip skirt / platform disc deleted, the
     slab + cradle sub-solid drops rv.COL_DROP as one rigid body, the
     seat ring + Phi 38 brim are added, the horn-screw shafts are re-cut
-    from the UNCHANGED bench-pinned seat planes (shank clearances
-    re-opened through the dropped slab), and the result is trimmed to
-    the rotation envelope."""
+    from the VARIANT seat planes (rv.HORN_HEAD_SEAT_Z /
+    rv.HORN_CENTRE_SEAT_Z -- 5 mm deeper, tracking the M3x30 -> M3x25
+    swap so the tip planes / horn engagement never move; shank
+    clearances re-opened through the dropped slab), and the result is
+    trimmed to the rotation envelope."""
     hub = step.make_coxa_yaw_hub(one_piece=True)
     skirt_cut = step._diff(
         _cyl_z(hp.YAW_HUB_DUST_LIP_OD / 2.0 + 2.0, rv.SLAB_BOT_Z - 1.5,
@@ -257,11 +259,11 @@ def make_coxa_link_rigid() -> object:
             for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))]
     shaft_top_z = 80.0
     drive_clear = hp.DISC_HORN_BOLT_OD + 0.3
-    stations = [(0.0, 0.0, hp.YAW_HUB_HORN_CENTRE_SEAT_Z,
+    stations = [(0.0, 0.0, rv.HORN_CENTRE_SEAT_Z,
                  hp.HORN_CENTRE_OD)]
     r = hp.DISC_HORN_BOLT_PCD / 2.0
     stations.extend(
-        (r * math.cos(t), r * math.sin(t), hp.YAW_HUB_HORN_HEAD_SEAT_Z,
+        (r * math.cos(t), r * math.sin(t), rv.HORN_HEAD_SEAT_Z,
          drive_clear)
         for t in hp.DISC_HORN_BOLT_ANGLES_RAD)
     for sx, sy, seat_z, shank_d in stations:
