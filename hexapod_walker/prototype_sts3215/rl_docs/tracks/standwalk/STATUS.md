@@ -1,6 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:1x (NOTE, same window, independent parallel
+Last updated: 2026-08-25 ~16:2x (**Root-cause decoupling of the pace
+scalar — LAUNCHED, a third parallel lever alongside the anchor-dose
+grid and rung-9.** This cycle's own triage of `eighthchain` (verdicted
+FAIL, matches the consolidated read below) found the mechanism behind
+its total collapse: `sim_env`'s BC-anchor pursuit conflates TWO
+distinct knobs into one "pace" scalar every prior arm moved together
+— `train.bc_anchor_lookahead_s` (how far ahead the target sits once
+IN a genuinely-climbing region = torque aggressiveness) and
+`train.bc_anchor_min_h_ahead_mm` (the height-floor search that jumps
+the target forward until it clears the reference's ~5s flat dead
+zone = anti-freeze strength; see `bc_anchor.py`'s
+"HEIGHT-FLOOR pursuit" comment, 08-12 origin). eighthchain paired the
+SMALLEST floor (2mm) with the smallest lookahead and produced BOTH the
+worst current pin AND a brand-new pathology never seen at any other
+dose: several deep starts (`flat`/`rsi`) show ALL-SIX-LEG
+`duty_cycle=0.0` for the full episode (video-confirmed total
+belly-down freeze, height_err 79-86mm) — a 2mm floor is too weak to
+force the target meaningfully past the flat zone regardless of
+lookahead. Launched 3 arms isolating floor from lookahead (all
+respec `--from slowchain`, from-scratch, unchanged budget/recipe,
+VERIFIED RUNNING train-2/3/4): `-decouple-a` (lookahead 0.25s =
+slowchain's, floor reverted to the ORIGINAL 15mm instead of
+slowchain's paired 8mm), `-decouple-b` (lookahead 0.125s =
+quarterchain's, floor 15mm — does a strong floor rescue quarterchain's
+new freeze failure while keeping its shorter/gentler jump?),
+`-decouple-c` (lookahead 0.0625s = eighthchain's, floor 15mm — does a
+strong floor rescue even eighthchain's total collapse?). Gate:
+same DR-0 rise det+sto n=6+6 harness; PASS clears
+4/6+4/6+<=1.5A+zero-over_current+zero-freeze-episodes; PARTIAL beats
+the SAME-lookahead paired-dose sibling (b vs quarterchain, c vs
+eighthchain) on valid_plant or freeze-episode count even short of
+PASS (confirms floor as an independent lever, motivating a proper 2D
+grid); FAIL = flat/worse than the paired sibling, closing this
+direction and leaving rung-9 (mesh-native ref / flat-segment edit) as
+the sole remaining lever. Runs IN PARALLEL with the anchor-dose grid
+and rung-9 — not a substitute for either, cheap enough (8M each, same
+budget as the pace arms) to read before committing to rung-9's bigger
+build. Evidence: ledger verdicts for `eighthchain`/`slowchain-cont8`
+(FAIL, this cycle), W&B `l9tcutsx`/`5bx2x0n3`; decouple arms not yet
+evidenced (just launched).)
+
+Prior entry: 2026-08-25 ~16:1x (NOTE, same window, independent parallel
 triage of `quarterchain`: this cycle's own read of `quarterchain`
 landed the identical FAIL conclusion as the consolidated entry below
 (det 2/6 worse than slowchain's 3/6, deep-start current/term proxy

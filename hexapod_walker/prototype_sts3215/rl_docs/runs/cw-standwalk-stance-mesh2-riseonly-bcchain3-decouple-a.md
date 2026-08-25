@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T16:12:22+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain
+
+**wandb_id**: ahz9mrwq
 
 **hypothesis**: Root-cause decoupling of the pace dose (this cycle's eighthchain/slowchain-cont8 triage): every pace arm so far (quarterchain/slowchain/eighthchain) moved bc_anchor_lookahead_s AND bc_anchor_min_h_ahead_mm TOGETHER as one 'pace' scalar, conflating two different mechanisms -- lookahead_s sets how far ahead the pursuit target sits in a genuinely-climbing region (torque aggressiveness), while min_h_ahead_mm sets how hard the anchor escapes the reference's ~5s flat dead-zone (anti-freeze; sim_env's height-floor search literally jumps forward until h clears the floor). eighthchain's total-freeze collapse (0/6+0/6, several deep starts at exactly 0 duty on all six legs) landed at the SMALLEST floor (2mm) as well as the smallest lookahead -- this arm isolates whether the freeze was actually caused by the weak floor, not the short lookahead. Reverts min_h_ahead_mm to the ORIGINAL bcanchor3-stdanneal value (15mm, known to produce genuine partial rises, never a total freeze) while independently testing slowchain's already-working lookahead_s=0.25s. Prediction-if-true: matches or beats slowchain's 3/6 det + 2/6 sto valid_plant with a floor strong enough to prevent any freeze episodes. Prediction-if-false: unmoved vs slowchain (floor alone doesn't help) -- lookahead_s is the real lever after all, not the floor.
 
