@@ -3226,6 +3226,189 @@ def test_hold_minload_quiet_untaxed(hold_minload_bank):
 
 
 # --------------------------------------------------------------------------
+# HOLD bank, COMMANDABLE HEIGHT variant (goal.hold_height_cmd_*, 08-25,
+# operator MCP request fb_20260825T195117_3dce6e: "once standing, move
+# the body up/down to a specified height; from a non-solid stand,
+# ignore the height command and get solid first"). Scoped to HOLD
+# episodes (goal_task.GoalGenerator._hold_height_schedule) rather than
+# a new goal kind: hold already starts at the plant and already
+# carries the exact solid-stand S-gate proxy this feature needs
+# (reward.hold_still_gate / hold_feet_load_min / hold_flag_fade — the
+# "today's live recipe" HOLD_MINLOAD_STACK above) plus the loaded-foot
+# slip charge (reward.k_drag_trans, priced on every non-walk tick
+# including hold) — no new reward code, just a height_ref that MOVES.
+# These tests bypass the RANDOM schedule generator (unit-tested for
+# range/rate-limit/default-off separately) and pin an EXACT ramp-to-
+# target profile via the force_hold_height_profile hook, so every
+# policy below tracks the identical script and the comparison isolates
+# the REWARD ordering question, not the generator.
+#
+# Required orderings (the operator's own preflight-bank spec):
+#   track > stale        solid tracking beats refusing/freezing at the
+#                         OLD height, for both a down-step and an
+#                         up-step command.
+#   track >> flagleg      a flag leg / a hovering foot that nominally
+#   track >> hover        reaches the same commanded height must not
+#                         rival genuine six-foot tracking (S-gate:
+#                         no-flag fade / measured foot load).
+#   track > skate         loaded-foot slip DURING the transition must
+#                         lose to a quiet planted adjustment
+#                         (reward.k_drag_trans).
+
+HOLD_HEIGHT_STACK = dict(HOLD_MINLOAD_ON)   # today's DEPLOYED hold recipe
+                                            # (holdminload40 champion:
+                                            # min-load termination armed)
+HOLD_HEIGHT_SLIP_STACK = dict(HOLD_HEIGHT_STACK)
+HOLD_HEIGHT_SLIP_STACK[("reward", "k_drag_trans")] = 40.0
+
+
+def _hold_height_rollout(policy: str, seed: int, target_mm: float,
+                         overrides=None) -> dict:
+    """Scripted commandable-height policies, all tracking the SAME
+    pinned ramp-to-``target_mm`` height schedule from the plant start.
+
+    track    six-foot FixedFootBodyIK solve to the CURRENT commanded
+             height, fresh every tick (one tick ahead, the lower BC-
+             anchor's own convention) — the honest elevator skill.
+    stale    freeze the ORIGINAL (pre-command, q_nom) pose — refuse
+             the command entirely.
+    flagleg  track, but leg 0's three joints stay pinned at the
+             ORIGINAL pose (a flag leg riding along through the
+             height change).
+    hover    track, but leg 0 additionally lifts HOVER_LIFT_DEG at the
+             hip throughout (a hovering, functionally-unloaded foot at
+             a body that otherwise reaches the right height).
+    skate    track, but every leg's yaw joint gets a +/-8deg sideways
+             wobble during the episode (loaded-foot slip while the
+             body is otherwise adjusting height correctly).
+    """
+    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+
+    env = _make_hold_env(seed, overrides or HOLD_HEIGHT_STACK)
+    gen = env._goal_gen
+    gen.hold_height_cmd_frac = 1.0
+    gen.force_hold_height_profile = ("ramp", target_mm * 0.001)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    ik = FixedFootBodyIK()
+    total, step = 0.0, 0
+    terminated = False
+    while True:
+        h_cmd = float(env._goal_traj.at(env._step_i + 1).height_ref)
+        if policy == "stale":
+            q = q0.copy()
+        else:
+            ik.reset(env._q_nom)
+            res = ik.solve(BodyOffset(height=h_cmd))
+            q = res.q_rad.copy() if res.ok else q0.copy()
+            if policy == "flagleg":
+                q[0:3] = q0[0:3]
+            elif policy == "hover":
+                q[1] -= HOVER_LIFT_DEG * DEG2RAD
+            elif policy == "skate":
+                wob = 8.0 * DEG2RAD * math.sin(
+                    2.0 * math.pi * step * env.dt / 0.5)
+                for leg in range(6):
+                    q[3 * leg] += wob
+        _obs, r, term, trunc, _info = env.step(q_rad_to_action(q))
+        total += float(r)
+        step += 1
+        if term or trunc:
+            terminated = term
+            break
+    env.close()
+    return {"ret": total, "terminated": terminated}
+
+
+HOLD_HEIGHT_TARGETS_MM = (-30.0, 20.0)   # a down-step and an up-step
+
+
+@pytest.fixture(scope="module")
+def hold_height_bank() -> dict[tuple, dict]:
+    out = {}
+    for target in HOLD_HEIGHT_TARGETS_MM:
+        for p in ("track", "stale", "flagleg", "hover"):
+            out[(target, p)] = [
+                _hold_height_rollout(p, s, target) for s in SEEDS]
+        out[(target, "skate")] = [
+            _hold_height_rollout("skate", s, target,
+                                 HOLD_HEIGHT_SLIP_STACK)
+            for s in SEEDS]
+        out[(target, "track_slip_stack")] = [
+            _hold_height_rollout("track", s, target,
+                                 HOLD_HEIGHT_SLIP_STACK)
+            for s in SEEDS]
+    return out
+
+
+def _mean_ret(bank, key) -> float:
+    return float(np.mean([r["ret"] for r in bank[key]]))
+
+
+def test_hold_height_track_beats_stale(hold_height_bank):
+    """Solid tracking must out-earn refusing the command (freezing at
+    the OLD height) for BOTH a down-step and an up-step target."""
+    for target in HOLD_HEIGHT_TARGETS_MM:
+        track = _mean_ret(hold_height_bank, (target, "track"))
+        stale = _mean_ret(hold_height_bank, (target, "stale"))
+        assert track > stale + 20.0, (
+            f"target {target}mm: tracking ({track:.1f}) does not beat "
+            f"refusing the command ({stale:.1f}) — height-cmd income "
+            f"is not paying the honest elevator skill")
+
+
+def test_hold_height_track_beats_flagleg_and_hover(hold_height_bank):
+    """A flag leg / a hovering foot that nominally reaches the
+    commanded height must not rival genuine six-foot tracking — the
+    S-gate proxy (no-flag fade / measured foot load) must still bite
+    while height varies, exactly as it does at height_ref=0."""
+    for target in HOLD_HEIGHT_TARGETS_MM:
+        track = _mean_ret(hold_height_bank, (target, "track"))
+        for cheat in ("flagleg", "hover"):
+            cv = _mean_ret(hold_height_bank, (target, cheat))
+            assert cv < 0.5 * track, (
+                f"target {target}mm: '{cheat}' ({cv:.1f}) rivals "
+                f"honest tracking ({track:.1f}) — the S-gate is blind "
+                f"to this cheat while a height command is active")
+
+
+def test_hold_height_skate_loses_to_quiet_track(hold_height_bank):
+    """Loaded-foot slip DURING the height adjustment must lose to a
+    quiet, planted adjustment under reward.k_drag_trans — both scored
+    under the SAME slip-priced stack so the comparison isolates the
+    slip charge, not an unrelated cfg delta."""
+    for target in HOLD_HEIGHT_TARGETS_MM:
+        track = _mean_ret(hold_height_bank, (target, "track_slip_stack"))
+        skate = _mean_ret(hold_height_bank, (target, "skate"))
+        assert track > skate + 5.0, (
+            f"target {target}mm: skating ({skate:.1f}) does not lose "
+            f"to the quiet planted adjustment ({track:.1f}) under "
+            f"reward.k_drag_trans")
+
+
+def test_hold_height_cmd_frac_zero_is_bit_exact():
+    """goal.hold_height_cmd_frac=0 (the default) must reproduce the
+    legacy flat height_ref=0 hold episode exactly — no extra rng draw,
+    no schedule, regardless of what range/rate keys are set."""
+    cfg_on = load_config()
+    for (sec, leaf), val in HOLD_HEIGHT_STACK.items():
+        cfg_on.setdefault(sec, {})[leaf] = val
+    cfg_on.setdefault("goal", {})["hold_height_cmd_range_mm"] = [-40.0, 20.0]
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=SEEDS[0], cfg=cfg_on)
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(env._goal_gen, f"p_{m}"):
+            setattr(env._goal_gen, f"p_{m}", 1.0 if m == "hold" else 0.0)
+    env.reset()
+    assert np.all(np.asarray(env._goal_traj.height) == 0.0), (
+        "hold_height_cmd_frac=0 (default) must stay a flat height_ref=0 "
+        "hold episode — the feature leaked into the legacy default path")
+    env.close()
+
+
+# --------------------------------------------------------------------------
 # RISE-ROCK bank (dr.rise_rock_*, 08-11 hardware belly-curl rocking gap).
 #
 # Bench truth (bench_blast camera sessions, 08-11): the learned rise is
