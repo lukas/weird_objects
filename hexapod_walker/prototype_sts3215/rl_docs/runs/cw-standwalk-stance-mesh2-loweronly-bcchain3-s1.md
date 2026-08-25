@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T14:48:09+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-loweronly-bcchain3
+
+**wandb_id**: 7iczyeb4
 
 **hypothesis**: Is the lower-rung IK-descent BC-anchor chain's escape from the mesh crouch (loweronly-bcchain3 CANARY PASS: DR-0 det 6/6 honest full-drop descents, 0 terminations, then its stdanneal acquisition just closed FULL PASS 24/24 det+sto DR-0+own-DR, cur_max down to 0.7-1.24A from the hot 2.17-2.26A canary) seed-robust, or was seed 0 a fluke -- mirroring the exact hold-rung seed hedge (bcanchor3-s1) that confirmed dose/seed robustness there? Identical recipe, coef 3.0, from-scratch, only the seed changes (0->1).
 

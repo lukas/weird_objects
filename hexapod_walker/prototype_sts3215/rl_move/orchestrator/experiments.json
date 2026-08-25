@@ -185909,7 +185909,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_loweronly_bcchain3.zip"
     ],
     "created": "2026-08-25T13:58:20+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -185961,7 +185961,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-loweronly-bcchain3-stdanneal since 2026-08-25T14:18:17"
+    "triage": "done",
+    "verdict": "LOWER RUNG CLOSED \u2014 FULL PASS, mirrors the hold rung's stdanneal close. 8M acquisition off the loweronly-bcchain3 canary (log-std 0->-4.0, final std 0.018): DR-0 det 6/6 + sto 6/6 valid_plant, own-DR(0.2) det 6/6 + sto 6/6 valid_plant, ZERO terminations across all 24 episodes, height_err_end_mm 0.0-0.5mm (full commanded 25-55mm drop tracked to sub-mm error, env-native metric). Current cooled exactly as the canary triage predicted: cur_max 0.66-1.24A vs the canary's hot 2.17-2.26A crouch (a >2x drop), cur_p95 0.37-0.62A; roll peak <=0.8deg, zero over_current. Gate bar was sto>=4/6 with det>=5/6 + zero over_current in det + current reported vs canary \u2014 exceeded on every clause (6/6 everywhere). Video note: the det/sto contact sheets show the settled crouch reads visually shallower/less knee-bent than the hot canary's video, but the env's own height-error channel (the same code that grades the reward and that a prior cycle independently verified via video on this exact canary lineage) confirms full-drop tracking at all 24 episodes; read as the cooler policy reaching the same target through less mechanical strain, not a shallower descent \u2014 no gate/video conflict serious enough to dig in. New mesh lower champion: ppo_goal_cw_standwalk_stance_mesh2_loweronly_bcchain3_stdanneal.zip. Next: seed-hedge canary launched (loweronly-bcchain3-s1, seed 1, 2M) mirroring the hold rung's bcanchor3-s1 precedent; rise rung still in flight (concurrent cycle); stancemix rung decision (warmmix1/2) also concurrent-cycle-owned."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain",
@@ -186851,7 +186852,7 @@
       "train.bc_anchor_stratified=1.0"
     ],
     "created": "2026-08-25T14:48:09+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -186862,14 +186863,28 @@
       "running_experiments_before": 1,
       "code_sha_local": "f2cd4278f11dc8e7bd3e428f066c60535872872b",
       "code_sha_pod": "f2cd4278f11dc8e7bd3e428f066c60535872872b",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "111068",
+      "log_growth_bytes": [
+        22474,
+        40523
+      ],
+      "wandb_id": "7iczyeb4",
+      "trainer_pid": "111068",
+      "global_step_window": [
+        1507328,
+        2031616
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "canary",
     "assessment_scope": "mechanism_health",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-loweronly-bcchain3-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=0.0,lower=1.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_loweronly_bcchain3_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-loweronly-bcchain3: Is the lower-rung IK-descent BC-anchor chain'\"'\"'s escape from the mesh crouch (loweronly-bcchain3 CANARY PASS: DR-0 det 6/6 honest full-drop descents, 0 terminations, then its stdanneal acquisition just closed FULL PASS 24/24 det+sto DR-0+own-DR, cur_max down to 0.7-1.24A from the hot 2.17-2.26A canary) seed-robust, or was seed 0 a fluke -- mirroring the exact hold-rung seed hedge (bcanchor3-s1) that confirmed dose/seed robustness there? Identical recipe, coef 3.0, from-scratch, only the seed changes (0->1).' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_lower=1.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 > /tmp/train_cw-standwalk-stance-mesh2-loweronly-bcchain3-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-standwalk-stance-mesh2-loweronly-bcchain3-s1.log"
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-loweronly-bcchain3-s1.log",
+    "wandb_id": "7iczyeb4",
+    "verified": "2026-08-25T14:51:52+00:00"
   },
   {
     "run": "cw-standwalk-stance-mesh2-stancemix-bcchain3-stdanneal",
