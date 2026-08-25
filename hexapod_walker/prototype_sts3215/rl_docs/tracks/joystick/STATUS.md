@@ -43,6 +43,26 @@ cycle's launches was recalibrated (stale magnitude threshold, dated
 comment); the other 53 failures are untouched and still red — this is
 a large open item for a dedicated dig-in, not resolved here.
 
+**CORRECTION (08-25 ~02:2x, concurrent triage cycle, mechanical-state
+check per the standing prompt's "trust only mechanical state" rule):**
+`-gaitgate-scratch1` was NOT actually launched by the cycle above —
+`ps`/W&B/ledger all agree its own launch attempt for that exact run
+name landed AFTER an independently-converged concurrent cycle's
+identical-hypothesis launch had already gone RUNNING, and was
+correctly REFUSED as a duplicate by the launcher (ledger order:
+2 REFUSED -> 1 RUNNING wandb `hvyjdmch` on train-9 -> a further REFUSED
+immediately after — the trailing REFUSED is this note's own attempt,
+not a stale artifact). No functional harm: the experiment IS alive
+and correctly configured (confirmed via `ps aux` on train-9 — single
+process, args match, no orphaned/competing trainer), just credit the
+concurrent cycle's independent launch (also single-lever `--cfg-set
+reward.walk_gait_gate=1.0` from scratch, same 40M/hardening recipe)
+for the actual running instance, not this entry. `-gaitgate-cont1`
+(train-8) is unaffected and really is this cycle's own launch. Filed
+so nobody double-counts GPU spend or credits the wrong cycle's
+hypothesis text. Next triage cycle still reads both the same way this
+note already describes.
+
 Previous entry (2026-08-25 ~01:3x (**BOTH mesh-family canaries CANARY
 PASS -> respec'd to 40M acquisitions, VERIFIED RUNNING.**
 `cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1` reached its full

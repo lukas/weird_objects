@@ -173457,6 +173457,16 @@
         "placement": "solo on GPU-MJX pod",
         "verdict": "HEALTHY",
         "problems": []
+      },
+      {
+        "time": "2026-08-25T02:21:23+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4822,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
       }
     ]
   },
@@ -173790,7 +173800,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --cfg-set reward.walk_gait_gate=1.0 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_gaitgate_scratch1 --notes 'Plain English: does training the V7/100Hz/hist64 recipe FROM SCRATCH with the already-built anti-leg-sacrifice reward gate (reward.walk_gait_gate=1.0) turned on from step 0 avoid ever forming the {0,2,5}-leg-sacrifice basin that the identical from-scratch recipe without the gate (cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1) converged to and FAILed on? walk_gait_gate multiplicatively collapses walk/progress/tracking income toward zero whenever any support leg hasn'\"'\"'t completed a real swing within a 2s window -- purpose-built+bank-tested (test_walk_gait_gate_*, quadwalk precedent) but never included in this recipe until the sibling continuation cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-cont1 (a warm-start rescue of the already-collapsed scratch-s0-r1 checkpoint, owned by another cycle, still training). This arm is the from-scratch half of that same question: prevention instead of rescue, decoupled from whether the collapsed basin is too deep to escape by reward alone. Gate: PASS: DR-0 det gait_valid 6/6, no leg duty pinned near-zero (no [X,Y,Z]-style sacrifice), walkcurr/frontier promotes past b0. PARTIAL: gait_valid improves over the no-gate parent'\"'\"'s 0/6 but some leg sacrifice or frontier stall remains. FAIL: identical {0,2,5} (or any 3+ leg) sacrifice signature reproduces despite the gate being active from step 0 -- would mean walk_gait_gate'\"'\"'s income collapse is too weak/late to prevent the basin, not just too weak to rescue from it, and the leg-sacrifice root cause is NOT reward-side at all (points at the still-unclaimed structural/indexing DIG-IN, OPERATOR_QUESTIONS.md 08-24/08-25 leg-sacrifice notes).' > /tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1.log",
     "wandb_id": "hvyjdmch",
-    "verified": "2026-08-25T02:20:11+00:00"
+    "verified": "2026-08-25T02:20:11+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T02:22:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1108,
+        "fps": 3276.8,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1",
