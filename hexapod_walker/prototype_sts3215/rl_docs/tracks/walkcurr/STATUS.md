@@ -6,6 +6,25 @@ English: teach a from-scratch PPO policy (no gait clock, no BC
 teacher, no motion prior) to walk by climbing a curriculum that starts
 with ONE fixed forward command and only widens after certified passes.
 
+**STALE COMMITMENT FLAG (added 08-25 ~16:1x, triage cycle for an
+unrelated standwalk run, noting in passing — did not execute):** the
+08-23 ~21:3x entry below ("Escalation choice... rung-0 sub-goal
+before RND") commits to building a rung-0 semantics bank (stall/
+shuffle/gait > park/stork; skate/topple floor; stall lifetime-
+positive) THIS CYCLE, then launching the swing-dominant/no-travel-
+charge diet. The ledger shows **zero walkcurr launches since
+2026-08-24T03:50** — over a day with no rung-0 bank landed and no
+diet launched; the escalation was recorded but never executed. Not
+touching it this cycle (out of scope, and a reward-mechanism bank
+deserves a dedicated read, not a rushed one squeezed into spare
+capacity) — flagging so a future cycle with idle GPU capacity picks
+this up as real runnable SPECIFICATION+ACQUISITION work rather than
+re-discovering the staleness from scratch. All standwalk-track cycles
+today (08-25) have been fully saturated by the operator's binding
+mesh-stance-recipe directive (fb_20260825T140238_d43b35), which is
+the most likely reason this got dropped, not a walkcurr-specific
+blocker.
+
 ## Goal (DONE gate)
 
 A prior-free policy passes a held-out C-env contextual walking panel
