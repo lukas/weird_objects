@@ -1,6 +1,82 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~03:3x (operator registration — track
+Last updated: 2026-08-25 ~05:2x (**stage-1 gate reads in: 2/3 seeds
+CATASTROPHIC, DIG-IN flagged, both runs left UNVERDICTED for the deep
+cycle.** `cw-standwalk-stance-mesh1-rr1` (seed 0) and `-seed2-rr1`
+both finished 20M steps; `-seed1-rr1` still training this cycle (left
+alone per assignment, not read here). Plain English: the ported
+footlow2-style stance recipe, bank-checked clean on mesh pre-launch,
+collapses on the ACTUAL stage-1 gate (pod_eval joint_goal panel,
+hold/rise/lower, n=6/mode, DR-0 + own-DR 0.2, det+sto) almost every
+episode, on both completed seeds:
+- `rr1` DR-0 gate: 33/36 episodes terminated (31 `over_current`,
+  2 `tilt_roll`), `cur_max_a` pinned at exactly **2.64 A** on every
+  over_current episode (the trip ceiling, not a soft overshoot) —
+  fwd drift only 0.02-0.11 m/15s (not walking away, just failing in
+  place). own-DR pass for this run was still mid-eval when this note
+  was written (own pod ~2.5x slower than the seed2 pod for the same
+  job; next cycle should finish reading it).
+- `seed2-rr1` DR-0 gate: **36/36** (100%) terminated — 17
+  `tilt_pitch`, 10 `over_current`, 9 `tilt_roll`; own-DR(0.2):
+  **36/36** terminated too, evenly split 12/12/12 across the same
+  three reasons. `cur_max_a` up to 2.66 A.
+- Video (rise_det, seed2): the rise motion itself looks basically
+  right for the first ~2/3 of the ascent (frame-by-frame: flat ->
+  crouch -> good mid-height stance under the body) and then the body
+  **rolls/tips sideways** partway up and never recovers (`tilt_roll`
+  term) — reads as a lateral-balance margin failure during the
+  dynamic rise, not a scripted/static posture bug. Video (hold_det,
+  rr1): starts at a normal-looking stand and progressively **splays/
+  sprawls** into a twisted, legs-akimbo crouch over the hold window,
+  consistent with the load-imbalance -> `over_current` signature
+  (some servos pinned near max duty while others idle).
+- Training reward: `rr1` rose net positive by the end (quarters
+  -245/-581/-127/**+90**) while its in-training eval callback's
+  survived_frac/height_err ALSO looked fine at the very last logged
+  point (hold survived 1.0, height_err 2.7mm @ 19M) — this
+  contradicts the harness verdict above; the in-training eval is
+  either a much easier config (shorter horizon / no full posture
+  check) than the pod_eval gate, or an evaluator-loophole. `seed2-rr1`
+  stayed net negative the whole run (quarters -265/-471/-149/-93) with
+  survived_frac ~0 from ~8M onward. Per the 08-21 ruling this reads as
+  MISALIGNED for `rr1` (reward up, gate catastrophic) but closer to a
+  genuine stuck/FAIL signature for `seed2-rr1` (reward never really
+  escapes negative, eval flat-bad throughout) — the two seeds do NOT
+  even agree with each other on which failure mode this is, which is
+  itself informative (recipe-level instability, not one unlucky seed).
+- **CROSS-TRACK CORRELATION (not yet root-caused, flagging for
+  whichever cycle digs in):** the joystick track's mesh-family runs
+  this same 08-25 cycle (`gaitgate-scratch1`, `tf64-mesh-acq1`) also
+  died via `over_current` with `cur_max_a` in the same **2.6-2.7 A**
+  band, on a completely different task (walk, not stance) and
+  completely different reward stack. Two independent tracks hitting
+  the identical current ceiling on the same mesh model in the same
+  cycle is suspicious for a SHARED root cause (servo current-trip
+  threshold/model miscalibrated for the 3.5 kg mesh body's real
+  torque demand, or both reward stacks independently lacking any
+  current-aware shaping) rather than two unrelated per-track
+  misalignments. The joystick track already has deep tooling/history
+  on this exact signature (`reward.k_walk_current`, current-dwell
+  charges) — worth checking whether that machinery (or its lesson)
+  transfers to `joint_goal`/stance before inventing a parallel fix
+  here.
+- **Per the gate's own reading rule** ("2-3/3 healthy = recipe
+  robust; 0-1/3 = seed-dependent or recipe gap"): 0/2 read so far is
+  already at the recipe-gap threshold regardless of how `seed1-rr1`
+  lands.
+- **DIG-IN, not verdicted**: this is a stage-1-gate-deciding fork
+  (whether the ported recipe needs a current/balance-aware reward
+  redesign before any further seed spend, per the 08-21 "audit
+  reward/eval/sim before more budget" rule) — leaving
+  `cw-standwalk-stance-mesh1-rr1` and `-seed2-rr1` UNVERDICTED for a
+  deep-toolkit read (per-leg current traces, matched-parent-style
+  current decomposition, and a check of whether the mesh servo
+  current-trip constant itself is calibrated correctly) rather than
+  recording a shallow PASS/FAIL this cycle. Evidence:
+  `logs/ckpt_eval/cw_standwalk_stance_mesh1_rr1_gate/`,
+  `..._seed2_rr1_{gate,owncfg}/`, W&B `hq7zyih9`/`bpbesoyb`.
+
+Previous entry (2026-08-25 ~03:3x (operator registration — track
 created, nothing launched yet).
 
 ## Goal (operator, 08-24 evening)
