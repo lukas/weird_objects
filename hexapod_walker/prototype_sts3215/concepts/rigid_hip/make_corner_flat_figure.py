@@ -1,4 +1,5 @@
-"""Annotated before/after figure of the FLATTENED wire corridor (rev 5).
+"""Annotated before/after figure of the FLATTENED wire corridor + cradle
+shell (rev 5, Aug 24 + rev 6, Aug 25).
 
 User decision, Aug 24 rev 5: "take a step back that CRADLE WALL isnt
 doing shit, just flatten it out and its fine" / "also this isnt wall
@@ -23,7 +24,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.patches import Rectangle  # noqa: E402
+from matplotlib.patches import Circle, Rectangle  # noqa: E402
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
@@ -87,6 +88,8 @@ for ax, mesh, zc, title in panels:
                            CUT["x1"] - CUT["x0"], 2 * CUT["y"],
                            fill=False, ec="#c03030", lw=1.6, ls="--",
                            zorder=6))
+    ax.add_patch(Circle((100.0, 0.0), mv.CHB_KEEP_R, fill=False,
+                        ec="#c03030", lw=1.6, ls=":", zorder=6))
     for (px, py) in RET_PILOTS:
         ax.plot(px, py, "o", ms=5, mfc="#2c8a2c", mec="#145014", zorder=7)
     ax.set_xlim(38, 122)
@@ -103,8 +106,9 @@ axes[0][0].annotate("cradle END WALL (x 61.5–64.5,\nfull height z 2→10.25,"
                     "\n0.3 mm off the servo face)\n— FLATTENED",
                     xy=(63.0, 8.0), xytext=(40.5, 26), fontsize=7.5,
                     bbox=bx, arrowprops=ar, zorder=9)
-axes[0][0].annotate("side-wall stubs (|y| 14–18.9)\n— FLATTENED to x 64.65",
-                    xy=(58.0, -16.0), xytext=(40.5, -33), fontsize=7.5,
+axes[0][0].annotate("cradle-shell side walls (|y| 13.2–18.9)\n— rev 5 cut to "
+                    "x 64.65, rev 6 removes\nthe WHOLE run to the tower keep",
+                    xy=(70.0, -16.0), xytext=(40.5, -35), fontsize=7.5,
                     bbox=bx, arrowprops=ar, zorder=9)
 axes[0][0].annotate("seated yaw servo\n(hangs z −28→10.25)",
                     xy=(85.0, 5.0), xytext=(80, 30), fontsize=7.5,
@@ -115,14 +119,14 @@ axes[1][0].annotate("porch canopy skin (z≈8→10.25)\nover the floorless "
                     "harness corridor\n— FLATTENED",
                     xy=(57.0, 0.0), xytext=(40.5, 26), fontsize=7.5,
                     bbox=bx, arrowprops=ar, zorder=9)
-axes[0][1].annotate("cut box x 50→64.65, |y|≤20.5\n(splits the old 0.3 mm "
-                    "wall-to-servo gap)",
-                    xy=(64.65, -20.5), xytext=(40.5, -33), fontsize=7.5,
+axes[0][1].annotate("cut box x 50→100, |y|≤20.5,\nMINUS the tower keep "
+                    "circle\n(r 21.95 about the yaw axis)",
+                    xy=(70.0, -20.5), xytext=(40.5, -35), fontsize=7.5,
                     bbox=bx, zorder=9,
                     arrowprops=dict(arrowstyle="->", color="#c03030", lw=1.1))
-axes[1][1].annotate("deck plateau + side walls\noutboard of the cut: KEPT\n"
-                    "(still register the servo)",
-                    xy=(72.0, 16.0), xytext=(42, 28), fontsize=7.5,
+axes[1][1].annotate("shell INSIDE the keep circle: KEPT\n(well-mouth collar + "
+                    "pocket floor —\ncarries the 6805 seat's inboard arc)",
+                    xy=(85.0, 15.0), xytext=(40, 28), fontsize=7.5,
                     bbox=dict(boxstyle="round,pad=0.25", fc="#e2f0e2",
                               ec="#2c8a2c"), zorder=9,
                     arrowprops=dict(arrowstyle="->", color="#2c8a2c", lw=1.2))
@@ -134,9 +138,9 @@ axes[1][1].annotate("retainer plate pilots (green):\nin-sheet z −2..1, "
                               ec="#2c8a2c"), zorder=9,
                     arrowprops=dict(arrowstyle="->", color="#2c8a2c", lw=1.2))
 
-fig.suptitle("rigid_hip rev 5: the wire-corridor bumps on the chassis plate "
-             "top are FLATTENED (user decision) — leg-0 corridor, "
-             "before (production) vs after (chassis_bottom_rigid)",
+fig.suptitle("rigid_hip rev 5+6: wire-corridor bumps AND the cradle-shell "
+             "walls/roof are FLATTENED to the tower keep (user decision) — "
+             "leg-0, before (production) vs after (chassis_bottom_rigid)",
              fontsize=12, fontweight="bold")
 fig.tight_layout(rect=(0, 0, 1, 0.96))
 fig.savefig(OUT, bbox_inches="tight")
