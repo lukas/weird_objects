@@ -182102,7 +182102,8 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-dose5x since 2026-08-25T09:20:18"
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdload1min-ent4",
@@ -182392,7 +182393,7 @@
       "reward.hold_load_floor=0.3"
     ],
     "created": "2026-08-25T08:50:35+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -182442,7 +182443,8 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-25T09:10:06"
+    "triage": "done",
+    "verdict": "Result: FAIL -- floor 0.3 seed 1: same cold belly-rest as f01-s1 (all six feet aloft ~40-70mm, duty <=0.12, cur_p95 0.52A, zero terminations, valid_plant 0/12, ret -752/-921 vs honest +1472). Completes the 2x2 grid: 0/48 across floors and seeds, basins split by SEED (seed0 hot OC rear-up, seed1 cold belly-rest) -- income micro-structure (min vs product, floor dose) is exonerated as the lever. See f01 verdict for synthesis; the noise/exploration axis (-dr0/-ent4 siblings) is the live lever."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdprod-f01-s1",
@@ -182530,7 +182532,7 @@
       "reward.hold_load_floor=0.1"
     ],
     "created": "2026-08-25T08:52:44+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -182580,7 +182582,8 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-25T09:10:06"
+    "triage": "done",
+    "verdict": "Result: FAIL -- seed 1 under the product/floor-0.1 gate finds the cold BELLY-REST basin: video shows it start planted, then fold all six legs UP and park belly-down for the whole episode. Evidence: DR-0 gate 0/12 ok with ZERO terminations (survives 15s), all-leg duty 0.01-0.14, end_clear ~40mm on all six feet, cur_p95 0.52-0.54A, valid_plant 0/12, ret ~-777/-918 vs honest +1472; same basin as the min-variant s1 twin. Why: 'do nothing safely on the belly' dominates when the paid plant+still income is unreachable through exploration noise (policy std ~1.05 makes planted stillness unearnable during rollouts) -- pricing/gradient shape can't fix that. See f01 verdict for the 4-arm grid synthesis (basin splits by seed, not floor). Next: noise axis (-dr0/-ent4 siblings) decides; combo arms pre-registered only after those read."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdprod-f01",
@@ -182711,7 +182714,7 @@
         "log_tail": "_mm -2.46656\nwandb:     env/height_ref_mm 1.65697\nwandb:  env/hold_feet_factor 0.02191\nwandb:  env/hold_load_factor 0.0226\nwandb: env/hold_still_factor 0.8135\nwandb:     env/max_current_a 1.89596\nwandb:    env/mean_current_a 0.44562\nwandb:                   +80 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-holdprod-f01 at: https://wandb.ai/l2k2/hexapod-balance/runs/c5i5ktyj\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_085612-c5i5ktyj/logs\n"
       }
     ],
-    "verdict": "Result: FAIL -- per-foot graded income (product-over-feet load gate, floor 0.1, seed 0) does NOT keep the scratch policy in the six-foot plant basin. Evidence: hold panel 0/12 survive (DR-0 det 6/6 + sto 6/6 ALL over_current; own-DR 0.2 identically 0/12), video shows the run's signature basin -- starts at the paid plant, rocks back and waves front legs aloft (rear-up, holdload1min-seed0's shape) until OC termination; W&B env/hold_feet_factor starts 0.95 at 65k (policy IS in the paying basin), collapses to 0.018 by 786k and never recovers past 0.13; training reward monotonically worse every quarter (-102.6/-407.6/-645.6/-763.8). Why: the product gradient gives a per-foot income path BACK to the plant, but PPO still walks OUT of the basin early and the gradient is too weak against the discovered rear-up local optimum -- an exploration/optimization failure like the min-gate arms, not pricing (honest plant still prices 1471.6/ep in the bank). Not an 08-21 continue case: reward falling AND behavior regressing. Next: per the pre-registered FAIL branch, floor-0.1/seed-0 closes its cell; the f01-s1/f03/f03-s1 siblings (all just finished, other cycles' triage) complete the both-floors closure, and the noise-axis arms (-dr0 already FAIL, -ent4 pending) plus any pre-registered combo/pose-anchor mechanism carry the hold question."
+    "verdict": "Result: FAIL -- per-foot graded income (product gate, floor 0.1) does NOT rescue seed 0; it reproduces holdload1min's rear-up/OC-lock basin almost exactly. Evidence: DR-0 gate 0/12 (12/12 over_current, det duty [0.04,1.0,0.62,0.29,0.44,0.44], 3-4 feet aloft, valid_plant 0/12, sto cur_p95 up to 2.63A); reward trajectory near-identical to the min-variant twin (-103/-408/-646/-764 vs -102/-406/-626/-691). Why: gradient shape between feet was not the binding constraint for this seed -- the policy leaves the paid plant basin early and fights gravity at the current ceiling regardless of how partial recovery is priced. Grid read (4 arms, 2 floors x 2 seeds, all 0/48): failure basin splits by SEED not by floor (seed0=OC rear-up, seed1=cold belly-rest), so income micro-structure is exonerated; the live axis is exploration noise vs the still/plant requirements (sibling -dr0/-ent4 arms). What's next (pre-registered): product-gradient lever CLOSED at both floors; defer to -dr0/-ent4; any combo arm gets pre-registered first."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdprod-f03",
@@ -182902,7 +182905,7 @@
       "reward.hold_load_floor=0.3"
     ],
     "created": "2026-08-25T08:58:23+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -182952,6 +182955,8 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Result: FAIL -- floor 0.3 (seed 0) lands in a belly-rest-with-flag-leg hybrid: one foot planted (duty 1.0), the rest aloft (one leg jutting 147-198mm up), zero terminations but zero plant. Evidence: DR-0 gate 0/12 ok, valid_plant 0/12, det cur_p95 1.19 / sto 2.01A, ret -754/-1259 vs honest +1472. Why: raising the floor to 0.3 only cheapens partial stances further; the policy still never earns plant+still income through exploration noise. See f01 verdict for the 4-arm grid synthesis (basin splits by seed, not floor; product-gradient lever CLOSED). Next: -dr0/-ent4 noise-axis siblings decide."
   }
 ]

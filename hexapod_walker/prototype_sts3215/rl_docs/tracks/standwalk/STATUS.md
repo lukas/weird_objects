@@ -1,6 +1,65 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~09:1x (**rung-4 product-gradient wave, first
+Last updated: 2026-08-25 ~09:3x (**PRODUCT CLOSURE COMPLETE: the
+remaining three product-gradient cells `holdprod-f01-s1`/`-f03`/
+`-f03-s1` all VERDICTED FAIL — the 2x2 grid (floor 0.1/0.3 x seed 0/1)
+is 4/4 dead, and with load-min 5/5 dead plus the noise pair (-dr0,
+-ent4) dead, EVERY income-shaping and optimizer-side lever for the
+hold rung is now closed. Rung-5 (mechanism branch) is unblocked.**
+Plain English: paying each returning foot its own graded income
+(product gate) doesn't work at either floor or seed — PPO still walks
+out of the six-foot plant it starts in and settles into a quiet freeze
+it never leaves. The three new reads: f01-s1 = belly-flop freeze
+(h_err 70 mm, all feet ~40 mm clear, cur_p95 0.53 A, ZERO
+terminations, 0/24 valid both DRs); f03-s1 = same belly freeze; f03 =
+a flag-leg belly-freeze variant (one leg pinned duty 1.0 /
+end_clear -0.3 mm, one waved aloft 150-200 mm, cur_p95 1.2-2.0 A,
+sto rides above soft-current for up to 12 s — and still never
+terminates). MECHANISM TRACE, identical in all four cells:
+`env/hold_feet_factor` starts 0.96-0.97 at 65k (the policy IS in the
+paying basin) and collapses below 0.15 by ~200k (f01: by 786k);
+post-1M max never exceeds 0.23; reward monotone-worse all run — not
+08-21 continue cases. JOINT READ (pre-registered): income gradient
+shape (min vs product, floor 0.1 vs 0.3) and exploration noise (DR-0,
+4x entropy) are ALL insufficient because every failure basin is
+QUIET — zero terminations, low current — so out-of-basin data
+dominates after ~0.2-0.8M steps and nothing ever prices or resets
+the excursion. Rung-5 per the ent4/f01 pre-registrations: hold-mode
+EARLY TERMINATION on sustained basin exit (h_err/plant loss sustained
+-> priced termination, episodes reset back into the paying basin),
+semantics-bank proof BEFORE launch. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_holdprod_{f01_s1,f03,f03_s1}_{gate,owncfg}/`,
+W&B `n02jq4xp`/`4qcs74q2`/`0oy291ud`.)
+
+Previous entry: 2026-08-25 ~09:2x (**noise axis CLOSED: `holdload1min-ent4`
+VERDICTED FAIL — 4x entropy does not rescue the load-min recipe, and
+with the dr0 sibling's FAIL the rung-4 optimization pair is jointly
+dead. Load-min income gate now 5/5 arms dead across 4 distinct
+basins.** Plain English: ent4 bet that the belly-flop freeze was
+premature variance collapse; the lever mechanically fired (train/std
+held at 1.68 the whole run vs ~0.4 typical collapse) yet the policy
+still dropped from its planted start onto its belly by t~2s and froze
+— 0/24 valid hold (DR-0 + own-DR 0.2, det+sto), zero terminations,
+h_err ~70 mm every episode, hold_load_factor pinned at the 0.1 min
+floor, reward declining -99 -> -708 (not an 08-21 continue case).
+KEY READ: sustained random action noise never re-plants six feet
+simultaneously, so min-over-feet income sits at its floor with no
+gradient home — same lesson as the product-f01 trace (in-basin at
+65k, out by 786k, never returns). Joint pre-registered read
+(dr0 FAIL tilt-topple + ent4 FAIL belly-freeze): optimizer-side
+levers (noise up, noise down) are BOTH closed; rung-5 is the
+hold-curriculum / pose-anchor MECHANISM branch, bank work first.
+The strongest bank-work candidate named by this evidence: hold-mode
+early termination on basin exit (h_err/plant loss sustained -> priced
+termination + reset back into the paying basin), because every failure
+basin SURVIVES quietly today (belly-freeze: 0 terms, cur 0.5 A) and
+episodes spend ~all data out-of-basin after the first 0.7M steps.
+No rung-5 launch until the product closure (f01-s1/f03/f03-s1, other
+cycles' reads) is in, per the f01 pre-registration. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdload1min_ent4_{gate,owncfg}/`,
+W&B `39kxul3i`.)
+
+Previous entry: 2026-08-25 ~09:1x (**rung-4 product-gradient wave, first
 cell read: `cw-standwalk-stance-mesh2-holdprod-f01` (floor 0.1, seed 0)
 VERDICTED FAIL — the per-foot product income gradient does NOT hold the
 scratch policy in the plant basin either.** Plain English: this arm

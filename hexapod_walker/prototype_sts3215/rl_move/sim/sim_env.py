@@ -2942,6 +2942,41 @@ class SimHexapodBalanceEnv(_GymBase):
             status.ok = False
             status.terminate = True
             status.reason = "walk_low_height"
+        # HOLD-mode collapse termination (2026-08-25, standwalk mesh2
+        # rung-5 — the walk_low_height twin for hold episodes). The
+        # mesh-family hold-from-scratch waves (holdload1min seed0/s1/
+        # warm/dr0/ent4, holdprod-f01) all leave the PAYING plant start
+        # within ~0.7M steps, and the one basin that never terminates —
+        # the belly-flop freeze (h_rel ~-70 mm, 0 terminations, cur_p95
+        # 0.5 A, 12/12 "survive") — quietly absorbs the policy for the
+        # rest of training: income shapes (min AND product over feet)
+        # have no gradient from belly back to plant, and neither 4x
+        # entropy (ent4: std held 1.68, still flops) nor DR-0 evicts
+        # it. Op ruling 08-24 (walk_idle_terminate block above):
+        # "absorbing states beat prices; must come WITH a termination,
+        # never instead of one." Terminating the basin exit (a) prices
+        # it via safety_termination_penalty + term_cost_per_remaining_s
+        # like every real fall, and (b) resets the env back INTO the
+        # paying basin, so time-in-basin becomes the dominant, MONOTONE
+        # return axis (each planted second strictly out-earns flopping
+        # one tick sooner — see the HOLD_BASIN_TERM semantics bank).
+        # Tilt/OC already terminate the rear-up and topple basins; this
+        # catches the level-bellied survivor tilt cannot see, exactly
+        # like walk_low_height for the seated scoot. Default 0.0 = off,
+        # bit-exact for every existing task/config.
+        hold_max_drop_mm = float(cfg_get(
+            self.cfg, "safety", "hold_max_height_drop_mm", default=0.0))
+        hold_height_grace_s = float(cfg_get(
+            self.cfg, "safety", "hold_height_grace_s", default=0.0))
+        if (not terminated and hold_max_drop_mm > 0.0
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "hold"
+                and self._step_i * self.dt >= hold_height_grace_s
+                and h_rel < -hold_max_drop_mm * 0.001):
+            terminated = True
+            status.ok = False
+            status.terminate = True
+            status.reason = "hold_low_height"
         # Sustained-idle termination (2026-08-24, walkcurr park_duty-
         # class closure dig-in): every anti-park PRICE tried so far
         # (idle charge, park_duty, up to bank-legal 1.5x dose) left a

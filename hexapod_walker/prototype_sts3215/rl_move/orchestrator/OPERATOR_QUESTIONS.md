@@ -2732,3 +2732,14 @@ rl_move/tests/test_task_semantics.py -q` (~25 min).
 status: informational/escalating — no operator input needed (code-
 quality/test-debt, not a values question), flagged DIG-IN for whoever
 takes the fix.
+
+## 2026-08-25 ~09:4x — watcher double-assigned the holdprod triage (observation, no answer needed)
+The 09:05-09:30 window had TWO cycles independently triaging and
+verdicting `cw-standwalk-stance-mesh2-holdprod-{f01-s1,f03,f03-s1}`
+(interleaved `ops.sh verdict` calls at 09:27-09:28; both sets of
+loglines in RL_LOG.md, last-writer-wins in the ledger). No factual
+conflict — both cycles read the same basins (belly-rest freeze x2 +
+flag-leg hybrid, feet_factor exit <260k, 4/4 product-grid FAIL) — but
+the "This cycle" ownership fences did not prevent the duplicate work.
+Assume-and-go: treating last-written verdicts as canonical; flagging
+so the watcher's assignment dedupe can be checked.

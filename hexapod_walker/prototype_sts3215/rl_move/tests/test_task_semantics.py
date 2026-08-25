@@ -2925,6 +2925,175 @@ def test_hold_load_min_keeps_quiet_stand_pay(hold_load_min_bank):
 
 
 # --------------------------------------------------------------------------
+# HOLD bank, BASIN-EXIT TERMINATION variant
+# (safety.hold_max_height_drop_mm — standwalk mesh2 rung-5, 08-25).
+#
+# The failure this bank pins (holdload1min seed0/s1/warm/dr0/ent4 +
+# holdprod-f01, 08-25): every mesh hold-from-scratch arm STARTS at the
+# paying six-foot plant and PPO walks out within ~0.7M steps; the one
+# basin that never terminates — the BELLY-FLOP FREEZE (body drops
+# level onto the belly, h_rel ~-70 mm, feet aloft, zero terminations,
+# cur_p95 0.5 A, "survives" 12/12) — then absorbs the policy for the
+# rest of training. Income shape is NOT the lever: min-over-feet pays
+# flat floor scraps from the belly (no cross-foot gradient home) and
+# the product path (f01) loses the basin the same way; 4x entropy
+# (ent4, std pinned 1.68) and DR-0 don't evict it either. Op ruling
+# 08-24: "absorbing states beat prices; must come WITH a termination,
+# never instead of one." The lever terminates hold episodes whose
+# chassis drops > hold_max_height_drop_mm below the settled plant
+# (reason hold_low_height, priced like every real fall via
+# safety_termination_penalty + term_cost_per_remaining_s), so resets
+# put the policy back INTO the paying basin and time-in-basin becomes
+# the dominant MONOTONE return axis.
+#
+# These tests pin (a) default-off is bit-exact, (b) the launch stack
+# really is blind to the scripted flop without it (documents the
+# loophole), (c) the flag terminates the flop with the right reason
+# while never touching the honest quiet stand, and (d) the core
+# gradient claim: return is strictly increasing in time-in-basin
+# (flop later = earn strictly more), the slope the income shapes alone
+# provably lack. NOTE the lever does NOT need to make the flop pay
+# MORE than the un-terminated freeze paid — bounding the flop's cost
+# while restoring the slope is the mechanism.
+
+HOLD_BASIN_TERM_STACK = dict(HOLD_LOAD_MIN_OVERRIDES)
+HOLD_BASIN_TERM_STACK.update({
+    # the holdload1min-family pricing that rides along at launch
+    ("reward", "k_current_hot"): 1.0,
+    ("reward", "current_hot_a"): 2.0,
+    ("reward", "term_cost_per_remaining_s"): 3.0,
+    ("reward", "term_cost_max"): 60.0,
+})
+HOLD_BASIN_TERM_ON = dict(HOLD_BASIN_TERM_STACK)
+HOLD_BASIN_TERM_ON.update({
+    ("safety", "hold_max_height_drop_mm"): 40.0,
+    ("safety", "hold_height_grace_s"): 1.0,
+})
+FLOP_LIFT_DEG = 50.0     # all six hips up -> level drop onto the belly
+
+
+def _hold_flop_rollout(t_flop_s: float, seed: int, overrides) -> dict:
+    """Hold the plant quietly until t_flop_s, then command all six
+    hips up: the body drops LEVEL onto the belly with the feet aloft —
+    the scripted twin of the s1/ent4 belly-flop freeze (no tilt to
+    trip, no current to draw). t_flop_s = None never flops (= quiet).
+    """
+    env = _make_hold_env(seed, overrides)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    q_flop = q0.copy()
+    for leg in range(6):
+        q_flop[3 * leg + 1] -= FLOP_LIFT_DEG * DEG2RAD
+    total, step = 0.0, 0
+    terminated, reason = False, None
+    while True:
+        t = step * env.dt
+        act = q_rad_to_action(
+            q_flop if (t_flop_s is not None and t >= t_flop_s) else q0)
+        _obs, r, term, trunc, info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            terminated = term
+            reason = info.get("termination_reason")
+            break
+    end_h_mm = (float(env.data.xpos[env._chassis_bid, 2])
+                - env._z0) * 1000.0
+    env.close()
+    return {"ret": total, "terminated": terminated, "reason": reason,
+            "end_h_mm": end_h_mm, "end_t_s": step * env.dt}
+
+
+FLOP_TIMES = (1.5, 6.0, 11.0)
+
+
+@pytest.fixture(scope="module")
+def hold_basin_term_bank() -> dict[str, dict]:
+    return {
+        "off_quiet": [_hold_flop_rollout(None, s, HOLD_BASIN_TERM_STACK)
+                      for s in SEEDS],
+        "off_flop": [_hold_flop_rollout(FLOP_TIMES[0], s,
+                                        HOLD_BASIN_TERM_STACK)
+                     for s in SEEDS],
+        "on_quiet": [_hold_flop_rollout(None, s, HOLD_BASIN_TERM_ON)
+                     for s in SEEDS],
+        "on_flop": {t: [_hold_flop_rollout(t, s, HOLD_BASIN_TERM_ON)
+                        for s in SEEDS] for t in FLOP_TIMES},
+    }
+
+
+def test_hold_basin_term_default_off_bit_exact():
+    """hold_max_height_drop_mm=0 must reproduce the no-key path
+    EXACTLY (same seed, same flop rollout) — default-off, bit-exact."""
+    zero = dict(HOLD_BASIN_TERM_STACK)
+    zero[("safety", "hold_max_height_drop_mm")] = 0.0
+    zero[("safety", "hold_height_grace_s")] = 1.0
+    a = _hold_flop_rollout(FLOP_TIMES[0], SEEDS[0],
+                           HOLD_BASIN_TERM_STACK)
+    b = _hold_flop_rollout(FLOP_TIMES[0], SEEDS[0], zero)
+    assert a["ret"] == b["ret"] and a["terminated"] == b["terminated"], (
+        f"hold_max_height_drop_mm=0 changed the path "
+        f"({a['ret']} vs {b['ret']})")
+
+
+def test_hold_basin_term_stack_is_blind_without_it(hold_basin_term_bank):
+    """Documents the loophole: under the full holdload launch stack the
+    early belly-flop must SURVIVE to truncation, level on its belly —
+    the exact 12/12-survive, zero-termination signature s1/ent4
+    trained into. If this fails, the basin terminates some other way
+    and the lever needs re-justification."""
+    for r in hold_basin_term_bank["off_flop"]:
+        assert not r["terminated"], (
+            f"scripted flop already terminates ({r['reason']}) without "
+            f"the lever — not the observed absorbing basin")
+        assert r["end_h_mm"] < -40.0, (
+            f"scripted flop ends at {r['end_h_mm']:.0f} mm — never "
+            f"reached the belly, script broken")
+
+
+def test_hold_basin_term_terminates_the_flop(hold_basin_term_bank):
+    """The lever: every flop must end with reason hold_low_height,
+    within a few seconds of the flop command (grace 1 s + slew-limited
+    drop), never surviving to truncation."""
+    for t, rolls in hold_basin_term_bank["on_flop"].items():
+        for r in rolls:
+            assert r["terminated"] and r["reason"] == "hold_low_height", (
+                f"flop@{t}s not caught: terminated={r['terminated']} "
+                f"reason={r['reason']} end_h={r['end_h_mm']:.0f}mm")
+            assert r["end_t_s"] < t + 4.0, (
+                f"flop@{t}s took {r['end_t_s']:.1f}s to terminate — "
+                f"threshold too deep or grace logic wrong")
+
+
+def test_hold_basin_term_quiet_untaxed(hold_basin_term_bank):
+    """The honest quiet stand must be byte-identical with the flag on:
+    no termination, same return, same seed."""
+    for r_on, r_off in zip(hold_basin_term_bank["on_quiet"],
+                           hold_basin_term_bank["off_quiet"]):
+        assert not r_on["terminated"], (
+            f"quiet stand terminated ({r_on['reason']}) — threshold "
+            f"inside the honest hold's height band")
+        assert r_on["ret"] == r_off["ret"], (
+            f"flag taxes the quiet stand ({r_on['ret']:.1f} vs "
+            f"{r_off['ret']:.1f})")
+
+
+def test_hold_basin_term_restores_monotone_gradient(hold_basin_term_bank):
+    """The core claim: with basin exit terminated + priced, each
+    planted second strictly out-earns flopping sooner — quiet >
+    flop@11 > flop@6 > flop@1.5, gaps beyond noise. This is the slope
+    the min/product income shapes provably lack from the belly."""
+    q = _mean_ret(hold_basin_term_bank["on_quiet"])
+    rets = [_mean_ret(hold_basin_term_bank["on_flop"][t])
+            for t in FLOP_TIMES]           # early, mid, late
+    assert q > rets[2] + 10.0, (
+        f"quiet ({q:.0f}) does not beat the late flop ({rets[2]:.0f})")
+    assert rets[2] > rets[1] + 10.0 > rets[0] + 20.0, (
+        f"time-in-basin gradient not monotone: early/mid/late = "
+        f"{rets[0]:.0f}/{rets[1]:.0f}/{rets[2]:.0f}")
+
+
+# --------------------------------------------------------------------------
 # RISE-ROCK bank (dr.rise_rock_*, 08-11 hardware belly-curl rocking gap).
 #
 # Bench truth (bench_blast camera sessions, 08-11): the learned rise is
