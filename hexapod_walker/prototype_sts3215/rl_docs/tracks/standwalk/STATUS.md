@@ -1,6 +1,37 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~22:1x (**RISE, TUCK DIG-IN PAYS OFF —
+Last updated: 2026-08-25 ~22:2x (**STAND_HEIGHT rung-1 JOINT CALL:
+PROCEED — height-aware anchor proven cross-seed; rung-2 pair
+LAUNCHED.** This cycle verdicted `holdheight-rung1-hha1-s1` (seed 1):
+CANARY PASS - MECHANISM with a residual caveat — the anchor fix
+rescued this seed from the gross flag-leg cheat too (12/12 DR-0
+valid_plant, height_err_end 0.1–3.0mm, det Imax 0.62–0.94A, video
+level/planted/quiet, 6/12 episodes fully honest all-duty-1.0 holds)
+but NOT completely: 3/6 det + 3/6 sto still trip `hold_min_load` via
+a SUBTLE leg-5 load-lightening (duty dips only to 0.57–0.9, 4–30
+micro-swings, terminated episodes only; pre-fix was leg-2 duty
+0.23–0.70, 10/12 terms). Warning sign: reward rose all run
+(15.7/48.3/71.0/123.3) while `env/hold_load_factor` drifted DOWN late
+(0.99→0.89 at locked std 0.018) — the optimizer slowly re-buying
+partial unloading on this seed, so extending seed 1 is the wrong
+move (08-22: misaligned residual, not undertrained). REGISTERED
+JOINT PASS-RATE CALL (landed here): mechanism PROVEN cross-seed
+(seed 0 fully clean 0/12 terms; seed 1 cheat magnitude collapsed),
+strict zero-term criterion 1/2 → PROCEED up the ladder from the
+CLEAN checkpoint. Launched rung-2 canary pair (full `[-40,20]`mm
+range, hold+ramp, everything else identical, warm-start = rung-1
+seed-0 ckpt `ppo_goal_..._rung1_hha1.zip`, hha=1 stays recipe
+default): `cw-standwalk-stance-mesh2-holdheight-rung2-hha1`
+(train-2) / `-s1` (train-3), both VERIFIED RUNNING, 2M canary each,
+gate = rung-1 gate + no per-leg duty <0.9 + cur_max within rung-1
+seed-0's 0.66–1.03A band, judged as a joint pair. If EITHER seed
+reproduces min-load dips, the registered S-gate/min-load-pricing
+fallback fires (also covers rung-1 seed 1's residual). Own-DR
+hardening remains open on both rung-1 seeds (seed 0: 2/6 det trips
+at DR 0.2). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+holdheight_rung1_hha1_s1_{gate,owncfg}/`, W&B `gfksq1nx`.)
+
+Prior entry: 2026-08-25 ~22:1x (**RISE, TUCK DIG-IN PAYS OFF —
 `tuckclock1`/`-s1` CANARY PASS (mechanism-health; behavioral score
 PARTIAL). The flat-time-indexed BC-anchor clock breaks the total-
 freeze/press-up basin that killed the prior 5 anchor-plumbing arms.**
