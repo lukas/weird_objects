@@ -1,6 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~16:5x (**DECOUPLE GRID FULLY CLOSED —
+Last updated: 2026-08-25 ~16:5x (2 verdicts, both reinforcing rung-9:
+**anchordose10 CANARY FAIL - MECHANISM** — anchor coef 3.0→10.0 on
+the slowchain recipe is monotonically DOWN (DR-0 valid_plant 2/12 vs
+parent 5/12, over_current 9/12 vs 3/12, all pinned 2.64A;
+bc_anchor_loss_rise ends 0.100 vs the 0.05 plateau — harder
+supervision toward the infeasible flat posture just pins current
+harder; ep_rew quarters 8→-419 as the anchor penalty dominates).
+Dose10 can never be promoted regardless of anchordose6 (other cycle);
+if dose6 also fails to beat 5/12, the anchor-dose axis is CLOSED
+alongside pace/budget. **stancemix-bcchain3-slowchain FAIL** per its
+pre-registered bar — the half-pace lever does NOT fix rise in the
+3-mode mix, but hold/lower transfer perfectly: DR-0 hold det+sto
+12/12 zero terms (cur_p95<=0.87A), lower 12/12 honest descents
+(herr_end<=0.8mm), rise 2/12 with ALL 9 deep starts pinned 2.64A
+(own-DR: hold 11/12, lower 12/12, rise 0/12). KEY DIAGNOSTIC: in-mix
+bc_anchor_loss_rise fell to 0.027-0.035 — BELOW the ~0.05 riseonly
+plateau — and env/rise_score hit 0.56 (riseonly peak ~0.43), yet
+SCORE/raise_success stayed 0.0 for all 8M steps. Tracking capacity is
+not the bottleneck; the borrowed primitive-extracted reference is —
+the closed-loop twin of the rung-9 open-loop command-lag measurement
+below. No further mix funding until a rise recipe passes in isolation
+(meshref pair in flight); then re-run this exact mix. Evidence:
+logs/ckpt_eval/cw_standwalk_stance_mesh2_{riseonly_bcchain3_slowchain
+_anchordose10_gate,stancemix_bcchain3_slowchain_gate,stancemix_
+bcchain3_slowchain_owncfg}/, W&B yei41azm / kza9ep2s.)
+
+Prior entry: 2026-08-25 ~16:5x (**DECOUPLE GRID FULLY CLOSED —
 `-decouple-b` (0.125s lookahead + floor 15mm) landed almost exactly
 on the prior entry's pre-registered prediction, confirming the
 floor-vs-lookahead synthesis with all three arms now read.** DR-0
