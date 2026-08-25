@@ -1,0 +1,20 @@
+# cw-walk-posture-eff12-ds1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: REFUSED
+
+**created**: 2026-08-25T05:19:16+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 40000000
+
+**parent**: cw-walk-longdist-r2
+
+**hypothesis**: Make the walking champion stand tall and stop wasting hip torque by making effort itself expensive: price servo current (reward.k_walk_effort=1.2, operator-probed dose) AND the per-stance foot-drag stroke (audit-landed k_drag_stance=8000/6mm/0.25mm) TOGETHER at full 40M budget, warm off walk champion ppo_goal_cw_walk_longdist_r2 (operator kick, 08-24 load-probe session). Operator measurements: champion walks in a sprawled crouch ~40mm below plant stance; statically holding that crouch costs 1.1-1.5 N*m per stance hip vs 0.23 at plant pose (most hip torque is posture waste, not gravity); left hip-pitch servos rail the 2.2 N*m clamp on stance ticks. Why this is not a repeat of the two single-lever refutations (cw-walk-effort k=1.2 alone: charge paid, nothing moved; cw-walk-dragstance1 drag alone @2M: habit moat absorbed -2600/ep): the crouch is WHAT makes current expensive (~5x plant-pose hip torque), so the effort charge carries a posture gradient toward plant height the old income-gates lacked, and the drag charge closes the skate escape route the effort-only arm left open; 40M >> the 2M retrofit that failed. Probe baseline (probe_walk_posture_load, seed0 20s @0.055, landed this cycle): body z off -39.5mm vs anchor, stance hip tau p95 1.58 N*m, L/R asym 28.1%, L1 rails 2.45% of stance ticks. If-true: posture rises toward plant (z off >= -10mm), rails ~0, tau p95 <= 1.2, walk battery holds. If-false (paid): z off stays <= -30mm with charges booked -> combined pricing refuted on this lineage; posture fix moves to the BC-teacher / standwalk mesh-retrain route. If-false (starve): fwd collapses/parks -> dose too high; the eff24 sibling brackets the dose, no further k iteration. Strongest alternative: current drops via lighter/slower paddling without posture change - distinguished by the probe z/tau/slip trio. Legacy pins: primitive family, control.hz=25 + max_delta_q_deg=1.5 (parent slew contract).
+
+**gate**: Walk battery: DR0 det+sto 6/6 @30s median fwd >=1.2m, zero terminations, gait_valid 12/12, det slip/m <=1.24 (parent 0.96). Posture/load (probe_walk_posture_load seed0 20s @0.055 primitive): mean body z offset vs anchor >= -10mm (parent -39.5); hip clamp-rail duty ~0 pct at |qfrc_actuator|>2.15 (parent L1 2.45pct of stance); stance hip tau p95 <=1.2 N*m (parent 1.58); L/R stance-hip asym <20pct (parent 28.1).
+
+**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
+
