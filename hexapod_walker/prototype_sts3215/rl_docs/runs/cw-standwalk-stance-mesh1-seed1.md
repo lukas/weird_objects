@@ -4,9 +4,9 @@
 
 **status**: FAILED
 
-**created**: 2026-08-25T04:06:37+00:00
+**created**: 2026-08-25T04:18:21+00:00
 
-**pod**: hexapod-mjx-train-2
+**pod**: hexapod-mjx-train-0
 
 **steps**: 20000000
 

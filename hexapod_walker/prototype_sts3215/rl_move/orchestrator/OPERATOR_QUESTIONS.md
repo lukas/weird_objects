@@ -2518,3 +2518,36 @@ partial mean ~630) — see the standwalk stance-mesh1 launch stack for
 how it was priced out (k_current_hot), and the refuse<0 caveat there.
 status: partially resolved — rise-family fixed+verified; full-bank
 dig-in still open for the other ~48.
+
+## q_20260825T0430Z — OPEN (informational, assume-and-go record)
+- cycle: hist64-mesh-acq1 dig-in (08-25 ~03:4x-04:3x)
+- operator order: none — recording two assume-and-go decisions.
+- decision 1 (mesh over_current semantics): the dig-in measured that the
+  2.5 A safety trip is REACHABLE-BUT-TIGHT on the 3.50 kg mesh family
+  (teacher walk peaks 2.627 A, 29% of ticks above the line, but max
+  per-servo dwell 0.32 s < the 0.8 s sustained-trip window; primitive
+  never touches 2.5 A). I am NOT proposing raising the trip or the
+  1.2 A/Nm proxy: the trip's semantics (sustained torque saturation =
+  episode over) remain hardware-honest, and the real 3.5 kg robot walks
+  this teacher at 0.395 A total measured bus current. The repair path
+  is reward-side (survival must dominate die-rich; anti-sacrifice
+  walk_gait_gate; optionally price near-trip DWELL before termination).
+  A semantics-bank case encoding the die-rich exploit (policy that earns
+  fast then dies over_current must rank BELOW a slower survivor) is
+  spec work for the next mesh reward-mechanism arm — not built this
+  cycle.
+- decision 2 (orphaned bank rate fix): committed a concurrent cycle's
+  uncommitted-but-complete test_task_semantics.py `_ref_row` fix (bank
+  replayed 25 Hz rise refs 1-row-per-env-step = 4x too fast at hz=100;
+  fix mirrors the time-based training-side clock). Validated before
+  commit: rise/rock bank 12/13 pass with the fix; the 1 remaining fail
+  (test_trans_drag_honest_rise_keeps_full_pay) reproduces WITHOUT the
+  fix too (pre-existing, still part of the open 54-test regression).
+  Committed in cbadc81a because the dangling non-benign delta was
+  mechanically blocking ALL fleet launches.
+- what was executed: verdict on cw-arch-hist64-mesh-joyfullcurr13-v7-
+  hz100-acq1 (FAIL + root cause), gaitgate-scratch1 seed1/seed2
+  launched (train-5 / train-8-by-concurrent-cycle), legacy 64M /dev/shm
+  pods train-0/2/3/4 recreated with the dshm-4Gi manifest + bootstrap.
+- ANSWER (operator): (pending)
+- rulebook change: none yet.
