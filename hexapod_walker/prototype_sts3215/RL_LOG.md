@@ -674,3 +674,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 16:49 stancemix-slowchain FAIL: hold 12/12 + lower 12/12 clean but rise deep-starts still pinned 2.64A (2/12); anchor loss 0.027<plateau w/ raise_success 0 — ref infeasibility confirmed, meshref is the lever 
 - 08-25 16:59 meshref s0 CANARY PASS (PARTIAL branch): det 5/6 vs 3/6, deep starts unpinned 0.6-2.3A — mesh-native ref IS the lever; funding acq8m + fullpace redose 
 - 08-25 17:00 meshref s1 CANARY PASS (PARTIAL branch): det 5/6 replicated — joint 10/12 det, mesh-native ref lever is seed-robust 
+- 08-25 17:02 standwalk rung9: mesh-native rise ref CANARY PASS (PARTIAL-strong) — det 5/6 sto 4/6 vs 3/6+2/6, cur median 1.36A; flat-start tuck is the residue; promoting to 8M acquisition 
+- 08-25 17:02 standwalk rung9 s1: replicates seed-0 exactly — det 5/6 sto 4/6, cur median 1.19A, same flat-start residue; pair result solid 
