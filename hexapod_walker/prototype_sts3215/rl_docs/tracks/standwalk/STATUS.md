@@ -1,6 +1,40 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~19:2x (MECHANICAL NOTE, no science change:
+Last updated: 2026-08-25 ~19:4x (**TUCKEXEMPT0/-S1 JOINT PAIR CLOSED —
+CANARY FAIL - MECHANISM, cross-verified both seeds; anchor-floor-
+scoping axis is now FULLY CLOSED.** This cycle read+verdicted the
+seed-1 twin (`tuckexempt0-s1`): flat-pinned probe (det+sto n=6+6,
+DR-0, run this cycle) 0/12 valid_plant, all 12 duty_cycle=0.0 on all
+six legs (zero swings, Imax 0.53-0.54A) — byte-for-byte the same
+total-freeze signature as `tuckexempt0` (seed-0, verdicted by the
+concurrent cycle) and `tuckfloor0`/-s1 before it; standard DR-0 gate
+also 0/6 det + 0/6 sto + own-DR(0.2) 0/6+0/6, WORSE than the meshref
+parent's 5/6+4/6, triggering the gate's ALSO-FAIL clause too. MECHANISM
+(agreed independently by both cycles): `rise_ref_mesh_scripted.npz`'s
+own tuck segment holds height pinned at ~0mm for ~245 ticks, so the
+state-aligned lookahead target is ALSO ~0mm there — removing the
+height-floor (globally, `tuckfloor0`, or tuck-scoped,
+`tuckexempt`/`tuckexempt0`) leaves near-zero pursuit gradient through
+the tuck either way, so the policy settles into the reward-cheapest
+freeze instead of tucking. Anchor-floor plumbing (dose, scope, removal)
+is now fully refuted as a lever; the fix has to change WHAT the tuck
+segment targets. **Already in flight (uncommitted, same clone — do not
+duplicate):** `make_rise_ref_scripted.py` has a new `--tuck-rise-mm`
+lever (raises the chassis smoothly across the second half of the tuck
+so the reference's height profile is monotone, not flat) and a first
+mint `rise_ref_mesh_tuckrise15.npz` already exists on disk — this is
+the pre-registered next rung; whichever cycle is mid-flight on it owns
+landing+launching the canary, not a second parallel attempt. MECHANICAL
+NOTE: a benign double-verdict race also occurred on `tuckexempt0-s1` —
+the concurrent cycle wrote its own (agreeing) verdict ~19:46, this
+cycle's `ops.sh verdict` overwrote the ledger's single entry ~19:47
+with a fuller version citing the same evidence/conclusion; RL_LOG.md
+keeps both lines (append-only), no information lost, no re-verdict
+needed. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_
+bcchain3_meshref_tuckexempt0{,_s1}_{gate,owncfg,flatprobe_det,
+flatprobe_sto}/`, W&B `46px3v47` / `zigatklw`.)
+
+Prior entry: 2026-08-25 ~19:2x (MECHANICAL NOTE, no science change:
 this cycle's assigned triage target, `...-meshref-tuckfloor0`, was
 already fully verdicted (CANARY FAIL - MECHANISM, see the 19:0x entry
 below) and its fix already coded/tested/snapshotted by the time this
@@ -1511,6 +1545,54 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**RISE, 08-25 ~19:5x — tuckexempt-i0 (seed 0) CANARY FAIL-MECHANISM;
+ref-content option then REFUTED BY CONSTRUCTION PROBE (no GPU spent);
+next lever = anchor progress-metric code (dig-in flagged).**
+`tuckexempt-i0` (phase-gated floor exemption, floor OFF only while the
+state-aligned match is inside the ref's tuck segment) reproduced
+tuckfloor0's FULL collapse: flat-pinned probe 0/12 with the duty=0
+snap-fold freeze (0.52A, h_err 79-87mm, zero tuck motion on strips),
+standard DR-0 gate 0/12 (parent meshref 5/6+4/6) with deep starts
+either twitching or pressing into tilt/over_current, own-DR
+replicates. ROOT CAUSE: the exemption keys on the matched ref INDEX,
+but bridge/crouch/rsi low states also state-align into the
+height-flat tuck segment, so they lost the floor too — and floor-less
+pursuit targets there are near-stationary (half-pace tuck), making
+freeze anchor-optimal. Joint pair close on `-i0-s1`'s cycle
+(concurrent `tuckexempt0/-s1` pair is the same idea from the
+triage-overlap race). THEN, per the pre-registered FAIL branch
+(ref-content edit), built `--tuck-rise-mm` into
+`make_rise_ref_scripted.py` (default 0 = bit-exact, verified) and ran
+three controlled CPU mints: (1) rise ramp in tuck 2nd half FIGHTS the
+sinusoidal swing lift (feet in air can't lift the body) — achieved h
+flat until press; (2) sweep-split fix (sweep done by 0.6·tuck, then
+20mm planted-feet rise) — absorbed silently at 0.53A, zero lift:
+~25-30mm commanded-excursion compliance dead-band before liftoff;
+(3) 45mm dose — achieved h at tuck end still 0.2mm; achieved height
+lags commanded excursion by ~1.5s and ALWAYS lands in the press
+(evidence ref: `rise_ref_mesh_tuckrise45.npz`, ramp_i0_ach 258 vs
+tuck end 250, first 8mm at t=5.5s). CONCLUSION: on the 3.5kg mesh
+model no feasible tuck content places ACHIEVED-height progress inside
+the tuck, so the achieved-height-keyed floor (min_h_ahead_mm) can
+never track through it — ref-content editing is refuted as the lever,
+and the mid-tuck curriculum option is pre-refuted too (rsi already
+samples tuck ticks uniformly, j∈[0, i0+0.9(n-1-i0)), and exactly
+those rsi starts press-pin in the parent). SURVIVING DESIGN: change
+the anchor floor's PROGRESS METRIC to script progress — target tick
+= max(matched_j + min_ticks_ahead, height-floor tick) or key the
+floor on COMMANDED height (needs a new npz key) — i.e. the floor
+should measure progress along the script, not achieved height; a
+large index-ahead (~1.0-1.5s, vs the 0.25s lookahead that froze)
+keeps the anti-freeze property without requiring height. That is
+bc_anchor hot-path code + test_bc_anchor bank rows + a 2-seed canary:
+DIG-IN flagged for the deep cycle rather than rushed here. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckexempt_i0_{gate,owncfg,flatprobe_det,flatprobe_sto}/`,
+W&B j9k3h490. (MCP fb_20260825T191814_a38da6 corroborates: the
+flat-start defect reproduces on the true full-STL mesh, not just the
+MJX twin.)
+
+Prior entry:
+
 **RISE, 08-25 ~17:4x — rung-9 8M seed-0 TWINS read: budget lever is
 likely NULL (within same-seed noise of the 2M canary); targeted
 flat-mix canary LAUNCHED.** `meshref-acq8m` PARTIAL by its gate
@@ -1687,6 +1769,13 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
    keep funding the full-mix curriculum until stage-1 passes the old
    hard1-style gates + current/DR/session gates. Encoded in
    CURRENT_TRUTHS "STANDWALK CANONICAL STANCE RECIPE".
+0.5 UPDATE 08-25 ~19:5x: the "edit the flat segment of the existing
+   ref" option below is now REFUTED (see Now entry: achieved height
+   physically cannot appear inside the tuck on the mesh model; three
+   controlled mints). The runnable next item is the anchor
+   progress-metric redesign (script-index / commanded-height keyed
+   floor) — bc_anchor code + bank rows + 2-seed canary, dig-in
+   flagged.
 0.5 RUNG-9 (08-25 ~16:1x, unfunded, real code): rung-8's rise
    BC-anchor-chain pace/budget dose grid is now FULLY EXHAUSTED (7
    arms: stdanneal/cont8/reanneal/slowchain/quarterchain/eighthchain/

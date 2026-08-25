@@ -89,8 +89,28 @@ def _leg_from_rz(r: float, z: float):
 
 def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
                  tuck_s: float, press_s: float, hold_s: float,
-                 tuck_lift_mm: float) -> tuple[np.ndarray, int]:
-    """Return (commanded q_rad (T,18), ramp_i0 = press start tick)."""
+                 tuck_lift_mm: float,
+                 tuck_rise_mm: float = 0.0) -> tuple[np.ndarray, int]:
+    """Return (commanded q_rad (T,18), ramp_i0 = press start tick).
+
+    tuck_rise_mm (default 0 = bit-exact legacy script): raise the
+    chassis by this much across the SECOND HALF of the tuck (smooth
+    ramp, feet pushed below the belly-rest line as they arrive near
+    the plant footprint), so the reference's height profile is
+    monotone through the tuck instead of dead-flat. WHY (rung-9
+    tuckfloor0/tuckexempt-i0 refutations, 08-25): the BC anchor's
+    height floor (min_h_ahead_mm=8, proven anti-freeze) can only
+    measure progress by ref HEIGHT, so a height-flat tuck is skipped
+    entirely (press-from-sprawl supervision from every low state)
+    while removing the floor freezes the policy (near-stationary
+    pursuit targets). Giving the tuck itself a small monotone height
+    gain lets the UNCHANGED floor walk targets through the tuck:
+    from flat sprawl the first tick >=8mm above is now a mid-tuck
+    pose (feet mostly swept), not a press pose. The lift only starts
+    at 50% tuck progress, where feet are near the plant footprint
+    and the lever arms make a small press cheap; the acceptance
+    replay's current bar still gates the result.
+    """
     n_tuck = max(1, int(round(tuck_s / dt)))
     n_press = max(1, int(round(press_s / dt)))
     n_hold = max(1, int(round(hold_s / dt)))
@@ -99,6 +119,7 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
     # Tuck endpoint: plant footprint reach at the START (belly) foot
     # height, so phase B is a pure vertical press from a resting tuck.
     q_crouch = q_start.copy()
+    z_crouch = [0.0] * 6           # per-leg BELLY-LEVEL crouch foot z
     for leg in range(6):
         r_p, _ = rz_plant[leg]
         _, z_s = rz_start[leg]
@@ -106,6 +127,7 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
         for dz in (0.0, 0.005, 0.010, 0.015, -0.005):
             sol = _leg_from_rz(r_p, z_s + dz)
             if sol is not None:
+                z_crouch[leg] = z_s + dz
                 break
         if sol is None:
             raise SystemExit(f"[make_rise_ref_scripted] tuck IK failed "
@@ -113,18 +135,53 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
         q_crouch[3 * leg + 0] = q_plant[3 * leg + 0]   # coxa at plant yaw
         q_crouch[3 * leg + 1] = sol[0]
         q_crouch[3 * leg + 2] = sol[1]
+    rise_m = tuck_rise_mm * 1e-3
+    q_crouch_belly = q_crouch.copy()   # belly-level crouch (legacy pose)
+    if rise_m > 0.0:
+        # Raised crouch: same plant-footprint reach, chassis up by
+        # tuck_rise_mm (foot z LOWER relative to the hip). This is the
+        # press-phase start, so phase B shortens by the same distance.
+        for leg in range(6):
+            r_p, _ = rz_plant[leg]
+            sol = None
+            for dz in (0.0, -0.003, 0.003, -0.006, 0.006):
+                sol = _leg_from_rz(r_p, z_crouch[leg] - rise_m + dz)
+                if sol is not None:
+                    break
+            if sol is None:
+                raise SystemExit(
+                    f"[make_rise_ref_scripted] raised-tuck IK failed "
+                    f"for leg {leg}: r={r_p:.3f} "
+                    f"z={z_crouch[leg] - rise_m:.3f}")
+            q_crouch[3 * leg + 1] = sol[0]
+            q_crouch[3 * leg + 2] = sol[1]
     qs = []
     lift = tuck_lift_mm * 1e-3
+    # With a chassis rise the tuck splits: feet SWEEP (with the
+    # sinusoidal swing lift) only through the first sweep_frac of the
+    # tuck, then stay planted at the footprint while the chassis
+    # rises smoothly 0 -> rise_m. Without this split the swing lift
+    # and the rise fight each other in the same ticks (feet in the
+    # air cannot lift the body) and the ACHIEVED height stays flat
+    # until the press — measured on the first tuckrise mint 08-25.
+    sweep_frac = 0.6 if rise_m > 0.0 else 1.0
     for k in range(n_tuck):
         s = (k + 1) / n_tuck
+        sw = min(s / sweep_frac, 1.0)      # sweep progress (== s legacy)
+        if rise_m > 0.0 and s > sweep_frac:
+            t = (s - sweep_frac) / (1.0 - sweep_frac)
+            rise_k = rise_m * (3.0 * t * t - 2.0 * t * t * t)
+        else:
+            rise_k = 0.0
         q_k = q_start.copy()
         for leg in range(6):
             r_s, z_s = rz_start[leg]
             r_p, _ = rz_plant[leg]
-            r_k = (1.0 - s) * r_s + s * r_p
-            z_k = ((1.0 - s) * z_s
-                   + s * _foot_rz(q_crouch, leg)[1]
-                   + lift * math.sin(math.pi * s))
+            r_k = (1.0 - sw) * r_s + sw * r_p
+            z_k = ((1.0 - sw) * z_s
+                   + sw * _foot_rz(q_crouch_belly, leg)[1]
+                   + lift * math.sin(math.pi * sw)
+                   - rise_k)
             sol = _leg_from_rz(r_k, z_k)
             if sol is None:          # keep previous tick's leg pose
                 q_prev = qs[-1] if qs else q_start
@@ -132,8 +189,8 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
                 q_k[3 * leg + 2] = q_prev[3 * leg + 2]
             else:
                 q_k[3 * leg + 1], q_k[3 * leg + 2] = sol
-            q_k[3 * leg + 0] = ((1.0 - s) * q_start[3 * leg + 0]
-                                + s * q_plant[3 * leg + 0])
+            q_k[3 * leg + 0] = ((1.0 - sw) * q_start[3 * leg + 0]
+                                + sw * q_plant[3 * leg + 0])
         qs.append(q_k)
     ramp_i0 = len(qs)
     for k in range(n_press):
@@ -158,6 +215,14 @@ def main() -> None:
     ap.add_argument("--press-s", type=float, default=5.0)
     ap.add_argument("--hold-s", type=float, default=2.5)
     ap.add_argument("--tuck-lift-mm", type=float, default=12.0)
+    ap.add_argument("--tuck-rise-mm", type=float, default=0.0,
+                    help="raise the chassis by this much across the "
+                         "second half of the tuck (0 = legacy "
+                         "bit-exact height-flat tuck); makes the ref "
+                         "height profile monotone through the tuck so "
+                         "the BC anchor's min_h_ahead floor can track "
+                         "targets THROUGH it instead of skipping to "
+                         "the press (rung-9 tuckexempt-i0 root cause)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--min-rise-mm", type=float, default=70.0,
                     help="reject if the achieved end height above the "
@@ -204,7 +269,7 @@ def main() -> None:
 
     q_cmd, ramp_i0 = build_script(q_start, q_plant, env.dt, args.tuck_s,
                                   args.press_s, args.hold_s,
-                                  args.tuck_lift_mm)
+                                  args.tuck_lift_mm, args.tuck_rise_mm)
     print(f"[make_rise_ref_scripted] script T={len(q_cmd)} "
           f"ramp_i0={ramp_i0}")
 
