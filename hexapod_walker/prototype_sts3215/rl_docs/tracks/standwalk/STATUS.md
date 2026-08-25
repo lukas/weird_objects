@@ -1,6 +1,22 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~12:3x (**rung-7 first read: BC pose-anchor
+Last updated: 2026-08-25 ~12:4x (**rung-7 second read: `bcanchor1`
+(dose 1.0) ALSO CANARY PASS — the BC-anchor result replicates across
+doses.** `cw-standwalk-stance-mesh2-holdminload40-bcanchor1` DR-0 det
+gate 6/6 valid_plant, cur_p95 0.75A, zero terminations, det video =
+level six-foot plant held motionless; height_err 12.5->4.8mm over 2M,
+bc_anchor_loss 0.164->0.005. Same honest caveat as bcanchor3: DR-0
+sto 0/6, all `hold_min_load` — under std~1.0 action noise the stance
+creeps (~167mm drag) until a foot unloads; robustness is the 8M
+acquisition question, not a canary fault. Dose read so far: 3.0 PASS,
+1.0 PASS (3.0 slightly cleaner det: cur_p95 0.53A vs 0.75A,
+height_err_end 0.7mm vs ~4.8mm, plus own-DR det 6/6); 0.5 pending —
+the bcanchor0p5 cycle owns the final pick + ONE 8M acquisition
+launch. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40_bcanchor1_gate/`,
+W&B `0q4hurrk`.)
+
+Prior entry: 2026-08-25 ~12:3x (**rung-7 first read: BC pose-anchor
 BREAKS the 40mm hover basin — `bcanchor3` (dose 3.0) CANARY PASS, the
 first honest six-foot plant on the mesh model in seven rungs.**
 Plain English: adding a supervised pull toward the episode's own
