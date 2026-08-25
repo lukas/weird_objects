@@ -180064,7 +180064,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-termonly --steps 20000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_termonly --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). This arm isolates term_cost_per_remaining_s ALONE (k_current_hot forced to 0, term_cost unchanged from cur1) -- the complementary ablation to curonly -- to test which of the two new charges is the actual destabilizer. Prediction-if-term_cost-is-fine-alone: reward climbs (grind returns since current_hot pricing is what killed it, or an honest basin if term_cost alone is enough deterrent) -- current_hot is the destabilizer, needs a softer dose. Prediction-if-still-flat: term_cost alone blocks learning -- it (not current_hot) is the destabilizer, needs a softer per-second rate or lower cap.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=0.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-termonly.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-termonly.log",
     "wandb_id": "vbs2jyh1",
-    "verified": "2026-08-25T07:11:32+00:00"
+    "verified": "2026-08-25T07:11:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T07:17:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 12187,
+        "fps": 17476.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-curonly",
