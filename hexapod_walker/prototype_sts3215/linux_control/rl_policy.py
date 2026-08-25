@@ -387,14 +387,36 @@ def _stream_target(bus, est: RobotStateEstimator,
     q_from = np.asarray(q_from_robot, dtype=float)
     q_to = np.asarray(q_to_robot, dtype=float)
     steps = max(1, int(inner_steps))
+    step_all = getattr(bus, "step_all", None)
+    can_step_all = callable(step_all)
+    stream_firmware = bool(getattr(bus, "has_stream", False))
     for sub in range(1, steps + 1):
         if abort_check():
             return state_robot, t_next, overruns, "aborted", stale_ticks, stale_samples
         alpha = sub / steps
         q_cmd = q_to if sub == steps else q_from + (q_to - q_from) * alpha
         est.set_commanded(q_cmd)
-        bus.write_all((q_cmd * RAD2DEG).tolist(), speed=write_speed,
-                      acc=write_acc)
+        q_cmd_deg = (q_cmd * RAD2DEG).tolist()
+        state_robot = None
+        step_all_attempted = False
+        if can_step_all:
+            step_all_attempted = True
+            try:
+                snap = step_all(q_cmd_deg, speed=write_speed,
+                                acc=write_acc)
+            except Exception:
+                snap = None
+            if snap is not None:
+                update_from_snapshot = getattr(est, "update_from_snapshot",
+                                               None)
+                if callable(update_from_snapshot):
+                    state_robot = update_from_snapshot(snap)
+                else:
+                    state_robot = est.update()
+            elif not stream_firmware:
+                step_all_attempted = False
+        if not step_all_attempted:
+            bus.write_all(q_cmd_deg, speed=write_speed, acc=write_acc)
 
         t_next += inner_dt
         lag = time.monotonic() - t_next
@@ -404,14 +426,16 @@ def _stream_target(bus, est: RobotStateEstimator,
         else:
             time.sleep(-lag)
 
-        state_robot = est.update()
+        if state_robot is None and not step_all_attempted:
+            state_robot = est.update()
         if state_robot is None or not state_robot.bus_ok:
             stale_ticks += 1
             stale_samples += 1
-            if (last_good_state is not None
-                    and stale_ticks <= max_stale_ticks):
+            if last_good_state is not None:
                 state_robot = _stale_stream_state(
                     last_good_state, stale_ticks, q_cmd=q_cmd)
+            if (last_good_state is not None
+                    and stale_ticks <= max_stale_ticks):
                 continue
             return (state_robot, t_next, overruns,
                     "feedback stale during stream", stale_ticks,
@@ -1583,7 +1607,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             time.sleep(timing.policy_dt)
         if state_robot is None or not state_robot.bus_ok:
             limp()
-            return {"ok": False, "error": "bus dropped during settle"}
+            return {"ok": False,
+                    "error": "feedback unavailable during settle"}
         q_nom_robot = state_robot.joint_position.copy()
     q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
     est.set_commanded(q_nom_robot)

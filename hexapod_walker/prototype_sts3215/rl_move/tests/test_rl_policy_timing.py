@@ -42,6 +42,30 @@ class _FakeBus:
         self.writes += 1
 
 
+class _FakeStepBus(_FakeBus):
+    has_stream = True
+
+    def __init__(self, snaps=None):
+        super().__init__()
+        self.steps = 0
+        self.snaps = list(snaps or [])
+
+    def step_all(self, _deg, *, speed, acc):
+        self.steps += 1
+        if self.snaps:
+            return self.snaps.pop(0)
+        return {
+            "seq": self.steps,
+            "pos_age_ms": 1,
+            "imu_age_ms": 1,
+            "pos_deg": {j: 0.0 for j in range(rl_policy.N_JOINTS)},
+            "imu": {
+                "ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0,
+                "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
+            },
+        }
+
+
 class _PreflightBus:
     def __init__(self, q_deg):
         self.q_deg = list(q_deg)
@@ -60,12 +84,17 @@ class _FakeEstimator:
     def __init__(self, states):
         self._states = list(states)
         self.commanded = []
+        self.snapshots = []
 
     def set_commanded(self, q):
         self.commanded.append(np.asarray(q, dtype=float).copy())
 
     def update(self):
         return self._states.pop(0) if self._states else _state()
+
+    def update_from_snapshot(self, snap):
+        self.snapshots.append(dict(snap))
+        return self.update()
 
 
 def test_policy_bus_profile_prefers_metadata():
@@ -253,6 +282,66 @@ def test_stream_target_tolerates_short_feedback_dropouts():
     assert stale_ticks == 0
     assert stale_samples == 2
     assert bus.writes == 4
+
+
+def test_stream_target_prefers_combined_step_all_snapshot():
+    bus = _FakeStepBus()
+    est = _FakeEstimator([_state() for _ in range(4)])
+
+    out = rl_policy._stream_target(  # noqa: SLF001
+        bus,
+        est,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=4,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=_state(),
+        stale_ticks=0,
+        max_stale_ticks=3,
+    )
+
+    state, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    assert err == ""
+    assert state.bus_ok is True
+    assert stale_ticks == 0
+    assert stale_samples == 0
+    assert bus.steps == 4
+    assert bus.writes == 0
+    assert len(est.snapshots) == 4
+
+
+def test_stream_target_treats_stream_step_all_miss_as_stale_sample():
+    bus = _FakeStepBus(snaps=[None, None, None, None])
+    good0 = _state()
+    est = _FakeEstimator([])
+
+    out = rl_policy._stream_target(  # noqa: SLF001
+        bus,
+        est,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=4,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=good0,
+        stale_ticks=0,
+        max_stale_ticks=3,
+    )
+
+    state, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    assert err == "feedback stale during stream"
+    assert rl_policy._stream_state_is_stale(state)  # noqa: SLF001
+    assert stale_ticks == 4
+    assert stale_samples == 4
+    assert bus.steps == 4
+    assert bus.writes == 0
 
 
 def test_stream_target_stops_after_stale_feedback_limit():

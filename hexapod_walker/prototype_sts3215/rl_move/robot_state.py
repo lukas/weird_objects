@@ -130,41 +130,11 @@ class RobotStateEstimator:
         self._att.reset_transients()
         self._t_prev_state = None
 
-    def update(self, *, want_full_feedback: bool | None = None) -> RobotState:
-        t0 = time.monotonic()
-        timing = AcquisitionTiming()
-
-        # --- positions + IMU ---
-        # Fast path (stream firmware): ONE host<->MCU round trip returns
-        # cached positions + IMU ('S' n=0 snapshot; caches are refreshed
-        # by the MCU's free-running acquisition loop at ~150-250 Hz).
-        # Legacy path: separate read_all_positions + read_imu
-        # transactions, each blocking on the servo bus.
-        pos_deg: dict | None = None
-        imu = None
-        snap = None
-        read_snap = getattr(self.bus, "read_snapshot", None)
-        if read_snap is not None:
-            t_a = time.monotonic()
-            try:
-                snap = read_snap()
-            except Exception:
-                snap = None
-            if snap is not None:
-                timing.t_pos = time.monotonic() - t_a
-                pos_deg = snap["pos_deg"]
-                imu = snap["imu"]
-        if snap is None:
-            t_a = time.monotonic()
-            pos_deg = self.bus.read_all_positions()
-            timing.t_pos = time.monotonic() - t_a
-            t_b = time.monotonic()
-            try:
-                imu = self.bus.read_imu(apply_calib=True)
-            except Exception:
-                imu = None
-            timing.t_imu = time.monotonic() - t_b
-
+    def _state_from_sample(
+            self, pos_deg: dict | None, imu: dict | None, *,
+            t0: float, timing: AcquisitionTiming,
+            want_full_feedback: bool | None, source: str,
+            snapshot_meta: dict | None = None) -> RobotState:
         bus_ok = isinstance(pos_deg, dict) and len(pos_deg) >= N_JOINTS
         q = np.zeros(N_JOINTS, dtype=float)
         if bus_ok:
@@ -226,6 +196,16 @@ class RobotStateEstimator:
         self._t_prev_state = t_now
         timing.t_total = time.monotonic() - t0
         self.last_timing = timing
+        timing_dict = {
+            "t_pos": timing.t_pos,
+            "t_imu": timing.t_imu,
+            "t_fb": timing.t_fb,
+            "t_total": timing.t_total,
+            "full_feedback": did_fb,
+            "source": source,
+        }
+        if snapshot_meta:
+            timing_dict.update(snapshot_meta)
 
         return RobotState(
             timestamp=t_now,
@@ -243,11 +223,80 @@ class RobotStateEstimator:
             bus_ok=bus_ok,
             imu_ok=imu_ok,
             dt=float(dt),
-            timing={
-                "t_pos": timing.t_pos,
-                "t_imu": timing.t_imu,
-                "t_fb": timing.t_fb,
-                "t_total": timing.t_total,
-                "full_feedback": did_fb,
-            },
+            timing=timing_dict,
         )
+
+    def update_from_snapshot(
+            self, snap: dict, *,
+            want_full_feedback: bool | None = None) -> RobotState | None:
+        """Build state from an already-acquired MCU snapshot.
+
+        ``McuFeetechBus.step_all()`` writes 18 goals and returns the same
+        snapshot shape as ``read_snapshot()``. Consuming it here avoids a
+        second host<->MCU transaction inside high-rate RL stream ticks while
+        preserving velocity filtering, attitude estimation, and sparse full
+        feedback sampling.
+        """
+        if not isinstance(snap, dict):
+            return None
+        pos_deg = snap.get("pos_deg")
+        if not isinstance(pos_deg, dict):
+            return None
+        timing = AcquisitionTiming()
+        meta = {
+            "snapshot_seq": snap.get("seq"),
+            "pos_age_ms": snap.get("pos_age_ms"),
+            "imu_age_ms": snap.get("imu_age_ms"),
+        }
+        return self._state_from_sample(
+            pos_deg, snap.get("imu"), t0=time.monotonic(), timing=timing,
+            want_full_feedback=want_full_feedback, source="step_all",
+            snapshot_meta=meta)
+
+    def update(self, *, want_full_feedback: bool | None = None) -> RobotState:
+        t0 = time.monotonic()
+        timing = AcquisitionTiming()
+
+        # --- positions + IMU ---
+        # Fast path (stream firmware): ONE host<->MCU round trip returns
+        # cached positions + IMU ('S' n=0 snapshot; caches are refreshed
+        # by the MCU's free-running acquisition loop at ~150-250 Hz).
+        # Legacy path: separate read_all_positions + read_imu
+        # transactions, each blocking on the servo bus.
+        pos_deg: dict | None = None
+        imu = None
+        snap = None
+        source = "legacy_read"
+        snap_meta = None
+        read_snap = getattr(self.bus, "read_snapshot", None)
+        if read_snap is not None:
+            t_a = time.monotonic()
+            try:
+                snap = read_snap()
+            except Exception:
+                snap = None
+            if snap is not None:
+                timing.t_pos = time.monotonic() - t_a
+                pos_deg = snap["pos_deg"]
+                imu = snap["imu"]
+                source = "read_snapshot"
+                snap_meta = {
+                    "snapshot_seq": snap.get("seq"),
+                    "pos_age_ms": snap.get("pos_age_ms"),
+                    "imu_age_ms": snap.get("imu_age_ms"),
+                }
+        if snap is None:
+            t_a = time.monotonic()
+            pos_deg = self.bus.read_all_positions()
+            timing.t_pos = time.monotonic() - t_a
+            t_b = time.monotonic()
+            try:
+                imu = self.bus.read_imu(apply_calib=True)
+            except Exception:
+                imu = None
+            timing.t_imu = time.monotonic() - t_b
+
+        return self._state_from_sample(
+            pos_deg, imu, t0=t0, timing=timing,
+            want_full_feedback=want_full_feedback, source=source,
+            snapshot_meta=snap_meta)
