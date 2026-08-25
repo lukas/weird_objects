@@ -1,0 +1,20 @@
+# cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-25T21:26:35+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 2000000
+
+**parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref
+
+**wandb_id**: 3otxc8w4
+
+**hypothesis**: Teach the rise policy the scripted tuck's own TIMING and the freeze should disappear: from a flat start, anchor targets now follow the reference's absolute clock (row=step) instead of chasing a state-matched pose, because a probe (probe_stance_pricing --ref rise_ref_mesh_scripted.npz, logs/probe_tuck_pricing_*.json) measured that replaying the mesh scripted ref on its own clock from flat earns +2021 with plant_ok, Imax 0.575A and ZERO over_current under the EXACT launched pricing where freeze earns -704, the ramp-aligned catch-up press earns -706 with an over_current trip, and the learned policy earns -770 -- the reward optimum was always the honest tuck-then-press; no training mechanism ever executed its timing (state-aligned pursuit stalls with a frozen robot; the legacy ramp-aligned clock skips ~2s of the 2.45s tuck because env rise_hold_min_s=0.5 << ref ramp_i0=2.45s). New cfg train.bc_anchor_flat_time_indexed=1 (snapshot ebfbcdb8, default 0 bit-exact, 65/65 test_bc_anchor green, end-to-end chained targets stand the mesh robot at 81.5mm/0.58A/plant_ok): pure-flat non-RSI episodes anchor to ref row round(step*dt/ref_dt)+1 -- the target ADVANCES BY ITSELF so freezing accumulates anchor loss instead of converging on it; partial/crouch/rsi keep the parent's exact state-aligned pursuit (floor 8mm intact, NO tuck_exempt/tuck_lookahead -- both refuted). Prediction-if-true: flat-pinned probe goes from 0/12 to >=4/6 det + >=4/6 sto valid_plant with real swings and ~0.6A currents, non-flat kinds hold at the parent's 5/6+4/6. Prediction-if-false: flat stays 0-1/12 (freeze or press-up) -- then the defect is in the PPO/anchor interaction (std anneal, coef), not target semantics, and the next arm doses bc_anchor_coef/log_std instead. Strongest alternative: policy tracks the clock in ACTION space but physics lags on DR'd models, yielding late/partial rises -- visible as h_err 10-40mm with duty>0, distinct from both predictions.
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. 2M canary, judged jointly with the seed-1 twin as a pair. Primary evidence = the flat-pinned probe (goal.rise_flat_frac=1.0/partial=0/rsi=0, det+sto n=6+6, DR-0, on-pod) + the standard DR-0 gate for non-flat kinds, vs BOTH baselines: the freeze family (tuckfloor0/tuckexempt0/tucklook1: 0/12 flat valid duty=0) and the meshref parent (det 5/6 + sto 4/6 valid, oc 3/12, flat 0 valid 2.64A press-up). PASS if BOTH seeds hit flat-probe det>=4/6 AND sto>=4/6 valid_plant with genuine duty>0 AND swing_count>0 tuck-then-press motion at sub-over_current currents AND standard-gate non-flat kinds at-or-above the meshref parent -> promote to an 8M acquisition grid + port into stancemix. PARTIAL if flat-probe shows >=2/6 valid per seed OR genuine swinging tuck motion with h_err 10-40mm short of valid_plant while non-flat holds >= parent -> extend budget (the timing is being learned but not converged) before touching any knob. FAIL if flat stays 0-1/12 valid (freeze OR press-up) -> clock-target semantics refuted; next suspect is the PPO/anchor interaction (anchor coef vs annealed exploration), NOT target geometry -- and check train/bc_anchor_loss_rise: if it is HIGH and flat still freezes, PPO is overriding the anchor (dose coef up); if LOW and flat freezes, the emission path is broken (bug).
+

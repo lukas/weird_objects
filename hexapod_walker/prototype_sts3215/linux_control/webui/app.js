@@ -1985,7 +1985,7 @@ function drvResetLocalInput(){
   drvClearGamepadCommand();
 }
 function rlButtons(disabled){
-  for(const id of ['rlstand','rllower','rlwalkfwd',
+  for(const id of ['rlstand','rllower','rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
                    'rldrivestart','rldriveend'])
@@ -2071,6 +2071,9 @@ async function rlScriptedStand(mode, label, direction='up'){
 }
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
+// Learned stance-policy episodes (opt-in; the plain buttons stay STEP).
+$('rlstandrl').onclick = ()=> rlMove('stand', {learned:true});
+$('rllowerrl').onclick = ()=> rlMove('lower', {learned:true});
 function rlWalk(dx, dy, heading){
   const s = parseFloat($('rlwalkspeed').value);
   const n = Math.hypot(dx, dy) || 1;   // unit heading so speed = |v|
@@ -2103,7 +2106,7 @@ const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
 let drvPadDownAt = 0;
 let drvPadReleaseTimer = null;
-let drvGamepad = {dx:0, dy:0, dz:0, active:false, name:''};
+let drvGamepad = {dx:0, dy:0, dz:0, du:0, active:false, name:''};
 let drvGamepadNeedsNeutral = false;
 let drvGamepadPollBusy = false;
 let drvGamepadNextStartT = 0;
@@ -2118,7 +2121,7 @@ const DRV_KEYMAP = {
   e:'yawR', o:'yawR',
 };
 function drvLockRlControls(active){
-  for(const id of ['rlstand','rlwalkfwd',
+  for(const id of ['rlstand','rlstandrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
     $(id).disabled = active;
@@ -2172,7 +2175,7 @@ function drvFirstGamepad(){
 }
 function drvClearGamepadCommand(){
   const name = (drvGamepad && drvGamepad.name) || '';
-  drvGamepad = {dx:0, dy:0, dz:0, active:false, name};
+  drvGamepad = {dx:0, dy:0, dz:0, du:0, active:false, name};
 }
 function drvClearPad(){
   if(drvPadReleaseTimer){
@@ -2196,11 +2199,13 @@ function drvVec(){
     dz = drvGamepad.dz;
     analog = true;
   }
+  // Controller D-pad height nudge rides along with any move input.
+  const dh = drvGamepad.du || 0;
   const n = Math.hypot(dx, dy);
   const s = parseFloat($('rlwalkspeed').value);
   const wz = dz ? clamp(dz, -1, 1) * 0.18 : 0;
-  if(analog) return [clamp(dx, -1, 1)*s, clamp(dy, -1, 1)*s, wz];
-  return n ? [dx/n*s, dy/n*s, wz] : [0, 0, wz];
+  if(analog) return [clamp(dx, -1, 1)*s, clamp(dy, -1, 1)*s, wz, dh];
+  return n ? [dx/n*s, dy/n*s, wz, dh] : [0, 0, wz, dh];
 }
 function drvPaint(d){
   const live = (d && d.live) || {};
@@ -2210,6 +2215,10 @@ function drvPaint(d){
     bits.push(`v (${Math.round(live.vx_ref*1000)}, `
               + `${Math.round(live.vy_ref*1000)}) mm/s`);
   if(live.wz_ref) bits.push(`ω ${live.wz_ref} rad/s`);
+  if(live.height_returning) bits.push('returning to walk height');
+  else if(live.height_ref_mm) bits.push(`h ${live.height_ref_mm} mm`);
+  if(live.height_live === false && drvGamepad.du)
+    bits.push('D-pad height needs a stance model in the “hold” role');
   if(live.roll_deg!=null)
     bits.push(`tilt ${live.roll_deg}/${live.pitch_deg}°`);
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
@@ -2221,10 +2230,10 @@ function drvPaint(d){
 }
 async function drvSend(){
   if(!drvActive) return;
-  const [vx, vy, wz] = drvVec();
+  const [vx, vy, wz, dh] = drvVec();
   try{
     const r = await fetch('/api/rl/drive/cmd', {method:'POST',
-      body: JSON.stringify({vx, vy, wz})});
+      body: JSON.stringify({vx, vy, wz, dh})});
     const d = await r.json();
     if(!d.active){ drvEnded(); return; }
     drvPaint(d);
@@ -2456,22 +2465,29 @@ async function pollRlGamepad(){
     const name = gp.id ? gp.id.slice(0, 26) : 'connected';
     const dx = drvGamepadAxis(-(gp.axes[1] || 0));  // left stick up = forward
     const dy = drvGamepadAxis(gp.axes[0] || 0);     // left stick right = right
-    const dz = drvGamepadAxis(gp.axes[2] || 0);     // right stick X = yaw
-    const active = !!(dx || dy || dz);
-    drvGamepad = {dx, dy, dz, active, name};
+    // Right stick X: stick right = turn right = clockwise = -wz
+    // (+wz is CCW/left — same convention as the Q/E keys and the
+    // scripted Drive tab's `om = -t`).
+    const dz = drvGamepadAxis(-(gp.axes[2] || 0));
+    const btn = i => !!(gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
+    const du = (btn(12)?1:0) - (btn(13)?1:0);  // D-pad up/down = body height
+    const active = !!(dx || dy || dz || du);
+    drvGamepad = {dx, dy, dz, du, active, name};
     if(!active){
       if(drvGamepadNeedsNeutral) drvGamepadNeedsNeutral = false;
-      drvGamepadStatus('Joystick: '+name+' · left stick walk, right stick turn.');
+      drvGamepadStatus('Joystick: '+name
+        +' · left stick walk, right stick turn, D-pad up/down height.');
       if(wasActive && drvActive) drvSend();
       return;
     }
     const pct = v => Math.round(v * 100);
     if(drvGamepadNeedsNeutral){
-      drvGamepadStatus('Joystick: return stick to center before auto-start.');
+      drvGamepadStatus('Joystick: release sticks and D-pad before auto-start.');
       return;
     }
     drvGamepadStatus('Joystick: '+name+' · cmd '
-      + pct(dx)+'% fwd, '+pct(dy)+'% right, '+pct(dz)+'% yaw');
+      + pct(dx)+'% fwd, '+pct(dy)+'% right, '+pct(dz)+'% yaw'
+      + (du ? (du > 0 ? ' · height up' : ' · height down') : ''));
     if(!drvActive){
       const now = performance.now();
       if(now < drvGamepadNextStartT) return;
@@ -2486,7 +2502,7 @@ setInterval(pollRlGamepad, 50);
 window.addEventListener('gamepadconnected', (e)=>{
   if(activeView === 'rl')
     drvGamepadStatus('Joystick: '+(e.gamepad.id || 'connected')
-      +' · left stick walk, right stick turn.');
+      +' · left stick walk, right stick turn, D-pad up/down height.');
 });
 window.addEventListener('gamepaddisconnected', ()=>{
   drvClearGamepadCommand();

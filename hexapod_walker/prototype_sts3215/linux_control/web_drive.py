@@ -696,6 +696,10 @@ class Handler(BaseHTTPRequestHandler):
                     kw["tilt_trip_deg"] = float(data["tilt_trip_deg"])
                 if data.get("extra_hold_s"):
                     kw["extra_hold_s"] = float(data["extra_hold_s"])
+                if data.get("learned"):
+                    # Opt-in learned stance-policy episode (rise/lower
+                    # role weights) instead of the default STEP keyframes.
+                    kw["learned"] = True
                 self._json(200, BENCH.rl_policy_move(
                     mode=path.rsplit("/", 1)[-1], **kw))
         elif path == "/api/rl/walk":
@@ -750,8 +754,9 @@ class Handler(BaseHTTPRequestHandler):
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/drive/cmd":
             # High-rate heartbeat (~5 Hz while driving): body-frame
-            # vx/vy m/s plus yaw-rate wz rad/s. Kept out of the event
-            # log's HTTP stream by volume; the session CSV logs refs.
+            # vx/vy m/s, yaw-rate wz rad/s, plus dh in [-1, 1] (D-pad
+            # body-height nudge). Kept out of the event log's HTTP
+            # stream by volume; the session CSV logs refs.
             try:
                 data = json.loads(body or "{}") if body else {}
             except ValueError:
@@ -762,7 +767,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, BENCH.rl_drive_cmd(
                     vx=float(data.get("vx", 0.0)),
                     vy=float(data.get("vy", 0.0)),
-                    wz=float(data.get("wz", 0.0))))
+                    wz=float(data.get("wz", 0.0)),
+                    dh=float(data.get("dh", 0.0))))
         elif path == "/api/rl/drive/stop":
             self._json(200, BENCH.rl_drive_stop() if BENCH
                        else {"ok": False, "error": "no bench"})

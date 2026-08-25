@@ -1219,9 +1219,9 @@ class SimWebSession:
         self._log_name = f"sim_{kind}_{stamp}.csv"
         self._log_fp = (self.log_dir / self._log_name).open("w", newline="")
         self._log_writer = csv.DictWriter(self._log_fp, fieldnames=[
-            "t_s", "mode", "height_mm", "roll_deg", "pitch_deg",
-            "vx_ref_mps", "vy_ref_mps", "vx_body_mps", "vy_body_mps",
-            "stance", "walk", "msg",
+            "t_s", "mode", "height_mm", "height_ref_mm", "roll_deg",
+            "pitch_deg", "vx_ref_mps", "vy_ref_mps", "wz_ref_rad_s",
+            "vx_body_mps", "vy_body_mps", "stance", "walk", "msg",
         ])
         self._log_writer.writeheader()
         self._last_log_row_t = -1.0
@@ -1235,6 +1235,8 @@ class SimWebSession:
             "t_s": round(self.sim_t, 3),
             "mode": self.mode,
             "height_mm": round(self._chassis_z() * 1000.0, 1),
+            "height_ref_mm": round(float(self.traj.goal.height_ref)
+                                   * 1000.0, 1),
             "roll_deg": roll,
             "pitch_deg": pitch,
             "vx_ref_mps": round(float(self.traj.vx), 4),
@@ -1277,6 +1279,9 @@ class SimWebSession:
             "roll_deg": roll,
             "pitch_deg": pitch,
             "height_mm": round(self._chassis_z() * 1000.0, 1),
+            "height_ref_mm": round(float(self.traj.goal.height_ref)
+                                   * 1000.0, 1),
+            "height_live": True,
             "t_s": round(self.sim_t, 1),
         }
 
@@ -2239,30 +2244,77 @@ class SimWebSession:
             return {"ok": True, "active": True, "status": self.msg,
                     "live": self._live()}
 
-    def rl_drive_cmd(self, vx: float, vy: float,
-                     wz: float = 0.0) -> dict[str, Any]:
+    # Live height-nudge envelope (D-pad up/down heartbeats) — mirrors
+    # the hardware runner's DRIVE_HEIGHT_* constants in
+    # linux_control/rl_policy.py so the twin behaves like the robot.
+    _DRIVE_HEIGHT_RATE_MPS = 0.010
+    _DRIVE_HEIGHT_MIN_M = -0.045
+    _DRIVE_HEIGHT_MAX_M = 0.030
+    _DRIVE_HEIGHT_EPS_M = 0.003
+
+    def _set_drive_wz(self, wz: float) -> None:
+        self.om_cmd = wz
+        twz = getattr(self.traj, "wz", None)
+        if twz is not None:
+            try:
+                twz[:] = wz
+            except (TypeError, ValueError):
+                self.traj.wz = wz
+
+    def rl_drive_cmd(self, vx: float, vy: float, wz: float = 0.0,
+                     dh: float = 0.0) -> dict[str, Any]:
         with self.lock:
             wz = max(-0.5, min(0.5, float(wz)))
+            dh = max(-1.0, min(1.0, float(dh)))
             self._record_command(
-                f"/api/rl/drive/cmd vx={vx:+.3f} vy={vy:+.3f} wz={wz:+.3f}",
+                f"/api/rl/drive/cmd vx={vx:+.3f} vy={vy:+.3f} wz={wz:+.3f}"
+                + (f" dh={dh:+.1f}" if dh else ""),
                 key="drive-cmd")
             if not self.drive_active:
                 return {"ok": True, "active": False, "status": "not active",
                         "result": self.job_result}
-            self.last_drive_cmd_at = time.monotonic()
-            if self._engage_walk():
-                _, vmax = self._drive_band()
-                mag = float(np.hypot(vx, vy))
-                scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
-                self.traj.vx = float(vx * scale)
-                self.traj.vy = float(vy * scale)
-                self.om_cmd = wz
-                twz = getattr(self.traj, "wz", None)
-                if twz is not None:
-                    try:
-                        twz[:] = wz
-                    except (TypeError, ValueError):
-                        self.traj.wz = wz
+            now = time.monotonic()
+            hb_dt = min(max(now - self.last_drive_cmd_at, 0.0), 0.5)
+            self.last_drive_cmd_at = now
+            goal = self.traj.goal
+            moving = (float(np.hypot(vx, vy)) > 1e-4 or abs(wz) > 1e-4)
+            if moving and abs(goal.height_ref) > self._DRIVE_HEIGHT_EPS_M:
+                # Walk champions trained at height_ref 0: ramp a nudged
+                # body back to the walk anchor height first; the gait
+                # engages on a later heartbeat once the ref is ~0.
+                step = self._DRIVE_HEIGHT_RATE_MPS * hb_dt
+                goal.height_ref = (
+                    0.0 if abs(goal.height_ref) <= step
+                    else goal.height_ref
+                    - math.copysign(step, goal.height_ref))
+                self.traj._pub.height_ref = goal.height_ref
+                self.traj.vx = self.traj.vy = 0.0
+                self._set_drive_wz(0.0)
+                self.msg = "returning to walk height"
+            elif moving:
+                if self._engage_walk():
+                    _, vmax = self._drive_band()
+                    mag = float(np.hypot(vx, vy))
+                    scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
+                    self.traj.vx = float(vx * scale)
+                    self.traj.vy = float(vy * scale)
+                    self._set_drive_wz(wz)
+                    if self.msg == "returning to walk height":
+                        self.msg = "drive session active"
+            else:
+                self.traj.vx = self.traj.vy = 0.0
+                self._set_drive_wz(0.0)
+                if dh and self.auto is None and not self.downed \
+                        and not self.sitting:
+                    # Stance policy tracks the ref (pose-hold would
+                    # freeze it), like the viewer's LB/RB nudges.
+                    self.pose_hold_q = None
+                    goal.height_ref = max(
+                        self._DRIVE_HEIGHT_MIN_M,
+                        min(self._DRIVE_HEIGHT_MAX_M,
+                            goal.height_ref
+                            + dh * self._DRIVE_HEIGHT_RATE_MPS * hb_dt))
+                    self.traj._pub.height_ref = goal.height_ref
             return {"ok": True, "active": self.drive_active,
                     "status": self.msg, "live": self._live()}
 
