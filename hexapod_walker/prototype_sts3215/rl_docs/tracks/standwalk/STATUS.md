@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~12:1x (**rung-6 (`holdminload40`) CLOSED,
+Last updated: 2026-08-25 ~12:3x (**rung-7 first read: BC pose-anchor
+BREAKS the 40mm hover basin — `bcanchor3` (dose 3.0) CANARY PASS, the
+first honest six-foot plant on the mesh model in seven rungs.**
+Plain English: adding a supervised pull toward the episode's own
+settled plant pose did what six rungs of reward/termination shaping
+could not — the robot now stands level on all six loaded feet.
+`cw-standwalk-stance-mesh2-holdminload40-bcanchor3`
+(`train.bc_anchor_coef=3.0`, 2M canary): DR-0 det gate **6/6
+valid_plant** (height_err_end 0.7mm vs the parents' pinned 40mm,
+cur_p95 0.53A, cur_max 1.1A vs the pinned 2.64A, roll clean, all six
+end_clear ~0mm, plant_margin 149.5mm); own-DR(0.2) det ALSO 6/6 with
+zero terminations; det video = level chassis, six loaded feet, held to
+truncation. `bc_anchor_loss` 0.08->0.003. Honest caveat: DR-0 sto 0/6,
+all `hold_min_load` — but `policy_std` is still 1.019 at 2M (never
+annealed), so sto eval draws ~full-init noise on a clean mean; the
+gate's "rising hold_feet_factor" sub-criterion (0.27->0.20, not
+risen) reads on those same std~1.0 training rollouts and is
+superseded by the det harness it proxies. Training reward still
+declines (-2.9/-57.9/-91.2/-86.2; anchor is a supervised loss outside
+the reward — expected at canary scope).
+NEXT (owned by whichever cycle sees the LAST sibling finish): joint
+3-arm dose read — `bcanchor1` (dose 1.0, concurrent cycle's read) +
+`bcanchor0p5` (dose 0.5, still training as of this entry) vs this
+PASS — then fund ONE 8M acquisition arm at the chosen dose off the
+same holdminload40 base. The acquisition question is pre-registered
+here: does std anneal enough for the det-quality plant to survive
+stochastic sampling + DR (gate: hold DR-0 det AND sto >=5/6
+valid_plant, cur_p95<=1.5A, zero hold_min_load in det)? If sto
+robustness stalls with reward/task metrics still moving, continue
+per the 08-21 ruling before reaching for ent/std levers.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40_bcanchor3_{gate,owncfg}/`,
+W&B `80jrhio3`.)
+
+Previous entry: 2026-08-25 ~12:1x (**rung-6 (`holdminload40`) CLOSED,
 2/2 seeds FAIL — min-load termination alone still can't break the
 chassis-hover-at-40mm basin; rung-7 (BC-anchor pose imitation) LAUNCHED
 as a 2M mechanism-health canary.** Plain English: `cw-standwalk-

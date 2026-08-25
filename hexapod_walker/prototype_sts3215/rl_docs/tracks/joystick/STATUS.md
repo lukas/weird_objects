@@ -1,6 +1,41 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~10:1x (**`movecur1-dose5x` mechanism-health
+Last updated: 2026-08-25 ~12:1x (**`movecur1-dose5x-acq1` FAIL at 40M
+— the 5x current-dwell-charge dose that looked clean at the 2M canary
+re-converges to the SAME pinned-2.64A/locked-leg-tripod exploit once
+the policy fully commits; `k_walk_move_current` is now CLOSED across
+every tested dose (1x/2x/5x) and every tested architecture/combo
+(MLP-alone, MLP+`walk_gait_gate`, transformer).** Plain English: DR-0
+gate 24/24 over_current terminations (walk+startjitter, det+sto),
+held-out 60s joygate 38/48 falls, gait_valid_frac 0.0, slip/m med
+5.32 (cap 2.9), per-leg duty_median `[1.0,0.03,0.88,0.245,0.71,0.34]`
+— same rigid rearing-tripod video as every prior movecur1/gaitgate
+arm. `walkcurr/frontier` never left b0 across 80 cert rounds.
+Training reward DID rise every quarter (-1338.8/-1086.2/-793.7/
+-570.6) but the run's own pre-registered gate text already named this
+exact "charges get paid down as episodes get incrementally more
+current-avoidant without the leg-sacrifice topology ever changing"
+shape as FAIL, not an 08-21 continue case. **This closes the fork the
+`movecur1` trio's own verdict flagged DIG-IN on 08-25 ~08:4x** ("raise
+dose further" vs "structural per-leg current-clamp curriculum" vs
+"defer to standwalk's mesh stance-retrain + teacher-distillation
+route") — dose escalation (this run, 5x) is now also refuted, and no
+structural per-leg-clamp mechanism has been built or bank-proven, so
+the reasoned choice is the third branch: **this specific over_current/
+leg-sacrifice exploit is deferred to the `standwalk` track**, which is
+already working the exact same lesson (reward/termination pricing
+alone cannot fix a from-scratch stance/posture basin — see its rung-7
+BC-anchor pose-imitation canary, launched this cycle) on a directly
+analogous mesh-family problem. No further movecur1-class arm should
+be funded on the joystick track without a genuinely new mechanism
+(not another dose). The core joystick DONE gate stays met per 08-23
+(`stotight45-seed13`, 25Hz primitive family) — this whole 100Hz/mesh
+hardening thread is operator-ordered polish on top of an
+already-satisfied registered goal, not gate-blocking.
+Evidence: `logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_
+movecur1_dose5x_acq1_{gate,joygate}/`, W&B `ndzkxjrb`.)
+
+Previous entry (2026-08-25 ~10:1x (**`movecur1-dose5x` mechanism-health
 canary CANARY PASS: 5x the current-dwell charge (k_walk_move_current
 2.0->10.0, single lever off the closed movecur1 2M base) knocks
 `cur_max_a` off the 2.64A pinned safety-trip edge that closed the
