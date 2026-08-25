@@ -3610,6 +3610,7 @@ def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
     ref = np.load(ROOT / RISE_REF)
     q_ref = ref["q_rad"]
     n_ref = len(q_ref)
+    ref_dt = float(ref["dt"])
     # "partial" = honest work that stops 40% into the ramp: a held
     # LOW CROUCH-STAND (z ~57 mm, feet carrying full weight) — the
     # first waypoint where the pipeline banks anything. The crouch
@@ -3631,12 +3632,19 @@ def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
     rewards: list[float] = []
     while True:
         t = step * env.dt
+        # 2026-08-25 rate fix (mirrors _ref_row): q_ref is a 25 Hz
+        # (dt=0.04s) recording; indexing it by raw env `step` replays
+        # it 4x too fast once control.hz defaults to 100 -- time-align
+        # instead so the demonstrated motion takes the same WALL TIME
+        # regardless of control rate (part of the 54-test regression,
+        # OPERATOR_QUESTIONS.md 08-25 ~02:1x/~04:0x).
+        j_row = int(round(t / ref_dt))
         if policy == "replay":
-            act = q_rad_to_action(q_ref[min(step, n_ref - 1)])
+            act = q_rad_to_action(q_ref[min(j_row, n_ref - 1)])
         elif policy == "partial":
-            act = q_rad_to_action(q_ref[min(step, j_part)])
+            act = q_rad_to_action(q_ref[min(j_row, j_part)])
         elif policy == "flagleg":
-            q = q_ref[min(step, n_ref - 1)].copy()
+            q = q_ref[min(j_row, n_ref - 1)].copy()
             q[0:3] = q0[0:3]
             act = q_rad_to_action(q)
         elif policy == "freeze":
@@ -5056,6 +5064,7 @@ def _recover_rollout(policy: str, seed: int, *, start: str = "zero",
     ref = np.load(ROOT / RISE_REF)
     q_ref = ref["q_rad"]
     n_ref = len(q_ref)
+    ref_dt = float(ref["dt"])
     q0 = env.data.qpos[env._qadr].copy()
     q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
     rng = np.random.default_rng(seed)
@@ -5064,10 +5073,13 @@ def _recover_rollout(policy: str, seed: int, *, start: str = "zero",
     last: dict = {}
     while True:
         t = step * env.dt
+        # 2026-08-25 rate fix (mirrors _ref_row / _getup_rollout): see
+        # that note -- q_ref is 25 Hz, time-align instead of raw step.
+        j_row = int(round(t / ref_dt))
         if policy == "replay":
-            act = q_rad_to_action(q_ref[min(step, n_ref - 1)])
+            act = q_rad_to_action(q_ref[min(j_row, n_ref - 1)])
         elif policy == "flagleg":
-            q = q_ref[min(step, n_ref - 1)].copy()
+            q = q_ref[min(j_row, n_ref - 1)].copy()
             q[0:3] = q0[0:3]
             act = q_rad_to_action(q)
         elif policy == "freeze":
