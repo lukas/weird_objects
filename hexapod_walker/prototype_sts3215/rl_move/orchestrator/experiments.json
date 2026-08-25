@@ -179216,7 +179216,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T06:47:36+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -179261,7 +179261,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-holdonly1 since 2026-08-25T07:02:12"
+    "triage": "done",
+    "verdict": "Hold-only isolation PASSES its pre-registered canary gate: the mesh/100Hz robot CAN balance (6/6 DR-0 det hold episodes survive the full 15s, roll tail 1.0deg, zero terminations), so cur1's total collapse was gradient starvation of hold within the mixed diet plus recipe difficulty, NOT unlearnable physics -- the escalate-to-physics/gains-audit branch is dead. BUT the learned hold is a hot TRIPOD STILT, not a valid stance: three feet held 15-20mm aloft the whole episode (duty [.99,.04,.99,.02,1.0,.02], end_clear 15-20mm on legs 1/3/5), valid_plant=false, currents riding just under the 2.0A priced-hot threshold (p95 1.8A, ceiling touches 2.64A, 14.1s above soft), and under stochastic actions it trips over_current 5/6 on BOTH DR-0 sto and own-DR sto (own-DR det: 4/6 ok, 0 terms). Training reward DECLINED across quarters (5.6/-51/-162/-218) while in-training eval survival IMPROVED 0.5@1M -> 6/6 det@2M -- that is a return-scale artifact (longer survival accumulates per-tick hot charges), not 'nothing learning'. The probed bank says honest 6-foot quiet hold DOMINATES this basin (1472/ep vs the policy's 504, 0.15A mean current), so the reward optimum already IS the gate behavior: classic 08-21 local-basin continuation case. Next: holdonly1-acq1 (+8M continuation from this checkpoint) tests whether budget alone anneals tripod -> six-foot plant; pre-registered fallback lever if not: reward.hold_feet_load (existing default-OFF key), bank-check required first. hardware-ready: no (invalid plant, hot currents, sto-fragile)."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly1",
