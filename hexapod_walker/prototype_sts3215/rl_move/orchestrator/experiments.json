@@ -187429,7 +187429,7 @@
       "0.5"
     ],
     "created": "2026-08-25T15:13:05+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -187475,7 +187475,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-quarterchain since 2026-08-25T15:32:19"
+    "triage": "done",
+    "verdict": "FAIL - pace overshot, new degenerate FREEZE failure mode (registered prediction-if-false). Halving the anchor pace AGAIN (lookahead 0.25s->0.125s, min_h 8->4mm) does NOT continue the dose-response: DR-0 gate det 2/6 (WORSE than slowchain's 3/6) + sto 2/6 (same as slowchain's 2/6). The naive proxy metrics look great in isolation -- deep-start cur_p95 MEDIAN falls to 0.2A (vs slowchain's 1.85A) and over_current terms fall to 1/12 (vs slowchain's 3/12) -- but reading height_err_end_mm exposes why: most flat/rsi deep-start episodes now draw near-zero current (0.18-0.34A) while sitting at height_err 76-86mm, i.e. UNCHANGED from the belly start -- the policy FROZE and never attempted to rise, rather than pressing up hot. This is a cheap way to look 'cool' on the current/term metrics while doing worse on the actual goal (rising) -- exactly the new too-close-target failure mode this arm's own gate text flagged as a possible FAIL branch. One deep-start episode (det bridge) still hit the old over_current failure (2.64A, herr 66mm, partial climb then trip), so the policy is bimodal: freeze or press-up-and-trip, no third option that reaches a valid plant. Verdict: the pace dose curve is NOT monotonic -- slowchain's 1/2-pace is better than this 1/4-pace on every count that matters (det valid, and genuine progress). Sibling eighthchain (1/8 pace) is judged on the same freeze-vs-trip axis, not the raw current median alone."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-eighthchain",
@@ -187782,6 +187783,18 @@
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-slowchain-cont8.log",
     "wandb_id": "5bx2x0n3",
     "verified": "2026-08-25T15:31:20+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T15:37:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 16524,
+        "fps": 16019.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
     "triage": "in-cycle cw-standwalk-footlow2raw18-mesh2-hz100-warmmix1-cw-standwalk since 2026-08-25T15:52:43"
   }
 ]
