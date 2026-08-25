@@ -3094,6 +3094,138 @@ def test_hold_basin_term_restores_monotone_gradient(hold_basin_term_bank):
 
 
 # --------------------------------------------------------------------------
+# HOLD bank, MIN-FOOT-LOAD TERMINATION variant
+# (safety.hold_min_load_terminate_s — standwalk mesh2 rung-6, 08-25).
+#
+# holdterm40's own gate report (`cw-standwalk-stance-mesh2-holdterm40`,
+# 6M, the height-drop lever from the bank above ALREADY armed) lands
+# exactly on that bank's own pre-registered "alternative cheat": every
+# det+sto episode terminates via hold_low_height, but only after
+# height_err_end_mm sits pinned at 40.0-40.3 mm THE WHOLE EPISODE (not
+# a sudden collapse) — valid_plant 0/12 both DR-0 and own-DR, leg
+# imbalance 1.8-1.9, cur_max ~2.6 A. A body-height boundary alone
+# cannot see a foot that stays functionally unloaded (or one foot
+# forced to carry everyone else's share) as long as the CHASSIS itself
+# stays inside the drop line — exactly the hover/hover1 crouchrise-
+# class basin this file already has scripted twins for (one or two
+# feet held a few mm off the ground, near-zero contact duty, STABLE,
+# and — the new finding this bank adds — un-terminated even with the
+# height-drop lever on, because the chassis barely moves for a 1-2-leg
+# hover). This lever measures per-foot load directly instead of a
+# height proxy: the worst (min-over-feet) touch force sustained below
+# safety.hold_min_load_terminate_n for hold_min_load_terminate_s
+# terminates the episode (reason hold_min_load) and resets back into
+# the paying plant — same story as hold_low_height/walk_idle_terminate:
+# "absorbing states beat prices; must come WITH a termination, never
+# instead of one" (op ruling 08-24).
+#
+# These tests pin (a) default-off is bit-exact, (b) TODAY'S LIVE STACK
+# (height-drop lever already on) really is blind to the hover/hover1
+# crouch-park class (documents the residual loophole this lever
+# closes), (c) the new lever terminates both hover classes with the
+# right reason inside a few seconds, (d) the honest quiet stand is
+# untouched.
+
+HOLD_MINLOAD_STACK = dict(HOLD_BASIN_TERM_ON)   # today's live recipe
+HOLD_MINLOAD_ON = dict(HOLD_MINLOAD_STACK)
+HOLD_MINLOAD_ON.update({
+    ("safety", "hold_min_load_terminate_s"): 1.0,
+    ("safety", "hold_min_load_terminate_n"): 0.3,
+    ("safety", "hold_min_load_terminate_grace_s"): 1.0,
+})
+
+
+def _hold_minload_rollout(policy: str, seed: int, overrides) -> dict:
+    """'quiet' / 'hover' / 'hover1' held constant to truncation or
+    termination — the same scripted poses as _hold_load_rollout, with
+    the termination reason + timing recorded."""
+    env = _make_hold_env(seed, overrides)
+    env.reset()
+    q0 = env.data.qpos[env._qadr].copy()
+    q = q0.copy()
+    if policy == "hover":
+        for leg in HOVER_LEGS:
+            q[3 * leg + 1] -= HOVER_LIFT_DEG * DEG2RAD
+    elif policy == "hover1":
+        q[3 * HOVER_LEGS[0] + 1] -= HOVER_LIFT_DEG * DEG2RAD
+    act = q_rad_to_action(q)
+    total, steps = 0.0, 0
+    terminated, reason = False, None
+    while True:
+        _obs, r, term, trunc, info = env.step(act)
+        total += float(r)
+        steps += 1
+        if term or trunc:
+            terminated = term
+            reason = info.get("termination_reason")
+            break
+    env.close()
+    return {"ret": total, "terminated": terminated, "reason": reason,
+            "end_t_s": steps * env.dt}
+
+
+@pytest.fixture(scope="module")
+def hold_minload_bank() -> dict[str, dict]:
+    return {
+        "off": {p: [_hold_minload_rollout(p, s, HOLD_MINLOAD_STACK)
+                    for s in SEEDS] for p in ("quiet", "hover", "hover1")},
+        "on": {p: [_hold_minload_rollout(p, s, HOLD_MINLOAD_ON)
+                   for s in SEEDS] for p in ("quiet", "hover", "hover1")},
+    }
+
+
+def test_hold_minload_default_off_bit_exact():
+    """hold_min_load_terminate_s=0 must reproduce the no-key path
+    EXACTLY (same seed, same hover1 rollout) — default-off, bit-exact."""
+    zero = dict(HOLD_MINLOAD_STACK)
+    zero[("safety", "hold_min_load_terminate_s")] = 0.0
+    a = _hold_minload_rollout("hover1", SEEDS[0], HOLD_MINLOAD_STACK)
+    b = _hold_minload_rollout("hover1", SEEDS[0], zero)
+    assert a["ret"] == b["ret"] and a["terminated"] == b["terminated"], (
+        f"hold_min_load_terminate_s=0 changed the path "
+        f"({a['ret']} vs {b['ret']})")
+
+
+def test_hold_minload_stack_is_blind_to_the_hover(hold_minload_bank):
+    """Documents the loophole: under today's live stack (height-drop
+    lever already on), both hover/hover1 crouch-park poses must SURVIVE
+    to truncation, un-terminated — the residual basin the height
+    boundary alone can't see."""
+    for p in ("hover", "hover1"):
+        for r in hold_minload_bank["off"][p]:
+            assert not r["terminated"], (
+                f"{p} already terminates ({r['reason']}) under the "
+                f"height-drop-only stack — not the observed residual "
+                f"basin, re-justify the min-load lever")
+
+
+def test_hold_minload_terminates_the_hover(hold_minload_bank):
+    """The lever: both hover classes must terminate with reason
+    hold_min_load, inside a few seconds of the grace window."""
+    for p in ("hover", "hover1"):
+        for r in hold_minload_bank["on"][p]:
+            assert r["terminated"] and r["reason"] == "hold_min_load", (
+                f"{p} not caught: terminated={r['terminated']} "
+                f"reason={r['reason']}")
+            assert r["end_t_s"] < 6.0, (
+                f"{p} took {r['end_t_s']:.1f}s to terminate — "
+                f"threshold/grace too loose")
+
+
+def test_hold_minload_quiet_untaxed(hold_minload_bank):
+    """The honest quiet stand must be byte-identical with the flag on:
+    no termination, same return, same seed."""
+    for r_on, r_off in zip(hold_minload_bank["on"]["quiet"],
+                           hold_minload_bank["off"]["quiet"]):
+        assert not r_on["terminated"], (
+            f"quiet stand terminated ({r_on['reason']}) — threshold "
+            f"inside the honest hold's load band")
+        assert r_on["ret"] == r_off["ret"], (
+            f"flag taxes the quiet stand ({r_on['ret']:.1f} vs "
+            f"{r_off['ret']:.1f})")
+
+
+# --------------------------------------------------------------------------
 # RISE-ROCK bank (dr.rise_rock_*, 08-11 hardware belly-curl rocking gap).
 #
 # Bench truth (bench_blast camera sessions, 08-11): the learned rise is

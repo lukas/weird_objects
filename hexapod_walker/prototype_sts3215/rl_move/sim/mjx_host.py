@@ -103,6 +103,10 @@ SNAP_ATTRS = (
     # The model rows and host-side encoder correction must agree after a
     # pooled restore.
     "_struct_comp_k",
+    # HOLD min-foot-load termination (08-25, standwalk mesh2 rung-6):
+    # own EMA + sustained-low-seconds counter, universal (every task
+    # class supports hold mode) — see sim_env._reset_finalize.
+    "_hold_minload_ema", "_hold_minload_low_s",
 )
 
 

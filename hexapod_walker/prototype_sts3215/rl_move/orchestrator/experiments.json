@@ -182053,7 +182053,7 @@
       "env.model_source=mesh"
     ],
     "created": "2026-08-25T08:48:24+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -182103,7 +182103,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-dose5x since 2026-08-25T09:20:18"
+    "triage": "done",
+    "verdict": "CANARY PASS: 5x dose (k_walk_move_current 2.0->10.0, single lever off the movecur1 2M base, everything else byte-identical) moves the previously dose-insensitive cur_max_a signature well off the 2.64A pinned safety-trip edge -- exactly the gate's own pre-registered PASS branch. Evidence: (1) W&B env/walk_move_current_max_a falls from a 2.64A plateau (steps 344k-540k) to 0.37-0.43A by ~900k-1030k and only partially re-rises to 1.36-1.9A by 2M, never re-pinning; terminations/over_current collapses from 1587/440 in the first two report windows to single digits (2-9) for the remaining ~24 windows. (2) Fresh DR-0 deterministic gate eval (own-cfg, held-out, n=6): walk/det mode is CLEAN on the mechanism axis -- cur_max_a 2.17-2.29A every episode, 0/6 terminated, 0/6 over_current (was 100% pinned-2.64A/terminated at k=2.0 on this exact recipe family). Noisier modes (sto, startjitter) still hit 2.64A and over_current on some episodes (not all -- 1.97/2.19A appear too), a real but partial dose response, not a clean full close. Video (walk_det_0-5, frame strips): robot holds a static all-six-legs-sacrificed crouch, zero translation -- the 'generic-early-valley'/park-not-walk look the gate explicitly says is fine to ignore at this budget. Why this matters: it directly refutes the alternative branch (mechanism dose-insensitive/structurally unreachable) that the movecur1 trio's FAIL at k=2.0 had left open, and answers the fork the previous cycle flagged DIG-IN instead of deciding same-cycle. Own-DR(0.5) full pass and joygate were also prestaged; joygate (60s held-out, judged on skill not mechanism, irrelevant to this canary's own gate text) reads FAIL as expected for a 2M mechanism-only run (10/48 falls, sacrificed_frac ~80%, gait_valid_frac 0.083) -- not a contradiction, this run was never meant to pass it. Own-DR gate eval was still computing on-pod at verdict time; DR-0 alone already decides this canary per its own pre-registered branch. Next: per the gate's own PASS clause, fund a full acquisition-budget continuation (matching the k=2.0 trio's own 38-40M precedent) at this same dose to see whether real walking (not just avoided-current parking) emerges once cmd_prog actually moves."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdload1min-ent4",
@@ -183080,7 +183081,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdterm40 --steps 6000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdterm40 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdload1min: Plain English: does ending the episode the moment the body collapses toward its belly (and pricing that like a real fall) finally keep the from-scratch policy standing on the six feet it starts on? Single lever off the holdload1min scratch recipe (min-load income, pricing untouched): safety.hold_max_height_drop_mm=40 + 1s grace terminates hold episodes whose chassis drops >40mm below the settled plant (reason hold_low_height, priced by the existing safety penalty + term_cost). Rationale: 5/5 load-min arms + 3/3 read product arms all walk OUT of the paying plant within ~0.7M steps, and the winning basins are QUIET SURVIVORS (belly-flop freeze / cold belly-rest: zero terminations, 0.5A) that absorb the policy -- op ruling 08-24: absorbing states beat prices, must come WITH a termination. Terminating basin exit resets envs back INTO the paying basin and makes time-in-basin a MONOTONE return axis (HOLD_BASIN_TERM bank, 5/5 green on primitive AND mesh: flop terminates <4s w/ right reason, quiet byte-identical, quiet > flop@11s > flop@6s > flop@1.5s). Prediction-if-true: hold panel >=10/12 valid six-foot plant by 6M, terminations high early then falling. Prediction-if-false: policy escapes into a DIFFERENT terminating basin (rear-up OC / tilt) or terminations stay pinned with reward flat -- then height-drop is the wrong trigger and the pre-registered follow-up is a min-load-based exit trigger (terminate when min foot load stays floor-pinned), bank first. Strongest alternative cheat: hovering just above the 40mm line (h_err ~30-39mm crouch) -- watch eval height_err_end and hold_load_factor.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 > /tmp/train_cw-standwalk-stance-mesh2-holdterm40.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdterm40.log",
     "wandb_id": "ucrtk5um",
-    "verified": "2026-08-25T09:44:29+00:00"
+    "verified": "2026-08-25T09:44:29+00:00",
+    "triage": "in-cycle cw-standwalk-stance-mesh2-holdterm40 since 2026-08-25T09:50:50",
+    "checkups": [
+      {
+        "time": "2026-08-25T09:50:26+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2065,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdterm40-s1",
@@ -183203,6 +183217,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdterm40-s1 --steps 6000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdterm40_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdterm40: Plain English: seed replicate of holdterm40 -- with the belly absorbing state terminated+priced, does a SECOND seed also stay in (or return to) the six-foot stance, or does the fix only work for one optimization path? Seeds under this recipe family have found DIFFERENT basins every wave (seed0 rear-up OC, seed1 belly-freeze), so a single-seed pass would be weak evidence for the rung; byte-identical to holdterm40 except seed=1. Prediction-if-true: same PASS shape as seed 0 (>=10/12 valid plant at 6M). Prediction-if-false: seed 1 lands in a different (terminating) escape basin while seed 0 plants -- mechanism helps but the recipe is still seed-fragile; joint read decides whether rung-6 is a DR ramp or the min-load exit trigger.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 > /tmp/train_cw-standwalk-stance-mesh2-holdterm40-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdterm40-s1.log",
     "wandb_id": "jg6l3bf7",
-    "verified": "2026-08-25T09:49:06+00:00"
+    "verified": "2026-08-25T09:49:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T09:54:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1928,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-holdterm40-s1 since 2026-08-25T09:55:57"
   }
 ]

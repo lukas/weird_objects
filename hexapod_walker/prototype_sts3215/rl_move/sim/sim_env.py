@@ -2122,6 +2122,16 @@ class SimHexapodBalanceEnv(_GymBase):
         self._tdrag_prev_xy = [None] * 6
         self._tdrag_prev_on = [False] * 6
         self._tdrag_acc = 0.0
+        # HOLD-mode min-foot-load termination bookkeeping
+        # (safety.hold_min_load_terminate_s, standwalk mesh2 rung-6):
+        # own EMA of the worst (min-over-feet) touch force this
+        # episode, and seconds it has stayed below the floor,
+        # consecutively — same lifecycle/EMA pattern as walk_task's
+        # _walk_qvel_ema/_walk_idle_low_s, but universal here (hold
+        # mode is available on every task class, not just
+        # SimHexapodJointWalkEnv) — snapshot via mjx_host.SNAP_ATTRS.
+        self._hold_minload_ema = 0.0
+        self._hold_minload_low_s = 0.0
         # Per-episode cache: first charged tick of the terminal
         # end-posture window (computed lazily from the goal schedule).
         self._end_posture_from = None
@@ -2977,6 +2987,75 @@ class SimHexapodBalanceEnv(_GymBase):
             status.ok = False
             status.terminate = True
             status.reason = "hold_low_height"
+        # HOLD-mode MIN-FOOT-LOAD termination (2026-08-25, standwalk
+        # mesh2 rung-6 -- the direct-measurement twin of hold_low_height
+        # just above). holdterm40's own gate report (h_err pinned at
+        # exactly 40.0-40.3 mm EVERY episode, valid_plant 0/12 both
+        # DR-0 and own-DR, cur_max ~2.6 A, leg imbalance 1.8-1.9)
+        # confirms the STATUS-pre-registered "alternative cheat": the
+        # policy learns to hover its CHASSIS right at/around the
+        # height-drop boundary while the actual per-foot load
+        # distribution never recovers -- a body-height proxy alone
+        # cannot see a foot that stays functionally unloaded (or one
+        # foot carrying everyone else's share) as long as the chassis
+        # itself stays within the drop line. This lever measures the
+        # ground truth directly instead of a height proxy: if the
+        # WORST (min-over-feet) touch force stays below
+        # safety.hold_min_load_terminate_n for
+        # safety.hold_min_load_terminate_s consecutive seconds (after
+        # its own grace window), the episode ends and resets back into
+        # the paying plant -- same story as hold_low_height/walk_idle_
+        # terminate: "absorbing states beat prices; must come WITH a
+        # termination, never instead of one" (op ruling 08-24). An EMA
+        # (tau hold_min_load_terminate_tau_s) smooths sensor/contact
+        # chatter so one missed-contact tick can't false-trigger. A
+        # foot with no touch sensor (adr<0) falls back to the
+        # clearance test used elsewhere in this file (clear >
+        # foot_down_mm => "up" => scored as unloaded). Default
+        # hold_min_load_terminate_s=0.0 = off, bit-exact -- no new
+        # state is read and no episode outcome changes for any
+        # existing task/cfg.
+        hold_minload_term_s = float(cfg_get(
+            self.cfg, "safety", "hold_min_load_terminate_s", default=0.0))
+        if (not terminated and hold_minload_term_s > 0.0
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "hold"
+                and self._pad_z_ref is not None):
+            minload_grace_s = float(cfg_get(
+                self.cfg, "safety", "hold_min_load_terminate_grace_s",
+                default=0.0))
+            minload_floor_n = float(cfg_get(
+                self.cfg, "safety", "hold_min_load_terminate_n",
+                default=0.3))
+            minload_tau_s = max(float(cfg_get(
+                self.cfg, "safety", "hold_min_load_terminate_tau_s",
+                default=0.25)), self.dt)
+            forces_now = []
+            for i in range(6):
+                if self._touch_adr[i] >= 0:
+                    forces_now.append(max(float(
+                        self.data.sensordata[self._touch_adr[i]]), 0.0))
+                else:
+                    clear_i = (float(self.data.xpos[self._pad_bids[i], 2])
+                               - self._pad_z_ref[i])
+                    forces_now.append(
+                        0.0 if clear_i > PLANT_SPEC["foot_down_mm"] * 0.001
+                        else minload_floor_n * 2.0)
+            min_force_now = min(forces_now)
+            self._hold_minload_ema += (self.dt / minload_tau_s) * (
+                min_force_now - self._hold_minload_ema)
+            if self._step_i * self.dt < minload_grace_s:
+                self._hold_minload_low_s = 0.0
+            else:
+                if self._hold_minload_ema < minload_floor_n:
+                    self._hold_minload_low_s += self.dt
+                else:
+                    self._hold_minload_low_s = 0.0
+                if self._hold_minload_low_s >= hold_minload_term_s:
+                    terminated = True
+                    status.ok = False
+                    status.terminate = True
+                    status.reason = "hold_min_load"
         # Sustained-idle termination (2026-08-24, walkcurr park_duty-
         # class closure dig-in): every anti-park PRICE tried so far
         # (idle charge, park_duty, up to bank-legal 1.5x dose) left a
