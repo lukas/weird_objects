@@ -2391,3 +2391,130 @@ status: informational/escalating — no operator input needed (this is
 a code-quality/test-debt finding, not a values question), but flagged
 prominently because of its blast radius across every track's
 "bank-proven" claims since the drift began.
+
+## 2026-08-25 ~03:2x — code-sync blocker on gaitgate-scratch1 seed-robustness launches (informational, no operator action needed)
+Tried to launch 2 seed replicates (`-seed1`/`-seed2`) of
+`cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1` (the
+from-scratch leg-sacrifice-prevention arm) to answer the seed-
+robustness question in one wave per operator 08-22 batching guidance.
+Both REFUSED, twice, on a code-marker mismatch: the local controller
+tree carries a concurrent cycle's UNCOMMITTED delta on
+`linux_control/rl_policy.py` + `rl_move/robot_state.py` (+ a test
+file), and `origin/main` is 2 commits ahead of local HEAD with
+DIFFERENT content in those same files (`git pull --ff-only` refused:
+"local changes would be overwritten by merge" — a real content
+conflict, not just noise). This is presumably a concurrent cycle's
+in-progress hardware-runner work, mid-edit, not yet snapshotted. I did
+NOT attempt to resolve the conflict (safety-relevant runtime/servo
+code, unclear ownership, outside this cycle's assigned scope) — a
+`git pull --ff-only` attempt was tried and cleanly aborted (autostash
+round-tripped correctly, verified no conflict markers landed in any
+file), but it DID transiently revert 3 of my own already-written
+verdict-command edits (RL_LOG.md line, one run-doc status field, one
+`experiments.json` status field) back to the pre-verdict HEAD version
+before the abort restored the working tree — caught via a routine
+post-hoc check, re-ran `ops.sh verdict` for the affected run
+(`gaitgate-cont1`) to restore the record; no other cycle's files were
+touched. **Lesson for future cycles: `git pull` (even `--ff-only`,
+even when it looks safe because "behind, can be fast-forwarded") can
+transiently stash+restore uncommitted docs/ledger edits and is NOT
+risk-free with concurrent cycles mid-edit; avoid it entirely unless a
+launch is actually blocked on stale-pod code and no other pod is
+available — a REFUSED launch is normal traffic, not something to fix
+by pulling.** The 2 seed-replicate arms are re-queued in
+`backlog.json`; the self-repairing drain will place them once the
+conflicting delta is committed by whichever cycle owns it (or once a
+future cycle's ordinary `snapshot.sh <run>` call resolves local HEAD
+forward past both).
+status: informational — no operator input needed.
+
+## 2026-08-25 ~03:3x — mesh-family valley reference (hist64-mesh-acq1): pre-registered FAIL branch fires, but the FAILURE MECHANISM is new and needs a root-cause dig-in before any further mesh-family launch (DIG-IN flagged, no operator action needed)
+Plain English: `cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1` (the
+mesh-family MLP valley reference, 38M/40M steps) hits its own
+pre-registered gate's FAIL branch cleanly — `walkcurr/frontier` never
+left b0 across all 76 cert rounds while training reward is genuinely
+healthy and rising (ep_rew_mean quarters -520.8/110.2/256.9/476.0,
+matching the architecture-independent from-scratch valley shape the
+primitive family already showed) — textbook "reward rises while rungs
+stay flat" misalignment per the 08-21 ruling, and the run doc's own
+FAIL text names exactly this outcome. Not leaving this unverdicted on
+the FAIL call itself.
+**What's NEW and worth a dedicated dig-in before the sibling
+`cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1` (still running) or any
+further mesh-family arm is judged**: unlike the 3 already-confirmed
+primitive-family leg-sacrifice lineages (which fail via slow topple,
+`term_reason=tilt_pitch/tilt_roll`), EVERY SINGLE episode in this run's
+DR-0 gate (24/24 walk+startjitter, det+sto) and held-out joygate
+(24/24 at DR-0, 15/24 at own-DR 0.5) terminates `over_current`, with
+`cur_max_a` pinned at almost exactly 2.64A in every episode (video:
+`walk_det_*.png`/`.mp4` — the robot plants 2-3 legs rigidly, lifts the
+rest, rears back nose-up, and stalls/tips within the first ~15-20s,
+consistent frame to frame). Per-leg duty at DR-0.5:
+`[1.0, 0.04, 1.0, 0.04, 0.99, 0.1]` — legs 1/3 (and often 5) are
+near-fully unloaded, i.e. the same leg-sacrifice topology as the
+primitive family, but here the safety current cap (`sim_env.py`
+`max_current_a=2.0` default, unrelated to `env.model_source` — the
+same constant is used for both model families) trips almost
+immediately because holding a 2-3-leg tripod stance under the mesh
+model's as-built **+66% mass (3.50kg vs 2.104kg)** apparently demands
+much more sustained torque than the identical real-servo torque limit
+(`mujoco_prototype.TORQUE_LIMIT`, also shared across both families —
+checked, not model_source-scoped) can supply without saturating.
+**Open question, not resolved this cycle**: is this a genuine,
+hardware-relevant finding (the as-built 3.5kg chassis may really risk
+tripping servo current limits just to stand tripod, which would be
+directly useful for M6 hardware planning) — in which case `2.0A`/
+`TORQUE_LIMIT` are CORRECTLY calibrated to the real servo and the
+mesh-family recipe genuinely needs either a training-time
+current-aware gait (weight-shifting instead of static tripod holds)
+or is legitimately harder/slower to learn under this constraint — OR
+is `max_current_a=2.0` a stale safety threshold from the lighter
+legacy-mass calibration that now needs its own recalibration pass
+(analogous to the tibia-150 height-window fixes in CURRENT_TRUTHS),
+in which case training under a too-tight cap is teaching the policy
+to avoid a phantom wall rather than actually learn a mesh-appropriate
+gait. This is a genuine root-cause fork (does NOT decide itself from
+this cycle's evidence) that should be resolved — with a matched-parent
+control (does the primitive-family MLP at the same recipe/steps ever
+approach 2.64A? almost certainly not, given its own failure mode is
+topple not over-current) — before spending more mesh-family
+acquisition budget or judging the tf64-mesh sibling's gait quality.
+Evidence: `logs/ckpt_eval/cw_arch_hist64_mesh_joyfullcurr13_v7_hz100_acq1_{gate,joygate}/`,
+W&B `sw94v915`.
+status: informational/escalating — no operator input needed (a
+sim-calibration/root-cause question, not a values question), flagged
+because it blocks a clean read of both mesh-family acq1 arms.
+
+## 2026-08-25 ~04:0x — 54-test bank regression: RISE-family root cause FOUND AND FIXED (update to the 08-25 ~02:1x note; no operator action needed)
+The rise/rock/trans-drag leg of the 54-test regression is the bank's
+own replay rate, not the reward stack: the rise refs are 25 Hz
+artifacts (`rise_ref_belly2plant.npz` dt=0.04) and the bank helpers
+advanced one ref row per ENV step, so config.yaml's 08-24 control.hz
+25->100 flip silently replayed the "honest rise" 4x too fast — the
+reference toppled and TERMINATED, failing its own tests on BOTH model
+families. The training-side consumer (`sim_env._rise_ref_clock`) was
+always time-based and is unaffected. Fixed in test_task_semantics.py
+(`_ref_row`, time-aligned like the trainer; applied to `_rise_rollout`,
+`_rock_rollout`, `_tdrag_rise_rollout`). Verified: primitive @hz=100
+`-k "rise or lower"` went 5 failed -> 1 failed (16 tests; the 4
+recovered: rise_correct_dominates, rise_partial_honest, rise_valid_
+plant, rise_rock_feedback). Still red and left red deliberately:
+`test_trans_drag_honest_rise_keeps_full_pay` — its 550-750 mm drag
+band is a 25 Hz measurement (at hz=100 the same physical path measures
+295 mm, likely per-tick deadband interaction); k_drag_trans is not in
+any queued arm's stack, so recalibrating that band belongs to the
+dedicated regression dig-in, along with the GETUP bank replay sites
+(~line 3615, 5048) which still index per-step. Remaining ~48 failures
+elsewhere in the file are untouched/unexplained by this.
+Also measured while porting the stance recipe to mesh (standwalk
+stage 1): the mesh-family plant settles at h_rel=82.96 mm (vs
+primitive tibia-150's 131.94 mm) — mesh stance arms need
+goal.rise_height_mm=[79,87] / actions.max_height_mm=88; the committed
+primitive bands in RISE_OVERRIDES/LOWER_OVERRIDES stay as-is (conftest
+pins the suite to primitive). And a mesh-only pricing note: with the
+plain bank stack, a lucky LOWER "thrash" seed collapses the heavier
+3.5 kg robot to the floor and banks height income (thrash s2 ~1852 >
+partial mean ~630) — see the standwalk stance-mesh1 launch stack for
+how it was priced out (k_current_hot), and the refuse<0 caveat there.
+status: partially resolved — rise-family fixed+verified; full-bank
+dig-in still open for the other ~48.
