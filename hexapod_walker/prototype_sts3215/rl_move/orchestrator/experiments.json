@@ -189296,7 +189296,7 @@
       "0.5"
     ],
     "created": "2026-08-25T17:01:31+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -189347,7 +189347,7 @@
       }
     ],
     "triage": "done",
-    "verdict": ""
+    "verdict": "PARTIAL by the gate letter, but the same-seed twin says budget is likely NOT the lever \u2014 treat as at-canary-within-noise pending s1/s2. Evidence (DR-0 gate, det+sto n=6+6): det 5/6 + sto 5/6 valid_plant, over_current 2/12, valid-episode cur_p95 median 0.81A \u2014 nominally beats the canary pair (5/6+4/6, 3/12) and trips the PARTIAL clause (oc<3/12). HOWEVER the killed duplicate meshref-8m ALSO completed the full 8M (max global_step 8,060,928 before its 17:19 kill took effect; W&B history confirms) with the exact same seed/config and scored 5/6+4/6 @ 3/12 oc = EXACTLY canary level. Same seed, same budget, different pod => the +1 sto conversion / -1 oc term separating the twins is run-to-run (GPU-nondeterminism) noise, so acq8m's edge over the 2M canary is inside that noise band. Robust findings across both 8M replicates: (1) flat det/0 is the SAME splayed press-up at 2M/8M/8M \u2014 front legs never tuck, 2.64A pin, h_err_end 24-28mm (video-confirmed); (2) successes are clean (bridge: sprawl->level six-foot plant by ~3s, tilt 0.3deg, h_err 0.2-3.6mm); (3) valid bridge/rsi episodes still press 1.58-2.15A over the 1.5A clause. Next: s1/s2 decide the grid, but with two seed-0 8M replicates at/within-noise-of canary levels, expect the pre-registered FAIL route \u2014 targeted tuck mechanism (start-mix weighting toward flat, or tuck-phase anchor dose), never more undirected budget."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-8m",
@@ -189627,7 +189627,7 @@
         ]
       }
     ],
-    "verdict": "KILLED - DUPLICATE (no behavioral evidence, not a science verdict): exact duplicate of cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-acq8m (same seed 0, same 8M budget, same recipe), which a concurrent cycle launched at 17:01:31 \u2014 3 min before this arm \u2014 in a triage-overlap race on the meshref canary pair (both cycles independently reached the same CANARY PASS/PARTIAL read and both funded the pre-registered 8M promotion). Killed the younger copy to free the pod; the acquisition grid stands as acq8m (s0, other cycle) + meshref-8m-s1 + meshref-8m-s2 (this cycle), judged jointly per the grid gate.",
+    "verdict": "KILLED as duplicate of meshref-acq8m (same recipe/seed 0, 17:0x triage-overlap race; acq8m carries the grid slot) \u2014 but it COMPLETED the full 8M budget clean (max global_step 8,060,928 @~17:14, W&B history; earlier '~5M' reads were an out-of-order video-log row) before the 17:19 kill took effect, so its pre-staged eval is a legitimate FULL-BUDGET same-seed replicate, not a mid-budget point. DR-0 gate: det 5/6 + sto 4/6 valid_plant, over_current 3/12 \u2014 EXACTLY the 2M canary's numbers, vs its twin acq8m's 5/6+5/6 @ 2/12. Same seed + same budget + different pod => that twin delta (+-1 episode, +-1 oc term) IS the run-to-run noise band for this harness, and acq8m's nominal edge over the canary sits inside it: strong evidence the 2M->8M budget lever does nothing here. Flat det/0 splayed press-up (2.64A pin, front legs never tuck) identical in both replicates \u2014 budget-invariant, structural. No grid standing (duplicate); evidence folded into the acq8m PARTIAL and the pending s1/s2 grid read.",
     "triage": "done"
   },
   {
@@ -190090,7 +190090,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-8m-s2-cw since 2026-08-25T17:34:50"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace2",
@@ -190250,7 +190251,8 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-8m-s2-cw since 2026-08-25T17:34:51"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace2",
@@ -190524,7 +190526,24 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace2-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.0,rise=1.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_fullpace2_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_mesh_scripted.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace2: Seed twin of -fullpace2 (seed 1): does full chain pace (lookahead 0.5s / min_h 15mm) transfer to the mesh-native rise ref, judged as a 2-seed pass-rate against the meshref s0/s1 canary pair? Same recipe, only the seed differs. Prediction-if-true: replicates fullpace2'\"'\"'s read (pair matches/beats meshref det 5/6 + sto 4/6 at same-or-cooler currents). Prediction-if-false: seeds diverge -- pace read is seed-noise-dominated at 2M, keep half-pace default pending the 8M grid.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_state_aligned=1.0 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_stratified=1.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 > /tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace2-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace2-s1.log",
     "wandb_id": "3ti52q6s",
-    "verified": "2026-08-25T17:28:20+00:00"
+    "verified": "2026-08-25T17:28:20+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T17:33:25+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 1003520",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-fullpace since 2026-08-25T17:39:57"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-acq8m-r1",
