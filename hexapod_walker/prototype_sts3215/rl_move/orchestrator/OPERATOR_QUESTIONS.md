@@ -2816,3 +2816,37 @@ the correct handling (the final snapshot succeeded on retry while a
 repack ran); only rm a lock that is zero-byte AND >60s old AND has no
 live (non-defunct, non-maintenance) git process. Consider
 `git config maintenance.auto false` in this clone if it keeps biting.
+
+## 2026-08-25 ~20:3x — commandable stand-height (fb_20260825T195117_3dce6e): design decisions, assume-and-go (no answer needed)
+Acted on the MCP feedback this cycle (build reward+bank+eval harness
+first, launch a canary only once the bank proves the ranking). Three
+assume-and-go calls, recorded here per the standing prompt:
+1. **Reused `hold`, did not build a new goal kind.** The requested S
+   -gate (feet loaded x no-flag x level x quiet) and the height
+   tracking kernel already exist and are proven (`hold_still_gate`/
+   `hold_feet_load_min`/`hold_flag_fade`, the deployed hold champion's
+   own recipe) — a new mode would duplicate an unproven S-gate. New
+   cfg `goal.hold_height_cmd_*` (default off, bit-exact) makes hold's
+   existing `height_ref` channel follow a scripted, rate-limited
+   command instead of a flat 0. Full reasoning:
+   `rl_docs/tracks/standwalk/STAND_HEIGHT.md`.
+2. **Deferred rungs 4-5** (non-solid starts that must recover before
+   tracking; composition with rise/lower) until the standwalk rise
+   mechanism itself is solved — it is still mid dig-in this cycle
+   (tuckfloor0/tuckexempt/tuckrise chain), and no honest "shaky but
+   recoverable" start distribution exists without it. This is the
+   feedback's OWN pre-registered fallback ("restrict early starts to
+   solid states until rise firms up"), not a deviation from it.
+3. **Built the bank, did not launch a canary this cycle.** The bank
+   (`test_task_semantics.py` "HOLD bank, COMMANDABLE HEIGHT variant",
+   `test_hold_height_cmd.py` for the generator) is green — track beats
+   stale/flagleg/hover/skate on both an up-step and a down-step, with
+   real margins (measured this cycle, see STAND_HEIGHT.md). A
+   pre-registered rung-1 canary (respec of the deployed hold champion,
+   `holdminload40_bcanchor3_stdanneal`, WITHOUT `train.bc_anchor_coef`
+   — that anchor targets a height-BLIND fixed pose and would fight a
+   moving command) is documented and ready; not launched this cycle
+   because the cycle's time went to the design+bank+doc work itself.
+status: informational — no operator input needed; flagging the
+reasoning for review since it reinterprets "build a new mode" as
+"extend hold," in case that reading is wrong.

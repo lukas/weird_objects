@@ -1902,6 +1902,24 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
    stance panel for mesh if any flag is missing.
 3. After the stage-1 gate: pre-register the stage-2 walking-source x
    mechanism matrix and launch it as a BATCH.
+4. NEW (08-25, operator MCP request fb_20260825T195117_3dce6e):
+   commandable standing-height curriculum, built ALONGSIDE (not
+   instead of) the rise dig-in above. Full design + reward reuse
+   rationale + preflight bank (GREEN, this cycle) in
+   `rl_docs/tracks/standwalk/STAND_HEIGHT.md`; key table in
+   REWARD.md §4d. Reuses `hold` (not a new goal kind) — new cfg
+   `goal.hold_height_cmd_*` (default off, bit-exact), `rl_move/sim/
+   goal_task.py`'s `_hold_height_schedule`. Rungs 0-3 (solid-start
+   commandable height) are the scope; rungs 4-5 (recover-then-track
+   from non-solid, compose with rise/lower) stay OUT OF SCOPE until
+   the rise mechanism above is solved (no honest non-solid-but-
+   recoverable start distribution exists without it). NOT launched
+   this cycle (no GPU spent) — the doc's own "first science arm"
+   (rung-1 respec of the deployed hold champion, `holdminload40_
+   bcanchor3_stdanneal`, WITHOUT `train.bc_anchor_coef`) is
+   pre-registered and ready; the next cycle with standwalk capacity
+   (or this one, if capacity allows after the rise triage) should
+   launch it.
 
 ## Landmines
 

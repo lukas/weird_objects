@@ -298,6 +298,65 @@ aggregation; empty-interval rng parity; anchor state gating).
 
 | `reward.term_penalty` | 0 | One-time charge subtracted on early TERMINATION (term, never trunc), applied at the very end of the walk-family `_post_step` stack. Cfg-gated in-env twin of `train_ppo_transfer`'s TRAINING-ONLY `_term_penalty_wrapper` (the dynrep pilots' anti-suicide terminal charge, default `--term-penalty 30` there) so the batched MJX trainers — which construct shim envs internally and cannot wrap them — can train on the exact walkcurr2 reward contract (cw-dynrep-criticD-walkcurr3, operator order 2026-08-18 fb_20260818T065930_03b422). Eval/cert envs leave it 0: evals run the raw reward, the same rule the transfer trainer's eval_task follows. Default 0 = bit-exact legacy. Tests: `test_walkcurr_mjx.py::test_term_penalty_charges_exactly_on_term`. |
 
+## 4d) HOLD, commandable standing height (goal.hold_height_cmd_*, 08-25)
+
+Operator MCP request `fb_20260825T195117_3dce6e`: once standing, a
+joystick axis should move the body up/down to a specified height; a
+non-solid stand should ignore the command and get solid first. See
+`rl_docs/tracks/standwalk/STAND_HEIGHT.md` for the full curriculum
+design (rungs 0-5), preflight-bank spec and eval-gate plan. This
+entry documents rungs 0-3 (solid-start commandable height), the part
+actually implemented so far — rungs 4-5 (recover-then-track from a
+non-solid start, composition with rise/lower) are deliberately
+deferred until the standwalk rise mechanism itself is solved (still
+mid dig-in as of this note: the anchor-progress-metric fix for the
+mesh-native tuck segment).
+
+**Deliberately NOT a new goal kind.** `hold` already starts at the
+plant and already carries the exact solid-stand S-gate proxy this
+feature needs — `reward.hold_still_gate` / `hold_feet_load_min` /
+`hold_flag_fade` (feet-loaded² × no-flag fade × stillness, §1 above)
+scaling the SAME base-kernel height-tracking income
+(`rl_move/env.py compute_reward`'s `height_sigma_mm` Gaussian, already
+fed `goal.height_ref` for every hold/rise/lower/raise episode) — plus
+the loaded-foot slip charge (`reward.k_drag_trans`, priced on every
+non-walk tick including hold, §2). The only missing piece was a
+`height_ref` that MOVES over a wide range instead of sitting at a
+single per-episode target: no observation change (the scaled
+`height_ref` channel already exists in `TaskGoal.as_obs`,
+`rl_move/env.py`) and no new base reward code.
+
+| cfg key (goal.) | default | what it does |
+|---|---|---|
+| `hold_height_cmd_frac` | 0.0 (off) | fraction of HOLD episodes that draw a scripted height-COMMAND schedule (`GoalGenerator._hold_height_schedule`, `rl_move/sim/goal_task.py`) instead of the legacy flat `height_ref=0`. Conditional draw (the `rise_start_bank_frac` convention): at 0.0 there is no extra rng draw at all, so every existing hold-including lineage's rng stream — and every default `--goal-mix hold=...` run — is untouched, bit-exact. |
+| `hold_height_cmd_range_mm` | [-40, 20] | commandable range, clipped to ± `actions.max_height_mm` (a run cannot command past the body-IK/action envelope). |
+| `hold_height_cmd_rate_mm_s` | 15.0 | every transition (ramp/pulse/sine) is stretched so its slope never exceeds this — the "feels like a joystick axis, not a step function" constraint. A segment whose natural pace would need MORE ticks than the episode has left is truncated (ends mid-transition), never sped up past the rate. |
+| `hold_height_cmd_hold_s` | [2.0, 5.0] | dwell time after a completed transition before the next segment is drawn. |
+| `hold_height_cmd_kinds` | ("hold","ramp","sine","pulse") | per-segment kind mix: flat hold, a rate-limited ramp to a new target, a rate-capped raised-cosine oscillation (returns near its start), an up-then-back-down pulse. |
+
+Preflight bank (`test_task_semantics.py`, "HOLD bank, COMMANDABLE
+HEIGHT variant") pins the required ordering on the SAME pinned exact
+schedule (bypassing the random generator, which has its own unit
+tests in `test_hold_height_cmd.py` for range/rate/default-off), scored
+under `HOLD_MINLOAD_ON` — today's DEPLOYED hold recipe
+(`holdminload40_bcanchor3_stdanneal`, `hold_still_gate` /
+`hold_feet_load_min` / `hold_flag_fade` / `safety.
+hold_min_load_terminate_*` all on):
+  - solid six-foot `FixedFootBodyIK` tracking of the commanded height
+    ("track") beats refusing the command / freezing at the OLD height
+    ("stale"), for both a down-step and an up-step target;
+  - a flag leg or a hovering foot that nominally rides the same
+    commanded height ("flagleg"/"hover") earns under half of honest
+    tracking — the S-gate proxy still bites while height varies;
+  - loaded-foot slip DURING the adjustment (the trans-drag bank's
+    proven opposing-tripod yaw scrape, §2, riding on top of height
+    tracking) loses to a quiet planted adjustment under
+    `reward.k_drag_trans`.
+No canary has trained on this yet; the bank passing is the
+precondition the operator's own directive requires before funding one
+(RESEARCH_RULES.md / the 08-21 ruling's reward<->eval-alignment
+demand).
+
 ## 5) Changing the reward — checklist
 
 1. New terms: cfg-gated, default 0 = byte-identical legacy. Income

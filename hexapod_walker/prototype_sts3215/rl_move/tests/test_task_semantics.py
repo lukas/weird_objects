@@ -3259,7 +3259,12 @@ HOLD_HEIGHT_STACK = dict(HOLD_MINLOAD_ON)   # today's DEPLOYED hold recipe
                                             # (holdminload40 champion:
                                             # min-load termination armed)
 HOLD_HEIGHT_SLIP_STACK = dict(HOLD_HEIGHT_STACK)
-HOLD_HEIGHT_SLIP_STACK[("reward", "k_drag_trans")] = 40.0
+HOLD_HEIGHT_SLIP_STACK[("reward", "k_drag_trans")] = 400.0   # the
+    # TRANS-DRAG bank's own proven operating point (below, "today's
+    # DEPLOYED" k=400/m — a same-sign per-leg yaw wobble is degenerate
+    # with the body simply yawing WITH it and measures ~0 slip; the
+    # opposing-tripod pattern below is the proven one that actually
+    # shears the loaded feet against the ground)
 
 
 def _hold_height_rollout(policy: str, seed: int, target_mm: float,
@@ -3278,9 +3283,12 @@ def _hold_height_rollout(policy: str, seed: int, target_mm: float,
     hover    track, but leg 0 additionally lifts HOVER_LIFT_DEG at the
              hip throughout (a hovering, functionally-unloaded foot at
              a body that otherwise reaches the right height).
-    skate    track, but every leg's yaw joint gets a +/-8deg sideways
-             wobble during the episode (loaded-foot slip while the
-             body is otherwise adjusting height correctly).
+    skate    track, but the opposing-tripod yaw scrape from the
+             TRANS-DRAG bank below (left tripod +, right tripod -,
+             +/-10deg at 0.5Hz — a same-sign wobble is degenerate with
+             the body simply yawing along with it and slides nothing;
+             opposing tripods force real loaded-foot shear) rides on
+             top of the height tracking the whole episode.
     """
     from rl_move.body_ik import BodyOffset, FixedFootBodyIK
 
@@ -3306,10 +3314,10 @@ def _hold_height_rollout(policy: str, seed: int, target_mm: float,
             elif policy == "hover":
                 q[1] -= HOVER_LIFT_DEG * DEG2RAD
             elif policy == "skate":
-                wob = 8.0 * DEG2RAD * math.sin(
-                    2.0 * math.pi * step * env.dt / 0.5)
+                s = 10.0 * DEG2RAD * math.sin(
+                    2.0 * math.pi * 0.5 * step * env.dt)
                 for leg in range(6):
-                    q[3 * leg] += wob
+                    q[3 * leg] += s if leg < 3 else -s
         _obs, r, term, trunc, _info = env.step(q_rad_to_action(q))
         total += float(r)
         step += 1
@@ -3341,7 +3349,7 @@ def hold_height_bank() -> dict[tuple, dict]:
     return out
 
 
-def _mean_ret(bank, key) -> float:
+def _mean_ret_kv(bank, key) -> float:
     return float(np.mean([r["ret"] for r in bank[key]]))
 
 
@@ -3349,8 +3357,8 @@ def test_hold_height_track_beats_stale(hold_height_bank):
     """Solid tracking must out-earn refusing the command (freezing at
     the OLD height) for BOTH a down-step and an up-step target."""
     for target in HOLD_HEIGHT_TARGETS_MM:
-        track = _mean_ret(hold_height_bank, (target, "track"))
-        stale = _mean_ret(hold_height_bank, (target, "stale"))
+        track = _mean_ret_kv(hold_height_bank, (target, "track"))
+        stale = _mean_ret_kv(hold_height_bank, (target, "stale"))
         assert track > stale + 20.0, (
             f"target {target}mm: tracking ({track:.1f}) does not beat "
             f"refusing the command ({stale:.1f}) — height-cmd income "
@@ -3363,9 +3371,9 @@ def test_hold_height_track_beats_flagleg_and_hover(hold_height_bank):
     S-gate proxy (no-flag fade / measured foot load) must still bite
     while height varies, exactly as it does at height_ref=0."""
     for target in HOLD_HEIGHT_TARGETS_MM:
-        track = _mean_ret(hold_height_bank, (target, "track"))
+        track = _mean_ret_kv(hold_height_bank, (target, "track"))
         for cheat in ("flagleg", "hover"):
-            cv = _mean_ret(hold_height_bank, (target, cheat))
+            cv = _mean_ret_kv(hold_height_bank, (target, cheat))
             assert cv < 0.5 * track, (
                 f"target {target}mm: '{cheat}' ({cv:.1f}) rivals "
                 f"honest tracking ({track:.1f}) — the S-gate is blind "
@@ -3378,8 +3386,8 @@ def test_hold_height_skate_loses_to_quiet_track(hold_height_bank):
     under the SAME slip-priced stack so the comparison isolates the
     slip charge, not an unrelated cfg delta."""
     for target in HOLD_HEIGHT_TARGETS_MM:
-        track = _mean_ret(hold_height_bank, (target, "track_slip_stack"))
-        skate = _mean_ret(hold_height_bank, (target, "skate"))
+        track = _mean_ret_kv(hold_height_bank, (target, "track_slip_stack"))
+        skate = _mean_ret_kv(hold_height_bank, (target, "skate"))
         assert track > skate + 5.0, (
             f"target {target}mm: skating ({skate:.1f}) does not lose "
             f"to the quiet planted adjustment ({track:.1f}) under "
