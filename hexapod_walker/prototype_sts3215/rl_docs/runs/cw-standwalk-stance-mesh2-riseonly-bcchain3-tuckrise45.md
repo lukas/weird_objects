@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T19:58:48+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref
+
+**wandb_id**: nt6ot7gn
 
 **hypothesis**: Does giving the mesh rise reference's OWN tuck segment a monotone height gain (45mm across the second half of the tuck via smoothstep, feet already near the plant footprint) let the UNCHANGED BC-anchor height-floor (min_h_ahead_mm=8, proven anti-freeze past ramp_i0) walk its lookahead target THROUGH the tuck instead of skipping it (meshref/flatmix70) or freezing when the floor is removed (tuckfloor0/tuckexempt0, 4/4 seeds)? Root cause chain this campaign measured: with the floor ON, the height-flat tuck is entirely skipped (first qualifying tick ~ramp_i0, presses from sprawl); with the floor OFF (globally or tuck-scoped), the state-aligned lookahead target ALSO sits near 0mm through the tuck (ref itself was height-flat there), so pursuit has near-zero gradient and freeze becomes anchor-optimal. This ref (make_rise_ref_scripted.py --tuck-rise-mm=45, committed fa1bccc5, achieved height starts climbing ~tick250/ramp_i0=258, open-loop-feasible) gives the SAME unchanged floor a real height ramp to walk through starting partway into the tuck, without any anchor-plumbing change (no tuck_exempt -- that axis is closed). Single lever vs the meshref parent: reward.rise_ref_path swapped rise_ref_mesh_scripted.npz -> rise_ref_mesh_tuckrise45.npz, everything else (floor=8, lookahead=0.25s, coef=3.0) at meshref's own proven values. Note: a sibling launch of the 15mm variant (tuckrise15) crashed on a missing/uncommitted ref asset (CANARY FAIL - INFRASTRUCTURE, this cycle) before any training happened -- this run uses the properly git-committed 45mm file, confirmed present in fa1bccc5. Prediction-if-true: flat-pinned probe shows genuine duty>0 tuck-then-press motion converging toward valid_plant, non-flat kinds hold at-or-above the meshref parent's 5/6+4/6. Prediction-if-false: flat stays pinned at either the original 2.64A never-tucks press-up (floor's height-threshold search still overshoots past the now-later-sloped tuck) or a duty=0 freeze (the flat achieved-height plateau through ~tick245 still defeats the floor before the ramp starts) -> ref-content height-shaping is refuted too; next is a direct tuck-phase reward/curriculum term, not more ref/floor plumbing.
 
