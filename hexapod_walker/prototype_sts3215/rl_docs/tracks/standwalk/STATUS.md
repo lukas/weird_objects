@@ -1,6 +1,132 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~14:4x (**operator kick fb_20260825T140238_d43b35
+Last updated: 2026-08-25 ~15:1x (**rung-8 rise stdanneal 3-arm triage:
+PACE IS THE LEVER, not budget or noise — the "mint a mesh-native IK
+ref" branch is NOT triggered.** All three arms shared the same 8M
+budget off the `riseonly-bcchain3-stdanneal` parent (DR-0 gate 2/6 det
++ 2/6 sto valid_plant, deep-start [flat/bridge/rsi] cur_p95 median
+2.64A pinned, 8/12 over_current terms, bc_anchor_loss_rise plateaued
+~0.05-0.07): `-cont8` (8M more steps, same chain pace, std pinned -4)
+FAIL — det 2/6 sto 3/6, deep-start median STILL 2.64A, anchor loss
+0.0515 (at the plateau, no further tracking headroom); `-reanneal`
+(fresh 0→-4 noise re-injection, same pace) FAIL — det 1/6 (worse) sto
+4/6, deep-start median STILL 2.64A, anchor loss 0.0512 (same
+plateau) — noise dose was never the deep-start blocker on this rung
+(unlike hold/lower, where std-anneal alone cooled everything).
+`-slowchain` (chain pace HALVED from-scratch — `bc_anchor_lookahead_s`
+0.5→0.25s, `min_h_ahead_mm` 15→8) PARTIAL, real progress: deep-start
+cur_p95 median falls 2.64A→**1.85A**, gate over_current terms fall
+8/12→**3/12**, DR-0 det valid_plant 2/6→3/6 — the pre-registered
+prediction-if-true landed and prediction-if-false ("equally pinned at
+half pace") is refuted. Still short of the 4/6+4/6+≤1.5A PASS bar:
+the deep-start plants that DO land are still hot (bridge det
+1.85-2.09A), so "unpinned" means below the hard 2.64A ceiling, not yet
+cool. Because slowchain (the pace arm) moved the blocked metric while
+cont8/reanneal (budget/noise arms, unchanged pace) both independently
+did not, the joint-FAIL condition that would force rung-9 (mint a
+mesh-native rise ref from scripted IK) is NOT met — pace is confirmed
+as a real, working lever, so we dose it further before reaching for a
+new reference. FUNDED (batch, from-scratch clones of slowchain's
+recipe unless noted): `cw-standwalk-stance-mesh2-riseonly-bcchain3-
+quarterchain` (lookahead 0.125s / min_h 4mm — halve again),
+`-eighthchain` (lookahead 0.0625s / min_h 2mm — bracket further),
+`-slowchain-cont8` (init-from the slowchain checkpoint itself, 8M
+more steps at the SAME already-working half-pace, std pinned -4 — is
+budget useful GIVEN a working pace, unlike cont8's null result on the
+non-working pace). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_riseonly_bcchain3_{stdanneal_cont8,
+stdanneal_reanneal,slowchain}_{gate,owncfg}/`, W&B `i29a19wo` /
+`lqav84km` / `8abary62`.)
+
+Prior entry: 2026-08-25 ~15:1x (**Lower seed hedge resolved:
+`loweronly-bcchain3-s1` (seed 1, 2M mechanism canary) CANARY PASS.**
+DR-0 det 6/6 valid_plant, herr_end 1.2–3.1mm (full commanded drop
+band), zero over_current, roll clean; det strips show the same level
+six-foot planted descent as seed 0. cur_max 2.25–2.45A ≈ seed-0's
+2.17–2.26A hot-crouch band; sto tilt falls at un-annealed std ~1.0
+are expected/excluded by this gate and already proven fixable by
+stdanneal. Conclusion: the IK-descent BC-anchor-chain lower mechanism
+is seed-robust — seed 0 was not a fluke — and the rung stays CLOSED
+on the seed-0 stdanneal champion; no further lower funding needed.
+Stage-1 tally: HOLD PASS, LOWER PASS (+seed-robust canary), RISE
+PARTIAL (pace-dose batch in flight), STANCEMIX PARTIAL (stdanneal +
+warmmix arms in flight). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_loweronly_bcchain3_s1_{gate,owncfg}/`, W&B
+`7iczyeb4`.)
+
+Prior entry: 2026-08-25 ~14:5x (**LOWER RUNG CLOSED — `loweronly-bcchain3-
+stdanneal` is a FULL PASS, mirroring the hold rung's stdanneal close.**
+8M acquisition off the `loweronly-bcchain3` IK-descent BC-anchor-chain
+canary (log-std anneal 0→-4.0, final std 0.018): DR-0 det 6/6 + sto
+6/6 AND own-DR(0.2) det 6/6 + sto 6/6 valid_plant — ZERO terminations
+across all 24 harness episodes, height_err_end_mm 0.0–0.5 (full
+commanded 25–55mm drop tracked to sub-mm error, env-native metric),
+roll peak ≤0.8°. Current cooled exactly as the canary triage flagged
+as the open risk: cur_max 0.66–1.24 A / cur_p95 0.37–0.62 A vs the
+canary's hot 2.17–2.26 A crouch (>2x drop) — std-annealing fixed both
+the sto-mode fall gap AND the hot-crouch current in one shot, same
+mechanism as hold. Gate bar was sto≥4/6 det≥5/6 + zero over_current +
+current-vs-canary report — exceeded on every clause (6/6 everywhere).
+Honest caveat: the settled crouch reads visually shallower/less
+knee-bent on video than the hot canary's version; resolved via the
+env-native height-error channel (same code that grades the reward,
+already trusted from the canary's independently-video-verified
+descent) — read as the cooler policy reaching the same target through
+less mechanical strain, not a shallower descent; not escalated as a
+gate/video conflict. **New mesh lower champion / stage-2 lower
+teacher: `ppo_goal_cw_standwalk_stance_mesh2_loweronly_bcchain3_
+stdanneal.zip`** (SKILLS.md row added). Seed-robustness hedge
+launched same cycle: `cw-standwalk-stance-mesh2-loweronly-bcchain3-s1`
+(seed 1, 2M canary, mirrors the hold rung's `bcanchor3-s1` precedent,
+VERIFIED RUNNING train-4). Stage-1 tally: HOLD PASS, LOWER PASS, RISE
+PARTIAL (stdanneal cont8/reanneal/slowchain in flight), STANCEMIX
+PARTIAL (warmmix1 FINISHED / warmmix2-lowstd RUNNING, triage pending —
+both concurrent-cycle-owned). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_loweronly_bcchain3_stdanneal_{gate,owncfg}/`,
+W&B `da1srvqe`.)
+
+Prior entry: 2026-08-25 ~14:5x (**rung-8 `stancemix-bcchain3` composition
+read: CANARY PASS (partial) — dilution confirmed, not collapse, and the
+dilution is UNEVEN across modes.** Plain English: the full
+hold=.1/rise=.45/lower=.45 goal-mix (same per-mode anchor bundle that
+PASSED each mode in isolation) does NOT reproduce the old rungs'
+rearing/splay mix-collapse, but it does measurably cost quality on two
+of three modes vs both the isolated siblings AND this run's own
+immediate parent checkpoint: HOLD keeps a real plant (valid_plant=True
+6/6 DR-0 det, height_err 8.7mm, roll clean) but runs 3.4x hotter than
+its bcanchor3 parent (cur_p95 1.79A vs 0.53A) and now trips
+`hold_min_load` in all 6/6 episodes (parent: 0/6) — degraded, not
+collapsed. RISE is essentially UNDILUTED: 0/6 valid_plant / 2/6
+success, current-pinned on 4/6 — same magnitude AND the same
+`bc_anchor_loss_rise` plateau (~0.21-0.27) as the isolated
+riseonly-bcchain3 canary at the identical 2M budget. LOWER is badly
+diluted: 0/6 success at 17.9-32.4mm height error vs the isolated
+loweronly-bcchain3 canary's 6/6 success at 0.1-3.7mm, DESPITE
+`bc_anchor_loss_lower` converging just as cleanly in both runs
+(0.16->0.011-0.02) — proof that a converged supervised anchor loss
+does not guarantee the behavior lands under the competing full-mix RL
+objective. Training reward fell every quarter (7.5/-31.8/-88.7/-169.0)
+while max_current climbed 0.3A->1.5-1.8A — the 08-21 ruling's
+"accumulating hot charges on an active behavior" shape, not a
+stuck-flat mechanism. Per the gate's own PARTIAL branch ("compare the
+isolated siblings before funding") and the operator's directive to
+keep funding the full-mix curriculum, FUNDED the pre-registered 8M
+stdanneal continuation (`cw-standwalk-stance-mesh2-stancemix-bcchain3-
+stdanneal`, log-std 0->-4.0 anneal-frac 0.5, identical lever to the
+hold/rise/lower stdanneal recipes, warm-started from this checkpoint,
+VERIFIED RUNNING train-0) — decisive read: anneal cools hold + closes
+lower's gap => full-mix stays viable, single-network stage-1 per the
+operator's canonical-recipe directive; hold/lower stay diluted/hot
+noise-free => the interference is structural (shared capacity fighting
+across modes) and stage-1 should fork to stage-2 distillation of the
+three isolated champions instead. NOTE: distinct from the operator's
+separately-directed raw-18 `footlow2raw18-mesh2-hz100-warmmix1/2`
+lineage below (same canonical-recipe family, different lineage/owner —
+do not conflate the two "stancemix"-flavored threads). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_bcchain3_{gate,owncfg}/`,
+W&B `tj2k8oxo`.)
+
+Prior entry: 2026-08-25 ~14:4x (**operator kick fb_20260825T140238_d43b35
 (footlow2 raw-18 curriculum = binding priority) + rung-8 mix canary
 read: `stancemix-bcchain3` CANARY PASS (partial) — the footlow2
 anchor bundle prevents the rung-1-6 mix collapse for the first time,
@@ -887,6 +1013,13 @@ Zero falls, directions followed, slip/m within the joystick band
 lower session harness is stage-2 tooling to build.
 
 ## Now
+
+RUNG-8 tally (08-25 ~15:1x): HOLD PASS, LOWER PASS (both stdanneal),
+RISE PARTIAL — the pace-dose batch (`quarterchain`/`eighthchain`/
+`slowchain-cont8`, all VERIFIED RUNNING off free capacity) is the live
+lever; see Last-updated entry for the cont8/reanneal FAIL + slowchain
+PARTIAL evidence that ruled it in. STANCEMIX still PARTIAL
+(warmmix1/2 triage belongs to a concurrent cycle).
 
 Stage-1 HOLD is SOLVED (08-25 ~13:1x): mesh hold champion
 `ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip`
