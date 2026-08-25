@@ -77,6 +77,34 @@ CONTACT_N = 0.5           # touch-sensor force that counts as contact
 FPS = 25
 
 
+def model_identity(env) -> dict:
+    """Small report.json stamp for the actual MuJoCo model in this eval.
+
+    ``env.model_source=mesh`` can mean true STL-hull CPU mesh on a machine
+    with generated assets, or the checked-in MJX primitive-collision twin on
+    pods/fresh checkouts.  Both are mesh-family, but they are not the same
+    contact model; make that auditable in the eval artifact instead of
+    relying on stderr warnings.
+    """
+    source = str(getattr(env, "_model_source", "unknown"))
+    nmesh = int(getattr(env.model, "nmesh", 0))
+    if source == "primitive":
+        variant = "legacy_primitive"
+    elif nmesh > 0:
+        variant = "full_mesh"
+    elif source in ("mesh", "mesh_mjx"):
+        variant = "mesh_mjx_twin"
+    else:
+        variant = source
+    return {
+        "model_source": source,
+        "model_variant": variant,
+        "model_nmesh": nmesh,
+        "model_ngeom": int(getattr(env.model, "ngeom", 0)),
+        "model_mass_kg": round(float(env.model.body_mass.sum()), 6),
+    }
+
+
 # ---------------------------------------------------------------------------
 # per-episode collection
 
@@ -928,8 +956,13 @@ def main() -> None:
         contract = motor_contract(cfg_kw.get("cfg"),
                                   backend="servo_profile_np")
         print(motor_contract_line(contract))
+        identity = model_identity(env)
+        print("[model-identity] source={model_source} variant={model_variant} "
+              "nmesh={model_nmesh} ngeom={model_ngeom} mass={model_mass_kg:.3f}kg"
+              .format(**identity))
         report = {"checkpoint": str(checkpoint), "task": args.task,
                   "dr_scale": args.dr_scale, "seed": args.seed,
+                  **identity,
                   "motor_contract": contract,
                   "policy_std": round(std, 3), "episodes": {}}
         sheet_strips: list[Path] = []

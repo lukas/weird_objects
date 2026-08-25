@@ -46,6 +46,11 @@ Outputs:
                         leg_chassis_collision bitmask rewrites apply as-is.
 
 Run (repo venv):  python build_mesh_model.py [--no-render]
+
+The electronics-stack STL helpers are required.  If those generated STL files
+are absent, the builder refuses by default instead of emitting a lighter
+bare-plates robot.  ``--allow-missing-electronics`` keeps the old fallback for
+one-off geometry debugging only.
 """
 
 from __future__ import annotations
@@ -195,7 +200,7 @@ class Part:
         return float(m.convex_hull.volume)
 
 
-def collect_parts():
+def collect_parts(*, allow_missing_electronics: bool = False):
     """Gather every part with its body assignment and body-local transform.
 
     Returns (bodies, assets) where bodies maps body name ->
@@ -267,9 +272,17 @@ def collect_parts():
     try:
         body_parts = VIZ._body_local_parts()
     except Exception as exc:
-        # the electronics stack loads two extra_stl meshes; regenerate them
-        # with tools/make_xtool_hex_mount_plate.py + _hex_raised_platform.py
-        print(f"  [warn] electronics stack unavailable ({exc}); bare plates only")
+        msg = (
+            "electronics stack meshes unavailable; refusing to build a "
+            "lighter bare-plates robot. Regenerate the ignored STL assets "
+            "with:\n"
+            "  python tools/make_xtool_hex_mount_plate.py\n"
+            "  python tools/make_xtool_hex_raised_platform.py\n"
+            "Then rerun mesh_mujoco/build_mesh_model.py."
+        )
+        if not allow_missing_electronics:
+            raise RuntimeError(msg) from exc
+        print(f"  [warn] {msg}\n  underlying error: {exc}")
         body_parts = [
             ("chassis_bottom", HP.make_chassis_bottom(), np.eye(4)),
             ("chassis_top", HP.make_chassis_top(),
@@ -916,10 +929,15 @@ def render_previews(model, data):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--no-render", action="store_true")
+    ap.add_argument("--allow-missing-electronics", action="store_true",
+                    help="debug only: build the old bare-plates fallback "
+                         "when the ignored electronics STL helpers are "
+                         "absent. Do not use for RL training/eval assets.")
     args = ap.parse_args()
 
     print("[1/5] building part meshes from CAD factories ...")
-    bodies, assets, tube_info = collect_parts()
+    bodies, assets, tube_info = collect_parts(
+        allow_missing_electronics=args.allow_missing_electronics)
     assign_masses(bodies)
     export_assets(assets)
 

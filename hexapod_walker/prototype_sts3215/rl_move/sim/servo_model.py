@@ -327,9 +327,10 @@ def _mesh_xml_text(want_full: bool):
                       for p in sorted(adir.glob("*.stl"))}
             if assets:
                 return MESH_XML.read_text(), MESH_XML, assets
-        print("[servo_model] full mesh model not generated (run "
-              "mesh_mujoco/build_mesh_model.py); using the checked-in "
-              "primitive-collision twin hexapod_mesh_mjx.xml",
+        print("[servo_model] full STL mesh assets not available (run "
+              "mesh_mujoco/build_mesh_model.py for CPU full-mesh eval); "
+              "using the checked-in mesh-family MJX primitive-collision "
+              "twin hexapod_mesh_mjx.xml",
               file=sys.stderr)
     if not MESH_MJX_XML.exists():
         raise FileNotFoundError(
