@@ -20,48 +20,58 @@
 # this goes on the robot.
 #
 # Bearing count (user, Aug 24: "one bearing on the bottom -- simplify"):
-# ONE bottom bearing per leg, seated directly in chassis_bottom's own
-# open-top phi 37.15 pocket (the production LOWER-race position; seat
-# and drop-in path are print-proven).  The bolt-on yaw_bearing_cap is
-# DELETED (-6 prints, -18 M3 screws): its radial-housing job moves to
-# the tower press band, its retention job splits by direction
-# (hanging loads: hub seat ring -> inner race -> outer race -> tower
-# seat; standing loads: up through the TOP bearing into the plate
-# shoulder).  The coxa hub grows a phi 29 seat ring down to the
-# relocated race top (the coxa is already a variant print).  Bearing
-# couple ~65 mm mid-plane to mid-plane.  Net 12 bearings per robot,
-# same as production.
+# ONE bottom bearing per leg, seated in the tower's phi 37.15 press
+# bore.  The bolt-on yaw_bearing_cap is DELETED (-6 prints, -18 M3
+# screws): its radial-housing job moves to the tower press band, its
+# retention job splits by direction (hanging loads: hub seat ring ->
+# inner race -> outer race -> deck-level tower ledge; standing loads:
+# up through the TOP bearing into the plate shoulder).  The coxa hub
+# grows a phi 29 seat ring down to the relocated race top (the coxa
+# is already a variant print).  Bearing couple ~56 mm mid-plane to
+# mid-plane (invariant: both races drop together).  Net 12 bearings
+# per robot, same as production.
 #
-# Joint-column redesign (user, Aug 24 rev 2: "the bearing should be
-# just above the horn and the motor should sit just above that --
-# feel free to redesign"): the tower rim is RAISED 3 mm to the
-# race-top plane (world 22.75) so the bearing is FULLY housed (7 mm
-# outer-race wrap, +75% press area vs the production 4 mm band) and
-# the phi 44 column ends exactly at the bearing top.  The earlier
-# phi 44 skirt+curtain on the coxa (which continued the tower
-# cylinder and made the column read 16 mm tall) is DELETED; a small
-# phi 38 DUST BRIM hovers 0.5 above the rim/race plane, stepped 3 mm
-# inside the tower OD.  Stack (world z): deck 10.25 -> horn top /
-# coxa mount 15.25 -> race seat 15.75 -> race + rim top 22.75 ->
-# brim 23.25..25.25 -> coxa hub above.  Non-contact everywhere.
+# BEARING ON THE DECK (user, Aug 25: "why cant the bearing come down
+# even more and be right on top of the servo?  Worry about the screws
+# last -- I can buy any type of screw and shorter ones would be
+# better").  The Aug 24 build kept the race at the production seat
+# (world 15.75) believing the spinning inner ring had to clear a
+# static horn below -- but the horn ROTATES with the coxa (the
+# static/rotating boundary is outer race + tower vs everything
+# inside) and the real phi 20 disc is recessed BELOW the deck (world
+# 4.25..6.25).  The race now sits with its bottom 0.5 mm over the
+# servo-mount deck top / servo case top (world 10.75..17.75): the
+# inner race presses on the SAME bench-tuned phi 25.15 hub boss band,
+# just 5 mm lower on the same cylinder (no new collar -- production
+# already runs that boss to the deck plane), and the outer race sits
+# on a 0.5 mm-proud phi 34/phi 37.15 ledge (the production shoulder
+# relief, bored out above) standing directly on the 4 mm deck.  The
+# tower's phi 44 column now ends at world 17.75 (7.5 mm tall above
+# the deck).  A small phi 38 DUST BRIM hovers 0.5 above the rim/race
+# plane, stepped 3 mm inside the tower OD.  Stack (world z): deck /
+# case top 10.25 -> race seat ledge 10.75 -> race + rim top 17.75 ->
+# brim 18.25..20.25 -> coxa hub above.  Non-contact everywhere.  The
+# floor is physical: to go lower the servo must sink into the
+# chassis.
 #
 # Coxa column shortened (user, Aug 24 rev 3: the band ~25..40 above
 # the deck was "largely unnecessary"; rev 4: "shorten the screws
-# thats fine, that middle section is pointless"): the production
-# coxa's phi 52.4 dust-lip skirt + 6 mm platform disc (world ~29..39
-# -- a dust guard for the vacated production upper-bearing position)
-# are DELETED, the yaw-horn screws swap M3x30 -> M3x25 (PURCHASED-
-# HARDWARE CHANGE, 30x per robot; every seat plane 5 mm deeper so tip
-# depth / horn thread engagement is production-identical), the hub
-# boss is truncated at coxa-local 9.75, and the cradle slab + hip
-# servo drop COL_DROP = 9 mm as one rigid body.  The well floor lands
-# 1.25 mm over the M3x25 heads (head tops world 31.0) -- the minimum
-# for this screw stack; M3x20 would put the rotating slab below the
+# thats fine, that middle section is pointless"; Aug 25: screws are
+# a free variable -- shortest wins): the production coxa's phi 52.4
+# dust-lip skirt + 6 mm platform disc (world ~29..39 -- a dust guard
+# for the vacated production upper-bearing position) are DELETED,
+# the yaw-horn screws swap M3x30 -> M3x20 (PURCHASED-HARDWARE
+# CHANGE, 30x per robot; every seat plane 10 mm deeper so tip depth
+# / horn thread engagement is production-identical), the hub boss is
+# truncated at coxa-local 4.75, and the cradle slab + hip servo drop
+# COL_DROP = 14 mm as one rigid body.  The well floor lands 1.25 mm
+# over the M3x20 heads (head tops world 26.0) -- the minimum for
+# this screw stack; M3x16 would put the rotating slab below the
 # static tower rim.  Stack (world z, production -> variant): slab
-# underside 33.25 -> 24.25 (1.5 over the rim), well floor
-# 41.25 -> 32.25, hip axis 53.65 -> 44.65, cap face 75.55 -> 66.55,
-# top-plate race seat 81.05 -> 72.05, top sheet
-# 88.05..92.05 -> 79.05..83.05, pillars 9 mm shorter.  The femur
+# underside 33.25 -> 19.25 (1.5 over the rim), well floor
+# 41.25 -> 27.25, hip axis 53.65 -> 39.65, cap face 75.55 -> 61.55,
+# top-plate race seat 81.05 -> 67.05, top sheet
+# 88.05..92.05 -> 74.05..78.05, pillars 14 mm shorter.  The femur
 # up-limit is unchanged (-47.5, re-swept): plate and femur pivot
 # dropped together.
 #
@@ -121,8 +131,8 @@ parts:
           Axial seat for the bearing inner race (phi 29 = the 6805
           inner-race outer diameter, so the race is fully backed).
           Height 5.5 mm sets the whole stack; its top face is the race
-          seat plane at world z 72.05 (dropped 9 mm with the shortened
-          coxa column).
+          seat plane at world z 67.05 (dropped 14 mm with the
+          shortened coxa column).
         llm_context: >-
           Taller pedestal = higher plate = more femur up-range but a
           longer cantilever inside the bearing and taller standoffs.
@@ -184,7 +194,7 @@ parts:
     aliases: ["top plate", "second chassis", "bearing plate", "frame"]
     description: >-
       A second 200 mm flat-to-flat, 4 mm hex sheet (chassis_bottom's
-      footprint) at world z 79.05..83.05 (9 mm lower since the coxa
+      footprint) at world z 74.05..78.05 (14 mm lower since the coxa
       column shortened).  Six phi 44 full-height
       bosses — one per yaw axis, half-bulging outboard exactly like the
       bottom towers — pocket the third bearings' outer races from BELOW
@@ -283,7 +293,7 @@ parts:
       verified at build time).  Held by 6x M3 x 16 button-heads that
       pass through lid AND frame into the corner-pillar top plugs,
       plus the 4 chassis standoff screws (standoff stacks grow to
-      ~81 mm so they anchor the hatch; chassis-hang loads run
+      ~76 mm so they anchor the hatch; chassis-hang loads run
       standoffs -> hatch -> deck face -> frame in pure
       compression).  Carries the standoff pattern, the electronics-deck
       pattern and the phi 40 centre hole, so the electronics deck lifts
@@ -323,7 +333,7 @@ parts:
       Solid printed column (elliptical section: 20 mm radial x 14 mm
       tangential) at each corner azimuth (rho 81.6, az 0/60/...), from
       the bottom sheet's top face (z 2) to 0.1 mm under the frame
-      sheet (z 78.95; the six bearing RACES define the plate plane,
+      sheet (z 73.95; the six bearing RACES define the plate plane,
       the screws close the gap).  This is the variant's top-to-bottom
       structural tie: each hip moment's force couple reacts as rim
       shear (push at the bottom tower, pull at the top ring), which
@@ -409,7 +419,9 @@ parts:
       (2 mm shy of their inner edge y=24), 6+ mm from the standoff
       posts, west of the battery trunk pass whose leads land in the
       east ports.  Entirely under the 64 mm hatch opening, levers up;
-      an open lever (z ~22) stays below the z 24 rotating band.
+      an open lever (z ~22) tops the rotating band floor (slab bottom
+      19.25) but clears every yaw rotating envelope by 21.7 mm
+      RADIALLY (envelopes reach inboard only to r 61.8 -- asserted).
       Mounted on a VHB pad (the production corner trays' original,
       bench-proven scheme).  2 mm floor, walls 6.5 above it.  1 per
       robot, ~11 g.
@@ -458,7 +470,7 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — tower-trimmed platforms, full-wrap raised rims, ears shaved, foot holes, trays deleted, wire corridors flattened (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, deck-level bearing pockets, ears shaved, foot holes, trays deleted, wire corridors flattened (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
       The production chassis_bottom with five variant edits (user,
@@ -484,13 +496,17 @@ parts:
       (az 210) column flush to the servo-mount deck top (z 10.25),
       its root left merged with the well-mouth collar below the deck.
       Above the deck nothing pokes past the tower cylinder at any
-      azimuth (asserted).  (3) RAISED RIMS: each tower is extended
-      3 mm up at the same phi 44 / phi 37.15 wall, from the production
-      rim (world 19.75, a 4 mm race wrap that left the race's top
-      3 mm proud) to the race-top plane (world 22.75) -- the single
-      bearing is FULLY housed (7 mm outer-race wrap, +75% press
-      area) and the chassis column ends exactly at the bearing top,
-      so the stack reads horn -> bearing -> coxa.  (4) FOOT HOLES:
+      azimuth (asserted).  (3) LOWERED POCKET (Aug 25): the old tower
+      band above the new seat plane -- phi 34 shoulder relief, old
+      pocket, old 15.75 seat -- is cut away, leaving a 0.5 mm-proud
+      phi 34/phi 37.15 step over the deck as the new outer-race seat
+      ledge (world 10.75, standing directly on the 4 mm deck), and a
+      fresh full-wrap phi 44/phi 37.15 ring is unioned from the deck
+      band to the new race-top plane (world 17.75) -- the single
+      bearing is FULLY housed (7 mm outer-race wrap) with its bottom
+      0.5 mm over the servo case top, and the chassis column ends
+      exactly at the bearing top, so the stack reads deck -> bearing
+      -> coxa.  (4) FOOT HOLES:
       the 18 phi 3.4 pillar-foot bolt holes are printed through the
       sheet at the same PILLAR_* constants as the feet.        (5) WAGO
       TRAYS DELETED: the six corner tray wall sets (2.4 mm U-walls,
@@ -505,9 +521,10 @@ parts:
       x 50..64.65 splitting the old 0.3 mm wall-to-servo gap,
       |y| <= 20.5, z 2..12); the servo is still registered by the
       well collar / deck plateau / flanking walls outboard of the cut
-      and by the belly-bolted retainer.  Net -28 cm3 (306.6 vs 335).
-      A stock chassis print can be bench-modded to match (saw/sand +
-      drill + a glued/printed rim collar) instead of reprinting.
+      and by the belly-bolted retainer.  Net -47 cm3 (288 vs 335).
+      The Aug-25 lowered pocket makes a stock-print bench mod
+      impractical (it needs the shoulder relief bored out and the
+      tower cut 5 mm shorter); reprint for this variant.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_chassis_bottom_rigid"
@@ -526,20 +543,25 @@ parts:
             label: "Trim radius about the yaw axis (tower r22 + 0.02)"
             value: 22.02
             code_name: CHB_TRIM_R
-      raised_rim:
-        label: "Full-wrap tower rim at the race-top plane (x6)"
+      lowered_pocket:
+        label: "Deck-level bearing pocket + full-wrap rim (x6)"
         kind: "boss"
         purpose: >-
-          Extends the phi 44 / phi 37.15 tower wall 3 mm up so the
-          pocket wraps the full 7 mm outer-race width and the rim is
-          exactly the race-top plane (world 22.75): nothing stands
-          proud, the coxa sits directly above the bearing, and the
-          press band grows 4 -> 7 mm (+75% area).  Unioned after all
-          variant cuts so the ear shaves never nick it.
+          The rebuilt phi 44 / phi 37.15 tower ring wraps the full
+          7 mm outer-race width from the deck-level seat ledge (world
+          10.75, a 0.5 mm-proud phi 34 step on the 4 mm deck) to the
+          rim at exactly the race-top plane (world 17.75): nothing
+          stands proud, the bearing sits 0.5 mm over the servo case,
+          the coxa sits directly above the bearing.  Unioned after
+          all variant cuts so the ear shaves never nick it.
         dimensions:
+          seat_z_world:
+            label: "Seat ledge plane (world z) = race bottom"
+            value: 10.75
+            code_name: CHB_SEAT_W
           rim_z_world:
             label: "Rim plane (world z) = bearing top"
-            value: 22.75
+            value: 17.75
             code_name: CHB_RIM_W
       foot_holes:
         label: "18x phi 3.4 pillar-foot through-holes"
@@ -600,16 +622,19 @@ parts:
       rotating part inside the envelope so the plain corner_pillar
       columns clear the swinging leg by >= 5 mm at every yaw angle --
       the user chose rounding the servo holder over scalloping the
-      pillar.  (2) HUB SEAT RING: a phi 29 ring from coxa-local z 7.5
-      (the top of the single bottom bearing now seated in the chassis
-      tower pocket, production LOWER-race position) up to z 10.0,
-      1 mm inside the dropped cradle slab; it bears only on the
+      pillar.  (2) HUB SEAT RING: a phi 29 ring from coxa-local z 2.5
+      (the top of the single bottom bearing, now seated on the
+      chassis tower's deck-level ledge -- Aug 25) up to z 5.0, 1 mm
+      inside the dropped cradle slab; it bears only on the
       phi 25..29 inner-race land, the same contact the production
-      uflange made one race higher, and replaces the deleted
-      yaw_bearing_cap's retention.  (3) DUST BRIM (user, Aug 24
+      uflange made higher up, and replaces the deleted
+      yaw_bearing_cap's retention.  The PRESS onto the inner race is
+      the production phi 25.15 wide boss itself, which already spans
+      the relocated race band down to the deck plane -- no new
+      collar, no wall-thickness risk.  (3) DUST BRIM (user, Aug 24
       rev 2: the earlier phi 44 skirt+curtain continued the tower
       cylinder and made the joint read as one tall chassis column --
-      deleted): with the tower rim raised to the race-top plane the
+      deleted): with the tower rim at the race-top plane the
       bearing is fully housed, so all that remains coxa-side is a
       phi 38 x 2 mm brim hovering 0.5 above the rim/race plane,
       stepped 3 mm inside the tower phi 44.  It roofs the 2RS seal +
@@ -617,22 +642,23 @@ parts:
       print tolerance and bearing play.  (4) SHORT COLUMN (user,
       Aug 24 rev 3: the band ~25..40 above the deck was "largely
       unnecessary"; rev 4: "shorten the screws thats fine, that
-      middle section is pointless"): the production phi 52.4
-      dust-lip skirt + 6 mm platform disc are deleted (they guarded
-      the vacated upper-race position), the yaw-horn screws swap
-      M3x30 -> M3x25 with every seat plane 5 mm deeper (tip planes
-      and horn thread engagement production-identical -- asserted),
-      the hub boss is truncated at coxa-local 9.75, and the cradle
-      slab + hip servo drop 9 mm as one rigid body, so the servo
-      well floor sits 1.25 mm over the M3x25 heads -- the minimum
-      for this screw stack (M3x20 would sink the rotating slab below
-      the static tower rim).  Horn drive AT the horn (bolt pattern +
-      tip depths), cradle pilots and cap seat are untouched; the
-      screw head-access shafts and shank clearances are re-cut
-      through the dropped slab from the deeper seat planes.  NOTE:
-      this makes the coxa a VARIANT print (6x) AND a purchased-
-      hardware change (30x M3x25 SHCS replace the M3x30s; M3x30s no
-      longer fit), replacing the stock coxa_link on this build.
+      middle section is pointless"; Aug 25: shortest screw wins):
+      the production phi 52.4 dust-lip skirt + 6 mm platform disc
+      are deleted (they guarded the vacated upper-race position),
+      the yaw-horn screws swap M3x30 -> M3x20 with every seat plane
+      10 mm deeper (tip planes and horn thread engagement
+      production-identical -- asserted), the hub boss is truncated
+      at coxa-local 4.75, and the cradle slab + hip servo drop 14 mm
+      as one rigid body, so the servo well floor sits 1.25 mm over
+      the M3x20 heads -- the minimum for this screw stack (M3x16
+      would sink the rotating slab below the static tower rim).
+      Horn drive AT the horn (bolt pattern + tip depths), cradle
+      pilots and cap seat are untouched; the screw head-access
+      shafts and shank clearances are re-cut through the dropped
+      slab from the deeper seat planes.  NOTE: this makes the coxa a
+      VARIANT print (6x) AND a purchased-hardware change (30x M3x20
+      SHCS replace the M3x30s; M3x30s and M3x25s no longer fit),
+      replacing the stock coxa_link on this build.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_coxa_link_rigid"
@@ -653,10 +679,10 @@ parts:
         label: "Phi 29 bottom-race seat ring"
         kind: "boss"
         purpose: >-
-          Runs from the tower-seated race top (coxa-local z 7.5) up
-          into the dropped cradle slab (z 10.0, 1 mm past the slab
+          Runs from the ledge-seated race top (coxa-local z 2.5) up
+          into the dropped cradle slab (z 5.0, 1 mm past the slab
           underside) so hanging-leg loads run cradle -> ring -> inner
-          race -> outer race -> tower seat with no bolt-on cap.  ID 24
+          race -> outer race -> deck ledge with no bolt-on cap.  ID 24
           merges the ring into the boss wall; OD 29 = the inner-race
           land, 2 mm clear of the phi 33 outer-race band and its seal.
         dimensions:
@@ -666,39 +692,39 @@ parts:
             code_name: HUB_RING_OD
           ring_z0:
             label: "Ring underside (coxa-local z) = race top"
-            value: 7.5
+            value: 2.5
             code_name: HUB_RING_Z0
       short_column:
-        label: "Shortened hub column (skirt + platform deleted, M3x25 screws, slab dropped)"
+        label: "Shortened hub column (skirt + platform deleted, M3x20 screws, slab dropped)"
         kind: "cut"
         purpose: >-
           Deletes the production phi 52.4 dust-lip skirt + platform
           disc (a dust guard for the vacated production upper-race
           position -- the phi 38 brim already roofs the relocated
-          race), swaps the horn screws M3x30 -> M3x25 with the seat
-          planes 5 mm deeper (tips + horn engagement unchanged --
+          race), swaps the horn screws M3x30 -> M3x20 with the seat
+          planes 10 mm deeper (tips + horn engagement unchanged --
           check_coxa_column asserts seat drop == length delta),
           truncates the hub boss 0.75 into the slab, and drops the
-          entire slab + cradle + hip servo unit 9 mm so the well
-          floor sits COL_HEAD_CL over the M3x25 heads.  Lowers the
+          entire slab + cradle + hip servo unit 14 mm so the well
+          floor sits COL_HEAD_CL over the M3x20 heads.  Lowers the
           hip axis, cap, top plate, hatch and pillars by the same
-          9 mm (shorter, stiffer sandwich).  Verified by
+          14 mm (shorter, stiffer sandwich).  Verified by
           check_coxa_column on every rebuild.
         dimensions:
           col_drop:
             label: "Column shrink (whole stack drops by this)"
-            value: 9.0
+            value: 14.0
             code_name: COL_DROP
           horn_bolt_len:
-            label: "Yaw-horn screw length (M3x25 SHCS, was M3x30 -- hardware change)"
-            value: 25.0
+            label: "Yaw-horn screw length (M3x20 SHCS, was M3x30 -- hardware change)"
+            value: 20.0
             code_name: HORN_BOLT_LEN
           head_seat_z:
-            label: "Drive-screw head seat (coxa-local z, 5 mm deeper)"
-            value: 12.75
+            label: "Drive-screw head seat (coxa-local z, 10 mm deeper)"
+            value: 7.75
             code_name: HORN_HEAD_SEAT_Z
           head_clearance:
-            label: "Well floor clearance over the M3x25 heads"
+            label: "Well floor clearance over the M3x20 heads"
             value: 1.25
             code_name: COL_HEAD_CL
       dust_brim:
@@ -706,7 +732,7 @@ parts:
         kind: "shroud"
         purpose: >-
           Roofs the 2RS seal + outer-race band, hovering 0.5 above the
-          race-top / raised-rim plane.  Touches neither chassis nor
+          race-top / tower-rim plane.  Touches neither chassis nor
           race -- a contact wiper would drag, squeak and wear.  OD 38
           (race OD + 2x gap) stops 3 mm inside the tower phi 44, so
           the brim reads as part of the rotating coxa, not as a
@@ -722,8 +748,8 @@ parts:
             value: 0.5
             code_name: BRIM_GAP
           brim_bottom_z:
-            label: "Brim underside (coxa-local z; rim/race top at 7.5)"
-            value: 8.0
+            label: "Brim underside (coxa-local z; rim/race top at 2.5)"
+            value: 3.0
             code_name: BRIM_BOT_Z
   femur_link:
     label: "Production femur_link (unchanged, reference)"
@@ -746,17 +772,18 @@ parts:
     label: "STS3215 servo body — COTS"
     description: "Visual stand-in, 18 per robot."
   yaw_bearing_upper:
-    label: "Bottom yaw 6805 — COTS, tower-seated (cap deleted)"
+    label: "Bottom yaw 6805 — COTS, deck-seated (cap deleted)"
     description: >-
-      The single bottom bearing per leg, seated in chassis_bottom's own
-      open-top phi 37.15 pocket at the production LOWER-race position
-      (coxa-local z 0.5..7.5; the mesh is the production upper-race
-      model instanced 7 mm down).  Inner race pressed on the hub boss
-      against the coxa's phi 29 seat ring; outer race radially housed
-      over its FULL 7 mm width by the raised tower (rim = race-top
-      plane) and seated on the z 0.5 shoulder.  The production
-      yaw_bearing_cap that used to house it is deleted in this
-      variant.
+      The single bottom bearing per leg, seated in chassis_bottom's
+      phi 37.15 press bore with its bottom 0.5 mm over the servo-mount
+      deck / servo case top (coxa-local z -4.5..2.5, world
+      10.75..17.75; the mesh is the production upper-race model
+      instanced 12 mm down).  Inner race pressed on the hub's
+      phi 25.15 wide boss against the coxa's phi 29 seat ring; outer
+      race radially housed over its FULL 7 mm width by the rebuilt
+      tower ring (rim = race-top plane) and seated on the deck-level
+      phi 34 ledge.  The production yaw_bearing_cap that used to
+      house it is deleted in this variant.
   tibia_tube:
     label: "Phi 8 carbon tibia tube — COTS"
     description: "Unchanged production part."
