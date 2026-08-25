@@ -58,6 +58,22 @@ uv run --no-project --python 3.12 \
   python hexapod_walker/prototype_sts3215/cad_step_test/build_chorn_step.py
 ```
 
+The rigid-hip variant (`concepts/rigid_hip/`) has its own additive exporter.
+It imports the variant constants from
+`concepts/rigid_hip/make_rigid_hip_variant.py`, reuses this sidecar's BREP
+builders for the production parts the variant edits (coxa link, chassis
+bottom, servo clamp cap), and fails the build if any BREP part drifts more
+than 2% in volume or 0.6 mm in bbox from its mesh-pipeline twin:
+
+```bash
+uv run --no-project --python 3.12 \
+  --with build123d --with trimesh --with numpy \
+  python hexapod_walker/prototype_sts3215/cad_step_test/build_rigid_hip_step.py
+```
+
+Shared export machinery (part spec dataclass, STEP+STL export, manifest rows,
+bundle zipping) lives in `step_common.py`; all three exporters use it.
+
 Outputs are written to `cad_step_test/out/`:
 
 - `step/*.step`: clean CAD/BREP exchange files.
@@ -68,9 +84,12 @@ Outputs are written to `cad_step_test/out/`:
   using BuildViz's assembly frames.
 - `yaw_bearing_focus_L*_manifest.json`: compact one-leg yaw stack diagnostics.
 - `chorn_manifest.json`: STEP-first stock C-horn variant diagnostics.
+- `rigid_hip_manifest.json`: rigid-hip variant diagnostics incl. the
+  BREP-vs-mesh equivalence check results.
 - `hexapod_step_first_test_bundle.zip`: a small bundle suitable for uploading
   to Onshape as a test.
 - `chorn_step_first_bundle.zip`: C-horn variant STEP/STL bundle.
+- `rigid_hip_step_first_bundle.zip`: rigid-hip variant STEP/STL bundle.
 
 ## Current migration scope
 
@@ -103,6 +122,26 @@ Additional additive STEP-first diagnostics:
   - `spacers`
   - `femur_chorn_body`
   - `tibia_chorn_socket`
+- Rigid-hip variant parts (`build_rigid_hip_step.py`):
+  - `hip_clamp_cap_rigid`
+  - `chassis_top_rigid`
+  - `top_hatch_rigid`
+  - `corner_pillar`
+  - `centre_wago_block`
+  - `coxa_link_rigid`
+  - `chassis_bottom_rigid`
+
+Fidelity notes (Aug 24 2026 catch-up pass, found by the rigid-hip
+equivalence check): the base builders were re-synced with production mesh
+features they predated -- the clamp cap's back-face hook, horn-side mini
+hook, and yoke-sweep edge chamfers (Aug 18-19); the cradle's rear retention
+tab and retired wire-exit corridor / end-face bolts on the hip cradle
+(Aug 17); and the coxa's yoke-sweep reliefs and deeper centre-screw seat.
+`servo_clamp_cap` and `coxa_link` now match their mesh twins within 0.1%
+volume; `femur_link` is within 0.5% (remaining femur port details are
+untracked).  Some derived STLs (`coxa_link`, `femur_link`, `foot_boot`)
+tessellate non-watertight out of OCC -- the BREP STEP files are the
+deliverable; the print STLs still come from the mesh pipeline.
 
 Still pending:
 
