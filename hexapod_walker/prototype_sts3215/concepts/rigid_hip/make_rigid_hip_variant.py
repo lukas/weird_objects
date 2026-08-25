@@ -49,8 +49,9 @@ pair.  This variant closes the loop from the TOP:
     six tower platforms trimmed to the tower's own Phi 44 cylinder
     (user, Aug 24: corners rounded; rev 2: all corner curves must
     match -- so the tower curve is now the ONLY curve), the dead
-    cap-bolt ear lugs shaved (outboard + tangential; the inboard one
-    stays merged with the well collar), the 18 pillar-foot holes
+    cap-bolt ear lugs shaved (outboard + tangential + the inboard one
+    cut flush to the servo-mount deck, its root left merged with the
+    well collar below it), the 18 pillar-foot holes
     printed in, and the six corner Wago TRAY WALL SETS DELETED (user,
     Aug 24 -- the splices live in centre_wago_block now, so the trays
     are dead geometry).  See the CHB_* constant block.
@@ -291,13 +292,20 @@ BRIM_TOP_Z = 11.0                         # 3 mm roof, fuses over the seat ring
 #     skin for clean topology);
 #   * the TANGENTIAL ear (az 90) poked 6.8 mm past the platform
 #     silhouette -- shaved flush to the rim-wall face (y 20.45);
-#   * the INBOARD ear (az 210) merges into the well-mouth collar and
-#     STAYS: a 9 mm dead boss, invisible under the deck; removing it
-#     risks gouging the collar for zero visual gain.
+#   * the INBOARD ear (az 210, r to 28 from the yaw axis) is shaved
+#     flush to the SERVO-MOUNT DECK TOP (z 10.25): the free-standing
+#     column above the deck (z 10.25..19.75, its M3 pilot served the
+#     deleted cap) is cut away, while the below-deck root (6.25..
+#     10.25) STAYS merged with the well-mouth collar -- cutting there
+#     risks gouging the collar, and it invisibly stiffens the deck.
+#     After this, NOTHING pokes past the tower cylinder above the
+#     deck at any azimuth: the six towers read as clean bare columns.
 # Since the chassis is a variant print now anyway, the 18 pillar-
 # foot bolt holes are PRINTED IN (the foot-as-drill-jig bench mod
 # remains the documented path for modifying a STOCK chassis print).
 CHB_PLATE_TOP = 6.25          # platform top face = ear-lug bottom (measured)
+CHB_DECK_TOP = 10.25          # servo-mount deck top face (measured); the
+                              # az-210 ear is shaved flush to THIS plane
 CHB_TOWER_R = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL   # 22.0
 CHB_TRIM_R = CHB_TOWER_R + 0.02   # corner trim = the tower cylinder itself
 CHB_KEEP_R = CHB_TOWER_R - 0.05   # ear cuts bite 0.05 into the tower skin
@@ -699,8 +707,10 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         so pocket/walls/rim keep production geometry.
       * DEAD EARS: the outboard (az 330) cap-bolt ear is shaved flush
         to the tower cylinder, the tangential (az 90) ear flush to the
-        rim-wall face.  The inboard (az 210) ear stays merged with the
-        well-mouth collar.
+        rim-wall face, and the inboard (az 210) ear flush to the
+        servo-mount deck top (z 10.25) -- its below-deck root stays
+        merged with the well-mouth collar.  Above the deck, nothing
+        pokes past the tower cylinder at any azimuth.
       * FOOT HOLES: the 18 Phi 3.4 pillar-foot bolt holes are printed
         through the sheet (same PILLAR_* constants as the feet, so
         they line up by construction).
@@ -733,7 +743,12 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         box90 = _box((12.0, 10.0, 20.6 - CHB_PLATE_TOP),     # (c) tangential
                      (APOTHEM, CHB_WALL_FACE_Y + 5.0,
                       (CHB_PLATE_TOP + 20.6) / 2.0))
-        leg_cuts.append(_diff(box90, [keep]))
+        leg_cuts.append(_diff(box90, [keep.copy()]))
+        ear210 = _cyl_z(CHB_EAR_R, CHB_DECK_TOP, 20.6,       # (b2) inboard,
+                        x=APOTHEM + ear_r * np.cos(np.pi * 7.0 / 6.0),
+                        y=ear_r * np.sin(np.pi * 7.0 / 6.0),  # flush to the
+                        sections=48)                          # deck top only
+        leg_cuts.append(_diff(ear210, [keep]))
         for c in leg_cuts:
             c.apply_transform(R)
             cutters.append(c)
@@ -1104,8 +1119,9 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     """chassis_bottom_rigid edits landed as designed: below the platform
     top NOTHING outboard of the hex edge survives past the tower
     cylinder (the corner trim leaves one matching curve), the trim
-    never bit the tower wall, only the intentional az-210 boss survives
-    past the tower cylinder above the platform, the printed foot
+    never bit the tower wall, above the servo-mount deck nothing pokes
+    past the tower cylinder at ANY azimuth (all three dead ears cut,
+    the az-210 root left merged below the deck), the printed foot
     holes are open exactly where the pillar feet expect them, and the
     six Wago tray wall sets are GONE above the sheet with the sheet
     still solid underneath.  (Pocket seat and retainer territory are
@@ -1138,17 +1154,28 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     got = cb.contains(trimesh.transform_points(ring, Rz))
     assert got.all(), "tower wall bitten by a variant cut"
 
-    # ears: above the rim walls (they top out at z ~10.25; ears run to
-    # 19.75), the only material past the tower cylinder is the
-    # intentional az-210 boss
-    band = near[(near[:, 2] > 10.5) & (near[:, 2] < 19.9)]
+    # ears: above the servo-mount deck (z 10.25; ears ran to 19.75),
+    # NOTHING pokes past the tower cylinder at any azimuth -- az 330/90
+    # were shaved before, and the az-210 column is now cut to the deck
+    band = near[(near[:, 2] > CHB_DECK_TOP + 0.1) & (near[:, 2] < 19.9)]
     d = band[:, :2] - [ax, 0.0]
     rr = np.hypot(d[:, 0], d[:, 1])
-    out = d[rr > CHB_TOWER_R + 0.05]
-    if len(out):
-        a = np.degrees(np.arctan2(out[:, 1], out[:, 0])) % 360.0
-        assert ((a > 180.0) & (a < 240.0)).all(), \
-            "shaved ear (az 330/90) still pokes past the tower cylinder"
+    n_out = int((rr > CHB_TOWER_R + 0.05).sum())
+    assert n_out == 0, \
+        f"{n_out} vertices past the tower cylinder above the deck (an ear " \
+        f"cut missed)"
+
+    # az-210 root: still solid just BELOW the deck top (the cut must not
+    # bite the collar-merged band), and air just above it
+    ear_c = np.array([ax + 23.5 * np.cos(np.pi * 7.0 / 6.0),
+                      23.5 * np.sin(np.pi * 7.0 / 6.0)])
+    probes = trimesh.transform_points(
+        np.array([[ear_c[0], ear_c[1], CHB_DECK_TOP - 0.5],
+                  [ear_c[0], ear_c[1], CHB_DECK_TOP + 0.5]]),
+        _rotz(0.5 * np.pi / 3.0))
+    root_in, above_in = cb.contains(probes)
+    assert root_in, "az-210 ear root gouged below the deck top"
+    assert not above_in, "az-210 ear column survived above the deck"
 
     # printed foot holes: open at all 18 spots, floor solid beside them
     centres, beside = [], []
@@ -1183,9 +1210,9 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
         "tray delete cut bit into the sheet"
 
     print(f"  chassis variant: tower bases trimmed to one r {CHB_TRIM_R:g} "
-          f"cylinder (outboard max r {r_max:.2f}), az-330/90 ears shaved, "
-          f"18 foot holes printed in, 6 wago trays deleted, "
-          f"{abs(cb.volume) / 1000.0:.0f} cm3")
+          f"cylinder (outboard max r {r_max:.2f}), all 3 dead ears shaved "
+          f"(az 210 flush to the deck), 18 foot holes printed in, "
+          f"6 wago trays deleted, {abs(cb.volume) / 1000.0:.0f} cm3")
 
 
 def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:

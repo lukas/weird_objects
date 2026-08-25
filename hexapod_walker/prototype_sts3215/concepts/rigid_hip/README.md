@@ -93,6 +93,13 @@ Aug 24):
   tolerance and bearing play while keeping gravel and grit off the
   seal.  See `skirt_section.png` / `skirt_closeup.png` (generated with
   `buildviz section`).
+  **The curtain OD is intentionally FLUSH with the tower's Φ44** —
+  from the side, tower + curtain read as one continuous column with
+  only a 0.5 mm shadow line at the gap, which is why the skirt can
+  look like it "doesn't come down" in renders: it does, to 0.5 mm
+  above the rim, it just doesn't overhang.  (An overhanging
+  roof-flashing look — curtain OD > tower OD — is a possible later
+  variant, not this one.)
 * Dropping the race 7 mm also stretches the bearing couple: mid-plane
   to mid-plane goes from ~58 mm (cap-held) to ~65 mm.
 
@@ -119,14 +126,18 @@ the narrower belly skirt, and the tower crown right above) — rejected:
   junction is the crease production already had.  The bearing pocket,
   seat, well walls and rim are untouched production geometry
   (asserted on every rebuild).
-* **Dead cap-bolt ears shaved**: with the `yaw_bearing_cap` deleted,
-  the three M3 ear lugs per tower had no job.  The outboard one sat
-  exactly on the trimmed corner and is shaved flush to the tower
-  cylinder; the tangential one poked 6.8 mm past the platform
-  silhouette and is shaved flush to the rim-wall face.  The inboard
-  one stays — it merges into the well-mouth collar, is invisible under
-  the deck, and removing it risks gouging the collar for zero visual
-  gain.
+* **Dead cap-bolt ears shaved — all three**: with the
+  `yaw_bearing_cap` deleted, the three M3 ear lugs per tower had no
+  job.  The outboard one sat exactly on the trimmed corner and is
+  shaved flush to the tower cylinder; the tangential one poked 6.8 mm
+  past the platform silhouette and is shaved flush to the rim-wall
+  face; the inboard (az 210) one — a free-standing column reaching
+  r 28 from the yaw axis and z 19.75 — is cut flush to the
+  **servo-mount deck top** (z 10.25).  Its below-deck root stays
+  merged with the well-mouth collar (cutting there risks gouging the
+  collar, and it invisibly stiffens the deck).  Above the deck,
+  nothing pokes past the tower cylinder at any azimuth: the towers
+  read as six clean bare columns.
 * **18 pillar-foot holes printed in** (same constants as the pillar
   feet, aligned by construction) — no bench drilling on a fresh build.
 * **Corner Wago trays deleted** (user, Aug 24: "they dont make any
@@ -474,10 +485,11 @@ only, seat ring lands on the race top, dust-skirt labyrinth open on
 both sides of the gap with the rim proven under the curtain, leg +
 bearing lift-out path),
 the chassis variant (nothing outboard survives past the tower
-cylinder, the trim never bit the tower wall, only the intentional
-inboard boss survives, foot holes open where the pillar feet expect
-them, all six Wago tray wall sets gone with the sheet still solid
-underneath), full 360° yaw sweep vs the
+cylinder, the trim never bit the tower wall, nothing past the tower
+cylinder above the servo-mount deck at any azimuth with the az-210
+root still solid below it, foot holes open where the pillar feet
+expect them, all six Wago tray wall sets gone with the sheet still
+solid underneath), full 360° yaw sweep vs the
 plate, straight-down plate descent over all six bearings, pillar
 clearances (seated robot, ±45° operating yaw with margin, and an
 informational full hand-spin scan) and the femur pitch×yaw contact

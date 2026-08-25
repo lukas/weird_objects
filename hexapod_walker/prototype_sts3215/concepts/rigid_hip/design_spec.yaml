@@ -428,12 +428,15 @@ parts:
       one curve -- production already had that curve bulging through
       the platform band, so no new crease appears -- and pocket, seat,
       well walls and slots are untouched production geometry
-      (asserted every rebuild).  (2) DEAD EARS: the yaw_bearing_cap is
-      deleted in this variant, so its three M3 ear lugs per tower had
-      no job; the outboard one (which sat ON the trimmed corner) is
-      shaved flush to the tower cylinder and the tangential one flush
-      to the rim-wall face; the inboard one stays merged with the
-      well-mouth collar (invisible under the deck).  (3) FOOT HOLES:
+      (asserted every rebuild).  (2) DEAD EARS -- all three: the
+      yaw_bearing_cap is deleted in this variant, so its three M3 ear
+      lugs per tower had no job; the outboard one (which sat ON the
+      trimmed corner) is shaved flush to the tower cylinder, the
+      tangential one flush to the rim-wall face, and the inboard
+      (az 210) column flush to the servo-mount deck top (z 10.25),
+      its root left merged with the well-mouth collar below the deck.
+      Above the deck nothing pokes past the tower cylinder at any
+      azimuth (asserted).  (3) FOOT HOLES:
       the 18 phi 3.4 pillar-foot bolt holes are printed through the
       sheet at the same PILLAR_* constants as the feet.  (4) WAGO
       TRAYS DELETED: the six corner tray wall sets (2.4 mm U-walls,
