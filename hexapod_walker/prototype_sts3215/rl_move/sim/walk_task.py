@@ -5058,6 +5058,43 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_eff = -k_eff * float(np.mean(cur))
                     reward += r_eff
                 info["reward_effort"] = r_eff
+            # Per-motor torque hinge (operator amendment 2026-08-25 to
+            # the 05:09 effort-priced walk arm, from the local
+            # load-probe session): punish |tau| above reward.tau_over_nm
+            # (default 1.0 N*m) — r -= k_tau_over *
+            # mean(relu(|qfrc_actuator| - thr)) per walk tick,
+            # walk-routed exactly like k_walk_effort above. Probe truth
+            # motivating the 1.0 N*m threshold: honest plant-height
+            # stepping needs at most ~1 N*m per hip (0.23 static on six
+            # feet, ~0.5 in tripod, ~1 at dynamic peaks) while the
+            # skater crouch runs 1.1-1.5 N*m STATIC and rails the
+            # 2.2 N*m clamp — so the hinge prices ONLY the waste and
+            # the rail events, never normal stepping. Motor heat is
+            # I^2*R, so sustained above-threshold peaks matter
+            # superlinearly and the mean-current k_walk_effort
+            # underprices them; before this term nothing existed
+            # between free and the over_current episode trip. The sim
+            # current model is |tau| * 1.2 A/Nm lowpassed
+            # (sim_env._read_state), so hinging on raw torque directly
+            # is equivalent and clearer (and sees peaks the 0.1 s LPF
+            # smears). Reads data.qfrc_actuator[self._vadr], which the
+            # MJX FakeData mirrors fill identically
+            # (mjx_host.push_output_row), so C env and MJX price the
+            # same. Default 0 = off: block skipped, no info keys,
+            # legacy bit-exact (drag_stance pattern).
+            k_tau = float(cfg_get(self.cfg, "reward", "k_tau_over",
+                                  default=0.0))
+            if k_tau > 0.0:
+                thr_nm = float(cfg_get(self.cfg, "reward",
+                                       "tau_over_nm", default=1.0))
+                tau_abs = np.abs(np.asarray(
+                    self.data.qfrc_actuator[self._vadr], dtype=float))
+                r_tau = -k_tau * float(np.mean(
+                    np.maximum(tau_abs - thr_nm, 0.0)))
+                if r_tau:
+                    reward += r_tau
+                info["walk_tau_max_nm"] = float(np.max(tau_abs))
+                info["reward_tau_over"] = r_tau
             # Hip-yaw limit-margin charge (2026-08-19; operator order
             # fb_20260818T152717 lineage — the direction-switch tangle).
             # probe_dirswitch_tangle measured the tangle PRECURSOR:

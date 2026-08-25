@@ -177243,7 +177243,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-25T05:13:57"
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1",
@@ -177489,6 +177490,22 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate --steps 2000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --cfg-set reward.walk_gait_gate=1.0 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1_gaitgate --notes 'respec of cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1: Plain English: combined-lever sibling of movecur1 -- does adding the direct current-dwell charge (reward.k_walk_move_current=2.0) ON TOP of the min-across-legs anti-sacrifice gate (reward.walk_gait_gate=1.0, left ON exactly as gaitgate-scratch1 trained it) fix what neither lever fixed alone? gaitgate-scratch1 (gate alone) made the held-out fall rate WORSE (39/48 vs ungated 12/48) via a gameable satisfy-then-lock exploit; if the current charge removes the INCENTIVE to lock at all (by making sustained near-trip current itself expensive, not just ungated leg-cycling), the gate'\"'\"'s min-across-legs requirement might then land on genuinely cycling legs instead of a token-swing dodge. Same V7/100Hz/hist64/mesh recipe, byte-identical to gaitgate-scratch1 except this one added lever.' --cfg-set reward.k_walk_move_current=2.0 --cfg-set env.model_source=mesh > /tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate.log"
+    "log": "/tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate.log",
+    "checkups": [
+      {
+        "time": "2026-08-25T05:11:58+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1097,
+        "cpu_centisec_deltas": [
+          2,
+          2
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2015232"
+        ]
+      }
+    ]
   }
 ]
