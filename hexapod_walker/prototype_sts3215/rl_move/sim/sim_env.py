@@ -4145,6 +4145,48 @@ class SimHexapodBalanceEnv(_GymBase):
                                      if len(_bc_ks)
                                      else len(_bc_ref["q"]) - 1)
                         _bc_ahead = max(_bc_ahead, _bc_floor - _bc_j)
+                    # TUCK SCRIPT-INDEX floor (08-25, tuckrise campaign
+                    # dig-in follow-up to tuckfloor0/tuckexempt0, both
+                    # 2/2 seeds FAIL-MECHANISM, and tuckrise15/45's own
+                    # by-construction refutation of ref-content height-
+                    # shaping). tuck_exempt above correctly turns the
+                    # ACHIEVED-HEIGHT floor off inside the tuck (the
+                    # mesh ref's tuck is height-flat by design, so that
+                    # floor always measures "haven't climbed yet" and
+                    # jumps straight to ramp_i0, skipping tuck
+                    # supervision) — but that leaves ONLY the plain
+                    # time lookahead (bc_anchor_lookahead_s, default
+                    # 0.25s) driving pursuit through the tuck, and
+                    # measured (tuckfloor0/tuckexempt0, 4/4 seeds) that
+                    # collapses into a total duty=0 freeze: the tuck's
+                    # own trajectory changes little pose-per-tick, so a
+                    # 0.25s step barely moves the matched index and the
+                    # BC target is nearly IDENTICAL to the current pose
+                    # -> the aux-loss gradient vanishes -> freeze reads
+                    # as anchor-optimal. FIX: when
+                    # train.bc_anchor_tuck_lookahead_s > 0 and the
+                    # matched index is still inside the tuck (< the
+                    # reference's own fixed ramp_i0), widen the
+                    # lookahead to this larger value (~1.0-1.5s) purely
+                    # as a SCRIPT-INDEX offset from wherever the match
+                    # currently sits — NOT keyed to achieved height at
+                    # all, so unlike the height floor it cannot get
+                    # stuck measuring a frozen achieved height: it
+                    # always advances relative to the CURRENT MATCH,
+                    # guaranteeing a real pose delta (and thus gradient)
+                    # even through a height-flat segment. Composes with
+                    # the height floor via max() — if the height floor
+                    # is still active in-tuck (tuck_exempt=0) its own
+                    # (typically larger, jump-to-ramp_i0) target wins,
+                    # so this lever only changes behavior when paired
+                    # with tuck_exempt=1. Default 0 = off, bit-exact.
+                    _bc_tuck_ahead_s = float(cfg_get(
+                        self.cfg, "train",
+                        "bc_anchor_tuck_lookahead_s", default=0.0))
+                    if (_bc_tuck_ahead_s > 0.0
+                            and _bc_j < int(_bc_ref["ramp_i0"])):
+                        _bc_ahead = max(_bc_ahead, int(round(
+                            _bc_tuck_ahead_s / _bc_ref["dt"])))
                 else:
                     _bc_j, _ = self._rise_ref_clock(_bc_ref)
                     _bc_ahead = max(

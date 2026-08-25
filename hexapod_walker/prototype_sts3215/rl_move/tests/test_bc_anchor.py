@@ -1148,6 +1148,120 @@ def test_tuck_exempt_restores_the_floor_after_ramp_i0():
         f"floor ({legacy:.1f}mm) past the tuck segment")
 
 
+# TUCK SCRIPT-INDEX floor (train.bc_anchor_tuck_lookahead_s, 08-25,
+# tuckrise campaign dig-in). tuck_exempt turns the ACHIEVED-HEIGHT
+# floor off inside the tuck, but plain time-lookahead alone through a
+# height-flat, low-pose-delta tuck measured (tuckfloor0/tuckexempt0,
+# 4/4 seeds) as a total freeze. This lever widens the lookahead itself
+# while inside the tuck to a SCRIPT-INDEX offset from the current
+# match (never from achieved height, so it cannot stick the way the
+# height floor did).
+
+
+def test_tuck_lookahead_default_off_bit_exact():
+    """Absent/0.0 must not perturb the existing pursuit at all, at any
+    matched index — regression pin for the new branch's default
+    path."""
+    def targets(tuck_ahead_s):
+        extra = {("train", "bc_anchor_min_h_ahead_mm"): 15.0,
+                 ("train", "bc_anchor_min_h_tuck_exempt_i0"): 1.0}
+        if tuck_ahead_s is not None:
+            extra[("train", "bc_anchor_tuck_lookahead_s")] = tuck_ahead_s
+        env = _floor_env(None, extra=extra)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        out = []
+        for _ in range(80):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" in info:
+                out.append(info["bc_target"].copy())
+                act = info["bc_target"]
+        env.close()
+        return np.asarray(out)
+    a = targets(None)
+    b = targets(0.0)
+    assert a.shape == b.shape and np.array_equal(a, b)
+
+
+def test_tuck_lookahead_widens_the_in_tuck_target_by_script_index():
+    """With tuck_exempt=1 (floor off in-tuck) and a flat/tuck spawn,
+    a non-zero tuck_lookahead_s must land the emitted target FURTHER
+    ahead (by script index) than the bare lookahead does, and strictly
+    inside the tuck for a dose small enough to stay there — a genuine
+    script-progress jump, not the achieved-height floor's jump
+    straight to ramp_i0."""
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+    i0 = int(ref["ramp_i0"])
+
+    def tick_of(target) -> int:
+        q_t = action_to_q_rad(np.asarray(target, dtype=float))
+        return int(np.argmin(
+            ((ref["q"] - q_t[None, :]) ** 2).mean(axis=1)))
+
+    def first_target_tick(tuck_ahead_s):
+        extra = {("train", "bc_anchor_min_h_tuck_exempt_i0"): 1.0}
+        if tuck_ahead_s is not None:
+            extra[("train", "bc_anchor_tuck_lookahead_s")] = tuck_ahead_s
+        env = _floor_env(15.0, extra=extra)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        tick = None
+        for _ in range(5):
+            _o, _r, term, trunc, info = env.step(act)
+            assert not (term or trunc)
+            if "bc_target" in info:
+                tick = tick_of(info["bc_target"])
+                break
+        env.close()
+        assert tick is not None
+        return tick
+    bare = first_target_tick(None)
+    widened = first_target_tick(1.0)
+    assert bare < i0, f"bare-lookahead tick {bare} already >= ramp_i0={i0}"
+    assert widened < i0, (
+        f"tuck_lookahead_s jumped clear of the tuck to tick {widened} "
+        f">= ramp_i0={i0} — should stay a script-index offset, not "
+        "an achieved-height floor jump")
+    assert widened > bare, (
+        f"tuck_lookahead_s={1.0}s target tick {widened} is not further "
+        f"ahead than the bare-lookahead tick {bare}")
+
+
+def test_tuck_lookahead_noop_past_the_tuck():
+    """Once the matched index is at/after ramp_i0, tuck_lookahead_s
+    must be a pure no-op (the branch is gated on `_bc_j < ramp_i0`) —
+    same behavior as the always-on floor restored after the tuck."""
+    def h_at(tuck_ahead_s, seconds=8.0):
+        extra = {("bus", "servo_params"): "loaded",
+                 ("train", "bc_anchor_min_h_tuck_exempt_i0"): 1.0}
+        if tuck_ahead_s is not None:
+            extra[("train", "bc_anchor_tuck_lookahead_s")] = tuck_ahead_s
+        env = _floor_env(15.0, extra=extra)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        h = 0.0
+        for _ in range(int(round(seconds / env.dt))):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" in info:
+                act = info["bc_target"]
+            h = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+        env.close()
+        return h * 1e3
+    bare = h_at(None)
+    widened = h_at(1.0)
+    assert widened > 60.0, (
+        f"tuck_lookahead_s chain only reached {widened:.1f}mm past "
+        "the tuck — the press-phase floor restore regressed")
+    assert abs(widened - bare) < 20.0, (
+        f"tuck_lookahead_s ({widened:.1f}mm) diverges from the bare "
+        f"tuck-exempt chain ({bare:.1f}mm) past the tuck segment — "
+        "the branch should be a no-op once past ramp_i0")
+
+
 # ---------------------------------------------------------------------------
 # TIP-AWARE HOLD REFERENCE (train.bc_anchor_tilt_comp, 08-13).
 # cw-stand-footlow2-tip1's gate consequence: tipped-start DR under a

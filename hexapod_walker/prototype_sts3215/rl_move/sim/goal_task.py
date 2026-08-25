@@ -258,6 +258,26 @@ class GoalGenerator:
         r[:n_ramp] = np.linspace(0.0, 1.0, n_ramp, endpoint=False)
         return r
 
+    @staticmethod
+    def _rate_ramp(cur: float, target: float, n_avail: int,
+                   step_m: float) -> tuple[np.ndarray, float, bool]:
+        """``n_avail``-tick array from ``cur`` toward ``target`` that
+        NEVER steps by more than ``step_m`` per tick, truncating the
+        transition (never speeding it up) if the episode runs out of
+        room first. Returns (values, reached, completed) — values[0]
+        is ONE step past cur (the caller's previous segment already
+        wrote cur at the seam tick), so consecutive-tick diffs are
+        exactly step_m until the (possible) final clipped step."""
+        if target == cur or n_avail <= 0:
+            return np.full(max(n_avail, 0), cur), cur, True
+        sign = math.copysign(1.0, target - cur)
+        need_n = max(1, int(math.ceil(abs(target - cur) / step_m)))
+        n = min(need_n, n_avail)
+        raw = cur + sign * step_m * np.arange(1, n + 1)
+        vals = (np.minimum(raw, target) if sign > 0
+               else np.maximum(raw, target))
+        return vals, float(vals[-1]), bool(n >= need_n)
+
     def _hold_height_schedule(self, rng: np.random.Generator,
                               n_steps: int, dt: float) -> np.ndarray:
         """Commandable height script for a hold episode (goal.
@@ -283,47 +303,64 @@ class GoalGenerator:
             else:
                 kind = str(rng.choice(self.hold_height_cmd_kinds))
                 target = float(rng.uniform(lo_m, hi_m))
-            seg_s = float(rng.uniform(hold_lo, hold_hi))
-            seg_n = max(1, int(round(seg_s / dt)))
-            end = min(i + seg_n, n_steps)
-            trans_n = max(1, int(round(
-                min(abs(target - cur) / rate_m_s, seg_s) / dt)))
-            trans_n = min(trans_n, end - i)
-            if kind == "hold" or trans_n <= 0:
+            hold_s = float(rng.uniform(hold_lo, hold_hi))
+            hold_n = max(1, int(round(hold_s / dt)))
+            step_m = rate_m_s * dt
+            need_n = max(1, int(math.ceil(abs(target - cur) / step_m)))
+            if kind == "hold" or need_n <= 1:
+                end = min(i + hold_n, n_steps)
                 height[i:end] = cur
             elif kind == "ramp":
-                t_end = i + trans_n
-                height[i:t_end] = np.linspace(cur, target, trans_n,
-                                              endpoint=False)
-                height[t_end:end] = target
-                cur = target
+                vals, reached, done = self._rate_ramp(
+                    cur, target, n_steps - i, step_m)
+                t_end = i + len(vals)
+                height[i:t_end] = vals
+                cur = reached
+                end = t_end
+                if done:
+                    end = min(t_end + hold_n, n_steps)
+                    height[t_end:end] = cur
             elif kind == "sine":
-                # A rate-capped sine about the midpoint of cur/target,
-                # amplitude limited so its peak slope never exceeds
-                # the rate limit: |d/dt A sin(wt)| <= A*w <= rate.
-                mid = 0.5 * (cur + target)
-                amp = min(abs(target - cur) * 0.5,
-                          (hi_m - lo_m) * 0.5)
-                n_seg = end - i
-                t = np.arange(n_seg) * dt
-                period_s = max(seg_s, 1e-3)
+                # A rate-capped raised-cosine oscillation ANCHORED at
+                # cur (height(0) = cur exactly, by construction, so
+                # there is never a seam discontinuity at the segment
+                # boundary): height(t) = cur + amp*(1-cos(w t)), peak
+                # slope amp*w capped at the rate limit; the segment
+                # runs one full period so it returns to (near) cur.
+                diff = target - cur
+                amp = (math.copysign(min(abs(diff), hi_m - lo_m) * 0.5,
+                                     diff) if diff != 0.0 else 0.0)
+                period_s = max(hold_s, 1e-3)
+                if abs(amp) > 1e-9:
+                    period_s = max(period_s,
+                                   2.0 * math.pi * abs(amp) / rate_m_s)
                 w = 2.0 * math.pi / period_s
-                if amp * w > rate_m_s:
-                    period_s = 2.0 * math.pi * amp / rate_m_s
-                    w = 2.0 * math.pi / period_s
-                height[i:end] = mid - amp * np.cos(w * t)
+                n_seg = min(max(1, int(round(period_s / dt))),
+                           n_steps - i)
+                end = i + n_seg
+                t = np.arange(n_seg) * dt
+                height[i:end] = cur + amp * (1.0 - np.cos(w * t))
                 cur = float(height[end - 1]) if end > i else cur
             else:  # "pulse": rate-limited up-then-back-down
-                half = i + max(1, (end - i) // 2)
-                t_end = min(i + trans_n, half)
-                height[i:t_end] = np.linspace(cur, target,
-                                              t_end - i, endpoint=False)
-                height[t_end:half] = target
-                b_end = min(half + trans_n, end)
-                height[half:b_end] = np.linspace(target, cur,
-                                                 b_end - half,
-                                                 endpoint=False)
-                height[b_end:end] = cur
+                base = cur   # the level to return to; `cur` gets
+                             # overwritten below as the up-leg lands
+                up_avail = max(1, (n_steps - i) // 2)
+                vals_up, reached_up, done_up = self._rate_ramp(
+                    cur, target, up_avail, step_m)
+                t_end = i + len(vals_up)
+                height[i:t_end] = vals_up
+                cur = reached_up
+                end = t_end
+                if done_up:
+                    half_end = min(t_end + hold_n, n_steps)
+                    height[t_end:half_end] = reached_up
+                    vals_dn, reached_dn, _ = self._rate_ramp(
+                        reached_up, base, n_steps - half_end, step_m)
+                    b_end = half_end + len(vals_dn)
+                    height[half_end:b_end] = vals_dn
+                    cur = reached_dn
+                    end = min(b_end + hold_n, n_steps)
+                    height[b_end:end] = reached_dn
             i = end
         return height
 
