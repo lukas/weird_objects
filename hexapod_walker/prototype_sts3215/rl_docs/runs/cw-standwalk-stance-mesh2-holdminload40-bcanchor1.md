@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T12:11:03+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-holdminload40
+
+**wandb_id**: 0q4hurrk
 
 **hypothesis**: Rung-7: a direct joint-space imitation target (train.bc_anchor_coef, already-built HOLD/TRACK BC-anchor machinery targeting self._q_nom, the settled six-foot plant pose captured at episode reset) supplies the missing 'what does the honest target posture look like' signal that six rungs of pure income/termination shaping (rung1 total-collapse pricing grid, rung2-4 hold-only income variants, rung5 height-drop term, rung6 min-load term) could not -- does adding it, single lever, to the holdminload40 recipe finally produce an honest six-foot plant instead of the chassis-hover-at-the-40mm-boundary basin every prior arm converged to?
 
