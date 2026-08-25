@@ -591,3 +591,9 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-25 06:56 cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi FAIL (orphaned run, recovered+triaged): BEST of the 3-point grace bracket (12/48 joygate falls, first to pass both slip 2.24 and dir_err 38.7deg) -- confirms monotonic dose-response (more grace = fewer falls/tighter dir) but still short of zero-falls. Redirect already covered by movecur1 (current-dwell charge). 
 - 08-25 06:56 cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-lo FAIL (orphaned run, recovered+triaged): WORST of the 3-point grace bracket (19/48 joygate falls, dir_err 47.6deg over cap). Confirms clean monotonic dose-response lo<base<hi across the whole bracket; redirect already covered by movecur1. 
 - 08-25 07:16 standwalk holdonly1: canary PASS -- balance learnable on mesh (6/6 det hold), but via hot tripod stilt; physics-audit branch dead; +8M continuation launched 
+- 08-25 07:35 [standwalk] cw-standwalk-stance-mesh2-refgain15 -> FAIL: k_rise_ref_track 15x did not fix the total collapse (0/36, same signature as cur1/seed1/seed2); goal-mix (not ref-gain) implicated since holdonly1's isolated hold=1.0 diet survives under identical pricing 
+- 08-25 07:53 standwalk: holdonly1-acq1 FAIL — +8M destabilized the stilt (hold 0/24 vs parent 6/6); escalating to hold_feet_load arm 
+- 08-25 07:53 standwalk: curonly FAIL 0/36 — term_cost exonerated, pricing corner grid complete: recipe/diet is the lever 
+- 08-25 07:53 standwalk: termonly FAIL 0/36 — unpriced current brings the grind back (reward rising); current_hot necessary-not-sufficient 
+- 08-25 07:54 standwalk: riseonly1 FAIL — rise fails even at 100% diet share; rise needs a hold-first prior 
+- 08-25 07:54 standwalk: loweronly1 FAIL — lower-only also OC-grinds; lower waits for a hold-capable parent 

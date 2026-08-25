@@ -179344,7 +179344,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T06:55:48+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -179384,7 +179384,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_mm -1.30007\nwandb:     env/height_ref_mm 20.38978\nwandb:  env/hold_feet_factor 0.83011\nwandb: env/hold_still_factor 0.99345\nwandb:     env/max_current_a 2.15599\nwandb:    env/mean_current_a 0.74389\nwandb:   env/pct_within_1deg 0.15845\nwandb:                   +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-riseonly1 at: https://wandb.ai/l2k2/hexapod-balance/runs/myzj5aoo\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_065706-myzj5aoo/logs\n"
       }
-    ]
+    ],
+    "verdict": "Diet isolation answer: rise does NOT emerge even with 100% of the goal mix. 11/12 DR-0 rise episodes terminate (det 6/6 over_current); video shows the familiar sprawled press-up \u2014 outrigger legs, feet skating, no valid plant, same signature as seed1-rr1. Training reward declined all 2M (7.3/-36.8/-147/-233) with zero task success. Read with refgain15's 20M FAIL (k_rise_ref_track=15, 0/36): rise-side failure is neither diet share nor ref-tracking gain. From-scratch rise on the 3.5kg mesh body at 100Hz needs a stronger prior \u2014 the rung-3 plan is hold-first (balance proven learnable) then rise from a hold-capable warm start. Discovery arm; question answered, lineage closed.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-loweronly1",
@@ -179466,7 +179468,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:00:45+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -179506,7 +179508,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": " -51.09322\nwandb:     env/height_ref_mm -11.78154\nwandb:  env/hold_feet_factor 0.78112\nwandb: env/hold_still_factor 0.99587\nwandb:     env/max_current_a 1.74692\nwandb:    env/mean_current_a 0.35065\nwandb:   env/pct_within_1deg 0.35986\nwandb:                   +79 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-loweronly1 at: https://wandb.ai/l2k2/hexapod-balance/runs/1dg40jin\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_070203-1dg40jin/logs\n"
       }
-    ]
+    ],
+    "verdict": "Diet isolation answer: lower does not emerge cleanly at 100% share either \u2014 DR-0 det 6/6 over_current with the body sagging into a hot splayed grind instead of a tucked descent (video); sto 1/6 lucky-passes, own-DR det 6/6 OC. Reward declined all 2M. Confirms the dig-in's named residual risk: the mesh lower is intrinsically hot under this recipe. Lower's rung comes AFTER a valid six-foot hold exists (warm start from it), with the pre-registered goal.lower_height_mm recalibration (belly-rest, servos unloaded) as the fallback fork if it still runs hot. Discovery arm; question answered, lineage closed.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-refgain15",
@@ -179685,7 +179689,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:03:29+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -179730,7 +179734,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL, confirms ref-tracking gain was NOT the bottleneck (prediction-if-false). 7.5x k_rise_ref_track (2.0->15.0), same cur1 goal-mix (hold=.1/rise=.45/lower=.45) + current_hot/term_cost pricing: 0/36 stance episodes ok, every mode both DR-0 gate and own-DR(0.2), same total-collapse signature as cur1/seed1/seed2 (hold+lower mostly over_current, rise mostly tilt_pitch/roll). Training reward flat/negative all 20M, WORSE in the final quarter (-245/-106/-134/-373) than mid-run -- not a case of 'still rising, needs more budget'. Video (hold/rise/lower det_0) all show the identical pathology: robot rears up off its plant pose into a splayed near-vertical posture with 2-3 legs stuck out at odd angles, then falls/trips current -- a distinct failure shape from the tripod-STILT that the concurrent holdonly1 arm (same cur1 pricing, but hold=1.0 goal-mix alone) actually survived 6/6 at DR-0. This is the cleanest evidence yet that the goal-MIX itself (hold/rise/lower competing in one episode) is what breaks under this pricing, not a ref-tracking weight -- holdonly1's isolated hold=1.0 diet stays alive under the SAME pricing while the full mix does not. Closes the ref-tracking-gain lever; rung-3 recipe should test curriculum/goal-mix structure (e.g. stage hold before rise/lower, or per-mode-isolated training a la holdonly1/loweronly1) rather than any more reward-magnitude tuning, pending the curonly/termonly pricing-isolation pair (still training) confirming whether pricing alone (vs the goal-mix) is sufficient to reproduce the collapse."
   },
   {
     "run": "cw-standwalk-stance-mesh2-cur1-reftrack10",
@@ -180031,7 +180037,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:07:49+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -180076,7 +180082,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Ablation answer: with current_hot removed (term_cost kept) the profitable torque-saturation grind RETURNS \u2014 training reward rose the whole second half (quarters -259/-564/-186/-61) while every panel fails (0/36 DR-0 + own-DR; over_current on nearly every hold/lower episode; hold_det video shows stilting/rocking thrash riding the servos hot). This is the known rr1 misalignment resurfacing under unpriced current, not a continuation case: the realigned arm (cur1) already ran and failed differently. Pair verdict: term_cost alone cannot even prevent the grind, so it is exonerated as the destabilizer; current_hot is NECESSARY to kill the grind but NOT sufficient to make the full-mix recipe learnable. Curriculum, not pricing, is the rung-3 lever."
   },
   {
     "run": "cw-standwalk-stance-mesh2-curonly",
@@ -180158,7 +180166,7 @@
       "reward.term_cost_max=60.0"
     ],
     "created": "2026-08-25T07:10:49+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -180191,7 +180199,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-curonly --steps 20000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=0.1,rise=0.45,lower=0.45 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_curonly --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-cur1: Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). Something about the new pricing pair, not just '\"'\"'pricing exists'\"'\"', blocked all learning. This arm isolates current_hot ALONE (term_cost_per_remaining_s forced to 0, current_hot/current_hot_a unchanged from cur1) to test which of the two new charges is the actual destabilizer -- the complementary ablation to termonly. Prediction-if-current_hot-is-fine-alone: reward climbs like mesh1'\"'\"'s grind case (or better, an honest basin) -- term_cost is the destabilizer, drop/soften it. Prediction-if-still-flat: current_hot alone is enough to block learning -- it (not term_cost) is the destabilizer, needs a softer dose or a curriculum ramp.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=0.0 --cfg-set reward.term_cost_max=60.0 > /tmp/train_cw-standwalk-stance-mesh2-curonly.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-curonly.log",
     "wandb_id": "zwdc1ef5",
-    "verified": "2026-08-25T07:14:32+00:00"
+    "verified": "2026-08-25T07:14:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T07:20:02+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 14494,
+        "fps": 21845.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "Ablation answer: removing term_cost does NOT rescue the recipe \u2014 current_hot pricing alone reproduces cur1's total collapse. 0/36 stance episodes ok (DR-0 gate + own-DR 0.2, det+sto): hold/lower dominated by over_current, rise by tilt; hold_det video shows the body sagging into a hot knee-splayed grind. Training reward flat-negative all 20M (quarters -305/-360/-230/-237) \u2014 reward AND gate flat with adequate budget = genuine FAIL per 08-21. Joint read with termonly: all four pricing corners (rr1 neither charge, cur1 both, curonly hot-only, termonly term-only) now fail the from-scratch full goal-mix on mesh/100Hz \u2014 pricing is not the blocking lever, the multi-task diet is (holdonly1 proved balance IS learnable hold-only). Rung 3 goes hold-first with the load-gated hold income."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdonly1-acq1",
@@ -180282,5 +180304,138 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "refused_reason": "acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent."
+  },
+  {
+    "run": "cw-standwalk-stance-mesh2-holdonly1-acq1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 8000000,
+    "smoke": false,
+    "hypothesis": "Plain English: hold-only at 2M taught the mesh robot to balance without falling, but it stands on THREE legs with the other three held in the air, riding hot currents just under the priced 2.0A threshold -- and the bank-probed reward already pays honest six-foot quiet standing ~3x more (1472/ep vs the 504 this policy earns), so the tripod is a LOCAL basin, not the reward optimum. This arm continues the holdonly1 checkpoint +8M (10M total, same recipe/pricing, hold=1.0 diet) to test whether budget alone anneals tripod -> six-foot plant, per the 08-21 continuation ruling (eval survival improved 0.5@1M -> 6/6 det@2M while return declined only via accumulating hot charges). Prediction-if-true: sto over_current trips (priced by term_cost) plus hot charges push feet down; det+sto hold survival rises, cur_p95 drops toward the honest 0.15-0.41A band, return climbs toward the quiet-hold bank band ~1472. Prediction-if-false: at 10M total it still stilts (3 feet aloft, p95 ~1.8A, sto OC trips) -- budget is not the lever, and the next arm is a bank-checked reward.hold_feet_load income gate. Strongest alternative: the tripod basin is entropy-locked (log-std collapsed) and neither budget nor feet pricing helps without an exploration change.",
+    "gate": "Acquisition read at 10M total: pod_eval hold panel DR-0 det+sto n=6+6. PASS: >=10/12 survive 15s with zero over_current/tilt terminations AND det episodes show six-foot stance (valid_plant true, or all-leg duty>=0.9 with end_clear <5mm on all legs) AND cur_p95 <= 1.0A. FAIL: still tripod-stilt or persistent sto over_current -- budget is not the lever; escalate to the pre-registered bank-checked reward.hold_feet_load arm.",
+    "parent": "cw-standwalk-stance-mesh2-holdonly1",
+    "track": "standwalk",
+    "extra_args": [
+      "--task",
+      "joint_goal",
+      "--dr-scale",
+      "0.2",
+      "--episode-seconds",
+      "15",
+      "--ent-coef",
+      "0.005",
+      "--log-std-init",
+      "0",
+      "--goal-mix",
+      "hold=1.0,rise=0.0,lower=0.0",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "0",
+      "--out-name",
+      "ppo_goal_cw_standwalk_stance_mesh2_holdonly1_acq1",
+      "--cfg-set",
+      "actions.max_height_mm=88",
+      "--cfg-set",
+      "goal.rise_height_mm=[79,87]",
+      "--cfg-set",
+      "goal.rise_ramp_s=6.0",
+      "--cfg-set",
+      "goal.rise_rsi_frac=0.5",
+      "--cfg-set",
+      "goal.rise_hold_min_s=0.5",
+      "--cfg-set",
+      "reward.rise_score_income=1.0",
+      "--cfg-set",
+      "reward.rise_score_strip_pen=1.0",
+      "--cfg-set",
+      "reward.k_rise_ref_track=2.0",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "reward.rise_ref_sigma_deg=6.0",
+      "--cfg-set",
+      "reward.rise_posture_gate=1.0",
+      "--cfg-set",
+      "reward.rise_income_prog_gate=1.0",
+      "--cfg-set",
+      "reward.rise_finish_gate_signed=1.0",
+      "--cfg-set",
+      "reward.hold_still_gate=1.0",
+      "--cfg-set",
+      "reward.hold_flag_fade=1.0",
+      "--notes",
+      "respec of cw-standwalk-stance-mesh2-holdonly1: Plain English: hold-only at 2M taught the mesh robot to balance without falling, but it stands on THREE legs with the other three held in the air, riding hot currents just under the priced 2.0A threshold -- and the bank-probed reward already pays honest six-foot quiet standing ~3x more (1472/ep vs the 504 this policy earns), so the tripod is a LOCAL basin, not the reward optimum. This arm continues the holdonly1 checkpoint +8M (10M total, same recipe/pricing, hold=1.0 diet) to test whether budget alone anneals tripod -> six-foot plant, per the 08-21 continuation ruling (eval survival improved 0.5@1M -> 6/6 det@2M while return declined only via accumulating hot charges). Prediction-if-true: sto over_current trips (priced by term_cost) plus hot charges push feet down; det+sto hold survival rises, cur_p95 drops toward the honest 0.15-0.41A band, return climbs toward the quiet-hold bank band ~1472. Prediction-if-false: at 10M total it still stilts (3 feet aloft, p95 ~1.8A, sto OC trips) -- budget is not the lever, and the next arm is a bank-checked reward.hold_feet_load income gate. Strongest alternative: the tripod basin is entropy-locked (log-std collapsed) and neither budget nor feet pricing helps without an exploration change.",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "reward.k_current_hot=1.0",
+      "--cfg-set",
+      "reward.current_hot_a=2.0",
+      "--cfg-set",
+      "reward.term_cost_per_remaining_s=3.0",
+      "--cfg-set",
+      "reward.term_cost_max=60.0",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdonly1.zip"
+    ],
+    "created": "2026-08-25T07:19:42+00:00",
+    "status": "FAIL",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 6,
+      "code_sha_local": "554773858ece474408d164c1058b96d61b6f071f",
+      "code_sha_pod": "554773858ece474408d164c1058b96d61b6f071f",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "53542",
+      "log_growth_bytes": [
+        11897,
+        26096
+      ],
+      "wandb_id": "ucmjz112",
+      "trainer_pid": "53542",
+      "global_step_window": [
+        1310720,
+        1966080
+      ],
+      "fps_estimate": 21845.3
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "Healthy canary: cw-standwalk-stance-mesh2-holdonly1 (verdicted PASS this cycle, 08-25: 6/6 DR-0 det hold survive 15s, roll tail 1.0deg, zero terminations; in-training eval survival 0.5@1M -> 1.0@2M -- mechanism learning, behavior emerging but stuck in a tripod-stilt local basin the bank-probed reward already prices below honest six-foot hold). Full-budget learning precedent: cw-stand-footlow2-hard1 (ledger PASS, full-budget stance acquisition on the same joint_goal recipe family, primitive era).",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdonly1-acq1 --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdonly1_acq1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdonly1: Plain English: hold-only at 2M taught the mesh robot to balance without falling, but it stands on THREE legs with the other three held in the air, riding hot currents just under the priced 2.0A threshold -- and the bank-probed reward already pays honest six-foot quiet standing ~3x more (1472/ep vs the 504 this policy earns), so the tripod is a LOCAL basin, not the reward optimum. This arm continues the holdonly1 checkpoint +8M (10M total, same recipe/pricing, hold=1.0 diet) to test whether budget alone anneals tripod -> six-foot plant, per the 08-21 continuation ruling (eval survival improved 0.5@1M -> 6/6 det@2M while return declined only via accumulating hot charges). Prediction-if-true: sto over_current trips (priced by term_cost) plus hot charges push feet down; det+sto hold survival rises, cur_p95 drops toward the honest 0.15-0.41A band, return climbs toward the quiet-hold bank band ~1472. Prediction-if-false: at 10M total it still stilts (3 feet aloft, p95 ~1.8A, sto OC trips) -- budget is not the lever, and the next arm is a bank-checked reward.hold_feet_load income gate. Strongest alternative: the tripod basin is entropy-locked (log-std collapsed) and neither budget nor feet pricing helps without an exploration change.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdonly1.zip > /tmp/train_cw-standwalk-stance-mesh2-holdonly1-acq1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-holdonly1-acq1.log",
+    "wandb_id": "ucmjz112",
+    "verified": "2026-08-25T07:23:26+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T07:28:53+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 423,
+        "cpu_centisec_deltas": [],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 8028160"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "Budget is not the lever: 8M more steps on the balanced-but-stilting hold policy made it WORSE, not six-footed. The parent holdonly1 survived 6/6 DR-0 det hold episodes; after the +8M continuation the same panel is 0/12 DR-0 (det: all 6 tilt_pitch \u2014 video shows the planted start pitching over and splaying) and 0/12 own-DR, with training reward declining in lockstep (quarters 1.4/-94.6/-272.4/-255.5). The hot tripod-stilt basin destabilizes under continued optimization instead of migrating to six-foot stance, exactly the gate's pre-registered FAIL clause. Next: escalate to the bank-checked reward.hold_feet_load income-gate arm (probe run this cycle; min-over-feet variant preferred per the primitive-era one-foot-shedding lesson)."
   }
 ]

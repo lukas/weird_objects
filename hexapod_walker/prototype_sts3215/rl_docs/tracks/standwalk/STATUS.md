@@ -1,6 +1,71 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~06:5x (**Per-mode isolation diagnostic BATCH
+Last updated: 2026-08-25 ~07:3x (**`cw-standwalk-stance-mesh2-refgain15`
+VERDICTED FAIL: 7.5x the rise-ref-tracking gain does NOT fix the
+rung-2 total collapse — ref-tracking weight is exonerated, goal-mix
+implicated instead.** Plain English: this arm kept cur1's exact
+pricing (current_hot+term_cost) and goal-mix (hold=.1/rise=.45/
+lower=.45) but raised `k_rise_ref_track` 2.0->15.0 to test whether
+weak guidance toward the known-good rise trajectory was why PPO never
+found a stance basin. It didn't help: 0/36 stance episodes ok on
+BOTH DR-0 gate and own-DR(0.2) (every mode, det+sto), training reward
+ended WORSE in Q4 (-373) than Q3 (-134) — not a "still rising" case.
+Video (hold/rise/lower det_0) shows the SAME distinctive pathology in
+every mode: the robot rears up off its plant pose into a near-vertical
+splay with 2-3 legs jutting out, then falls or trips current — this
+is a DIFFERENT shape from the tripod-STILT the concurrent
+`holdonly1` arm survived (6/6, see banner below), even though both
+use the identical current_hot/term_cost pricing. **The one variable
+that differs between the two is the goal-mix itself**: holdonly1's
+isolated hold=1.0 diet stays alive under this pricing; the full
+hold/rise/lower mix does not. This is the cleanest lead yet for the
+rung-3 recipe: stop iterating on reward MAGNITUDE (ref-track gain,
+now tested at 2.0 and 15.0, both dead) and test the goal-mix/
+curriculum STRUCTURE instead (e.g. per-mode-isolated training passes
+a la holdonly1/riseonly1/loweronly1, or a staged curriculum that
+starts hold-only and phases in rise/lower once hold is solid).
+Pending: the curonly/termonly pricing-isolation pair (concurrent
+cycle, still triaging) will say whether pricing ALONE (independent of
+goal-mix) is sufficient to reproduce the collapse, or whether it's a
+goal-mix x pricing interaction. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_refgain15_{gate,owncfg}/`, W&B `75dqyaxt`.
+Also this cycle: ran `ops.sh podeval` by hand (unclaimed, pods idle,
+no eval report existed) for three sibling discovery arms that
+finished earlier without a prestaged read —
+`cw-standwalk-stance-mesh2-loweronly1`, `-riseonly1`,
+`-cur1-reftrack10` — results pending in the next banner entry.)
+
+Previous entry (2026-08-25 ~07:2x (**FIRST isolation result:
+`cw-standwalk-stance-mesh2-holdonly1` VERDICTED PASS on its canary
+gate — balance IS learnable on mesh/100Hz; physics/gains-audit branch
+is DEAD.** Plain English: with hold=1.0 diet the robot survives all
+6/6 DR-0 det hold episodes for the full 15 s (roll tail 1.0°, zero
+terminations), refuting "balance itself is broken on mesh" — cur1's
+hold collapse was starvation/recipe, not physics. BUT the learned
+hold is a hot TRIPOD STILT: three feet held 15-20 mm aloft (duty
+[.99,.04,.99,.02,1.0,.02]), valid_plant=false, current riding just
+UNDER the 2.0 A priced-hot threshold (p95 1.8 A, ceiling touches
+2.64 A, 14.1 s above soft), and 5/6 over_current trips on BOTH sto
+panels (own-DR det 4/6 ok, 0 terms). NOTE the return-scale trap for
+other isolation reads: training reward DECLINED all run
+(5.6/-51/-162/-218) while eval survival IMPROVED 0.5@1M → 1.0@2M det
+— under this pricing, longer survival accumulates per-tick hot
+charges, so a declining reward curve does NOT mean nothing is
+learning (riseonly1's "declining, bad early sign" below should be
+re-read with this in mind). The probed bank prices honest six-foot
+quiet hold at ~1472/ep vs this policy's 504 (honest draws 0.15 A
+mean), so the tripod is a LOCAL basin, not the reward optimum —
+08-21 continuation case. Launched:
+`cw-standwalk-stance-mesh2-holdonly1-acq1` (+8M continuation from
+the holdonly1 checkpoint, VERIFIED RUNNING train-0) gated on
+six-foot valid plant + zero OC det+sto + cur_p95<=1.0 A;
+pre-registered fallback if it still stilts at 10M total:
+`reward.hold_feet_load` income gate (existing default-OFF cfg key,
+sim_env.py ~3094), bank-check REQUIRED before that arm. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdonly1_{gate,owncfg}/`,
+W&B `khyece06`.)
+
+Previous entry: 2026-08-25 ~06:5x (**Per-mode isolation diagnostic BATCH
 launched (4 arms) to root-cause the rung-2 total-collapse FAIL below.**
 Plain English: rung-2 (mesh2-cur1/-seed1/-seed2) failed EVERY mode
 including plain `hold` from an already-planted start, with flat reward

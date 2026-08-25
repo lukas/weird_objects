@@ -85,6 +85,16 @@ def _parse_pricing(tag: str) -> dict:
             ov[("reward", "term_cost_per_remaining_s")] = float(m.group(1))
             ov[("reward", "term_cost_max")] = 60.0
             continue
+        # loadX / loadXmin: measured-load gate on hold income
+        # (reward.hold_feet_load, sim_env ~3094). 'min' selects the
+        # min-over-feet variant (hold_feet_load_min=1) built after the
+        # product form was defeated by one-foot shedding.
+        m = re.fullmatch(r"load([0-9.]+)(min)?", part)
+        if m:
+            ov[("reward", "hold_feet_load")] = float(m.group(1))
+            if m.group(2):
+                ov[("reward", "hold_feet_load_min")] = 1.0
+            continue
         raise SystemExit(f"unknown pricing token {part!r} in {tag!r}")
     return ov
 

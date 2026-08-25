@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAIL
 
 **created**: 2026-08-25T07:07:49+00:00
 
@@ -17,4 +17,6 @@
 **hypothesis**: Plain English: cur1 (current_hot pricing + term_cost pricing together) never found ANY stable basin (reward flat negative all 20M, 0/3 seeds), unlike mesh1-rr1 (neither price) which found a profitable-but-wrong grind (reward RISING to +90). This arm isolates term_cost_per_remaining_s ALONE (k_current_hot forced to 0, term_cost unchanged from cur1) -- the complementary ablation to curonly -- to test which of the two new charges is the actual destabilizer. Prediction-if-term_cost-is-fine-alone: reward climbs (grind returns since current_hot pricing is what killed it, or an honest basin if term_cost alone is enough deterrent) -- current_hot is the destabilizer, needs a softer dose. Prediction-if-still-flat: term_cost alone blocks learning -- it (not current_hot) is the destabilizer, needs a softer per-second rate or lower cap.
 
 **gate**: Same stage-1 gate as cur1 at 20M: pod_eval stance panel n>=12 det+sto DR-0+own-DR(0.2). Read jointly with curonly: whichever ablation alone reproduces cur1's flat-negative signature names the destabilizing term; whichever recovers movement (grind or honest) exonerates its own term.
+
+**verdict**: Ablation answer: with current_hot removed (term_cost kept) the profitable torque-saturation grind RETURNS — training reward rose the whole second half (quarters -259/-564/-186/-61) while every panel fails (0/36 DR-0 + own-DR; over_current on nearly every hold/lower episode; hold_det video shows stilting/rocking thrash riding the servos hot). This is the known rr1 misalignment resurfacing under unpriced current, not a continuation case: the realigned arm (cur1) already ran and failed differently. Pair verdict: term_cost alone cannot even prevent the grind, so it is exonerated as the destabilizer; current_hot is NECESSARY to kill the grind but NOT sufficient to make the full-mix recipe learnable. Curriculum, not pricing, is the rung-3 lever.
 
