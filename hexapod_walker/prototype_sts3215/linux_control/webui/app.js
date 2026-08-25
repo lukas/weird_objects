@@ -358,7 +358,35 @@ const rconServos = document.getElementById('rcon-servos');
 const rconDetail = document.getElementById('rcon-detail');
 const rconLines = document.getElementById('rcon-lines');
 const rconCopy = document.getElementById('rcon-copy');
+const rconEl = document.getElementById('robotconsole');
+const rconToggle = document.getElementById('rcon-toggle');
 let robotConsoleText = '';
+function setRobotConsoleOpen(open){
+  if(!rconEl) return;
+  rconEl.classList.toggle('open', !!open);
+  if(rconToggle){
+    rconToggle.textContent = open ? 'Hide' : 'Log';
+    rconToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  try{ localStorage.setItem('hexapod.robotConsoleOpen', open ? '1' : '0'); }
+  catch(e){}
+}
+try{
+  setRobotConsoleOpen(localStorage.getItem('hexapod.robotConsoleOpen') === '1');
+}catch(e){ setRobotConsoleOpen(false); }
+if(rconToggle){
+  rconToggle.onclick = (e)=>{
+    e.stopPropagation();
+    setRobotConsoleOpen(!(rconEl && rconEl.classList.contains('open')));
+  };
+}
+if(rconEl){
+  const top = rconEl.querySelector('.robot-console-top');
+  if(top) top.addEventListener('click', (e)=>{
+    if(e.target.closest('button,a')) return;
+    setRobotConsoleOpen(!rconEl.classList.contains('open'));
+  });
+}
 function rconSetChip(el, text, cls=''){
   if(!el) return;
   el.textContent = text;

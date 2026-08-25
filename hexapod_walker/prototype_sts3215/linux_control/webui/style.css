@@ -38,14 +38,18 @@
   .statusline:empty { display:none; }
   #statuscopy { flex:0 0 auto; min-width:0; padding:5px 10px; font-size:12px;
                 border-radius:8px; }
-  .robot-console { grid-column:1 / -1; min-width:0; display:flex;
+  .robot-console { position:fixed; left:188px; right:12px; bottom:10px;
+                   z-index:950; min-width:0; display:flex;
                    flex-direction:column; gap:4px; padding:7px 8px;
                    border:1px solid #263044; border-radius:10px;
-                   background:#11151e; box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
+                   background:#11151e;
+                   box-shadow:0 8px 28px rgba(0,0,0,.45),
+                              0 1px 0 rgba(255,255,255,.03) inset; }
   .robot-console-top { display:flex; align-items:center; gap:6px;
-                       min-width:0; flex-wrap:wrap; }
+                       min-width:0; flex-wrap:nowrap; cursor:pointer; }
   .robot-console-title { color:#dfe4ee; font-size:11px; font-weight:900;
-                         letter-spacing:.6px; text-transform:uppercase; }
+                         letter-spacing:.6px; text-transform:uppercase;
+                         white-space:nowrap; }
   .robot-console-chip { min-height:22px; display:inline-flex;
                         align-items:center; padding:2px 8px;
                         border-radius:999px; border:1px solid #333b52;
@@ -62,18 +66,25 @@
                           white-space:nowrap; color:#b6becd;
                           font-size:12px; font-weight:700; }
   .robot-console-lines { display:flex; flex-direction:column; gap:2px;
-                         max-height:4.8em; overflow:hidden; color:#98a2b8;
+                         max-height:34vh; overflow:auto; color:#98a2b8;
                          font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
                          font-size:11px; line-height:1.35;
                          user-select:text; -webkit-user-select:text; }
+  .robot-console:not(.open) .robot-console-lines { display:none; }
+  .robot-console:not(.open) .robot-console-title { max-width:124px;
+    overflow:hidden; text-overflow:ellipsis; }
+  .robot-console.open { bottom:12px; }
   .robot-console-line { overflow:hidden; text-overflow:ellipsis;
                         white-space:nowrap; }
   .robot-console-line.error { color:#ffb4b4; }
   .robot-console-line.warn { color:#e6b35a; }
   .robot-console-line.ui { color:#7eb6ff; }
   .robot-console-line.ok { color:#5fd08a; }
-  #rcon-copy { flex:0 0 auto; padding:3px 8px; font-size:12px;
-               border-radius:8px; }
+  #rcon-copy, .rcon-toggle { flex:0 0 auto; padding:3px 8px; font-size:12px;
+                             border-radius:8px; }
+  .rcon-toggle { min-width:48px; }
+  .robot-console.open .rcon-toggle { background:#203454;
+                                     border-color:#2b6cff; color:#9bbcff; }
   #rcon-events { flex:0 0 auto; color:#9bbcff; font-size:12px; }
   #conn { display:inline-flex; align-items:center; min-height:24px;
           padding:3px 9px; border-radius:999px; border:1px solid #333b52;
@@ -369,6 +380,7 @@
     #statuslines { justify-content:center; text-align:center; }
     #sent:not(:empty) { max-width:calc(100vw - 100px); }
     .robot-console-detail { flex-basis:100%; }
+    .robot-console { left:10px; right:10px; bottom:8px; }
   }
   /* Phone / narrow window: sidebar collapses to a wrapping tab strip on
      top; the arm/status header stays sticky so E-STOP is always visible. */
@@ -381,5 +393,8 @@
     .tab { text-align:center; padding:7px 12px; }
     .tabsep { display:none; }
     header { padding:8px 10px; }
+    .robot-console-top { flex-wrap:wrap; }
+    .robot-console-title { display:none; }
+    .robot-console-detail { order:9; min-width:100%; }
     .cal-step { grid-template-columns:1fr; }
   }
