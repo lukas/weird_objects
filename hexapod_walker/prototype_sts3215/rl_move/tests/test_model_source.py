@@ -20,10 +20,37 @@ sys.path.insert(0, str(ROOT))
 mujoco = pytest.importorskip("mujoco")
 
 from rl_move.sim import servo_model as SM  # noqa: E402
+from rl_move.sim import eval_checkpoint as EC  # noqa: E402
 
 
 def _total_mass(model) -> float:
     return float(model.body_mass.sum())
+
+
+class _TinyModel:
+    def __init__(self, *, nmesh: int):
+        self.nmesh = nmesh
+        self.ngeom = 12
+        self.body_mass = np.array([1.25, 2.25])
+
+
+class _TinyEnv:
+    def __init__(self, *, source: str, nmesh: int):
+        self._model_source = source
+        self.model = _TinyModel(nmesh=nmesh)
+
+
+def test_eval_report_model_identity_distinguishes_mesh_variants():
+    full = EC.model_identity(_TinyEnv(source="mesh", nmesh=4))
+    assert full["model_source"] == "mesh"
+    assert full["model_variant"] == "full_mesh"
+    assert full["model_mass_kg"] == 3.5
+
+    twin = EC.model_identity(_TinyEnv(source="mesh", nmesh=0))
+    assert twin["model_variant"] == "mesh_mjx_twin"
+
+    primitive = EC.model_identity(_TinyEnv(source="primitive", nmesh=0))
+    assert primitive["model_variant"] == "legacy_primitive"
 
 
 def test_resolver_env_var_beats_cfg(monkeypatch):

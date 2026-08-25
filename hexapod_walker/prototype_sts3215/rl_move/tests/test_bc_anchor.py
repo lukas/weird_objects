@@ -1046,6 +1046,108 @@ def test_min_h_ahead_unpins_the_plateau_traversal():
         f"legacy {slow:.1f}mm")
 
 
+# TUCK-EXEMPT floor (train.bc_anchor_min_h_tuck_exempt_i0, 08-25,
+# tuckfloor0/-s1 FAIL-MECH follow-up). Removing the floor everywhere
+# (tuckfloor0) collapsed BOTH the flat tuck AND the previously-clean
+# press-phase starts into a new all-six-leg freeze — the floor's
+# press-phase anti-stall role was load-bearing. This gate makes the
+# floor a no-op while the matched index is still inside the
+# reference's own tuck segment (< ramp_i0) and restores it unchanged
+# at/after ramp_i0.
+
+
+def test_tuck_exempt_default_off_bit_exact():
+    """Absent/0.0 tuck-exempt must not perturb the existing floor
+    pursuit at all, at any matched index — regression pin for the new
+    branch's default path."""
+    def targets(exempt):
+        extra = {("train", "bc_anchor_min_h_ahead_mm"): 15.0}
+        if exempt is not None:
+            extra[("train", "bc_anchor_min_h_tuck_exempt_i0")] = exempt
+        env = _floor_env(None, extra=extra)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        out = []
+        for _ in range(80):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" in info:
+                out.append(info["bc_target"].copy())
+                act = info["bc_target"]
+        env.close()
+        return np.asarray(out)
+    a = targets(None)
+    b = targets(0.0)
+    assert a.shape == b.shape and np.array_equal(a, b)
+
+
+def test_tuck_exempt_skips_the_floor_inside_the_tuck_segment():
+    """With the floor exempted before ramp_i0, chasing from a flat
+    (tuck-segment) spawn must NOT jump straight to the press phase —
+    the emitted target's matched reference tick should stay close to
+    the current one (pure time-lookahead), unlike the legacy
+    always-on floor which is proven elsewhere to jump the whole
+    plateau in one tick."""
+    ref = load_rise_ref(str(ROOT / RISE_REF))
+    i0 = int(ref["ramp_i0"])
+
+    def tick_of(target) -> int:
+        q_t = action_to_q_rad(np.asarray(target, dtype=float))
+        return int(np.argmin(
+            ((ref["q"] - q_t[None, :]) ** 2).mean(axis=1)))
+
+    env = _floor_env(15.0, extra={
+        ("train", "bc_anchor_min_h_tuck_exempt_i0"): 1.0})
+    env.reset()
+    act = q_rad_to_action(env.data.qpos[env._qadr])
+    first_tick = None
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(act)
+        assert not (term or trunc)
+        if "bc_target" in info:
+            first_tick = tick_of(info["bc_target"])
+            break
+    assert first_tick is not None
+    assert first_tick < i0, (
+        f"tuck-exempt floor still jumped to tick {first_tick} "
+        f">= ramp_i0={i0} from a flat spawn")
+
+
+def test_tuck_exempt_restores_the_floor_after_ramp_i0():
+    """Once the matched index reaches/passes ramp_i0, tuck-exempt must
+    behave exactly like the always-on floor (same anti-freeze
+    traversal speed proven in test_min_h_ahead_unpins_the_plateau_
+    traversal) — the exemption is tuck-only, not a global weakening."""
+    def h_at(exempt, seconds=8.0):
+        extra = {("bus", "servo_params"): "loaded"}
+        if exempt is not None:
+            extra[("train", "bc_anchor_min_h_tuck_exempt_i0")] = exempt
+        env = _floor_env(15.0, extra=extra)
+        env.reset()
+        act = q_rad_to_action(env.data.qpos[env._qadr])
+        h = 0.0
+        for _ in range(int(round(seconds / env.dt))):
+            _o, _r, term, trunc, info = env.step(act)
+            if term or trunc:
+                break
+            if "bc_target" in info:
+                act = info["bc_target"]
+            h = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+        env.close()
+        return h * 1e3
+    # 8s clears the tuck (ramp_i0=126 ticks @ dt=0.04s = 5.04s of ref
+    # time) with margin for both chains to reach the plateau.
+    legacy = h_at(None)
+    exempt = h_at(1.0)
+    assert exempt > 60.0, (
+        f"tuck-exempt floor only reached {exempt:.1f}mm past the tuck "
+        "— the press-phase floor restore regressed")
+    assert abs(exempt - legacy) < 20.0, (
+        f"tuck-exempt ({exempt:.1f}mm) diverges from the always-on "
+        f"floor ({legacy:.1f}mm) past the tuck segment")
+
+
 # ---------------------------------------------------------------------------
 # TIP-AWARE HOLD REFERENCE (train.bc_anchor_tilt_comp, 08-13).
 # cw-stand-footlow2-tip1's gate consequence: tipped-start DR under a

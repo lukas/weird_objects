@@ -1,6 +1,70 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~18:1x (**FLAT-START ROOT CAUSE FOUND — the
+Last updated: 2026-08-25 ~19:2x (MECHANICAL NOTE, no science change:
+this cycle's assigned triage target, `...-meshref-tuckfloor0`, was
+already fully verdicted (CANARY FAIL - MECHANISM, see the 19:0x entry
+below) and its fix already coded/tested/snapshotted by the time this
+cycle read the ledger — but a race with the concurrent cycle meant
+BOTH cycles independently believed the pre-registered tuck-exempt
+canary pair had not yet landed and both launched it: the concurrent
+cycle's `...-meshref-tuckexempt0`/`-s1` (train-0/train-2, created
+19:08:39/19:14:37) is the pair of record (seed-0 already FINISHED,
+awaiting its own triage cycle; seed-1 still running). This cycle's
+own copy `...-meshref-tuckexempt-i0`/`-i0-s1` (train-1/train-3,
+created ~2 min later, bit-identical cfg) was recognized as the
+duplicate, killed cleanly on both pods, and verdicted CANARY FAIL -
+INFRASTRUCTURE (no information lost, no pod time wasted beyond ~10
+min). No other standwalk lever is fundable right now without
+duplicating in-flight work: rise is the sole open rung and its only
+live mechanism (tuck-exempt floor) is already running under the
+concurrent cycle's names; hold/lower are PASSed; the footlow2raw18
+warmmix pair and stancemix-slowchain are both already verdicted FAIL.
+Other tracks checked for spare-capacity refill: joystick's DONE gate
+is already met (08-23, `stotight45-seed13`) with further mesh/100Hz
+hardening explicitly deferred to this track per its own 08-25 ~12:1x
+entry; amp and cpg are both DONE/maintenance-only; walkcurr is
+deliberately self-blocked pending an `[operator]` ruling per its own
+founding rule (not idle-capacity-actionable). Net: 11 of 12 pods
+correctly idle this cycle — genuinely nothing else is runnable
+without duplication or violating another track's own blocking rule.)
+
+Prior entry: 2026-08-25 ~19:0x (**tuckfloor0/-s1 JOINT PAIR CANARY
+FAIL - MECHANISM — removing the BC-anchor height-floor everywhere
+does NOT teach the tuck; it breaks pursuit broadly. Coded + tested +
+launched the pre-registered fix: a TUCK-EXEMPT floor.** Both seeds
+cross-verify: flat-pinned probe (det+sto n=6+6, DR-0) 0/12 valid,
+0/12 over_current (Imax 0.52-0.56A, well under the 2.64A pin) — but
+duty_cycle=0.0 on all six legs and swing_count=0 for the FULL 15s
+episode, height_err stuck 79-86mm. Contact sheets: one instant snap
+from the splayed spawn to a folded pose, then total static freeze —
+not the hoped tuck-then-press. Worse, the standard DR-0 gate that was
+clean on the meshref parent (det 5/6 + sto 4/6 valid) collapsed to
+0/6 det + 0/6 sto on BOTH seeds: bridge/crouch/rsi starts now show a
+mix of the SAME 2.64A press-up pins plus brand-new duty=0 freezes on
+starts that used to work. own-DR(0.2) replicates. Training reward
+DECLINED across quarters both seeds (~[13,-0.3,-20,-46]) — a genuine
+FAIL per the 08-21 ruling, not misaligned-continue. This lands exactly
+on the pair's own pre-registered alternate FAIL branch: non-flat kinds
+collapsing into freezes means the floor's press-phase anti-freeze role
+(its original 08-12 purpose) was load-bearing, and removing it
+everywhere threw that out along with its flat-segment defect. FIX
+(this cycle): new cfg `train.bc_anchor_min_h_tuck_exempt_i0` (default
+0 = legacy, bit-exact) in `sim_env.py`'s rise state-aligned BC-anchor
+block — gates the height-floor OFF only while the state-aligned
+matched index is still inside the reference's OWN tuck segment
+(`ref["ramp_i0"]`, a fixed file property), restoring the exact legacy
+floor unchanged once the match reaches/passes ramp_i0. 4 new unit
+tests (`test_tuck_exempt_*` in `test_bc_anchor.py`), 59/59 green,
+snapshot `exp/cw-standwalk-tuckexempt-i0`. Launched the 2-seed 2M
+canary pair `tuckexempt0`/`-s1` (exact tuckfloor0/meshref recipe,
+`min_h_ahead_mm` restored 0->8 + `min_h_tuck_exempt_i0=1`) — VERIFIED
+RUNNING on train-0/train-2; tuckexempt0 (seed 0) already finished and
+has its own triage cycle spawned (own it there, do not re-triage).
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_
+meshref_tuckfloor0{,_s1}_{gate,owncfg,flatprobe_det,flatprobe_sto}/`,
+W&B `2t8z8o4i` / `dvwfnqqm`.)
+
+Prior entry: 2026-08-25 ~18:1x (**FLAT-START ROOT CAUSE FOUND — the
 BC anchor's height-floor pursuit SKIPS the mesh ref's entire tuck
 segment from flat states; exposure refuted (flatmix70-s1 CANARY
 FAIL-MECH); tuckfloor0 canary pair launched as the fix.** Seed-1 read:

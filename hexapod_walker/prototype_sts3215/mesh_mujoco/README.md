@@ -29,9 +29,10 @@ both keyframes) and writes `previews/*.png`.
   `_horn_world_transform` / `_passive_horn_world_transform`.
 - Meshes are built by the `hexapod_prototype.make_*()` factories (no
   dependence on `stl_prototype/` exports). The electronics stack needs the
-  two `extra_stl/` meshes; if missing, rerun
-  `tools/make_xtool_hex_mount_plate.py` + `tools/make_xtool_hex_raised_platform.py`
-  (the builder falls back to bare plates with a warning).
+  ignored helper STLs from `tools/make_xtool_hex_mount_plate.py` and
+  `tools/make_xtool_hex_raised_platform.py`; if they are missing, the builder
+  refuses by default so RL assets cannot silently become a lighter bare-plates
+  robot.
 - Fasteners (~240 screws) are the one part family intentionally omitted.
 
 ## What the mesh model fixes vs the legacy sim
