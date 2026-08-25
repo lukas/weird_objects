@@ -1,6 +1,61 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~09:5x (**rung-5 LAUNCHED: basin-exit
+Last updated: 2026-08-25 ~10:2x (**rung-5 (`holdterm40`) VERDICTED
+FAIL; rung-6 (min-load termination) landed, bank-proven, and LAUNCHED
+as a 2-seed batch.** `cw-standwalk-stance-mesh2-holdterm40`'s gate
+report confirms rung-5's own pre-registered "alternative cheat" bit
+for bit: every det+sto episode (0/12 valid_plant) ends with
+`height_err_end_mm` pinned at **exactly 40.0-40.3 mm** (right at/on
+the drop line, not a collapse), `cur_max` ~2.6 A, leg imbalance
+1.8-1.9, one foot `end_clear` up to 26 mm while the rest sit ~0 —
+the policy learned to hover its CHASSIS at the boundary rather than
+re-plant. W&B: `env/hold_feet_factor` collapsed 0.96->~0.11 by 200k
+and never recovered above ~0.17 across the full 6M run (flat, not
+rising); reward quarters -107/-335/-538/-466 (Q3 worse than Q2, a
+late partial recomposition from a `hold_low_height` termination spike
+in the last ~600k steps that still ends 0/6 valid) — a genuine FAIL
+per the 08-21 ruling (task metric flat the whole run), not a continue
+case. `-s1` (seed twin) finished around the same time but belongs to
+another cycle's read — not incorporated here.
+ROOT CAUSE: `hold_low_height` only sees CHASSIS height; a foot that
+stays functionally unloaded (or is forced to carry an unfair share)
+while the body sits inside the 40 mm line is invisible to it — the
+exact hover/hover1 crouch-park class this file already had scripted
+twins for (`HOLD_LOAD_OVERRIDES` section), now shown to survive to
+truncation even with the height-drop lever ON.
+RUNG-6 LEVER (landed, default-off, bit-exact when off; snapshot
+`17554cea`): `safety.hold_min_load_terminate_{s,n,grace_s,tau_s}` —
+terminates a hold episode when the WORST (min-over-feet) touch force,
+EMA-smoothed, stays below `hold_min_load_terminate_n` for
+`hold_min_load_terminate_s` seconds (reason `hold_min_load`),
+independent of body height. Universal per-episode state
+(`_hold_minload_ema`/`_hold_minload_low_s`) lives in the SHARED base
+class (`sim_env._reset_finalize` + `mjx_host.SNAP_ATTRS`), not the
+walk-only subclass, because hold mode is available on every task
+class (the walk-only `_walk_qvel_ema`/`_walk_idle_low_s` pattern this
+mirrors is walk_task-scoped and would silently AttributeError for
+plain `joint_goal` hold-mode training — verified this was the fix
+needed after the first draft crashed exactly that way).
+Bank (`test_hold_minload_*`, `test_task_semantics.py`, 4/4 green):
+(a) default-off bit-exact, (b) documents the loophole — TODAY'S LIVE
+STACK (height-drop lever already on) really is blind to the scripted
+hover/hover1 poses (they survive to truncation, un-terminated), (c)
+the new lever terminates both hover classes with reason
+`hold_min_load` inside a few seconds, (d) the honest quiet stand is
+byte-identical untaxed.
+Launched: `cw-standwalk-stance-mesh2-holdminload40` (seed 0) +
+`-s1` (seed 1), 6M each, holdterm40's exact recipe + the new lever
+(`hold_min_load_terminate_n=0.3`, `_s=1.0`, `_grace_s=1.0`), VERIFIED
+RUNNING train-0/1. Gate: same hold panel as rung-5, now also requiring
+zero `hold_min_load` terminations.
+Full regression note: ran `test_task_semantics.py -k hold` (39 tests,
+10 pre-existing red — same named set STATUS already flagged, unrelated
+to this diff) and `-k "not hold and not walkcurr"` (162 tests, 15 red,
+confirmed pre-existing via git-stash A/B on 3 samples — the
+control.hz=100 tick-count regression already tracked elsewhere in
+OPERATOR_QUESTIONS) — zero NEW failures from this cycle's diff.
+
+Previous entry: 2026-08-25 ~09:5x (**rung-5 LAUNCHED: basin-exit
 termination landed, bank-proven, and running as a 2-seed batch.**
 The mechanism the closure below calls for executed same-cycle:
 `safety.hold_max_height_drop_mm` in sim_env (`hold_low_height` —
