@@ -6683,14 +6683,16 @@ class BenchAPI:
         return out
 
     def rl_drive_cmd(self, *, vx: float = 0.0, vy: float = 0.0,
-                     wz: float = 0.0) -> dict:
+                     wz: float = 0.0, dh: float = 0.0) -> dict:
         """Heartbeat from the browser: body-frame (vx, vy) m/s and yaw
-        rate wz rad/s while keys are held. Never touches the bus —
-        the 25 Hz session loop reads it. Stale heartbeats (> 0.6 s)
-        decay to zero server-side, so this must keep streaming."""
+        rate wz rad/s while keys are held, plus dh in [-1, 1] (D-pad
+        body-height nudge; tracked only while HOLDING with an obs-68
+        stance hold policy). Never touches the bus — the 25 Hz session
+        loop reads it. Stale heartbeats (> 0.6 s) decay to zero
+        server-side, so this must keep streaming."""
         if not self._drive_active():
             return {"ok": False, "error": "no drive session", "active": False}
-        self._drive_cmd.set(float(vx), float(vy), float(wz))
+        self._drive_cmd.set(float(vx), float(vy), float(wz), float(dh))
         with self._lock:
             status = self._demo_status
         return {"ok": True, "active": True, "status": status,
@@ -6912,7 +6914,8 @@ class BenchAPI:
                        vy: float = 0.0, duration_s: float = 6.0,
                        rot60: bool = True, turn: str | None = None,
                        tilt_trip_deg: float | None = None,
-                       extra_hold_s: float = 0.0) -> dict:
+                       extra_hold_s: float = 0.0,
+                       learned: bool = False) -> dict:
         """Run RL walk; stand/lower use baked STEP outside Experiments.
 
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
@@ -6921,7 +6924,11 @@ class BenchAPI:
         (sim walk-ready pose for walk).
         ``mode="stand"`` and ``mode="lower"`` deliberately delegate to
         the STEP stand-up keyframes instead of the experimental learned
-        stance policies.
+        stance policies — unless ``learned=True`` (operator opt-in,
+        08-25): that runs the learned stance-policy episode via
+        run_policy_move using the stand/lower role weights (stand starts
+        belly-down legs-straight; lower starts from the sim walk-ready
+        stand). EXPERIMENTAL on hardware — keep a hand ready.
         Safety layer trips (tilt / sustained over-current / temp) limp
         immediately. Walk extras: body-frame vx/vy (m/s, clamped to the
         trained 0.06 band) and duration_s (clamped 3..20 s).
@@ -6932,9 +6939,9 @@ class BenchAPI:
         mode = (mode or "stand").strip().lower()
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
-        if mode == "stand":
+        if mode == "stand" and not learned:
             return self._rl_walk_ready_stand()
-        if mode == "lower":
+        if mode == "lower" and not learned:
             return self.standup(mode="step", speed=10.0,
                                 direction="down")
         try:
@@ -6971,12 +6978,14 @@ class BenchAPI:
         self._demo_gen += 1
         gen = self._demo_gen
         self._demo_abort.clear()
-        label = {"stand": "STEP stand up", "lower": "STEP lower",
+        label = {"stand": "learned RL rise", "lower": "learned RL lower",
                  "walk": "RL walk"}[mode]
         with self._lock:
             self._demo_name = f"rl_policy_{mode}"
             self._demo_status = f"{label} starting"
             self._demo_params = {"mode": mode}
+            if learned:
+                self._demo_params["learned"] = True
             if mode == "walk":
                 self._demo_params.update(
                     vx=float(vx), vy=float(vy),

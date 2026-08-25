@@ -38,8 +38,8 @@ the process rules below are what remain).
 | GET | `/api/logs` | List `logs/` files (name, bytes, mtime; newest first) |
 | GET | `/api/logs/<name>` | Download one log file; `?tail=N` = last N lines only |
 | GET | `/api/rl/preflight?mode=` | Read-only readiness (`stand`/`lower`/`walk`) |
-| POST | `/api/rl/stand` | RL policy stand-up (preflight-gated; wrong pose → acquires safe zero first, then re-preflights) |
-| POST | `/api/rl/lower` | RL policy lower to belly (wrong pose → acquires the sim walk-ready stand first, then re-preflights) |
+| POST | `/api/rl/stand` | Default = STEP stand-up, then settle to the sim walk-ready stance. `{"learned":true}` = learned stance-policy rise (the `stand` role weights; preflight requires belly-down legs-straight, refuses otherwise). Optional `tilt_trip_deg`, `extra_hold_s` (learned only) |
+| POST | `/api/rl/lower` | Default = STEP lower (safe-zero recovery if not standing). `{"learned":true}` = learned stance-policy lower (the `lower` role weights; preflight requires the sim walk-ready stand). Optional `tilt_trip_deg`, `extra_hold_s` (learned only) |
 | POST | `/api/rl/walk` | RL walk, EXPERIMENTAL: `{"vx":0.05,"vy":0,"duration_s":6}`, clamped 0.06 m/s / 20 s; motion-free start from current sim walk-ready pose; wrong pose refuses instead of auto-acquiring |
 | POST | `/api/rl/capture_plant` | Deprecated diagnostic: save current 18 joints as `plant_pose.json` (not used for RL walk/drive starts) |
 | POST | `/api/rl/set_stance` | Slow ease to a crouch stance; a big Δq acquires the safe zero start first instead of refusing |
@@ -50,7 +50,7 @@ the process rules below are what remain).
 | POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = built-in joint hold for hold) |
 | GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
 | POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; operator watching) |
-| POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold) |
+| POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0,"wz":0,"dh":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold). `dh` ∈ [-1,1] = D-pad body-height nudge: ref integrates at 10 mm/s, clamped −45..+30 mm, tracked only while HOLDING with an obs-68 stance model in the `hold` role; a move command ramps the height back to 0 before the gait engages |
 | POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
 | POST | `/api/zero` | Sit/stand — acquires the pose safely (sit = safe-zero plan; stand = safe zero → validated plant stand-up); never refuses on Δq, errors + stops if acquisition fails |

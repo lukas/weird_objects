@@ -134,8 +134,8 @@ class FakeSession:
         self.calls.append(("rl_drive_start",))
         return {"ok": True, "active": True}
 
-    def rl_drive_cmd(self, vx, vy, wz=0.0):
-        self.calls.append(("rl_drive_cmd", vx, vy, wz))
+    def rl_drive_cmd(self, vx, vy, wz=0.0, dh=0.0):
+        self.calls.append(("rl_drive_cmd", vx, vy, wz, dh))
         return {"ok": True, "active": True}
 
     def rl_drive_stop(self):
@@ -190,12 +190,15 @@ def test_dispatches_rl_drive_and_sim_routes():
     assert _json(fake, "/api/rl/drive/start", method="POST")["active"]
     assert _json(fake, "/api/rl/drive/cmd", method="POST",
                  body={"vx": 0.05, "vy": -0.02})["active"]
+    assert _json(fake, "/api/rl/drive/cmd", method="POST",
+                 body={"vx": 0.0, "vy": 0.0, "wz": 0.2, "dh": -1})["active"]
     assert _json(fake, "/api/sim/reset", method="POST",
                  body={"start": "belly"})["status"] == "belly"
     assert _json(fake, "/api/sim/pose", method="POST",
                  body={"degrees": list(range(18)),
                        "source": "test"})["status"] == "synced test pose"
-    assert ("rl_drive_cmd", 0.05, -0.02, 0.0) in fake.calls
+    assert ("rl_drive_cmd", 0.05, -0.02, 0.0, 0.0) in fake.calls
+    assert ("rl_drive_cmd", 0.0, 0.0, 0.2, -1.0) in fake.calls
     assert ("sim_reset", "belly") in fake.calls
     assert ("sim_pose", list(range(18)), "test") in fake.calls
 

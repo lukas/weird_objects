@@ -262,7 +262,8 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.rl_drive_cmd(
                         vx=float(data.get("vx", 0.0)),
                         vy=float(data.get("vy", 0.0)),
-                        wz=float(data.get("wz", 0.0))))
+                        wz=float(data.get("wz", 0.0)),
+                        dh=float(data.get("dh", 0.0))))
                 elif path == "/api/rl/drive/stop":
                     self._json(200, session.rl_drive_stop())
                 elif path == "/api/rl/policies":
