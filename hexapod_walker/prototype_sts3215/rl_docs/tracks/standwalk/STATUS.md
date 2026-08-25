@@ -35,6 +35,21 @@ curriculum next). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
 riseonly_bcchain3_meshref_flatmix70_s1_{gate,owncfg,flatprobe}/`, W&B
 xz8urts2.)
 
+Addendum 2026-08-25 ~18:2x (seed-0 verdict recorded — the exposure
+pair is now CLOSED, both seeds CANARY FAIL-MECHANISM): `flatmix70`
+(seed 0) flat-pinned probe 0/12 valid, all over_current pinned exactly
+2.64A, zero swings, h_err_end 24-70mm (`logs/ckpt_eval/
+flatmix70_fpin_{det,sto}/`, W&B jkpuza6s); standard DR-0 gate det 0/6
+(4 flat + both rsi in the press-up basin) / sto 4/6, episode-for-
+episode the seed-1 story. The two triage cycles independently
+converged on the same measured root cause (anchor height-floor skips
+the height-flat tuck ticks 0-245) — treat it as cross-verified. Both
+arms of the funded fix pair are confirmed running with the single
+lever verified in their live commands (`min_h_ahead_mm=0`, lookahead
+0.25 unchanged): `tuckfloor0` train-0 (VERIFIED RUNNING, W&B 2t8z8o4i,
+launched by the seed-0 cycle) + `tuckfloor0-s1` train-1 (launched by
+the seed-1 cycle). Joint pair gate as registered in both run docs.)
+
 Prior entry: 2026-08-25 ~17:5x (**8M GRID CLOSES with seed-2 — budget
 is NOT the lever on the mesh-native ref; PACE AXIS ALSO CLOSED —
 half-pace stays the default. Flat-start tuck is the sole residual, and
