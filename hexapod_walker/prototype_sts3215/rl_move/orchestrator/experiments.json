@@ -186118,7 +186118,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-25T14:44:43"
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-stdanneal-cont8",
