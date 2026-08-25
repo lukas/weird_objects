@@ -172601,7 +172601,7 @@
       "env.model_source=mesh"
     ],
     "created": "2026-08-25T00:49:43+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 26,
@@ -172633,7 +172633,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1 --steps 2000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --device cuda --transformer --tf-layers 2 --tf-width 128 --tf-heads 8 --tf-ff 256 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_canary1 --notes 'respec of cw-arch-tf64-joyfullcurr13-v7-hz100-canary2: Plain English: does the proven transformer walking recipe still train healthily when the simulated robot is replaced by the corrected, heavier as-built model (mesh family, 3.50 kg, true +38mm hip-pitch anchor, +4mm boots on legs 0/4) instead of the legacy 2.10 kg primitive model? OPERATOR ORDER (08-25 focus note): clean FROM-SCRATCH restart of the cw-arch-tf64-joyfullcurr13-v7-hz100 lineage from its beginning -- the exact 2L/d128/8h/ff256 causal-transformer-over-hist64 canary recipe that acq1 continued -- on current main with env.model_source=mesh (pods auto-load the checked-in primitive-collision twin mesh_mujoco/hexapod_mesh_mjx.xml; same kinematics/masses/inertia, MJX-ready). This is a NEW mesh-family lineage: NO warm-start from any pre-2026-08-24 checkpoint (those are primitive-family; the families do not transfer). 2M canary answers mechanism health only: boots on the mesh twin under warp, trains stably at usable CUDA fps, no NaN/SIGBUS. Prediction-if-true: reaches 2M crash-free with finite diagnostics; reward will sit deep in the from-scratch 100Hz valley (primitive-family control was ~-739 at 2M) and its level/sign is NOT a health signal on a new dynamics family with no matched control yet. Prediction-if-false: crash/NaN/degenerate contacts from the mesh twin under warp. Strongest alternative: the +66% mass deepens/lengthens the valley without being unhealthy -- only resolvable at acquisition against the MLP-mesh matched-step control launched alongside (cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1).' --cfg-set env.model_source=mesh > /tmp/train_cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1.log",
     "wandb_id": "rgsmea0q",
-    "verified": "2026-08-25T00:53:09+00:00"
+    "verified": "2026-08-25T00:53:09+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T00:58:49+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3820,
+        "fps": 5461.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "CANARY PASS (gate text is explicit: no gait/skill judgment at 2M). Plain English: the operator-ordered from-scratch tf64 2L/d128/8h/ff256 transformer canary boots and trains cleanly on the NEW mesh-family model (3.50kg as-built, corrected hip-pitch anchor, primitive-collision twin under warp). Evidence: reached the full 2,015,232/2,000,000-step budget with 0 tracebacks/NaN/SIGBUS (train log clean, wandb state=finished), fps 3725 (same order of magnitude as the ~5000fps primitive tf64 baseline, checkup read 5461 near start), finite diagnostics throughout (reward quarters -45.1/-340.5/-494.3/-471.0, ep_rew_mean -527.4, matches the expected from-scratch 100Hz valley shape, better than the primitive-family control's own ~-739 at 2M -- level/sign explicitly not judged per the 08-24 valley ruling). Why: this answers the gate's only question (does the mesh twin under warp train stably) YES. What's next: sibling cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1 (the required MLP-mesh matched-step control) is still training (~1M/2M at last check) -- do NOT respec either to 40M until it finishes and is read as healthy too; that joint decision belongs to whichever cycle sees both done. Side finding this cycle (recorded in OPERATOR_QUESTIONS.md): the primitive model (mujoco_prototype.py build_xml) generates all 6 legs from one symmetric parametric loop with no per-leg geometry difference, so the cross-lineage leg-sacrifice fingerprint (legs [3,5]/[0,2,5] statue-then-topple, 3 lineages so far) cannot be a geometric/boot asymmetry artifact on the primitive family -- narrows, does not close, the still-unclaimed root-cause DIG-IN."
   },
   {
     "run": "cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1",
@@ -172727,7 +172741,7 @@
       "env.model_source=mesh"
     ],
     "created": "2026-08-25T00:53:35+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 26,
@@ -172758,6 +172772,25 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1 --steps 2000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist64_mesh_joyfullcurr13_v7_hz100_canary1 --notes 'respec of cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1: Plain English: establish the healthy-MLP reference trajectory on the NEW as-built 3.50 kg mesh robot model, so the operator-ordered tf64-mesh lineage restart can be judged fairly. The 08-24 canary ruling is binding: from-scratch 100Hz runs pass through an architecture-independent reward valley (~-739 at 2M, zero-crossing ~12-14M on the primitive family) and must be judged against a MATCHED-STEP control trajectory, never absolute reward -- on the primitive family that control was this run'\"'\"'s own source (cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1); NO such trajectory exists for the mesh family (corrected +38mm hip-pitch anchor, 3.50 kg as-built masses, real +4mm boots on legs 0/4). This clones the from-scratch hist64 MLP V7-certfreeze 100Hz recipe onto env.model_source=mesh at 2M canary budget, from scratch (no pre-08-24 checkpoint touched; families do not transfer). Secondary purpose: second-architecture per-leg-duty evidence for the open cross-lineage leg-sacrifice fingerprint question (primitive MLP sacrificed legs {0,2,5}; primitive tf64 sacrificed {3,5}) -- if the fingerprint is a property of the legacy sim model rather than architecture/diet, the mesh family'\"'\"'s corrected kinematics and modeled boots should shift or remove it at acquisition. Prediction-if-true: boots and trains to 2M, no crash/NaN, valley-shaped finite reward. Prediction-if-false: crash/NaN/degenerate mesh-twin contacts under warp. Strongest alternative: mesh dynamics reshape the valley so primitive-era waypoints mislead -- which is precisely why this control run exists.' --cfg-set env.model_source=mesh > /tmp/train_cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-canary1.log",
     "wandb_id": "97f06to7",
-    "verified": "2026-08-25T00:57:08+00:00"
+    "verified": "2026-08-25T00:57:08+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T01:02:38+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3,
+          2
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2015232",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "verdict": "CANARY PASS (gate text is explicit: no gait/skill judgment at 2M, this run IS the future matched-step control for the mesh family). Plain English: the from-scratch hist64 MLP clone (the required MLP-mesh matched-step control for the tf64-mesh transformer canary) boots and trains cleanly on the mesh-family model. Evidence: reached the full 2,015,232/2,000,000-step budget with 0 tracebacks/NaN/SIGBUS (train log clean, wandb state=finished), fps 4740 (healthy, in fact higher than its tf64 sibling's 3725 and the ~5000fps primitive baseline order), finite diagnostics throughout (reward quarters -45.5/-361.2/-503.3/-512.1, ep_rew_mean -558.2 -- nearly identical valley shape to the tf64-mesh sibling's -45.1/-340.5/-494.3/-471.0, as expected for two architectures on the same new dynamics). Why: this answers the gate's only question (does the mesh twin train stably under warp on the MLP too) YES, and gives the tf64-mesh canary its required matched-step control. What's next: BOTH mesh-family canaries are now healthy PASS -> respec both to 40M from-scratch acquisitions this cycle (the pre-registered next step), tf64-mesh judged against this MLP-mesh trajectory exactly as acq1 was judged against the primitive-family MLP control.",
+    "triage": "done"
   }
 ]

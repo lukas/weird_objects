@@ -2284,3 +2284,39 @@ reward-magnitude or architecture arm on either track. Still unclaimed;
 still no operator input needed — filed so whichever cycle next picks
 up a leg-sacrifice DIG-IN (joystick or walkcurr) has the updated tally
 without re-deriving it. status: informational, escalating priority.
+
+## 2026-08-25 ~01:2x — leg-sacrifice fingerprint: geometric/boot asymmetry RULED OUT on the primitive family (update to the 08-24 ~22:0x / 08-25 ~00:3x notes; still no operator action needed)
+Cheap, code-level check while triaging the mesh-family tf64 canary
+(`cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1`, CANARY PASS,
+no gait judgment at 2M — this is a side finding from reading the sim
+code while waiting on its mesh-family sibling to finish, not from any
+new training). `mujoco_prototype.py`'s `build_xml()` generates all 6
+legs from ONE shared parametric loop (`for i in range(6)`, identical
+COXA/FEMUR/HIP_ANCHOR_Y/pad_y constants per leg, only `x,y,z,quat`
+placement differs by the hexagon symmetry angle) — there is NO per-leg
+geometry, mass, or pad/boot asymmetry anywhere in the primitive-family
+model. (The NEW mesh-family model does have a real, intentional +4mm
+boot asymmetry — `L0_pad`/`L4_pad` at 0.138m vs `L1/L2/L3/L5_pad` at
+0.142m, matching the as-built BuildViz audit — but that model didn't
+exist for any of the three lineages that already showed the
+leg-sacrifice fingerprint pre-08-24.) **Conclusion: geometric/boot
+asymmetry cannot be the root cause of the fingerprint on the primitive
+family** (all 3 confirmed lineages — walkcurr from-scratch 25Hz,
+hist64-scratch MLP 100Hz, tf64-warmstart-transformer 100Hz — trained
+and toppled on the perfectly leg-symmetric primitive model). This
+narrows, but does not close, the 08-24 note's own leading hypothesis:
+if it's "structural," it must live in CODE (obs/action leg-indexing,
+contact/friction class assignment, or a genuine RL symmetry-breaking
+optimization artifact common to tripod-style gait learning) rather
+than in the robot's modeled geometry. Practical implication for the
+in-flight mesh-family canaries: if the mesh-family MLP/tf64 pair (once
+both finish) show the SAME {3,5}-or-{0,2,5}-style pattern, that would
+be the fingerprint recurring on a DIFFERENT model family too — further
+evidence it's code/training-dynamics, not this-one-model's geometry.
+If the mesh pair instead shows a DIFFERENT sacrificed-leg set that
+lines up with the new 0/4 boot asymmetry, that would be the first
+positive geometric lead — worth an explicit check once both mesh
+canaries are acquisition-scale and gait-judged (not at this 2M
+mechanism-health stage). Recorded so the next leg-sacrifice DIG-IN
+cycle doesn't have to re-derive the "is it geometry" question from
+scratch. status: informational, no operator input needed.
