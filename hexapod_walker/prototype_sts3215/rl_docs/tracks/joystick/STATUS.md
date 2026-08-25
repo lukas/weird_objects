@@ -1,6 +1,49 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-25 ~01:3x (**BOTH mesh-family canaries CANARY
+Last updated: 2026-08-25 ~02:2x (**LEG-SACRIFICE ROOT-CAUSE DIG-IN
+CLAIMED**: the still-unclaimed cross-lineage leg-sacrifice fingerprint
+({0,2,5}/{3,5}/{0,2,3,5}, 3 lineages) that's been blocking the
+hardening ladder has an obvious untried lever — `reward.walk_gait_gate`
+(the MIN-across-legs step-completion gate, purpose-built +
+bank-tested in 08-13 for exactly the "sacrifice any subset of legs"
+cheat class: `test_walk_gait_gate_collapses_flag_leg_income`,
+`test_walk_gait_gate_keeps_honest_gait_income`, quadwalk mid-pin
+sibling) is simply ABSENT from every V7/100Hz joyfullcurr13 recipe run
+so far (checked the exact launch args of scratch-s0-r1, tf64-acq1,
+both mesh canaries/acq1s — none set it). Bank-verified it's still
+green before using it (found+fixed one stale threshold this cycle,
+see below); launched a matched single-lever diagnostic PAIR off the
+confirmed sac=[0,2,5] FAIL checkpoint: `cw-arch-hist64-joyfullcurr13-
+v7-hz100-gaitgate-cont1` (10M-step continuation off the converged bad
+checkpoint — tests recoverability) and `-gaitgate-scratch1` (fresh
+40M from scratch with the gate on from step 0 — tests prevention,
+the decisive read given walkcurr's own repeated finding that reward
+fixes rarely dislodge an already-converged park). Both VERIFIED
+RUNNING (train-8, train-9). Next triage cycle reads these two before
+anything else on this lever.
+**Also this cycle**: (1) a launcher bug — `_launch_locked`'s
+duplicate-run-name pod scan only caught `CalledProcessError`, not
+`TimeoutExpired`, so ANY one slow/unresponsive pod (reproduced live on
+`hexapod-sweep-friction`) crashed EVERY launch/respec fleet-wide with
+an uncaught traceback instead of a scoped refusal — fixed (now matches
+every other `kexec` call site in the file), regression-tested
+(`test_launch_run_duplicate_check_timeout.py`, 3/3). (2) A big,
+unresolved informational finding: a full `test_task_semantics.py` run
+came back **54 failed / 186 passed** (was "159 pass, 1 known-red" as
+recently as 08-23/24) — tested and REJECTED the obvious hypothesis
+(config.yaml's `control.hz` 25->100 flip on 08-24 going unpinned in
+the bank, unlike `HEXAPOD_MODEL_SOURCE`): forcing hz=25 made a sample
+test WORSE, not better, so the rate flip is at most a partial cause.
+Built `HEXAPOD_CONTROL_HZ` as opt-in dig-in infrastructure only
+(`rl_move/config.py`, default off, 3 tests) — NOT wired into
+`conftest.py`'s defaults, since it doesn't actually fix the sample
+checked. Full note + recommended next step: `OPERATOR_QUESTIONS.md`
+08-25 ~02:1x. Only the one `walk_gait_gate` test needed for THIS
+cycle's launches was recalibrated (stale magnitude threshold, dated
+comment); the other 53 failures are untouched and still red — this is
+a large open item for a dedicated dig-in, not resolved here.
+
+Previous entry (2026-08-25 ~01:3x (**BOTH mesh-family canaries CANARY
 PASS -> respec'd to 40M acquisitions, VERIFIED RUNNING.**
 `cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1` reached its full
 2M-step budget clean: 0 tracebacks/NaN/SIGBUS, fps 3725 (same order as
