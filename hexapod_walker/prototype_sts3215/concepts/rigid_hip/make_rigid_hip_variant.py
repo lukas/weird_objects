@@ -41,26 +41,27 @@ pair.  This variant closes the loop from the TOP:
     edits: the vertical hub column SHORTENED by COL_DROP (the Phi 52.4
     platform disc, dust-lip skirt and uflange -- all sized around the
     deleted production cap -- are removed, the horn screws swap
-    M3x30 -> M3x25 (same thread engagement, seats 5 mm deeper), and
+    M3x30 -> M3x20 (same thread engagement, seats 10 mm deeper), and
     the slab + cradle unit drops so the well floor sits just over the
     screw heads; see the COXA SHORTEN constants), servo-cradle corners
     rounded to the 38.2 mm yaw envelope (max 2.16 mm off two vertical
-    wall corners), the hub grown a Phi 29 seat ring down to the
-    relocated bottom race (see BEARING COUNT), and a small Phi 38
-    DUST BRIM hovering 0.5 above the race-top / tower-rim plane --
-    non-contact, stepped 3 mm INSIDE the tower Phi 44 so the coxa
-    reads as coxa, not as more chassis column (see the BRIM_*
-    constants).  Horn interface, cradle pilots and cap seat
-    untouched.
+    wall corners), the hub's existing Phi 25.15 boss pressing the
+    relocated bottom race 0.5 mm over the deck (user, Aug 25: "why
+    cant the bearing come down even more and be right on top of the
+    servo?" -- see BEARING COUNT), and a small Phi 38 DUST BRIM
+    hovering 0.5 above the race-top / tower-rim plane -- non-contact,
+    stepped 3 mm INSIDE the tower Phi 44 so the coxa reads as coxa,
+    not as more chassis column (see the BRIM_* constants).  Horn
+    interface, cradle pilots and cap seat untouched.
   * ``chassis_bottom_rigid`` (x1) -- the production chassis with the
     six tower platforms trimmed to the tower's own Phi 44 cylinder
     (user, Aug 24: corners rounded; rev 2: all corner curves must
     match -- so the tower curve is now the ONLY curve), each tower
-    RIM RAISED 3 mm to the race-top plane so the single bearing is
-    FULLY housed (full 7 mm outer-race wrap; the Phi 44 column ends
-    exactly at the bearing top -- user, Aug 24: "the bearing should
-    be just above the horn and the motor should sit just above
-    that"), the dead cap-bolt ear lugs shaved (outboard + tangential
+    band REBUILT LOW so the single bearing sits on a deck-level seat
+    ledge and is FULLY housed (full 7 mm outer-race wrap; the Phi 44
+    column ends exactly at the bearing top, now world 17.75 -- user,
+    Aug 25: bearing right on top of the servo, race bottom 0.5 mm
+    over the case), the dead cap-bolt ear lugs shaved (outboard + tangential
     + the inboard one cut flush to the servo-mount deck, its root
     left merged with the well collar below it), the 18 pillar-foot
     holes printed in, the six corner Wago TRAY WALL SETS DELETED
@@ -232,52 +233,74 @@ PILLAR_TAN_SCALE = 0.7                    # ELLIPTICAL section: tangential
 #   * hip servo: max reach 29.38, COTS, nothing to trim.
 ROT_ENVELOPE_R = 38.2                     # max rotating reach, enforced
 PILLAR_MIN_CL = 5.0                       # guaranteed clearance to column
-ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
+ROT_BAND_Z0 = 19.0                        # lowest z where anything rotates
                                           # outside the (static) tower --
-                                          # the M3x25 drop puts the slab
-                                          # bottom at world 24.25, right on
-                                          # this bound (checked vs the wago
-                                          # lever tops in check_wago_block)
+                                          # the M3x20 drop puts the slab
+                                          # bottom at world 19.25, right on
+                                          # this bound (tied to the real slab
+                                          # in check_coxa_column; the wago
+                                          # levers now clear RADIALLY, see
+                                          # check_wago_block)
 
 # BOTTOM JOINT (user, Aug 24: "we really only need one bearing on the
-# bottom -- so maybe its possible to simplify the design").  The
-# variant already ran one bottom bearing, but kept the production
-# apparatus around it: the bolt-on yaw_bearing_cap (3x M3 each)
-# housing the race in its own bore, sitting over an EMPTY production
-# pocket.  Now the single race sits IN that pocket -- the production
-# LOWER-race position (open-top Phi 37.15 bore, seat at coxa-local
-# z 0.5, a print-proven drop-in path) -- and the cap is DELETED
-# (-6 prints, -18 screws, one less part in the race-to-race tolerance
-# stack).  The coxa hub grows a Phi 29 ring (the production uflange
-# OD, which bears only on the Phi 25..29 inner-race land) from the
-# uflange underside (z 14.5) down to the relocated race top (z 7.5);
-# the coxa is already a variant print, so the ring is free.  Axial:
-# hanging legs load hub -> ring -> inner race -> outer race -> tower
-# seat; standing loads go up through the TOP bearing into the plate
-# shoulder -- each bearing takes one direction, no cap lip needed.
-# TOWER RIM (user, Aug 24: "the bearing should be just above the horn
-# and the motor should sit just above that -- feel free to redesign").
-# The race is radially housed by the tower pocket, whose rim is RAISED
-# from the production split plane (hp.YAW_SPLIT_Z = 4.5, a 4 mm wrap
-# that left the race's top 3 mm proud) to the RACE-TOP plane (z 7.5):
-# the full 7 mm outer-race width is wrapped (+75% press area vs the
-# 4 mm band -- more is strictly better here, the production 4/3 split
-# was cap housing, not a design optimum), nothing stands proud, and
-# the Phi 44 chassis column ends exactly at the bearing top.  An
-# earlier revision instead covered the proud band with a Phi 44
-# skirt+curtain hanging from the coxa, flush with the tower -- which
-# made tower + race + skirt read as ONE 16 mm chassis column (the
-# user complained twice).  The curtain is DELETED; what remains is a
-# small Phi 38 DUST BRIM on the coxa, hovering 0.5 above the rim /
-# race-top plane and stepped 3 mm inside the tower OD, so the visual
-# stack is horn -> bearing (in the tower) -> coxa.  Grit now has one
-# turn (under the brim, through the 0.5 axial gap) to reach the 2RS
-# seal instead of three -- acceptable: the seal is the real barrier,
-# and the brim still roofs the seal + outer-race band completely.
-# Non-contact everywhere: brim-to-rim and brim-to-race gaps are both
-# BRIM_GAP, and the rotating seat ring keeps 4.0 mm radial to the
-# pocket bore.  The remaining az-210 cap-bolt ear root is below the
-# deck (z 10.25 world), far under the raised rim.
+# bottom -- so maybe its possible to simplify the design"; Aug 25:
+# "why cant the bearing come down even more and be right on top of
+# the servo?").  The variant first moved the single race into the
+# production LOWER-race pocket (coxa-local z 0.5) and DELETED the
+# bolt-on yaw_bearing_cap (-6 prints, -18 screws).  The Aug 25 rev
+# drops the race a further BR_DROP = 5 to the true physical floor:
+# race bottom RACE_DECK_CL = 0.5 above the servo-mount deck-top
+# plane (world 10.25), which is simultaneously the yaw servo's
+# case-top plane and the plane where the hub's Phi 25.15 press boss
+# necks to its Phi 20 drive nub.  Race band: coxa-local -4.5..+2.5,
+# world 10.75..17.75.
+# WHY IT CAN SIT THIS LOW (corrects the old "race cannot sit lower,
+# it would rub the horn" claim -- that was ARCHITECTURAL, not
+# physical): the disc horn is not at the z=0 mount plane at all.
+# The real Phi 20 disc sits RECESSED in the servo's output face at
+# coxa-local -11..-9 (world 4.25..6.25, under the deck plate), and
+# everything between the deck plane and the old race position is
+# the coxa hub's OWN Phi 25.15 wide boss -- which production already
+# runs down to the deck plane (hp.YAW_HUB_BOSS_WIDE_BOT_Z = -5),
+# necking to the Phi 20 nub that reaches the horn through the
+# deck's Phi 24 bore.  The horn and its screw heads (which seat
+# HIGH in the slab, never down here) are inside/below that boss, so
+# the inner race presses on the SAME bench-tuned +0.15 boss band as
+# before, just 5 mm lower on the same cylinder.  NO new collar, no
+# new press geometry: the "collar" IS the production boss.  The
+# floor is set by the static deck/case-top plane at world 10.25
+# (the outer race and its printed ledge must clear the servo case
+# by RACE_DECK_CL) -- to go lower the servo itself would have to
+# sink into the chassis.
+# The hub's Phi 29 seat ring (production uflange OD, bears only on
+# the Phi 25..29 inner-race land) follows the race top down to
+# coxa-local 2.5.  Axial: hanging legs load hub -> ring -> inner
+# race -> outer race -> tower LEDGE at world 10.75; standing loads
+# go up through the TOP bearing into the plate shoulder -- each
+# bearing takes one direction, no cap lip needed.
+# TOWER LEDGE + RIM: the chassis tower's Phi 34 shoulder relief
+# (production band world 10.25..15.75) is bored out to the
+# Phi 37.15 press bore down to world 10.75, leaving a 0.5 mm-proud
+# Phi 34/Phi 37.15 step -- the new outer-race seat ledge (face
+# r 17.0..18.575, same 1.5 mm race land as the production seat) --
+# sitting directly on the 4 mm servo-mount deck, solid at every
+# azimuth (probed: the well breach lives below world ~8.5).  The
+# tower above is trimmed so the Phi 44 column ends exactly at the
+# new race-top plane (world 17.75, full 7 mm wrap, hoop wall
+# 3.425 mm -- identical section to the production pocket band).
+# The old raised-rim rings are gone; the rim IS the trimmed tower.
+# What remains above is the small Phi 38 DUST BRIM on the coxa,
+# hovering 0.5 above the rim / race-top plane and stepped 3 mm
+# inside the tower OD, so the visual stack is deck -> bearing (in
+# the tower) -> coxa.  Grit still has one turn (under the brim,
+# through the 0.5 axial gap) to reach the 2RS seal -- the seal is
+# the real barrier, and the brim still roofs the seal + outer-race
+# band completely.  Non-contact everywhere: brim-to-rim and
+# brim-to-race gaps are both BRIM_GAP, the rotating seat ring keeps
+# 4.0 mm radial to the pocket bore, and the rotating inner race /
+# boss keep RACE_DECK_CL axial to the deck and 4.4 mm radial to the
+# ledge lip.  The az-210 cap-bolt ear root is below the deck
+# (z 10.25 world), under the ledge band, untouched.
 #
 # COXA SHORTEN (user, Aug 24 rev 3: "from around 25mm to 40mm above
 # the platform top seems largely unnecessary.  You need to redesign
@@ -287,11 +310,11 @@ ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
 # this variant DELETED:
 #   * the Phi 52.4 dust-lip SKIRT (z 14..18) labyrinthed over the
 #     production cap ring -- the cap is gone and the variant has its
-#     own Phi 38 brim at z 8..10, so the skirt hung in mid-air;
+#     own Phi 38 brim at z 3..5, so the skirt hung in mid-air;
 #   * the Phi 52.4 platform DISC (z 18..24) existed to clear the
 #     production cap rim at z 16.5 by YAW_HUB_CAP_AXIAL_CL and to
 #     hang that skirt -- with the cap deleted and the bearing down at
-#     z 0.5..7.5, that clearance stack is filler;
+#     z -4.5..+2.5, that clearance stack is filler;
 #   * the production uflange (z 14.5..16.5) retained the deleted
 #     UPPER race -- the variant's seat ring at the relocated race
 #     already does its job.
@@ -308,59 +331,79 @@ ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
 # hatch, standoffs) drop by the same COL_DROP -- shorter pillars,
 # shorter robot, same simply-supported stack.
 #
-# HORN SCREWS SHORTENED M3x30 -> M3x25 (user, Aug 24 rev 4: "shorten
-# the screws thats fine, that middle section is pointless").  After
-# the rev-3 drop the hub band between the bearing brim and the servo
-# well floor existed almost entirely to house the M3x30s' length, so
-# all 5 horn screws per hub (4 drive + 1 centre; 30 per robot --
-# PURCHASED-HARDWARE CHANGE) become M3x25, and every seat plane drops
-# by EXACTLY the 5 mm length delta.  Seat - length = tip, so the tip
-# planes and the thread engagement are IDENTICAL to the bench-tuned
-# production stack: corner tips still break the disc horn's far face
-# by TIP_POKE (full 2 mm tapped-disc engagement), the centre screw
-# still reaches the same depth in the output spline's tapped bore.
-# check_coxa_column asserts the seat drop == the length delta.
-# Why not M3x20: another -5 would put SLAB_BOT_Z at 4.0, i.e. the
-# rotating cradle slab 3.5 mm BELOW the static tower rim (7.5) --
-# collision.  M3x25 is the shortest standard length that fits this
-# joint; it lands the slab 1.5 mm over the rim (>= 0.5 required).
-HORN_BOLT_LEN = 25.0                      # M3x25 SHCS -- was M3x30 (30x/robot)
-HORN_SEAT_DROP = hp.YAW_HUB_HORN_BOLT_LEN - HORN_BOLT_LEN    # 5.0 -- seats
+# HORN SCREWS SHORTENED M3x30 -> M3x20 (user, Aug 25: "worry about
+# the screws last -- I can buy any type of screw and shorter ones
+# would be better, so the shorter we can make this the better").
+# The Aug 24 rev-4 step went M3x30 -> M3x25 because the tower rim
+# (then at the race top, world 22.75) capped how far the rotating
+# slab could drop.  With the BEARING itself dropped onto the deck
+# (see the BOTTOM JOINT block: race now at world 10.75..17.75, rim
+# at 17.75), the rim moved down 5 mm and the slab can follow: all 5
+# horn screws per hub (4 drive + 1 centre; 30 per robot --
+# PURCHASED-HARDWARE CHANGE) become M3x20, and every seat plane
+# drops by EXACTLY the 10 mm length delta vs production.  Seat -
+# length = tip, so the tip planes and the thread engagement are
+# IDENTICAL to the bench-tuned production stack: corner tips still
+# break the disc horn's far face by TIP_POKE (full 2 mm tapped-disc
+# engagement), the centre screw still reaches the same depth in the
+# output spline's tapped bore.  check_coxa_column asserts the seat
+# drop == the length delta.
+# Why not M3x16: another -4 would put SLAB_BOT_Z at 0.0 (world
+# 15.25), i.e. the rotating cradle slab 2.5 mm BELOW the static
+# tower rim (17.75) -- collision.  M3x20 is the shortest standard
+# length that fits this joint; it lands the slab 1.5 mm over the
+# rim (>= 0.5 required), the same margin the M3x25 revision had.
+HORN_BOLT_LEN = 20.0                      # M3x20 SHCS -- was M3x25 (30x/robot)
+HORN_SEAT_DROP = hp.YAW_HUB_HORN_BOLT_LEN - HORN_BOLT_LEN    # 10.0 -- seats
                                           # follow the screws down 1:1 so the
                                           # tips (= seat - length) never move
 HORN_HEAD_SEAT_Z = (hp.YAW_HUB_HORN_HEAD_SEAT_Z
-                    - HORN_SEAT_DROP)     # 12.75 -- 4 corner-drive seats
+                    - HORN_SEAT_DROP)     # 7.75 -- 4 corner-drive seats
 HORN_CENTRE_SEAT_Z = (hp.YAW_HUB_HORN_CENTRE_SEAT_Z
-                      - HORN_SEAT_DROP)   # 11.75 -- centre spline-screw seat
+                      - HORN_SEAT_DROP)   # 6.75 -- centre spline-screw seat
 COL_HEAD_CL = 1.25                        # servo belly over the M3 heads
                                           # (>= the ~1 mm FDM axial stack-up
                                           # this axis measured on the bench)
 COXA_FLOOR_Z = (HORN_HEAD_SEAT_Z
-                + hp.INSERT_M3_BOLT_HEAD_H + COL_HEAD_CL)   # 17.0 well floor
+                + hp.INSERT_M3_BOLT_HEAD_H + COL_HEAD_CL)   # 12.0 well floor
 COL_DROP = (hp.YAW_HUB_PLATFORM_Z1
-            + hp.COXA_WELL_FLOOR_LIFT) - COXA_FLOOR_Z       # 9.0 -- the shrink
-SLAB_BOT_Z = hp.YAW_HUB_BOSS_TOP_Z - COL_DROP     # 9 -- dropped slab bottom
+            + hp.COXA_WELL_FLOOR_LIFT) - COXA_FLOOR_Z       # 14.0 -- the shrink
+SLAB_BOT_Z = hp.YAW_HUB_BOSS_TOP_Z - COL_DROP     # 4 -- dropped slab bottom
 HUB_TRIM_Z = SLAB_BOT_Z + 0.75            # hub boss keeps 0.75 into the slab
-COXA_HIP_DROP_V = hp.COXA_HIP_DROP - COL_DROP     # 29.4 -- hip axis, coxa z
+COXA_HIP_DROP_V = hp.COXA_HIP_DROP - COL_DROP     # 24.4 -- hip axis, coxa z
 COXA_HIP_ANCHOR_V = (hp.COXA_HIP_ANCHOR[0], hp.COXA_HIP_ANCHOR[1],
                      COXA_HIP_DROP_V)     # the variant's hip joint anchor
-YAWBR_DROP = -hp.YAW_BEARING_W            # -7: race to the tower pocket
+# BEARING ON THE DECK (user, Aug 25: "why cant the bearing come down
+# even more and be right on top of the servo?").  The race bottom
+# drops from the production LOWER-race seat (coxa-local +0.5) to
+# RACE_DECK_CL above the servo-mount deck-top plane -- which is also
+# the yaw servo's case-top plane AND the plane where the coxa hub's
+# Phi 25.15 wide boss already necks to its Phi 20 drive nub
+# (hp.YAW_HUB_BOSS_WIDE_BOT_Z, all three coincide at world 10.25).
+# See the BOTTOM JOINT block for why nothing below stops it sooner.
+RACE_DECK_CL = 0.5                        # race bottom over deck/case top
+BR_BOT_LOCAL = (hp.YAW_HUB_BOSS_WIDE_BOT_Z
+                + RACE_DECK_CL)           # -4.5 -- race bottom, coxa-local
+BR_DROP = hp.YAW_BEARING_LOWER_BOT_Z - BR_BOT_LOCAL   # 5.0 below production
+YAWBR_DROP = -(hp.YAW_BEARING_W + BR_DROP)  # -12: race visual to the deck seat
 HUB_RING_OD = hp.YAW_BEARING_INNER_OD     # 29 -- production uflange OD
 HUB_RING_ID = 24.0                        # overlaps the boss wall (22..25.15)
-HUB_RING_Z0 = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- relocated race TOP
-HUB_RING_Z1 = SLAB_BOT_Z + 1.0            # 10 -- 1 mm into the dropped slab
+HUB_RING_Z0 = (hp.YAW_BEARING_LOWER_TOP_Z
+               - BR_DROP)                 # 2.5 -- relocated race TOP
+HUB_RING_Z1 = SLAB_BOT_Z + 1.0            # 5 -- 1 mm into the dropped slab
                                           # (was uflange-referenced; the
                                           # uflange is deleted with the
                                           # shortened column)
 BRIM_GAP = 0.5                            # running gap, axial + radial
-TOWER_RIM_Z = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- raised rim = race top
-                                          # (coxa-local; world 22.75)
+TOWER_RIM_Z = HUB_RING_Z0                 # 2.5 -- rim = race top
+                                          # (coxa-local; world 17.75)
 BRIM_OD = hp.YAW_BEARING_OD + 2.0 * BRIM_GAP     # 38 -- roofs the seal + outer
                                           # race (r 18.5) plus the gap; 3 mm
                                           # inside the Phi 44 tower so the
                                           # brim reads as coxa, not chassis
-BRIM_BOT_Z = TOWER_RIM_Z + BRIM_GAP       # 8.0 -- hovers 0.5 over rim AND race
-BRIM_TOP_Z = 10.0                         # 2 mm brim, fuses into the seat ring
+BRIM_BOT_Z = TOWER_RIM_Z + BRIM_GAP       # 3.0 -- hovers 0.5 over rim AND race
+BRIM_TOP_Z = SLAB_BOT_Z + 1.0             # 5.0 -- 2 mm brim, fuses 1 mm into
+                                          # the slab (tracks SLAB_BOT_Z)
 
 # CHASSIS VARIANT (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2 same day: "I don't like
@@ -406,10 +449,17 @@ CHB_TOWER_R = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL   # 22.0
 CHB_TRIM_R = CHB_TOWER_R + 0.02   # corner trim = the tower cylinder itself
 CHB_KEEP_R = CHB_TOWER_R - 0.05   # ear cuts bite 0.05 into the tower skin
 CHB_RIM_OLD_W = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_SPLIT_Z    # 19.75 -- the
-                              # production rim (4 mm race wrap), world z;
-                              # the raise ring overlaps 1 mm below it
-CHB_RIM_W = hp.CHASSIS_YAW_OUTPUT_Z + TOWER_RIM_Z           # 22.75 -- raised
-                              # rim = race-top plane, world z (full 7 mm wrap)
+                              # production tower top (4 mm race wrap at the
+                              # OLD seat), world z; the Aug 25 rebuild cuts
+                              # the whole band above the new seat and
+                              # re-rings it lower (see the tower cuts)
+CHB_SEAT_W = hp.CHASSIS_YAW_OUTPUT_Z + BR_BOT_LOCAL         # 10.75 -- new
+                              # outer-race seat ledge, world z: the Phi 34
+                              # shoulder relief keeps only a 0.5 mm band
+                              # over the deck; Phi 37.15 press bore above
+CHB_RIM_W = hp.CHASSIS_YAW_OUTPUT_Z + TOWER_RIM_Z           # 17.75 -- rim =
+                              # race-top plane, world z (full 7 mm wrap:
+                              # the Phi 44 column now ends 5 mm lower)
 CHB_EAR_R = 6.6               # covers the Phi 9 ear boss with margin
 CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
 # CORRIDOR FLATTEN (user, Aug 24 rev 5: "take a step back that CRADLE
@@ -521,12 +571,12 @@ TIP_Y1 = PED_Y1 + BEARING_W                               # lead-in tip top
 # World-frame stack (z up, chassis_bottom sheet mid-plane at z = 0).
 # Uses the variant's SHORTENED hip drop: the whole top stack rides
 # COL_DROP lower than the production-coxa numbers.
-CAP_FACE_W = hp.CHASSIS_YAW_OUTPUT_Z + COXA_HIP_DROP_V + CAP_FACE_Y  # 66.55
-BR_BOT_W = CAP_FACE_W + PED_H             # 72.05 -- race bottom / seat
-BR_TOP_W = BR_BOT_W + BEARING_W           # 79.05 -- race top / shoulder
-RING_BOT_W = BR_BOT_W + RING_BOT_CL       # 72.55 -- ring bottom face
+CAP_FACE_W = hp.CHASSIS_YAW_OUTPUT_Z + COXA_HIP_DROP_V + CAP_FACE_Y  # 61.55
+BR_BOT_W = CAP_FACE_W + PED_H             # 67.05 -- race bottom / seat
+BR_TOP_W = BR_BOT_W + BEARING_W           # 74.05 -- race top / shoulder
+RING_BOT_W = BR_BOT_W + RING_BOT_CL       # 67.55 -- ring bottom face
 SHEET_Z0 = BR_TOP_W                       # sheet bottom = race top plane
-SHEET_Z1 = SHEET_Z0 + PLATE_T             # 83.05 -- deck face
+SHEET_Z1 = SHEET_Z0 + PLATE_T             # 78.05 -- deck face
 
 APOTHEM = hp.CHASSIS_FLAT_TO_FLAT / 2.0   # 100 -- yaw axes sit ON this line
 
@@ -793,8 +843,8 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         vertical filler removed -- the hub is truncated at HUB_TRIM_Z
         (deleting the Phi 52.4 platform disc, the dust-lip skirt and
         the uflange, all of which served the deleted production
-        cap/upper race), the horn screws swap M3x30 -> M3x25 with
-        every seat plane 5 mm deeper (HORN_HEAD_SEAT_Z /
+        cap/upper race), the horn screws swap M3x30 -> M3x20 with
+        every seat plane 10 mm deeper (HORN_HEAD_SEAT_Z /
         HORN_CENTRE_SEAT_Z: identical tip planes and thread
         engagement, see the HORN SCREWS constants), and the whole
         slab + cradle unit drops COL_DROP so the well floor lands
@@ -805,13 +855,15 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         ROT_ENVELOPE_R arc about its own yaw axis (max 2.16 mm off two
         vertical wall corners that used to reach 40.36 mm) so the plain
         rim columns clear by >= 5 mm at every yaw angle.
-      * HUB SEAT RING: the Phi 29 ring runs from the race top (z 7.5,
-        tower pocket, LOWER position) up into the dropped slab.  It
+      * HUB SEAT RING: the Phi 29 ring runs from the race top (z 2.5,
+        deck-level tower pocket) up into the dropped slab.  It
         bears only on the Phi 25..29 inner-race land -- same contact
         the production uflange made one race higher -- and merges
-        with the boss wall over Phi 24..25.15.
-      * DUST BRIM: a Phi 38 brim (z 8..10) roofs the seal + outer-race
-        band, hovering 0.5 above the race-top / raised-rim plane and
+        with the boss wall over Phi 24..25.15.  (The PRESS onto the
+        inner race is the production Phi 25.15 wide boss itself,
+        which already spans the whole relocated race band.)
+      * DUST BRIM: a Phi 38 brim (z 3..5) roofs the seal + outer-race
+        band, hovering 0.5 above the race-top / tower-rim plane and
         stopping 3 mm inside the tower Phi 44.  The old Phi 44
         skirt+curtain is deleted (it read as more chassis column) --
         see the TOWER RIM / BRIM_* constants.
@@ -852,8 +904,8 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
     sweeps = [_cyl_y(16.75, ylo, yhi, x=hip_ax_x, z=hip_ax_z)
               for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))]
     # Horn-screw plumbing, re-cut through the dropped slab (mirror of
-    # hp.make_coxa_link_part, seats at the VARIANT planes -- 5 mm
-    # deeper than production, tracking the M3x30 -> M3x25 swap so the
+    # hp.make_coxa_link_part, seats at the VARIANT planes -- 10 mm
+    # deeper than production, tracking the M3x30 -> M3x20 swap so the
     # tips land on the production planes): the Phi 5.9 head-access
     # shafts run from each seat plane up through the well floor;
     # below each seat the shank clearance (Phi 3.7 drive bolts,
@@ -892,12 +944,19 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         cylinder from belly to bearing pocket -- no second corner
         radius anywhere.  The trim is 0.02 proud of the tower wall,
         so pocket/walls/rim keep production geometry.
-      * RAISED RIM: each tower is extended 3 mm up (same Phi 44 /
-        Phi 37.15 wall, unioned AFTER the cuts so the ear shaves
-        never nick it) from the production rim (world 19.75) to the
-        race-top plane (world 22.75) -- the single bearing is fully
-        housed, full 7 mm outer-race wrap, and the chassis column
-        ends exactly at the bearing top.
+      * LOWERED POCKET (Aug 25): the whole tower band above the new
+        seat plane (world 10.75) is cut away (cylinder r 22.1, so
+        the production Phi 34 shoulder relief, the old Phi 37.15
+        pocket and the old seat all go) and rebuilt as ONE fresh
+        Phi 44 / Phi 37.15 ring from the deck up to the race-top
+        plane (world 17.75, unioned AFTER the cuts so the ear
+        shaves never nick it, 1 mm fusion overlap into the deck
+        band below the seat).  What remains of the Phi 34 relief is
+        a 0.5 mm band over the deck whose top face IS the new
+        outer-race seat ledge (r 17.0..18.575, sitting on the 4 mm
+        deck at every azimuth); the single bearing is fully housed
+        (full 7 mm outer-race wrap) and the chassis column ends
+        exactly at the bearing top, 5 mm lower than before.
       * DEAD EARS: the outboard (az 330) cap-bolt ear is shaved flush
         to the tower cylinder, the tangential (az 90) ear flush to the
         rim-wall face, and the inboard (az 210) ear flush to the
@@ -956,6 +1015,13 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
              2.0 * CHB_FLAT_HALF_Y, CHB_FLAT_Z1 - CHB_FLAT_Z0),
             ((CHB_FLAT_X0 + CHB_FLAT_X1) / 2.0, 0.0,
              (CHB_FLAT_Z0 + CHB_FLAT_Z1) / 2.0)))
+        leg_cuts.append(_cyl_z(CHB_TOWER_R + 0.1,            # (h) tower band
+                               CHB_SEAT_W, CHB_RIM_OLD_W + 1.5,   # rebuild:
+                               x=APOTHEM, y=0.0, sections=192))   # everything
+        # above the NEW seat plane goes (old Phi 34 relief, old pocket,
+        # old seat at 15.75) -- a fresh full-wrap ring is unioned lower,
+        # after the cuts.  The 0.5 mm Phi 34 band left below (10.25..
+        # 10.75) becomes the new race seat ledge.
         for c in leg_cuts:
             c.apply_transform(R)
             cutters.append(c)
@@ -974,13 +1040,13 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         c.apply_transform(M)                                 # local z0 = sheet top
         cutters.append(c)
     cb = _diff(cb, cutters)
-    rims = []                                                # (f) raised rims
-    for i in range(6):
-        R = _rotz((i + 0.5) * np.pi / 3.0)
-        rim = _diff(
-            _cyl_z(CHB_TOWER_R, CHB_RIM_OLD_W - 1.0, CHB_RIM_W,
+    rims = []                             # (f) rebuilt full-wrap tower rings:
+    for i in range(6):                    # Phi 44 / Phi 37.15, deck to the
+        R = _rotz((i + 0.5) * np.pi / 3.0)  # race top (fuses 1 mm into the
+        rim = _diff(                        # deck band below the seat)
+            _cyl_z(CHB_TOWER_R, CHB_SEAT_W - 1.0, CHB_RIM_W,
                    x=APOTHEM, y=0.0, sections=192),
-            [_cyl_z(POCKET_BORE / 2.0, CHB_RIM_OLD_W - 2.0, CHB_RIM_W + 1.0,
+            [_cyl_z(POCKET_BORE / 2.0, CHB_SEAT_W - 2.0, CHB_RIM_W + 1.0,
                     x=APOTHEM, y=0.0, sections=192)])
         rim.apply_transform(R)
         rims.append(rim)
@@ -1266,23 +1332,42 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
 
 
 def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
-    """ONE tower-seated bottom bearing, NO cap (user, Aug 24): the race
-    sits in the production pocket on its z=0.5 seat with only the
-    Phi 25.15 boss press touching the coxa, the raised tower rim wraps
-    the FULL race width and stops exactly at the race-top plane (the
-    Phi 44 column ends at the bearing top -- nothing continues it), the
-    hub's new Phi 29 ring lands exactly on the race top, the Phi 38
-    dust brim hovers its BRIM_GAP over rim and race without touching
-    either, and with the plate off the leg + bearing lift straight out
-    of the pocket (horn centre screw only)."""
+    """ONE deck-seated bottom bearing, NO cap (user, Aug 24 + Aug 25
+    drop): the race sits RACE_DECK_CL over the servo-mount deck / yaw
+    servo case top on the new Phi 34/Phi 37.15 ledge at world 10.75,
+    with only the Phi 25.15 boss press touching the coxa, the ledge is
+    solid at every azimuth with air above it inside the pocket bore
+    and air below the inner-race band, the rebuilt tower wraps the
+    FULL race width and stops exactly at the race-top plane (the
+    Phi 44 column ends at the bearing top -- nothing continues it,
+    and nothing remains of the OLD 15.75 seat), the hub's Phi 29 ring
+    lands exactly on the race top, the Phi 38 dust brim hovers its
+    BRIM_GAP over rim and race without touching either, and with the
+    plate off the leg + bearing lift straight out of the pocket (horn
+    centre screw only)."""
     T = leg_transforms(0)
     br = meshes["yaw_bearing_upper"].copy()
     br.apply_transform(T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]))
-    seat_w = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_BEARING_LOWER_BOT_Z
+    seat_w = CHB_SEAT_W
+    assert abs(seat_w - (hp.CHASSIS_YAW_OUTPUT_Z + BR_BOT_LOCAL)) < 1e-9
     assert abs(br.bounds[0][2] - seat_w) < 1e-3, \
         f"race bottom {br.bounds[0][2]:.2f} not on the tower seat {seat_w:.2f}"
     v_pocket = _inter_vol(br, meshes["chassis_bottom"])
     assert v_pocket < 1.0, f"race overlaps the tower pocket ({v_pocket:.2f} mm3)"
+
+    # the race floor: RACE_DECK_CL over the deck top AND the seated yaw
+    # servo's case top (the two planes coincide by construction; probe
+    # the real servo mesh so a future servo-model edit cannot silently
+    # eat the running gap under the rotating inner race)
+    ys = meshes["servo_body"].copy()
+    ys.apply_transform(T["coxa"] @ _trans([-hp.SERVO_OUTPUT_X, 0.0,
+                                           -(hp.HORN_STACK_H
+                                             + hp.WELL_RIM_Z)]))
+    case_top = float(ys.bounds[1][2])
+    assert br.bounds[0][2] - case_top >= RACE_DECK_CL - 1e-3, \
+        f"race bottom only {br.bounds[0][2] - case_top:.2f} over the case top"
+    assert abs(CHB_DECK_TOP - case_top) < 0.05, \
+        "deck top and yaw servo case top no longer coincide"
 
     coxa = meshes["coxa_link"].copy()
     coxa.apply_transform(T["coxa"])
@@ -1302,25 +1387,52 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert got[0] and not got[1], "hub seat ring does not land on the race top"
 
     # full-wrap tower: the rim IS the race-top plane -- wall solid just
-    # below it, open sky just above it (at the tower radius: neither
-    # chassis nor coxa continues the Phi 44 column past the bearing),
-    # and the brim constants keep their derivations
+    # below it and through the whole rebuilt band, open sky just above
+    # it (at the tower radius: neither chassis nor coxa continues the
+    # Phi 44 column past the bearing), NOTHING left of the old tower
+    # band above the new rim, and the brim constants keep their
+    # derivations
     assert abs(CHB_RIM_W - race_top) < 1e-9, "tower rim is not the race top"
     assert BRIM_BOT_Z - TOWER_RIM_Z == BRIM_GAP
     assert BRIM_OD / 2.0 - hp.YAW_BEARING_OD / 2.0 == BRIM_GAP
     assert BRIM_OD / 2.0 <= CHB_TOWER_R - 2.0, "brim reads as chassis column"
     r_wall = (POCKET_BORE / 2.0 + CHB_TOWER_R) / 2.0          # mid rim wall
     probes = np.array([
-        [ax + r_wall, ay, CHB_RIM_W - 0.3],          # in the raised rim wall
+        [ax + r_wall, ay, CHB_RIM_W - 0.3],          # in the rim wall top
         [ax + r_wall, ay, CHB_RIM_W + 0.3],          # air above the rim
-        [ax + r_wall, ay, CHB_RIM_OLD_W + 0.3],      # in the raise band
+        [ax + r_wall, ay, (CHB_SEAT_W + CHB_RIM_W) / 2.0],   # mid rebuilt band
+        [ax + r_wall, ay, CHB_RIM_OLD_W + 0.3],      # air: old tower top gone
     ])
     in_ch = meshes["chassis_bottom"].contains(probes)
     assert in_ch[0], "tower does not wrap the full race width"
     assert not in_ch[1], "tower rises past the race top"
-    assert in_ch[2], "raise ring did not fuse onto the production rim"
+    assert in_ch[2], "rebuilt ring did not fuse across the pocket band"
+    assert not in_ch[3], "old tower band survives above the new rim"
     assert not coxa.contains(probes[1:2])[0], \
         "coxa continues the tower column above the rim (curtain back?)"
+
+    # the new LEDGE: face solid just below the seat plane all the way
+    # around (and supported by the deck below), air just above it
+    # inside the pocket bore, air below the inner-race / seal band
+    # (the Phi 34 relief keeps the rotating race bottom over open air
+    # down to the deck), and the OLD 15.75 seat fully bored out
+    ang = np.linspace(0.0, 2.0 * np.pi, 24, endpoint=False)
+    r_ledge = (hp.YAW_TOWER_SHOULDER_OD / 2.0 + POCKET_BORE / 2.0) / 2.0
+    ring = lambda r, z: np.column_stack([ax + r * np.cos(ang),
+                                         ay + r * np.sin(ang),
+                                         np.full_like(ang, z)])
+    ch = meshes["chassis_bottom"]
+    assert ch.contains(ring(r_ledge, seat_w - 0.25)).all(), \
+        "ledge face not solid all the way around"
+    assert ch.contains(ring(r_ledge, CHB_DECK_TOP - 0.5)).all(), \
+        "ledge not supported by the deck below"
+    assert not ch.contains(ring(r_ledge, seat_w + 0.3)).any(), \
+        "material above the ledge inside the pocket bore"
+    assert not ch.contains(ring(15.5, (CHB_DECK_TOP + seat_w) / 2.0)).any(), \
+        "material under the inner-race band above the deck"
+    old_seat_w = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_BEARING_LOWER_BOT_Z
+    assert not ch.contains(ring(r_ledge, old_seat_w - 0.3)).any(), \
+        "the old 15.75 seat / Phi 34 shoulder wall survives in the pocket"
     # dust brim: present over the seal band, hovering BRIM_GAP over the
     # rim/race plane, gap open where brim and rim overlap radially
     r_brim = (HUB_RING_OD / 2.0 + BRIM_OD / 2.0) / 2.0        # mid brim
@@ -1343,22 +1455,23 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
             v = _inter_vol(mm, meshes["chassis_bottom"])
             assert v < 1e-6, \
                 f"lift +{dz}: {name} fouls chassis_bottom ({v:.1f} mm3)"
-    print(f"  bottom joint: race on the tower seat (world z {seat_w:.2f}), "
-          f"NO cap; coxa/race contact = boss press ({v_press:.1f} mm3), "
+    print(f"  bottom joint: race on the DECK ledge (world z {seat_w:.2f}, "
+          f"{seat_w - case_top:.2f} over the servo case top), NO cap; "
+          f"coxa/race contact = boss press ({v_press:.1f} mm3), "
           f"rim at the race top ({CHB_RIM_W:.2f}, full 7 mm wrap), "
           f"Phi {BRIM_OD:g} brim hovers {BRIM_GAP:g} above, "
           f"leg + bearing lift straight out")
 
 
 def check_coxa_column(meshes: dict[str, trimesh.Trimesh]) -> None:
-    """The SHORTENED coxa (user, Aug 24 rev 3 + rev 4): the cradle
-    floor sits exactly COL_HEAD_CL over the M3x25 horn-screw heads,
-    the seats moved down by EXACTLY the M3x30 -> M3x25 length delta
-    (so the tips -- and the thread engagement in the horn -- are the
-    bench-tuned production planes), the screw shanks pass the dropped
-    slab, the deleted skirt/platform left nothing below the slab
-    outside the seat ring + brim, and the hip axis (and with it the
-    seated servo) dropped by exactly COL_DROP."""
+    """The SHORTENED coxa (user, Aug 24 rev 3/4 + Aug 25 M3x20): the
+    cradle floor sits exactly COL_HEAD_CL over the M3x20 horn-screw
+    heads, the seats moved down by EXACTLY the M3x30 -> M3x20 length
+    delta (so the tips -- and the thread engagement in the horn --
+    are the bench-tuned production planes), the screw shanks pass the
+    dropped slab, the deleted skirt/platform left nothing below the
+    slab outside the seat ring + brim, and the hip axis (and with it
+    the seated servo) dropped by exactly COL_DROP."""
     coxa = meshes["coxa_link"]
 
     # constants: floor derivation and head clearance (guards a future
@@ -1418,13 +1531,17 @@ def check_coxa_column(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert r_low <= BRIM_OD / 2.0 + 0.05, \
         f"material at r {r_low:.2f} below the slab (skirt/platform back?)"
 
-    # slab bottom (rotating) vs the static tower rim: the M3x25 drop
-    # spends the old margin down to the design value of 1.5 mm
-    # (>= 0.5 rotating-vs-static required; M3x20 would go NEGATIVE,
-    # which is why 25 is the floor -- see the HORN SCREWS constants)
+    # slab bottom (rotating) vs the static tower rim: the M3x20 drop
+    # spends the margin down to the design value of 1.5 mm
+    # (>= 0.5 rotating-vs-static required; M3x16 would go NEGATIVE,
+    # which is why 20 is the floor -- see the HORN SCREWS constants).
+    # ROT_BAND_Z0 (used by the layout constants above) must stay a
+    # true lower bound on this rotating band.
     slab_bot_w = hp.CHASSIS_YAW_OUTPUT_Z + SLAB_BOT_Z
     assert slab_bot_w - CHB_RIM_W >= 1.5 - 1e-9, \
         f"slab bottom only {slab_bot_w - CHB_RIM_W:.2f} mm over the rim"
+    assert slab_bot_w >= ROT_BAND_Z0, \
+        f"slab bottom {slab_bot_w:.2f} fell below ROT_BAND_Z0 {ROT_BAND_Z0:g}"
 
     print(f"  coxa column: floor z {COXA_FLOOR_Z:g} "
           f"({COXA_FLOOR_Z - head_top:g} mm over the M3x{HORN_BOLT_LEN:g} "
@@ -1441,17 +1558,19 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     top NOTHING outboard of the hex edge survives past the tower
     cylinder (the corner trim leaves one matching curve), the trim
     never bit the tower wall, above the servo-mount deck nothing pokes
-    past the tower cylinder at ANY azimuth all the way to the raised
-    rim (all three dead ears cut, the az-210 root left merged below
-    the deck), all six towers carry the full-wrap raise ring to the
-    race-top plane, the printed foot holes are open exactly where the
-    pillar feet expect them, the six Wago tray wall sets are GONE
-    above the sheet with the sheet still solid underneath, and the
-    wire-corridor band inboard of each yaw servo is FLATTENED to the
-    bare sheet (rev 5) with the servo-registering deck plateau /
-    flanking walls outboard of the cut still standing.  (Pocket seat
-    and retainer territory are re-verified against THIS mesh by the
-    other checks.)"""
+    past the tower cylinder at ANY azimuth all the way to the rim
+    (all three dead ears cut, the az-210 root left merged below
+    the deck), all six towers carry the rebuilt full-wrap ring to the
+    LOWERED race-top plane (Aug 25: rim at world 17.75, pocket seat
+    ledge at 10.75 on the deck), the printed foot holes are open
+    exactly where the pillar feet expect them, the six Wago tray wall
+    sets are GONE above the sheet with the sheet still solid
+    underneath, and the wire-corridor band inboard of each yaw servo
+    is FLATTENED to the bare sheet (rev 5) with the servo-registering
+    deck plateau / flanking walls outboard of the cut still standing.
+    (The pocket seat ledge itself is verified in check_bottom_joint;
+    retainer territory is re-verified against THIS mesh by the other
+    checks.)"""
     cb = meshes["chassis_bottom"]
     assert cb.body_count == 1, "chassis variant not a single body"
     v = trimesh.transform_points(cb.vertices, _rotz(-0.5 * np.pi / 3.0))
@@ -1470,18 +1589,18 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert r_max <= CHB_TRIM_R + 0.03, \
         f"corner material at r {r_max:.2f} > tower cylinder -- trim missed"
 
-    # tower wall unbitten by the corner trim: full Phi 44 ring solid at
-    # the pocket band
+    # tower wall unbitten by the corner trim: full Phi 44 ring solid
+    # mid-way up the rebuilt pocket band
     ang = np.linspace(0.0, 2.0 * np.pi, 24, endpoint=False)
     ring = np.column_stack([ax + (CHB_TOWER_R - 0.6) * np.cos(ang),
                             (CHB_TOWER_R - 0.6) * np.sin(ang),
-                            np.full(24, 17.0)])
+                            np.full(24, (CHB_SEAT_W + CHB_RIM_W) / 2.0)])
     Rz = _rotz(0.5 * np.pi / 3.0)
     got = cb.contains(trimesh.transform_points(ring, Rz))
     assert got.all(), "tower wall bitten by a variant cut"
 
-    # raised rim present all the way around on ALL SIX towers (wall
-    # solid mid-band just under the race-top rim, air just above it)
+    # rebuilt ring present all the way around on ALL SIX towers (wall
+    # solid just under the race-top rim, air just above it)
     for i in range(6):
         Ri = _rotz((i + 0.5) * np.pi / 3.0)
         r_wall = (hp.YAW_TOWER_BORE_OD / 2.0 + CHB_TOWER_R) / 2.0
@@ -1489,16 +1608,17 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
                                     r_wall * np.sin(ang),
                                     np.full(24, CHB_RIM_W - 0.3)])
         assert cb.contains(trimesh.transform_points(rim_ring, Ri)).all(), \
-            f"leg {i}: raised rim incomplete"
+            f"leg {i}: rebuilt tower ring incomplete"
         above = rim_ring + [0.0, 0.0, 0.6]
         assert not cb.contains(trimesh.transform_points(above, Ri)).any(), \
             f"leg {i}: material above the race-top rim"
 
     # ears: above the servo-mount deck (z 10.25; ears ran to 19.75),
     # NOTHING pokes past the tower cylinder at any azimuth, all the
-    # way up to the raised rim -- az 330/90 were shaved before, the
-    # az-210 column is cut to the deck, and the raise ring itself
-    # stays at the tower radius
+    # way up to the rim -- az 330/90 were shaved before, the az-210
+    # column is cut to the deck, and the rebuilt ring itself stays at
+    # the tower radius (the old tower band above the rim is gone, so
+    # the band cap is the rim itself)
     band = near[(near[:, 2] > CHB_DECK_TOP + 0.1)
                 & (near[:, 2] < CHB_RIM_W + 0.1)]
     d = band[:, :2] - [ax, 0.0]
@@ -1589,8 +1709,8 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
             f"leg {i}: flatten cut removed servo-registering structure"
 
     print(f"  chassis variant: tower bases trimmed to one r {CHB_TRIM_R:g} "
-          f"cylinder (outboard max r {r_max:.2f}), rims raised to the "
-          f"race top (world {CHB_RIM_W:g}), all 3 dead ears shaved "
+          f"cylinder (outboard max r {r_max:.2f}), towers rebuilt to the "
+          f"LOWERED race top (world {CHB_RIM_W:g}), all 3 dead ears shaved "
           f"(az 210 flush to the deck), 18 foot holes printed in, "
           f"6 wago trays deleted, wire corridors flattened "
           f"(x {CHB_FLAT_X0:g}..{CHB_FLAT_X1:g}, |y| {CHB_FLAT_HALF_Y:g}, "
@@ -1722,8 +1842,11 @@ def _bounds_touch(a: trimesh.Trimesh, b: trimesh.Trimesh) -> bool:
 def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
     """Central splice block: printable, sits on solid sheet, fits its
     territory (strap slots / standoffs / trunk pass), whole footprint
-    under the open hatch, and the nut stack stays below the rotating
-    band even with a lever flipped up."""
+    under the open hatch, and the nut stack -- even with a lever
+    flipped up -- stays RADIALLY clear of every yaw joint's rotating
+    envelope (the M3x20 slab drop put the rotating band at world
+    19.25, below the flipped levers, so the old axial argument is
+    gone; the levers clear because they are nowhere near a leg)."""
     blk = meshes["centre_wago_block"]
     assert blk.is_watertight, "wago block not watertight"
     assert blk.body_count == 1, "wago block not a single body"
@@ -1752,13 +1875,21 @@ def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
                                  - hp.BATTERY_TRUNK_HOLE_X / 2.0), \
         "block reaches the battery trunk pass"
 
-    # fully under the open hatch, and levers stay below the swing band
+    # fully under the open hatch; the flipped-up levers (top z ~22.4)
+    # now sit ABOVE the rotating band floor (slab bottom, world 19.25)
+    # but clear every yaw envelope RADIALLY: each yaw axis is APOTHEM
+    # from centre and its rotating parts reach at most ROT_ENVELOPE_R
+    # inboard, so anything within APOTHEM - ROT_ENVELOPE_R of centre
+    # is untouchable at ANY height
     corner_r = float(np.hypot(WBLK_HALF_X, WBLK_HALF_Y))
     assert corner_r <= HATCH_OPEN_APO - 3.0, \
         f"block corner r {corner_r:.1f} not under the hatch opening"
     lever_top = PILLAR_BOT_Z + WBLK_FLOOR_T + hp.WAGO5_H + 10.0
-    assert lever_top < ROT_BAND_Z0, \
-        f"open lever top z {lever_top:.1f} enters the rotating band"
+    rot_inboard_r = APOTHEM - ROT_ENVELOPE_R                  # 61.8
+    lever_rad_cl = rot_inboard_r - corner_r
+    assert lever_rad_cl >= PILLAR_MIN_CL, \
+        f"block corner r {corner_r:.1f} within {lever_rad_cl:.1f} of a " \
+        f"yaw rotating envelope (need >= {PILLAR_MIN_CL:g})"
 
     # seated nuts: the 0.15 press wedge is the ONLY block contact
     for M in _wago5_scene_frames():
@@ -1770,7 +1901,8 @@ def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
     print(f"  wago block: {abs(blk.volume) / 1000.0:.1f} cm3, "
           f"4 bays press-fit, corner r {corner_r:.1f} "
           f"under the {HATCH_OPEN_APO:g} mm opening, "
-          f"lever top {lever_top:.1f} < band {ROT_BAND_Z0:g}")
+          f"lever top {lever_top:.1f} clears the yaw envelopes by "
+          f"{lever_rad_cl:.1f} mm radial")
 
 
 def check_hatch(meshes: dict[str, trimesh.Trimesh]) -> None:
