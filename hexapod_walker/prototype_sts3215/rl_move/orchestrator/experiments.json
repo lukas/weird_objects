@@ -173175,6 +173175,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1 --steps 38000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --device cuda --transformer --tf-layers 2 --tf-width 128 --tf-heads 8 --tf-ff 256 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_acq1 --notes 'respec of cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-canary1: Plain English: does the transformer recipe'\"'\"'s architecture health (already proven on the primitive family: cw-arch-tf64-joyfullcurr13-v7-hz100-acq1 matched/beat its MLP control by 40M) transfer to the new, heavier, corrected mesh-family model? This arm continues the tf64-mesh canary'\"'\"'s checkpoint 38M more steps (40M total) on the identical 2L/d128/8h/ff256/V7/hist64/100Hz/mesh stack, judged against the MLP-mesh sibling'\"'\"'s OWN matched-step trajectory (cw-arch-hist64-mesh-joyfullcurr13-v7-hz100-acq1, launched alongside this cycle) exactly as the primitive-family acq1 pair was judged. Prediction-if-true: reward tracks the MLP-mesh sibling'\"'\"'s valley shape within noise, turns upward on a similar timescale, crosses zero comparably, walkcurr frontier unlocks past b0 in step with (or ahead of) the MLP-mesh sibling, and by 40M reaches MLP-mesh-equivalent health -- reproducing the primitive family'\"'\"'s own architecture-parity finding on the new dynamics. Prediction-if-false: transformer-specific instability appears on the heavier/shifted-hip-axis mesh model that didn'\"'\"'t appear on the primitive family (reward diverges from the MLP-mesh sibling'\"'\"'s shape, frontier stays pinned at b0 while the sibling promotes) -- a genuine mesh-family-specific architecture deficit, not the already-refuted 08-24 '\"'\"'attention pathology'\"'\"' misread. Strongest alternative: both architectures share the same mesh-family valley depth/timing (mass dominates over architecture), reproducing the primitive-family finding exactly.' --cfg-set env.model_source=mesh --init-from rl_move/sim/policies/ppo_goal_cw_arch_tf64_mesh_joyfullcurr13_v7_hz100_canary1.zip > /tmp/train_cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-tf64-mesh-joyfullcurr13-v7-hz100-acq1.log",
     "wandb_id": "ibzoqf7g",
-    "verified": "2026-08-25T01:36:42+00:00"
+    "verified": "2026-08-25T01:36:42+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T01:42:22+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1129,
+        "fps": 1092.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
