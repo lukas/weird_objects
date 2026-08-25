@@ -193658,7 +193658,7 @@
       "train.bc_anchor_flat_time_indexed=1.0"
     ],
     "created": "2026-08-25T21:26:35+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -193709,7 +193709,8 @@
       }
     ],
     "notes_append": "mechanical-state fix: watcher/backlog drain launched the trainer at 21:27 (proc verified, log growing, W&B 3otxc8w4 past 1M steps by 21:32) but the INTENT->RUNNING flip never landed (its verify step raced the code-marker sync); corrected manually after live process+log+W&B verification. checkup 21:31 SUSPECT was a false alarm reading the parent lineage's stale global_step.",
-    "triage": "in-cycle cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckcloc since 2026-08-25T21:34:35"
+    "triage": "done",
+    "verdict": "CANARY PASS (mechanism-health; behavioral score = PARTIAL, joint pair with -s1, funds an 8M budget-extension). The flat-time-indexed BC-anchor clock (train.bc_anchor_flat_time_indexed=1, anchoring pure-flat rise episodes to the mesh ref's own absolute clock instead of a state-matched target) breaks the total-freeze/press-up basin that killed every one of the prior 5 anchor-plumbing arms (tuckfloor0, tuckexempt0, tucklook1 x2, and the meshref parent's own flat draw). Flat-pinned probe (det+sto n=6+6, DR-0, on-pod): 0/12 valid_plant (h_err 37.7-59.3mm, short of the 79-87mm target) BUT for the first time genuine six-leg motion -- duty>0 AND swing_count>0 on every leg, every episode (freeze family: byte-identical duty=0/swing=0 all 12; meshref parent's own flat draw: duty=0.67 but swing=0, i.e. rigid press-up, never lifts a leg). Zero falls (roll peak 3.7-6.6deg, settled 3/6 det + 6/6 sto), video confirms genuine splay->tuck-under->partial-stand that holds steady. Current still pegs ~2.64A on nearly every episode -- same structural ceiling as every prior arm, not new. Non-flat kinds (bridge/crouch/rsi) hold AT/ABOVE the meshref parent on the standard DR-0 gate: det 5/6 (parent 5/6) + sto 5/6 (parent 4/6). own-DR(0.2) is softer (3/6+4/6 vs parent 5/6+5/6) -- a mild regression worth watching, not gating. This is exactly the run's own pre-registered PARTIAL branch and the hypothesis's own named 'strongest alternative' (policy tracks the clock in action space but physics lags on the 3.5kg mesh model, yielding late/partial rises with duty>0) -- NOT the FAIL branch's freeze/press-up signature. Per the 08-21 ruling, extending budget before touching any anchor knob, mirroring the meshref parent's own 2M->8M acq8m precedent. Seed twin -s1 (evaluated this cycle) reproduces 'genuine non-freeze motion, 0/12 valid' but with a WORSE seed-specific failure mode (asymmetric single-leg flailing -> falls in 11/12 flat episodes) -- see its own verdict. Joint call: mechanism health PASS / behavioral PARTIAL, fund the pre-registered 8M budget-extension pair. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckclock1_{gate,owncfg,flatprobe_det,flatprobe_sto}/, W&B 3otxc8w4."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1",
@@ -194227,7 +194228,7 @@
       "train.bc_anchor_flat_time_indexed=1.0"
     ],
     "created": "2026-08-25T21:34:41+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -194262,7 +194263,9 @@
         "log_tail": "    env/height_mm 27.8214\nwandb:     env/height_ref_mm 22.22294\nwandb:  env/hold_feet_factor 0.72061\nwandb:  env/hold_load_factor 0.72085\nwandb: env/hold_still_factor 1\nwandb:     env/max_current_a 1.59625\nwandb:                   +96 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-riseonly-bcchain3-meshref-tuckclock1-s1 at: https://wandb.ai/l2k2/hexapod-balance/runs/atmjubij\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_213349-atmjubij/logs\n"
       }
     ],
-    "checkup_note": "2026-08-25 21:41 SUSPECT resolved benign: run completed 2031616/2000000 steps at ~14.7k fps in ~8 min; W&B state=finished, clean exit (no traceback), final summary synced. Checkup raced natural completion. No relaunch needed; triage belongs to the finished-run flow (joint gate with seed-0 twin)."
+    "checkup_note": "2026-08-25 21:41 SUSPECT resolved benign: run completed 2031616/2000000 steps at ~14.7k fps in ~8 min; W&B state=finished, clean exit (no traceback), final summary synced. Checkup raced natural completion. No relaunch needed; triage belongs to the finished-run flow (joint gate with seed-0 twin).",
+    "verdict": "CANARY PASS (mechanism-health; behavioral score = PARTIAL-unstable, joint pair with seed-0, cross-seed corroborating but qualitatively worse). Also evaluated this cycle (its own prestage never fired -- pulled checkpoint + ran the standard gate/owncfg/flat-pinned-probe myself on train-1). Cross-seed replicate of tuckclock1's mechanism-health finding: the flat-time-indexed clock also produces genuine non-freeze motion here -- flat-pinned probe (det+sto n=6+6, DR-0): 0/12 valid_plant, duty>0 AND swing_count>0 on every leg every episode, refuting freeze/press-up same as seed-0. BUT the failure mode differs sharply from seed-0: 11/12 flat episodes end roll_class fell/leaning (roll_tail up to 9.0deg, vs seed-0's clean zero falls / roll_tail<=9.2 but 'settled' 3/6+6/6), and the swing distribution is lopsided -- leg idx1 swings 2-10x/episode while 3-4 other legs swing 0-2x, an asymmetric single-leg flailing-tuck-attempt that overbalances rather than seed-0's balanced partial-stand. h_err also worse (57.5-72.9mm vs seed-0's 37.7-59.3mm). The non-flat, state-aligned anchor regime is UNAFFECTED in both seeds -- standard DR-0 gate holds close to parent (det 4/6, sto 4/6 vs parent 5/6+4/6), own-DR mixed (det 6/6, sto 3/6) -- so the divergence is specific to the new flat-time-indexed regime this lever touches, not a general regression. Read: the mechanism reliably produces genuine (non-freeze) tuck attempts in both seeds but has not converged to a stable multi-leg coordination at 2M -- seed-0 lands in a stable-incomplete basin, seed-1 in an unstable-flailing one. Still 'timing being learned, not converged' (the PARTIAL branch), not the FAIL branch's freeze/press-up signature -- per the 08-21 ruling and this run's own gate the reasoned move is extend budget, joined with seed-0's pair. Flag for the 8M read: if the fall pattern recurs at scale, that upgrades this from 'needs more steps' to 'the flat-time-indexed target needs a per-leg stability/symmetry term,' a new lever -- not funded yet, watch first. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_riseonly_bcchain3_meshref_tuckclock1_s1_{gate,owncfg,flatprobe}/, W&B atmjubij.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdheight-rung1-hha1",
@@ -194376,7 +194379,7 @@
       "train.bc_anchor_hold_height_aware=1.0"
     ],
     "created": "2026-08-25T21:41:20+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -194409,7 +194412,26 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdheight-rung1-hha1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdheight_rung1_hha1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdheight-rung1: holdheight-rung1/-s1 (both seeds) CANARY FAIL-MECHANISM: dropping the hold BC-anchor entirely (to dodge its height-blind q_nom target fighting a moving height command) broke the champion'\"'\"'s quiet-stand skill on the STATIC gate too (cur_max 2.0-2.63A vs champion 0.67A, 5/6 det hold_min_load trips) -- the anchor was doing real pose regularization beyond its height-blindness. Does restoring the anchor (bc_anchor_coef 0.0->3.0) with a NEW height-AWARE target (train.bc_anchor_hold_height_aware=1, FixedFootBodyIK solved at the next commanded height instead of the constant q_nom -- rl_move/sim/sim_env.py, 5 tests green in test_bc_anchor.py) recover the clean quiet-stand current/load profile while still tracking the moving command? Same hold_height_cmd_range_mm/rate/kinds (rung-1 elevator, +/-15mm at 8mm/s, hold+ramp only) and every other cfg unchanged from holdheight-rung1.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip --cfg-set goal.hold_height_cmd_frac=1.0 --cfg-set 'goal.hold_height_cmd_range_mm=[-15,15]' --cfg-set goal.hold_height_cmd_rate_mm_s=8 --cfg-set 'goal.hold_height_cmd_kinds=[\"hold\",\"ramp\"]' --cfg-set train.bc_anchor_hold_height_aware=1.0 > /tmp/train_cw-standwalk-stance-mesh2-holdheight-rung1-hha1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdheight-rung1-hha1.log",
     "wandb_id": "isxy1d5b",
-    "verified": "2026-08-25T21:45:02+00:00"
+    "verified": "2026-08-25T21:45:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T21:50:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3,
+          1
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 1003520",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "CANARY PASS - MECHANISM (seed 0 of the joint pair; final joint pass-rate call lands with -s1). The height-aware BC anchor fixed the flag-leg cheat: the robot now holds a clean six-foot stand while riding the +/-15mm commanded-height elevator. DR-0 gate 6/6 det + 6/6 sto valid_plant (needed 5/6+4/6), ZERO hold_min_load terminations (parent recipe: 8/12), height_err_end 0.0-2.6mm, all six legs duty 0.91-1.0 with no per-leg sacrifice (parent flagged one leg at duty 0.23-0.86), det Imax 0.66-1.03A vs the parent's 2.0-2.63A failure signature -- modestly above the champion's static 0.67-0.71A band, plausibly the honest cost of the moving height command. Video: level, planted, quiet. Reward rose all run (quarters 12.9/28.6/74.2/105.8). CAVEAT outside the registered gate: at own-DR 0.2, 2/6 det episodes still trip hold_min_load with transient duty dips (0.4-0.66) and 2.5A spikes -- DR hardening is real remaining work for the next rung, not a canary failure. Next: -s1 cycle makes the joint pass-rate call; on joint PASS, proceed up the STAND_HEIGHT rung ladder with bc_anchor_hold_height_aware=1 as the recipe default. Watcher SUSPECT at 21:52 was a false alarm (fired during final flush; run finished cleanly at 2.03M)."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdheight-rung1-hha1-s1",
@@ -194556,6 +194578,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdheight-rung1-hha1-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdheight_rung1_hha1_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdheight-rung1-s1: Seed twin of cw-standwalk-stance-mesh2-holdheight-rung1-hha1 (same recipe, seed 1): does the height-aware BC anchor fix (bc_anchor_coef restored 0.0->3.0 + train.bc_anchor_hold_height_aware=1, FixedFootBodyIK target at the next commanded height instead of the constant q_nom) replicate cross-seed, not just for one init? Same fix, same holdheight-rung1-s1 FAIL evidence.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal.zip --cfg-set goal.hold_height_cmd_frac=1.0 --cfg-set 'goal.hold_height_cmd_range_mm=[-15,15]' --cfg-set goal.hold_height_cmd_rate_mm_s=8 --cfg-set 'goal.hold_height_cmd_kinds=[\"hold\",\"ramp\"]' --cfg-set train.bc_anchor_hold_height_aware=1.0 > /tmp/train_cw-standwalk-stance-mesh2-holdheight-rung1-hha1-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdheight-rung1-hha1-s1.log",
     "wandb_id": "gfksq1nx",
-    "verified": "2026-08-25T21:49:25+00:00"
+    "verified": "2026-08-25T21:49:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T21:55:23+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1887,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-holdheight-rung1-hha1-s1 since 2026-08-25T22:00:12"
   }
 ]

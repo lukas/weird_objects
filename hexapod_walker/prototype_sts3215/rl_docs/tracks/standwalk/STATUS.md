@@ -1,6 +1,31 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~21:4x (**STAND_HEIGHT height-AWARE BC-anchor
+Last updated: 2026-08-25 ~22:0x (**STAND_HEIGHT height-AWARE anchor
+rung-1 canary: seed 0 PASSES — flag-leg cheat GONE.**
+`holdheight-rung1-hha1` (this cycle's assigned run) CANARY
+PASS - MECHANISM: with `train.bc_anchor_hold_height_aware=1` +
+`bc_anchor_coef=3.0` restored, the robot rides the ±15mm/8mm/s
+commanded-height elevator on a clean six-foot stand. DR-0 gate 6/6
+det + 6/6 sto valid_plant (needed 5/6+4/6), ZERO `hold_min_load`
+terminations (parent recipe: 8/12), height_err_end 0.0–2.6mm, all six
+legs duty 0.91–1.0 (no per-leg sacrifice; parent flagged a leg at
+0.23–0.86), det Imax 0.66–1.03A vs the 2.0–2.63A failure signature —
+modestly above the champion's static 0.67–0.71A, plausibly the honest
+cost of a moving command. Video: level, planted, quiet; reward rose
+all run (12.9/28.6/74.2/105.8). CAVEAT (outside the registered
+canary gate): at own-DR 0.2, 2/6 det episodes still trip
+`hold_min_load` with transient duty dips (0.4–0.66) and 2.5A spikes —
+DR hardening is real remaining work for later rungs. The registered
+JOINT pass-rate call belongs to `-hha1-s1`'s own cycle (it finished
+at 2.03M, W&B `gfksq1nx`, reward also rising 15.7/48.3/71.0/123.3 —
+evals prestaged); on joint PASS, the next rung of the STAND_HEIGHT
+ladder launches with `bc_anchor_hold_height_aware=1` as the recipe
+default. Watcher SUSPECT on `-hha1` was a false alarm (fired during
+final flush; clean finish at 2.03M). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_holdheight_rung1_hha1_{gate,owncfg}/`,
+W&B `isxy1d5b`.)
+
+Prior entry: 2026-08-25 ~21:4x (**STAND_HEIGHT height-AWARE BC-anchor
 fix LANDED + its own rung-1 canary pair LAUNCHED — the exact NEXT
 step the entry below (seed-0 cycle) named.** Verdicted this cycle's
 own assigned run, `holdheight-rung1-s1`: CANARY FAIL - MECHANISM,
