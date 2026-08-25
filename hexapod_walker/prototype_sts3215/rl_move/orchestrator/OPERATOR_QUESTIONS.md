@@ -2641,3 +2641,20 @@ untested by this trio. No relaunch needed — not wrong, just
 mislabeled; flagging so the eventual triage cycle doesn't re-derive
 this from scratch.
 status: informational — no operator input needed.
+
+## 2026-08-25 05:33 — torque-hinge amendment: interpretation record (informational)
+The 05:09 amendment said "extend or respec that run instead of
+duplicating". When it arrived, the un-hinged cw-walk-posture-eff12-ds1
+was already RUNNING (~1M/40M) under the live 05:09 cycle, mid
+launch-verification. Killing it to relaunch hinged risked the watcher
+DEAD-retry re-spawning the un-hinged spec plus double-launch confusion,
+so the assume-and-go call was: respec the SAME spec + hinge as
+cw-walk-posture-eff12-ds1-tau1 (RUNNING train-9) and keep the original
+as the matched no-hinge control -- one honest A/B instead of a kill.
+The eff24-ds1 dose bracket was left un-hinged on purpose (it brackets
+k_walk_effort; hinging it would confound the bracket). If the operator
+wants the control killed to save the GPU-hour, say so and any cycle
+can kill it; triage will otherwise read tau1 vs eff12-ds1 at matched
+steps. k rung chosen: k_tau_over=2.0 (railed crouch pays ~-0.14/tick
+*k -> decisive over 30-60s episodes; honest gait ~-0.08/3s*k -> noise).
+status: informational — no operator input needed.

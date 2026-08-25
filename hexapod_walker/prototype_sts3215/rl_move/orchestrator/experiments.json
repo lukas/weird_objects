@@ -177374,7 +177374,8 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1 --steps 2000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --cfg-set reward.walk_gait_gate=0.0 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist64_joyfullcurr13_v7_hz100_movecur1 --notes 'respec of cw-arch-hist64-joyfullcurr13-v7-hz100-gaitgate-scratch1: Plain English: does directly pricing sustained per-servo current on WALKING ticks (reward.k_walk_move_current=2.0, bank-proven this cycle: test_walk_move_current.py, honest cycling gait beats a locked-leg fight by >40 reward and beats a stall by >10) stop the mesh-family over_current death that made BOTH the MLP (hist64-mesh-acq1) and transformer (tf64-mesh-acq1) 40M acquisitions fail identically (zero tilt_pitch, over_current every DR-0 episode, Imax pinned 2.64-2.70A, rigid 3-legs-locked/3-legs-airborne duty pattern)? This is the single-lever direct-mechanism test: SAME V7/100Hz/hist64/mesh recipe as gaitgate-scratch1 (which tried the OTHER anti-sacrifice lever, walk_gait_gate, alone -- and made the held-out fall rate WORSE, 39/48 vs the ungated 12/48) but with walk_gait_gate turned back OFF and k_walk_move_current on instead.' --cfg-set reward.k_walk_move_current=2.0 --cfg-set env.model_source=mesh > /tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1.log",
     "wandb_id": "oo9ts5ha",
-    "verified": "2026-08-25T05:02:47+00:00"
+    "verified": "2026-08-25T05:02:47+00:00",
+    "triage": "awaiting since 2026-08-25T05:34:28"
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-gaitgate",
@@ -177985,7 +177986,7 @@
       "reward.tau_over_nm=1.0"
     ],
     "created": "2026-08-25T05:31:32+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit-legacy-25",
       "model_source_lineage": "primitive-matched",
@@ -177997,7 +177998,19 @@
       "code_sha_local": "1c2bfc7d2b3188559a3457e03d599670bb12daba",
       "code_sha_pod": "1c2bfc7d2b3188559a3457e03d599670bb12daba",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2542738",
+      "log_growth_bytes": [
+        16406,
+        26833
+      ],
+      "wandb_id": "5r5vkyh3",
+      "trainer_pid": "2542738",
+      "global_step_window": [
+        1376256,
+        1966080
+      ],
+      "fps_estimate": 19660.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -178005,6 +178018,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Warm-start of the healthy walk champion cw-walk-longdist-r2 (its own full-budget lineage is the comparable learning precedent); both inherited pricing terms have healthy full-budget precedents on this exact lineage (cw-walk-effort: k_walk_effort=1.2 trained stably at full budget; drag_stance audit-landed with its own bank); the added torque hinge is bank-proven this cycle: rl_move/tests/test_walk_tau_over.py 5/5 PASS (snapshot 9b81fb68) -- honest gait/static stance near-free, railed fight pays hard, default-off bit-exact.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-posture-eff12-ds1-tau1 --steps 40000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip --no-dr --episode-seconds 30 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_walk_posture_eff12_ds1_tau1 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-walk-posture-eff12-ds1: Plain English: make the walking champion stand tall and stop wasting hip torque by making effort itself expensive -- this is the operator-AMENDED version of cw-walk-posture-eff12-ds1 (running un-hinged sibling = matched control), single added lever: a per-motor torque hinge, r -= 2.0 * mean(relu(|qfrc_actuator| - 1.0 N*m)) per walk tick (reward.k_tau_over=2.0, reward.tau_over_nm=1.0, walk-routed like k_walk_effort). Operator load-probe truth: honest plant-height stepping needs at most ~1 N*m per hip (0.23 static on six feet, ~0.5 in tripod, ~1 at dynamic peaks) while the skater crouch runs 1.1-1.5 N*m STATIC and rails the 2.2 N*m clamp -- so a 1.0 N*m hinge prices ONLY the waste and the rail events, never normal stepping. Motor heat is I^2*R: sustained above-threshold torque matters superlinearly, and the mean-current k_walk_effort=1.2 (inherited, still on) underprices peaks; before the hinge nothing existed between free and the over_current episode trip. Sim current model is |tau|*1.2 A/Nm lowpassed, so hinging on raw torque is equivalent and clearer (and sees the peaks the 0.1 s LPF smears). Bank-measured separation (k=1, 3 s): honest gait -0.24, static stance 0.00, railed fight -43.1. Everything else identical to eff12-ds1: warm off ppo_goal_cw_walk_longdist_r2, k_walk_effort=1.2 + k_drag_stance=8000/6mm/0.25mm, primitive family, control.hz=25 legacy pins, 40M. If-true: posture rises toward plant faster/further than the un-hinged control and rails go to ~0. If-false (no delta vs control): the hinge is redundant given effort+drag pricing at this dose -- drop it from future rungs. If-false (starve/park): hinge dose too high at k=2.0 -- halve k, do not touch the threshold (the 1.0 N*m line is probe-anchored).' --cfg-set env.model_source=primitive --cfg-set control.hz=25 --cfg-set safety.max_delta_q_deg=1.5 --cfg-set reward.k_walk_effort=1.2 --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6.0 --cfg-set reward.drag_stance_tick_floor_mm=0.25 --cfg-set reward.k_tau_over=2.0 --cfg-set reward.tau_over_nm=1.0 > /tmp/train_cw-walk-posture-eff12-ds1-tau1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-posture-eff12-ds1-tau1.log"
+    "log": "/tmp/train_cw-walk-posture-eff12-ds1-tau1.log",
+    "wandb_id": "5r5vkyh3",
+    "verified": "2026-08-25T05:35:16+00:00"
   }
 ]
