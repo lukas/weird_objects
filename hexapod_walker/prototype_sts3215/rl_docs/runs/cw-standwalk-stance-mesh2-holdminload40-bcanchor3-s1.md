@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-25T12:46:12+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-holdminload40-bcanchor3
+
+**wandb_id**: q1xfw1ik
 
 **hypothesis**: Is the BC pose-anchor's escape from the 40mm hover basin seed-robust, or does it depend on the one shared init? All three rung-7 dose arms (0.5/1.0/3.0, all CANARY PASS with 6/6 det valid_plant) used the DEFAULT seed — identical network init — so dose-insensitivity is proven but seed-robustness is not. Seed twin (seed 1) of the dose-3.0 canary, identical recipe otherwise. Prediction-if-true: >=4/6 det valid_plant at 2M with the same clean-plant signature. Prediction-if-false: pinned 40mm/2.64A hover reappears — the anchor mechanism rides a lucky init, which matters if the running stdanneal 8M acquisition disappoints. Strongest alternative: partial plant (1-3/6), anchor helps but escape is slower from other inits.
 

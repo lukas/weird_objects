@@ -184656,7 +184656,24 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal --steps 8000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 0 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_stdanneal --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdminload40-bcanchor3: Rung-7 FIRST-EVER det-mode PASS just landed (bcanchor3/bcanchor1: 6/6 valid_plant, height_err<=0.7mm, cur_max~1.1-1.3A, clean settled video) -- but BOTH doses still fail sto-mode 0/6, current pinning at 2.64A under the policy'\"'\"'s own action noise (log-std-init=0, std~1.0, never annealed in this recipe). Same fix that unlocked the joystick track'\"'\"'s stotight45 DONE-gate pass (annealing the trained noise floor down) should let the ALREADY-LEARNED honest six-foot plant survive the noise it currently cannot: does annealing log_std down (-4.0 final, matching stotight45'\"'\"'s precedent) on top of the working bc_anchor=3.0 mechanism close the det/sto gap instead of the mechanism being reward-noise-limited?' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 --log-std-final -4.0 --log-std-anneal-frac 0.5 --init-from rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3.zip > /tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal.log",
     "wandb_id": "bmoh247p",
-    "verified": "2026-08-25T12:45:07+00:00"
+    "verified": "2026-08-25T12:45:07+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-25T12:50:46+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          1,
+          3
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 8060928",
+          "log stopped growing"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1",

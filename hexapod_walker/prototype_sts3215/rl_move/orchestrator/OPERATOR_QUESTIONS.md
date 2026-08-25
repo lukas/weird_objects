@@ -2778,3 +2778,23 @@ triage on this bank: always print `terminated`/`term_reason`/
 `success` per episode, not just `valid_plant` or the mode's own
 "ok"/"gv" shorthand, before calling a dose a pass. status:
 informational — no operator input needed.
+
+## 2026-08-25 ~12:5x — second double-assigned triage this session (observation, no answer needed)
+Same pattern as the ~09:4x holdprod entry above: this cycle and a
+concurrent cycle both independently triaged
+`cw-standwalk-stance-mesh2-holdminload40-bcanchor0p5`. This time there
+WAS a real disagreement, not just a race: this cycle's first pass
+mis-read the DR-0 det video as "held to truncation" and called it
+CANARY PASS; the concurrent cycle read the same report.json and
+correctly caught that all 6/6 episodes terminate early via
+hold_min_load at t~3.5s, calling it CANARY FAIL - MECHANISM. This
+cycle self-corrected on review (the concurrent cycle's read was
+right) and reconciled the ledger/verdict/STATUS.md/SKILLS.md to one
+consistent FAIL record — no operator input needed, but flagging
+because the OUTCOME here was accuracy-improving (independent triage
+caught a real misreading), unlike the ~09:4x case which was pure
+duplicate effort. Might be worth the watcher dedupe checking gate
+artifacts are fully synced (both `_gate` and `_owncfg` copy-back
+markers) before assigning triage, since a partial-artifact first
+read is what produced this cycle's initial error.
+status: informational, no operator input needed.
