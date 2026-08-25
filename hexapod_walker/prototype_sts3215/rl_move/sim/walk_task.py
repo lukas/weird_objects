@@ -4478,6 +4478,65 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     info["walk_stop_current_max_a"] = float(
                         np.max(np.abs(cur_sc)))
                     info["reward_walk_stop_current"] = r_stopcur
+            # Commanded-WALK (translating-tick) actuator-current charge
+            # (2026-08-25, gaitgate-scratch1/tf64-mesh-acq1 dig-in): the
+            # mesh model family (+66% mass vs the legacy primitive
+            # calibration) makes a rigid partial-tripod HOLD the
+            # cheapest way to satisfy walk income under this reward
+            # stack -- 3 legs lock permanently planted (duty_cycle
+            # ~1.0) while the other 3 are held aloft, concentrating
+            # stance load until the shared safety current trip
+            # (>2.5 A sustained 0.8 s through a 0.1 s LPF) fires
+            # (over_current, not topple). This is the WALKING-tick
+            # analog of k_walk_stop_current above (same mechanism:
+            # price sustained per-servo current above a headroom
+            # threshold, quadratically, every commanded-translating
+            # tick) -- confirmed NECESSARY because reward.walk_gait_gate
+            # (the min-across-legs step-completion gate, the other
+            # tried anti-sacrifice lever) does not fix this: a policy
+            # can satisfy a rolling swing-completion window with rare
+            # token swings while spending most ticks in the same rigid
+            # lock, so it is gameable and, measured directly
+            # (gaitgate-scratch1 vs its ungated parent), made the
+            # held-out fall rate WORSE (39/48 vs 12/48), not better.
+            # Threshold (walk_move_current_a, default 2.2 A) is set
+            # ABOVE the stop-tick threshold (1.5 A) and below the trip
+            # (2.5 A) deliberately: honest six-leg cycling legitimately
+            # draws current in brief per-leg stance-loading spikes
+            # (the scripted teacher itself touches up to 2.627 A on
+            # 29% of ticks but with max per-servo DWELL 0.32 s) -- a
+            # per-tick quadratic-over-threshold charge already prices
+            # DURATION correctly with no extra state (an episode-long
+            # lock pays every tick; a 0.32 s honest spike pays for
+            # 0.32 s), so 2.2 A leaves brief honest spikes cheap while
+            # a sustained near-trip hold accumulates a large charge.
+            # Commanded-translating ticks only (s_ref > 1e-3, the
+            # mirror-image scope of the stop charge above); added
+            # AFTER the income gates (gait-gate rule). Default 0 = off,
+            # legacy bit-exact (no new info keys, no behavior change
+            # for any existing recipe that doesn't set this cfg).
+            # cfg: reward.k_walk_move_current, reward.walk_move_current_a,
+            # reward.walk_move_current_cap.
+            k_movecur = float(cfg_get(self.cfg, "reward",
+                                      "k_walk_move_current", default=0.0))
+            if k_movecur > 0.0 and s_ref > 1e-3:
+                cur_mv = getattr(self._state, "servo_current", None)
+                if cur_mv is not None:
+                    thr_mv = float(cfg_get(self.cfg, "reward",
+                                           "walk_move_current_a",
+                                           default=2.2))
+                    cap_mv = float(cfg_get(self.cfg, "reward",
+                                           "walk_move_current_cap",
+                                           default=4.0))
+                    over_mv = np.maximum(
+                        np.abs(np.asarray(cur_mv, dtype=float)) - thr_mv,
+                        0.0)
+                    r_movecur = -k_movecur * min(
+                        float(np.sum(over_mv ** 2)), cap_mv)
+                    reward = float(reward) + r_movecur
+                    info["walk_move_current_max_a"] = float(
+                        np.max(np.abs(cur_mv)))
+                    info["reward_walk_move_current"] = r_movecur
             # Commanded-COURSE charge (operator reward-alignment order
             # 2026-08-22, fb_20260822T032514 item 3 — the phasedir1
             # fix): price wrong-way / off-heading TRAVEL on the
