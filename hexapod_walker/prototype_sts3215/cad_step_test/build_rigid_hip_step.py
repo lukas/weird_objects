@@ -280,8 +280,9 @@ def make_coxa_link_rigid() -> object:
 def make_chassis_bottom_rigid() -> object:
     """Production chassis bottom + corner trim to the tower cylinder, all
     three dead-ear shaves (az 210 flush to the deck top), pillar-foot
-    holes, wago-tray deletes, the per-leg wire-corridor flatten
-    (rv.CHB_FLAT_* -- Aug 24 rev 5), and the Aug 25 LOWERED bearing
+    holes, wago-tray deletes, the per-leg wire-corridor + cradle-shell
+    flatten (rv.CHB_FLAT_* box minus the tower keep cylinder -- Aug 24
+    rev 5 + Aug 25 rev 6), and the Aug 25 LOWERED bearing
     pocket: the old tower band above the new deck-level seat plane is
     cut away (leaving the 0.5 mm-proud Phi 34/Phi 37.15 seat ledge)
     and a fresh full-wrap Phi 44/Phi 37.15 ring is unioned from the
@@ -316,11 +317,17 @@ def make_chassis_bottom_rigid() -> object:
                    y=ear_r * math.sin(math.pi * 7.0 / 6.0)),
             keep,
         )
-        flat = _box(                  # wire-corridor flatten (Aug 24 rev 5)
-            (rv.CHB_FLAT_X1 - rv.CHB_FLAT_X0,
-             2.0 * rv.CHB_FLAT_HALF_Y, rv.CHB_FLAT_Z1 - rv.CHB_FLAT_Z0),
-            ((rv.CHB_FLAT_X0 + rv.CHB_FLAT_X1) / 2.0, 0.0,
-             (rv.CHB_FLAT_Z0 + rv.CHB_FLAT_Z1) / 2.0))
+        flat = step._diff(            # wire-corridor + cradle-shell flatten
+            _box(                     # (Aug 24 rev 5 + Aug 25 rev 6): box to
+                (rv.CHB_FLAT_X1 - rv.CHB_FLAT_X0,     # the yaw axis MINUS the
+                 2.0 * rv.CHB_FLAT_HALF_Y,            # tower keep cylinder
+                 rv.CHB_FLAT_Z1 - rv.CHB_FLAT_Z0),    # (in-keep shell carries
+                ((rv.CHB_FLAT_X0 + rv.CHB_FLAT_X1) / 2.0, 0.0,  # the 6805
+                 (rv.CHB_FLAT_Z0 + rv.CHB_FLAT_Z1) / 2.0)),     # seat's
+            _cyl_z(rv.CHB_KEEP_R,                     # inboard arc)
+                   rv.CHB_FLAT_Z0 - 0.5, rv.CHB_FLAT_Z1 + 0.5,
+                   x=rv.APOTHEM),
+        )
         band = _cyl_z(rv.CHB_TOWER_R + 0.1,   # tower band rebuild (Aug 25):
                       rv.CHB_SEAT_W,          # everything above the NEW seat
                       rv.CHB_RIM_OLD_W + 1.5, # plane goes; the 0.5 mm Phi 34
