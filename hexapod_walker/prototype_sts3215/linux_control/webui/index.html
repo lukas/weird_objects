@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=console2">
+<link rel="stylesheet" href="/style.css?v=rlfix1">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -493,16 +493,16 @@ legs can reach instead of clipping it.">
       <div id="rldrivepad" style="margin-top:10px;display:grid;
                   grid-template-columns:repeat(3,minmax(72px,1fr));
                   gap:6px;max-width:280px">
-        <button data-dv="1,1">↖</button>
+        <button data-dv="1,-1">↖</button>
         <button data-dv="1,0">▲ Fwd</button>
-        <button data-dv="1,-1">↗</button>
-        <button data-dv="0,1">◀ Strafe L</button>
+        <button data-dv="1,1">↗</button>
+        <button data-dv="0,-1">◀ Strafe L</button>
         <button data-dv="0,0" disabled
                 title="Release everything = stop and hold.">● hold</button>
-        <button data-dv="0,-1">▶ Strafe R</button>
-        <button data-dv="-1,1">↙</button>
+        <button data-dv="0,1">▶ Strafe R</button>
+        <button data-dv="-1,-1">↙</button>
         <button data-dv="-1,0">▼ Back</button>
-        <button data-dv="-1,-1">↘</button>
+        <button data-dv="-1,1">↘</button>
       </div>
       <details style="margin-top:14px"
                title="Fixed-duration tape-measure runs. Commands ramp in over 1 s, walk, ramp out, and hold. Uses the speed picker above.">
@@ -851,6 +851,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=console2"></script>
+  <script src="/app.js?v=rlfix1"></script>
 </body>
 </html>

@@ -1990,13 +1990,25 @@ function rlButtons(disabled){
                    'rldrivestart','rldriveend'])
     $(id).disabled = disabled;
 }
+async function rlEnsureNoDriveSession(actionLabel){
+  if(!drvActive) return true;
+  try{
+    const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
+    if(!d.active){
+      drvActive = false;
+      drvClearHeartbeat();
+      drvResetLocalInput();
+      drvLockRlControls(false);
+      return true;
+    }
+  }catch(e){}
+  $('rlstatus').textContent = 'End the drive session before '+actionLabel+'.';
+  return false;
+}
 async function rlMove(mode, body){
   // No confirms anywhere (operator 08-11: no warning modals);
   // the server preflight refuses bad start poses.
-  if(drvActive){
-    $('rlstatus').textContent = 'End the drive session before starting another RL move.';
-    return;
-  }
+  if(!(await rlEnsureNoDriveSession('starting another RL move'))) return;
   if(mode!=='stand' && mode!=='lower' && body)
     delete body.heading;   // UI-only label, not an API field
   $('rlstatus').textContent = 'Request sent…';
@@ -2022,10 +2034,7 @@ async function rlMove(mode, body){
   }
 }
 async function rlScriptedStand(mode, label, direction='up'){
-  if(drvActive){
-    $('rlstatus').textContent = 'End the drive session before stand/lower.';
-    return;
-  }
+  if(!(await rlEnsureNoDriveSession('stand/lower'))) return;
   $('rlstatus').textContent = label+' request sent…';
   rlButtons(true);
   try{
@@ -2048,23 +2057,24 @@ async function rlScriptedStand(mode, label, direction='up'){
   }
 }
 $('rlstand').onclick = ()=> rlMove('stand');
-$('rllower').onclick = ()=> rlScriptedStand('step', 'Lower', 'down');
+$('rllower').onclick = ()=> rlMove('lower');
 function rlWalk(dx, dy, heading){
   const s = parseFloat($('rlwalkspeed').value);
   const n = Math.hypot(dx, dy) || 1;   // unit heading so speed = |v|
   rlMove('walk', {vx: dx/n*s, vy: dy/n*s, heading,
                   duration_s: parseFloat($('rlwalkdur').value)});
 }
-// Body frame: +vx forward, +vy left. Off-wedge headings are folded onto
-// the trained wedge by the rot-60 canonicalizer in rl_policy.py.
+// User-facing signs for the deployed RL policy: +vx forward, +vy right.
+// Off-wedge headings are folded onto the trained wedge by the rot-60
+// canonicalizer in rl_policy.py.
 $('rlwalkfwd').onclick   = ()=> rlWalk( 1,  0, 'FORWARD');
 $('rlwalkback').onclick  = ()=> rlWalk(-1,  0, 'BACKWARD');
-$('rlwalkleft').onclick  = ()=> rlWalk( 0,  1, 'strafe LEFT');
-$('rlwalkright').onclick = ()=> rlWalk( 0, -1, 'strafe RIGHT');
-$('rlwalkfl').onclick    = ()=> rlWalk( 1,  1, 'diagonal FWD-LEFT');
-$('rlwalkfr').onclick    = ()=> rlWalk( 1, -1, 'diagonal FWD-RIGHT');
-$('rlwalkbl').onclick    = ()=> rlWalk(-1,  1, 'diagonal BACK-LEFT');
-$('rlwalkbr').onclick    = ()=> rlWalk(-1, -1, 'diagonal BACK-RIGHT');
+$('rlwalkleft').onclick  = ()=> rlWalk( 0, -1, 'strafe LEFT');
+$('rlwalkright').onclick = ()=> rlWalk( 0,  1, 'strafe RIGHT');
+$('rlwalkfl').onclick    = ()=> rlWalk( 1, -1, 'diagonal FWD-LEFT');
+$('rlwalkfr').onclick    = ()=> rlWalk( 1,  1, 'diagonal FWD-RIGHT');
+$('rlwalkbl').onclick    = ()=> rlWalk(-1, -1, 'diagonal BACK-LEFT');
+$('rlwalkbr').onclick    = ()=> rlWalk(-1,  1, 'diagonal BACK-RIGHT');
 $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
   $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
@@ -2135,7 +2145,7 @@ function drvClearPad(){
 }
 function drvVec(){
   let dx = (drvKeys.has('fwd')?1:0) - (drvKeys.has('back')?1:0);
-  let dy = (drvKeys.has('left')?1:0) - (drvKeys.has('right')?1:0);
+  let dy = (drvKeys.has('right')?1:0) - (drvKeys.has('left')?1:0);
   let dz = (drvKeys.has('yawL')?1:0) - (drvKeys.has('yawR')?1:0);
   if(!dx && !dy && drvPad){ dx = drvPad[0]; dy = drvPad[1]; }
   const n = Math.hypot(dx, dy);
