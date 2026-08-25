@@ -465,6 +465,23 @@ CHB_RIM_W = hp.CHASSIS_YAW_OUTPUT_Z + TOWER_RIM_Z           # 17.75 -- rim =
                               # the Phi 44 column now ends 5 mm lower)
 CHB_EAR_R = 6.6               # covers the Phi 9 ear boss with margin
 CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
+# TOWER-FLANK BUMP SHAVE (rev 7 user, Aug 25: "remove this weird bump
+# outside the bottom chassis in the part that holds the bearing and
+# make it vertically smooth").  Production's +X horn swing relief
+# spares a protect cylinder 1.5 mm FATTER than the tower (r 23.5 =
+# YAW_BEARING_OD/2 + YAW_TOWER_WALL + 1.5, the ``tower_protect``
+# literal in hexapod_prototype._chassis_yaw_cradle_solid), so the
+# cradle-shell box survives out to r 23.5 across the mount-plate band
+# (z CHB_PLATE_TOP..CHB_DECK_TOP).  After the ear + flatten cuts, two
+# Phi 47 ring-sector arcs per leg remained on the outboard flank
+# (leg-frame az ~17..55 and ~300..314, measured on the shipped STL,
+# identical on all six legs) -- pure leftovers: the bearing seat,
+# hoop wall and deck all live inside r 22, and the cap bolts that
+# once justified r 23.5 are deleted in this variant.  A per-leg ring
+# cutter (same footprint as the corner trim, z band padded 0.25 past
+# the bump) shaves them to CHB_TRIM_R, so the tower outer profile is
+# ONE vertical cylinder (r 22.00..22.02) from the sheet top to the
+# rim (enforced by the cylindricity assert in check_chassis_variant).
 # CORRIDOR + CRADLE-SHELL FLATTEN (rev 5 user, Aug 24: "take a step
 # back that CRADLE WALL isnt doing shit, just flatten it out and its
 # fine" / "its flatening random bumps in the top of the chassis plate
@@ -984,6 +1001,15 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
         rev-6 shell flatten (the ear centre is outside the tower keep
         cylinder).  Above the deck, nothing pokes past the tower
         cylinder at any azimuth.
+      * TOWER FLANK SMOOTHED (user, Aug 25 rev 7): the production
+        +X swing relief spares a protect cylinder 1.5 mm FATTER than
+        the tower (r 23.5), which left two Phi 47 ring-sector arcs
+        per leg bulging off the outboard flank across the mount-plate
+        band (z 6.25..10.25) -- the "weird bump".  They carry nothing
+        (see the rev-7 constant-block note), so a ring cutter shaves
+        them to the same CHB_TRIM_R cylinder as the corner trim: the
+        tower outer surface now reads as ONE vertical cylinder from
+        the sheet top to the rim.
       * FOOT HOLES: the 18 Phi 3.4 pillar-foot bolt holes are printed
         through the sheet (same PILLAR_* constants as the feet, so
         they line up by construction).
@@ -1043,6 +1069,17 @@ def make_chassis_bottom_rigid() -> trimesh.Trimesh:
             CHB_KEEP_R, CHB_FLAT_Z0 - 0.5, CHB_FLAT_Z1 + 0.5,    # the shell
             x=APOTHEM, y=0.0, sections=192)]))               # inside it
         # carries the 6805 seat's inboard arc -- never cut it
+        bump = _box((23.5, 45.0,                             # (i) tower-flank
+                     (CHB_DECK_TOP + 0.25) - (CHB_PLATE_TOP - 0.25)),  # bump
+                    (APOTHEM + 23.5 / 2.0, 0.0,              # shave (rev 7)
+                     (CHB_PLATE_TOP - 0.25 + CHB_DECK_TOP + 0.25) / 2.0))
+        leg_cuts.append(_diff(bump, [_cyl_z(
+            CHB_TRIM_R, CHB_PLATE_TOP - 1.0, CHB_DECK_TOP + 1.0,
+            x=APOTHEM, y=0.0, sections=192)]))
+        # the production swing-relief protect ring (r 23.5) bulged the
+        # outboard flank across the mount-plate band; nothing lives out
+        # there (rev-7 constant-block note) -- shave flush to the same
+        # trim cylinder as (a)
         leg_cuts.append(_cyl_z(CHB_TOWER_R + 0.1,            # (h) tower band
                                CHB_SEAT_W, CHB_RIM_OLD_W + 1.5,   # rebuild:
                                x=APOTHEM, y=0.0, sections=192))   # everything
@@ -1588,7 +1625,9 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     never bit the tower wall, above the servo-mount deck nothing pokes
     past the tower cylinder at ANY azimuth all the way to the rim
     (all three dead ears cut, the az-210 root left merged below
-    the deck), all six towers carry the rebuilt full-wrap ring to the
+    the deck), the tower flank is CYLINDRICAL from the sheet top to
+    the rim on all six legs (rev 7: the swing-relief protect-ring
+    bump at z 6.25..10.25 is shaved), all six towers carry the rebuilt full-wrap ring to the
     LOWERED race-top plane (Aug 25: rim at world 17.75, pocket seat
     ledge at 10.75 on the deck), the printed foot holes are open
     exactly where the pillar feet expect them, the six Wago tray wall
@@ -1657,6 +1696,25 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert n_out == 0, \
         f"{n_out} vertices past the tower cylinder above the deck (an ear " \
         f"cut missed)"
+
+    # tower flank CYLINDRICAL sheet-top -> rim on all six legs (rev 7):
+    # within 45 mm of each yaw axis, NO vertex between the sheet top and
+    # the rim lies outside the trim cylinder -- this is exactly the band
+    # where the production swing-relief protect ring (r 23.5) used to
+    # bulge the outboard flank at z 6.25..10.25.  (Nothing else of the
+    # chassis lives that close to a tower above the sheet: neighbour
+    # towers are 100 mm away, the flatten band is air, trays deleted.)
+    for i in range(6):
+        vi = trimesh.transform_points(cb.vertices,
+                                      _rotz(-(i + 0.5) * np.pi / 3.0))
+        di = vi[:, :2] - [ax, 0.0]
+        ri = np.hypot(di[:, 0], di[:, 1])
+        sel = ((vi[:, 2] > CHB_FLAT_Z0 + 0.1) & (vi[:, 2] < CHB_RIM_W + 0.1)
+               & (ri < 45.0))
+        r_hi = float(ri[sel].max())
+        assert r_hi <= CHB_TRIM_R + 0.03, (
+            f"leg {i}: tower flank not cylindrical -- vertex at r {r_hi:.2f}"
+            f" in the sheet->rim band (the rev-7 bump shave missed)")
 
     # az-210 ear spot: the boss column is gone above the deck, and since
     # rev 6 the below-deck root is gone too -- the ear centre sits at
@@ -1752,7 +1810,8 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
             f"leg {i}: flatten cut removed keep-cylinder structure"
 
     print(f"  chassis variant: tower bases trimmed to one r {CHB_TRIM_R:g} "
-          f"cylinder (outboard max r {r_max:.2f}), towers rebuilt to the "
+          f"cylinder (outboard max r {r_max:.2f}), flanks cylindrical "
+          f"sheet->rim (rev-7 bump shave), towers rebuilt to the "
           f"LOWERED race top (world {CHB_RIM_W:g}), all 3 dead ears shaved "
           f"(az 210 flush to the deck), 18 foot holes printed in, "
           f"6 wago trays deleted, corridors + cradle shells flattened "

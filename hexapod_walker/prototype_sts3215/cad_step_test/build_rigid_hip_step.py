@@ -282,11 +282,14 @@ def make_chassis_bottom_rigid() -> object:
     three dead-ear shaves (az 210 flush to the deck top), pillar-foot
     holes, wago-tray deletes, the per-leg wire-corridor + cradle-shell
     flatten (rv.CHB_FLAT_* box minus the tower keep cylinder -- Aug 24
-    rev 5 + Aug 25 rev 6), and the Aug 25 LOWERED bearing
+    rev 5 + Aug 25 rev 6), the Aug 25 LOWERED bearing
     pocket: the old tower band above the new deck-level seat plane is
     cut away (leaving the 0.5 mm-proud Phi 34/Phi 37.15 seat ledge)
     and a fresh full-wrap Phi 44/Phi 37.15 ring is unioned from the
-    deck band to the new race top (rv.make_chassis_bottom_rigid)."""
+    deck band to the new race top, plus the Aug 25 rev-7 tower-flank
+    bump shave (the production swing-relief protect ring, r 23.5, is
+    cut back to the trim cylinder so the tower outer profile is one
+    vertical cylinder sheet-top -> rim) (rv.make_chassis_bottom_rigid)."""
     cb = step.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0
     cutters = []
@@ -328,12 +331,22 @@ def make_chassis_bottom_rigid() -> object:
                    rv.CHB_FLAT_Z0 - 0.5, rv.CHB_FLAT_Z1 + 0.5,
                    x=rv.APOTHEM),
         )
+        bump = step._diff(            # tower-flank bump shave (Aug 25 rev 7):
+            _box((23.5, 45.0,         # production's swing-relief protect ring
+                  (rv.CHB_DECK_TOP + 0.25) - (rv.CHB_PLATE_TOP - 0.25)),
+                 (rv.APOTHEM + 23.5 / 2.0, 0.0,   # (r 23.5) bulged the outboard
+                  ((rv.CHB_PLATE_TOP - 0.25)      # flank in the mount-plate
+                   + (rv.CHB_DECK_TOP + 0.25)) / 2.0)),  # band -- shave flush
+            _cyl_z(rv.CHB_TRIM_R, rv.CHB_PLATE_TOP - 1.0,
+                   rv.CHB_DECK_TOP + 1.0, x=rv.APOTHEM),
+        )
         band = _cyl_z(rv.CHB_TOWER_R + 0.1,   # tower band rebuild (Aug 25):
                       rv.CHB_SEAT_W,          # everything above the NEW seat
                       rv.CHB_RIM_OLD_W + 1.5, # plane goes; the 0.5 mm Phi 34
                       x=rv.APOTHEM)           # band left below is the ledge
         cutters.extend(Rotation(0, 0, deg) * c
-                       for c in (corner, ear330, box90, ear210, flat, band))
+                       for c in (corner, ear330, box90, ear210, flat, bump,
+                                 band))
     for az in range(0, 360, 60):
         for hx, hy in ((rv.PILLAR_BAR_HOLE_X, +rv.PILLAR_BAR_HOLE_Y),
                        (rv.PILLAR_BAR_HOLE_X, -rv.PILLAR_BAR_HOLE_Y),
