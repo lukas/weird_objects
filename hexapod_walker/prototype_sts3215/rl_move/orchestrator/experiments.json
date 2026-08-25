@@ -184408,7 +184408,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "CANARY PASS (mechanism-health scope, 3rd/3rd dose confirmation) -- CORRECTED read (see below): dose 0.5 also clears the letter of the gate (DR-0 det 6/6 valid_plant, cur_p95 0.67A<=1.5A) but is materially weaker than doses 1.0/3.0. CORRECTION to this verdict's first pass: I originally wrote video=\"held to truncation\" -- WRONG. Frame-strip timestamps + report.json show all 6/6 DR-0 det episodes TERMINATE early via hold_min_load at t~3.5s (return ~57.8, vs a full 15s episode), unlike bcanchor1/bcanchor3 whose DR-0 det gate has ZERO terminations (empty term_reason) for the full duration. The geometric valid_plant check still reads True at the termination instant (height/posture/current all still fine the moment min-load fires), so the letter of the pre-registered gate (valid_plant + cur_p95) is met, but this is a real, visible degradation: the policy itself (no action noise, DR-0, deterministic) cannot sustain the hold past ~3.5s at this dose, where doses 1.0/3.0 sustain it cleanly to 15s. Own-DR(0.2) det is 5/6 valid_plant, and only 1 of those 6 episodes (idx 3) runs to truncation without any termination -- the other 5 terminate early too. Sto 0/6 both DR-0 and own-DR, same un-annealed-policy_std signature as siblings. hold_feet_factor noisy non-monotone, matches siblings. bc_anchor_loss 0.16->0.008. Revised reading of the joint 3-arm dose read: the mechanism generalizes across the tested range but has a real dose floor around 0.5-1.0x -- 1.0x and 3.0x are the clean passers, 0.5x is a weaker/marginal pass that would need more dose or budget to sustain the hold, not a flat failure. This does not change the acquisition-arm choice: the concurrent cycle already funded the 8M std-anneal arm off dose 3.0 (cleanest of the three) before this correction landed -- still the right pick."
+    "verdict": "CANARY FAIL - MECHANISM (mechanism-health scope) -- dose 0.5 is too low to sustain the hold. FINAL synthesis after two independent reads (this cycle initially mis-called it PASS, then self-corrected; a concurrent cycle independently reached FAIL on the same evidence -- both converge here): DR-0 det shows valid_plant=True and cur_p95<=1.5A on all 6/6 episodes, which would clear the gate letter, BUT every one of those 6 episodes TERMINATES EARLY via hold_min_load at t~3.5s (return ~57.8, not the full 15s) -- i.e. even under pure deterministic policy execution with zero action noise, one foot's load fraction drops below the safety floor within seconds. Contrast with bcanchor1 (dose 1.0) and bcanchor3 (dose 3.0): both hold the FULL 15s with ZERO terminations in DR-0 det. valid_plant reads true only because it grades geometry/height/current at the termination instant, not sustained load balance -- a near-honest pose that still cannot hold itself up. Own-DR(0.2) det: 5/6 valid_plant but only 1 of 6 runs to truncation without any termination. Sto 0/6 (same un-annealed-policy_std signature as siblings). Read: the BC-anchor mechanism itself is confirmed (a real six-foot plant is reachable at every dose tried, unlike any of the six prior pure-pricing rungs) but 0.5x sits below the dose floor needed to sustain it even without noise -- 1.0x and 3.0x are the genuine passers. Does not change the acquisition pick: the concurrent cycle already funded the 8M std-anneal arm off dose 3.0 (the cleanest) before either read landed."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal",
@@ -184866,7 +184866,7 @@
       "train.bc_anchor_coef=3.0"
     ],
     "created": "2026-08-25T12:46:12+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -184877,13 +184877,27 @@
       "running_experiments_before": 1,
       "code_sha_local": "01a2d666dbd0f178575669e0a28f4181a3c25e4b",
       "code_sha_pod": "01a2d666dbd0f178575669e0a28f4181a3c25e4b",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "77779",
+      "log_growth_bytes": [
+        19120,
+        31437
+      ],
+      "wandb_id": "q1xfw1ik",
+      "trainer_pid": "77779",
+      "global_step_window": [
+        1572864,
+        1966080
+      ],
+      "fps_estimate": 13107.2
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "canary",
     "assessment_scope": "mechanism_health",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1 --steps 2000000 --task joint_goal --dr-scale 0.2 --episode-seconds 15 --ent-coef 0.005 --log-std-init 0 --goal-mix hold=1.0,rise=0.0,lower=0.0 --n-envs 4096 --impl warp --host-workers 24 --eval-every 1000000 --video-every 2000000 --seed 1 --out-name ppo_goal_cw_standwalk_stance_mesh2_holdminload40_bcanchor3_s1 --cfg-set actions.max_height_mm=88 --cfg-set 'goal.rise_height_mm=[79,87]' --cfg-set goal.rise_ramp_s=6.0 --cfg-set goal.rise_rsi_frac=0.5 --cfg-set goal.rise_hold_min_s=0.5 --cfg-set reward.rise_score_income=1.0 --cfg-set reward.rise_score_strip_pen=1.0 --cfg-set reward.k_rise_ref_track=2.0 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set reward.rise_ref_sigma_deg=6.0 --cfg-set reward.rise_posture_gate=1.0 --cfg-set reward.rise_income_prog_gate=1.0 --cfg-set reward.rise_finish_gate_signed=1.0 --cfg-set reward.hold_still_gate=1.0 --cfg-set reward.hold_flag_fade=1.0 --notes 'respec of cw-standwalk-stance-mesh2-holdminload40-bcanchor3: Is the BC pose-anchor'\"'\"'s escape from the 40mm hover basin seed-robust, or does it depend on the one shared init? All three rung-7 dose arms (0.5/1.0/3.0, all CANARY PASS with 6/6 det valid_plant) used the DEFAULT seed \u2014 identical network init \u2014 so dose-insensitivity is proven but seed-robustness is not. Seed twin (seed 1) of the dose-3.0 canary, identical recipe otherwise. Prediction-if-true: >=4/6 det valid_plant at 2M with the same clean-plant signature. Prediction-if-false: pinned 40mm/2.64A hover reappears \u2014 the anchor mechanism rides a lucky init, which matters if the running stdanneal 8M acquisition disappoints. Strongest alternative: partial plant (1-3/6), anchor helps but escape is slower from other inits.' --cfg-set control.hz=100 --cfg-set reward.k_current_hot=1.0 --cfg-set reward.current_hot_a=2.0 --cfg-set reward.term_cost_per_remaining_s=3.0 --cfg-set reward.term_cost_max=60.0 --cfg-set reward.hold_feet_load=1.0 --cfg-set reward.hold_feet_load_min=1.0 --cfg-set safety.hold_max_height_drop_mm=40.0 --cfg-set safety.hold_height_grace_s=1.0 --cfg-set safety.hold_min_load_terminate_s=1.0 --cfg-set safety.hold_min_load_terminate_n=0.3 --cfg-set safety.hold_min_load_terminate_grace_s=1.0 --cfg-set train.bc_anchor_coef=3.0 > /tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1.log"
+    "log": "/tmp/train_cw-standwalk-stance-mesh2-holdminload40-bcanchor3-s1.log",
+    "wandb_id": "q1xfw1ik",
+    "verified": "2026-08-25T12:49:53+00:00"
   }
 ]

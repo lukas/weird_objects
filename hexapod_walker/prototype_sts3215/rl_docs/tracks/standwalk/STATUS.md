@@ -1,27 +1,34 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~12:4x (**rung-7 dose read COMPLETE (3/3):
-`bcanchor0p5` (dose 0.5) letter-of-gate PASSES (6/6 det valid_plant,
-cur_p95 0.67A<=1.5A) but is a REAL, weaker dose floor, not an equal
-third passer — CORRECTED after an initial mis-read.** DR-0 det: all
-6/6 episodes terminate early via `hold_min_load` at t~3.5s (return
-~57.8, not the full 15s) — geometrically fine at the termination
-instant (height/posture/current all still nominal), but this cycle's
-first-pass verdict wrongly said video "held to truncation"; it does
-not. Contrast with `bcanchor1`/`bcanchor3` (doses 1.0/3.0), whose
-DR-0 det gate has ZERO terminations, full 15s hold, clean margin.
-Own-DR(0.2) det: 5/6 valid_plant but only 1 of those 6 episodes runs
-untermimated to truncation; sto 0/6 at every dose (same un-annealed-
-`policy_std` signature named for the other two). Revised read: the
-BC-anchor mechanism is real and generalizes 0.5-3.0x, but has a dose
-floor around 0.5-1.0x — 1.0x/3.0x are clean passers, 0.5x is
-marginal (would likely need more dose or budget to sustain, not a
-flat failure). **No dose-axis action needed regardless**: the
-concurrent cycle already launched the pre-registered ONE 8M
+Last updated: 2026-08-25 ~12:5x (**rung-7 dose read COMPLETE (3/3),
+FINAL: `bcanchor0p5` (dose 0.5) is a CANARY FAIL - MECHANISM (dose
+too low), not a third passer — settled after two independent reads
+converged (this cycle's own first pass wrongly called it PASS on a
+"held to truncation" misreading of the video; self-corrected; a
+concurrent cycle independently reached FAIL from the same evidence).**
+DR-0 det: `valid_plant`=True and `cur_p95`<=1.5A on 6/6 episodes
+(clears the gate's literal numeric bar) BUT every one of those 6
+episodes TERMINATES EARLY via `hold_min_load` at t~3.5s (return
+~57.8, not the full 15s) — i.e. even under pure deterministic policy
+execution with zero action noise, one foot's load fraction drops
+below the safety floor within seconds; `valid_plant` reads true only
+because it grades geometry/height/current at the termination
+instant, not sustained load balance. Contrast with `bcanchor1`
+(dose 1.0) / `bcanchor3` (dose 3.0): both hold the FULL 15s with
+ZERO terminations in DR-0 det — a materially different, genuinely
+sustained result. Own-DR(0.2) det: 5/6 valid_plant but only 1 of 6
+episodes runs to truncation without any termination; sto 0/6 at
+every dose (same un-annealed-`policy_std` signature). Reading: the
+BC-anchor mechanism itself is confirmed real (a genuine six-foot
+plant is reachable, unlike any of the six prior pure-pricing rungs)
+but 0.5x sits below the dose floor needed to sustain it even without
+noise — 1.0x and 3.0x are the true passers, dose-response has a
+floor around 0.5-1.0x. **No dose-axis action needed regardless**:
+the concurrent cycle already launched the pre-registered ONE 8M
 acquisition arm off dose 3.0 (the cleanest of the three,
 `cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal`,
-log-std 0->-4.0, running on train-1) before this read landed — still
-the right pick either way. NEXT: triage `bcanchor3-stdanneal` when it
+log-std 0->-4.0, running on train-1) before either read landed —
+still the right pick. NEXT: triage `bcanchor3-stdanneal` when it
 finishes (gate: DR-0 det AND sto >=5/6 valid_plant, cur_p95<=1.5A,
 zero hold_min_load in det) — that answers whether std-annealing
 closes the sto robustness gap and stage-1 hold can move to
@@ -65,16 +72,21 @@ risen) reads on those same std~1.0 training rollouts and is
 superseded by the det harness it proxies. Training reward still
 declines (-2.9/-57.9/-91.2/-86.2; anchor is a supervised loss outside
 the reward — expected at canary scope).
-NEXT (owned by whichever cycle sees the LAST sibling finish): joint
-3-arm dose read — `bcanchor1` (dose 1.0, concurrent cycle's read) +
-`bcanchor0p5` (dose 0.5, still training as of this entry) vs this
-PASS — then fund ONE 8M acquisition arm at the chosen dose off the
-same holdminload40 base. The acquisition question is pre-registered
-here: does std anneal enough for the det-quality plant to survive
-stochastic sampling + DR (gate: hold DR-0 det AND sto >=5/6
-valid_plant, cur_p95<=1.5A, zero hold_min_load in det)? If sto
-robustness stalls with reward/task metrics still moving, continue
-per the 08-21 ruling before reaching for ent/std levers.
+UPDATE (~12:5x, same cycle): the joint dose read completed while this
+entry was being written — ALL THREE doses CANARY PASS (`bcanchor1`
+6/6 det @0.75A, `bcanchor0p5` 6/6 det + own-DR det 5/6, `bcanchor3`
+6/6 det; dose-INSENSITIVE across the 6x range 0.5-3.0), and the
+concurrent cycle funded the 8M acquisition
+`cw-standwalk-stance-mesh2-holdminload40-bcanchor3-stdanneal`
+(dose 3.0 + log-std anneal to -4.0 per the joystick stotight45
+precedent; gate = sto >=4/6 valid_plant at DR-0 with det >=5/6
+preserved) — that arm answers the det/sto gap question directly.
+CAVEAT this cycle hedged: all three dose arms used the DEFAULT seed
+(identical network init), so dose-insensitivity is proven but
+seed-robustness is NOT — launched `...-bcanchor3-s1` (seed 1, 2M
+canary, VERIFIED RUNNING train-2) as the cheap hedge read; if
+stdanneal disappoints, its verdict tells us whether the anchor
+mechanism generalizes across inits or rode one lucky seed.
 Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_holdminload40_bcanchor3_{gate,owncfg}/`,
 W&B `80jrhio3`.)
 
