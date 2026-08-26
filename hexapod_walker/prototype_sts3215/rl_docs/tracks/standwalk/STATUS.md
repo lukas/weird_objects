@@ -53,41 +53,46 @@ never triggered because no prior `--cfg-set` caller passed a bracketed
 value. `test_mode_seq*.py` (23 tests) stays green; both changes
 smoke-tested end-to-end (tiny dual-BC run, 4 transitions/8 episodes/2
 epochs, full pipeline completes and saves a loadable SB3 zip) before
-committing to the real-scale run. **Launched (background, CPU,
-`nohup`, not GPU/ledger-tracked — this is BC pretraining, the same
-class of work as every prior `distill_gru` arm):**
-`ppo_goal_cw_standwalk_stage2_dualbc1.zip` —
-`--transitions 60 --episodes 120 --epochs 20
---mix walk=0.30,rise=0.40,lower=0.15,hold=0.15`, walk-teacher
+committing to the real-scale run. **BC distillation COMPLETED this cycle** (background CPU, `nohup`,
+not GPU/ledger-tracked — same class of work as every prior
+`distill_gru` arm; two smaller attempts first appeared to hang at
+20+ min with zero log output — root-caused as `distill_gru.py`/
+`verify_modeseq_teachers.py` missing the `OMP_NUM_THREADS`-family
+thread-pool cap `eval_checkpoint.py` already carries [fixed, tested,
+committed] COMBINED with plain stdout block-buffering under
+`> file 2>&1 &` hiding real progress until process exit — neither
+script was actually hung, both just needed patience/unbuffered output
+to observe). Final recipe: `--transitions 20 --episodes 100 --epochs
+25 --mix walk=0.30,rise=0.40,lower=0.15,hold=0.15`, walk-teacher
 `stotight45-seed13`, stance-teacher `acq8m`, env cfg = the exact
-merged walk+stance training cfg from probes 1-3 above (`env.model_
-source=mesh control.hz=100`, no legacy motor-contract override — the
-REAL target contract). No DAgger round yet (one lever at a time — get
-a plain dual-teacher BC read before paying for on-policy correction).
-**Next (whoever picks this up if still running): once
-`ppo_goal_cw_standwalk_stage2_dualbc1.zip` finishes, (a) run its own
-`quick_probe`/seq-probe output (printed at the end of the distill log,
-`/tmp/dualbc1.log` on the controller if this session is still live —
-otherwise rerun is cheap, ~30-40 min CPU) — a competent BC clone
-should already beat raw teacher composition's 10% fall rate on the
-SAME probe episodes, since BC labels are teacher-optimal and it never
-compounds mode-switch-timing quirks the two independent policies
-never saw together; (b) if the seq probe is not obviously broken
-(no total freeze / no majority fall), launch a 2M canary PAIR
-GPU-side (`train_ppo_mjx --gru --init-from
-ppo_goal_cw_standwalk_stage2_dualbc1.zip --task joint_walk
-goal.mode_seq=1` + the same merged env cfg) — this IS the Stage-2
-walking-source x mechanism matrix's first cell (source=primitive
-`stotight45-seed13` via direct-inference BC transfer, mechanism=dual-
-teacher BC + RL fine-tune); (c) if the BC probe IS broken, the
-fallback is the DAgger round already scaffolded (`--dagger-rounds`)
-before concluding the mechanism itself needs redesign — do not treat
-a bad BC-only read as a mechanism refutation without at least one
-DAgger round, the docstring's own TRANSITIONS_DIRECTIVE lesson.
-Evidence: `/tmp/probe_stotight45_meshhz25`, `/tmp/probe_stotight45_
+merged walk+stance training cfg from probes 1-3 above. Result:
+`ppo_goal_cw_standwalk_stage2_dualbc1.zip` (`DualGruActorCriticPolicy`,
+obs 80 = 74 walk-teacher-width + 6 mode-onehot, act 18) — BC actor RMS
+0.0216 action units (~1.8deg), end-of-run probes: walk episode returns
+2601/2734 (both strongly positive, matching/beating teacher-in-context
+returns), hold 490/634 (positive), rise 2178/-710 (one strong pass),
+2 composed sequence probes 1 PASS (return 2378, no fall) / 1 FALL. No
+DAgger round used (one lever at a time — plain dual-teacher BC first).
+**GPU canary pair LAUNCHED AND VERIFIED RUNNING this cycle** (the
+Stage-2 walking-source x mechanism matrix's first cell: source=
+primitive `stotight45-seed13` via direct-inference BC transfer,
+mechanism=dual-teacher BC + RL fine-tune): `cw-standwalk-stance-mesh2-
+stage2-dualbc1-modeseq1` (seed 0, train-0) / `-modeseq1-s1` (seed 1,
+train-1), 2M steps, `train_ppo_mjx --gru-dual --gru-hidden-size 256
+--init-from ppo_goal_cw_standwalk_stage2_dualbc1.zip --task joint_walk
+--cfg-set obs.mode_onehot=1 --cfg-set goal.mode_seq=0.75` + the full
+merged env cfg, no `train.bc_anchor_*` (mirrors the `cw-arch-gru-
+dual1` precedent's own finding: the mode-gated dual-core architecture
+removes the shared-trunk anchor/walk interference BY CONSTRUCTION, so
+the bare fine-tune is the first thing to try; stance-only/walk-off
+anchor is the pre-registered fallback if walk regresses). Hypothesis/
+gate in the ledger entry; NOT triaged this cycle — a fresh 2M canary,
+next finish-triggered cycle owns the read. Evidence: `/tmp/
+probe_stotight45_meshhz25`, `/tmp/probe_stotight45_
 meshhz100_truecontract{,_full,_ownDR}`, `/tmp/verify_modeseq_{smoke,
 full}.json` (controller `/tmp`, not artifact-durable — rerun cheap if
-needed for audit; each probe command is fully specified above).
+needed for audit; each probe command is fully specified above),
+`/tmp/dualbc1_v4.log` (the completed BC run's full log).
 Prior entry, 08-26 ~09:1x (**SEGFIX JOINT CALL: REAL DIVERGENCE,
 NOT A CLEAN PASS — the composed-segment-window widen (6-8s->9-11s)
 FIXES seed1's severe flat-in-composition collapse outright but
@@ -3103,22 +3108,33 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--1. STAND_HEIGHT RUNG-5 CLOSED (08-26, this cycle's joint call): the
-    composed rise->hold(height-cmd)->lower lower-phase fix is
-    cross-seed-verified under the corrected motor contract (both
-    seeds 6/6+6/6 zero-term). The immediate open design item is
-    **STAGE-2** (rise->walk->lower composition, see "Stage 2" section
-    above): pre-register the walking-source x mechanism matrix
-    (primitive `stotight45-seed13` teacher at 25 Hz needs a rate-
-    conversion story per this file's own Binding Constraints, OR wait
-    for a mesh-era joystick champion) and launch as a batch per the
-    cycle's own refill rule. Caveat carried forward, not a blocker:
-    flat-start rise remains unsolved and is now confirmed
-    seed-sensitive (10/12 vs 7/12 on the acq8m pair) — stage-1's own
-    "zero falls/tips" gate text is still not fully closed by any
-    single arm; the acq8m checkpoints are the best available stance
-    teacher candidates but carry that residual into stage-2's own
-    session-level eval.
+-1.5 STAGE-2 FIRST ARM LAUNCHED (08-26 ~12:0x, this cycle): see the
+    Last-updated banner for the full de-risking story (3 measurement
+    probes + `verify_modeseq_teachers` generalization + the completed
+    `ppo_goal_cw_standwalk_stage2_dualbc1.zip` dual-teacher BC clone).
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-modeseq1[/-s1]` (2M,
+    train-0/train-1) VERIFIED RUNNING, untriaged. **Whoever triages
+    it next:** read the ledger hypothesis/gate; the registered PASS/
+    FAIL branches route to either promoting the bare-fine-tune recipe
+    or funding the `train.bc_anchor_*` (stance-only, walk-tick-off)
+    fallback per the `cw-arch-gru-dual1` precedent. If it PASSES
+    cross-seed, this closes Stage-2's first walking-source x mechanism
+    cell and the item below (-1, superseded language kept for
+    context) becomes "pre-register the NEXT cell for a robustness/
+    seed-reliability read," not a fresh design task.
+
+-1. (context, superseded by -1.5 above) STAND_HEIGHT RUNG-5 CLOSED
+    (08-26): the composed rise->hold(height-cmd)->lower lower-phase
+    fix is cross-seed-verified under the corrected motor contract
+    (both seeds 6/6+6/6 zero-term). The open design item was
+    **STAGE-2** (rise->walk->lower composition): pre-register the
+    walking-source x mechanism matrix and launch as a batch — DONE,
+    see -1.5. Caveat carried forward, not a blocker: flat-start rise
+    remains unsolved and is confirmed seed-sensitive (10/12 vs 7/12 on
+    the acq8m pair) — stage-1's own "zero falls/tips" gate text is
+    still not fully closed by any single arm; the acq8m checkpoints
+    are the best available stance teacher candidates but carry that
+    residual into stage-2's own session-level eval.
 
 -0.5 ROOT-CAUSE + LEVER for the flat-in-composition rise residual
     above (08-26, this cycle, code-read not guesswork — confirmed the

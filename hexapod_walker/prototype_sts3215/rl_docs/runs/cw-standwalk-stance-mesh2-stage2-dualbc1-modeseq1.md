@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-26T11:53:48+00:00
+**created**: 2026-08-26T12:01:20+00:00
 
 **pod**: hexapod-mjx-train-0
 
@@ -14,5 +14,5 @@
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. 2M canary, own-cfg gate/owncfg/seqprobe (pod_eval auto) plus a DEDICATED flat-pinned composed probe (goal.mode_seq_stance=1 equivalent via goal.mode_seq single-mode fallback + rise_flat_frac=1.0) matched against the dualbc1 BC-only checkpoint's own probes (walk ep returns ~2600-2700, hold ~490-630, one seq PASS/one seq FALL out of 2). PASS if: hold/lower do not collapse below BC-parent (no majority min-load/over_current term) AND walk shows real per-leg swing/translation (not park/freeze) on video AND the composed seq fall rate is <= the BC-parent's own 10% (60-seq) read within noise. FAIL if hold/lower regress to majority-term OR walk freezes/paddles (the shared-trunk failure mode this dual-core architecture is specifically built to prevent) -- routes to the bc_anchor(stance-only, walk-off) fallback per the arch-gru-dual1 precedent. Read reward trend alongside eval per the 08-21 ruling.
 
-**refused_reason**: hexapod-mjx-train-0 code marker 945b12f9056462579be7e118aa27d9ecd46e592c-dirty != local HEAD 945b12f9056462579be7e118aa27d9ecd46e592c and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-0 already runs cw-standwalk-stance-mesh2-stage2-dualbc1-modeseq1 — GPU pods host exactly one run; pick a free GPU pod.
 
