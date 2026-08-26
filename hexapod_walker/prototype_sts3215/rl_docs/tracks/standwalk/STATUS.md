@@ -1,6 +1,53 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~14:1x (**Stage-2 first-cell canary, seed-1
+Last updated: 2026-08-26 ~14:2x (**Stage-2 first-cell JOINT CALL
+CLOSED: `cw-standwalk-stance-mesh2-stage2-dualbc1-modeseq1`(seed0) /
+`-modeseq1-s1`(seed1) both CANARY FAIL - MECHANISM, cross-seed
+replicated with real per-episode report.json data (not just cached
+W&B end-state). The bare dual-core RL fine-tune from the dual-teacher
+BC init regresses hold and lower to majority failure while walk stays
+a weak crawl — exactly the runs' own pre-registered FAIL branch.
+Evidence, both seeds, DR-0 + own-DR(0.5), det+sto: **hold TERMINATES
+in 24/24 episodes each seed** (hold_min_load / hold_low_height; the
+hold contact sheets show the robot visibly sinking from standing into
+a low splayed crouch over the episode, `settled` 0/6 every read, never
+recovered from BC-parent's clean hold). **lower is 0/6 success
+everywhere** (worst_clear 68-152mm, 1-4 over_current terms per read).
+**walk never falls** (roll settled, gait_valid 5-6/6 = no sacrificed
+legs) but is a near-static splayed stance on video (walk_det contact
+sheets, both seeds — no visible translation across the 30s strip),
+prog_ratio only 0.24-0.38 det / ~0.00-0.02 sto (vs the BC-parent's own
+~2600-2700 walk return), dir_err 47-91deg (cap ~40deg), slip/m 3-34.
+Reward: both seeds collapse from a healthy BC-init start (+37/+40 Q1)
+through a deep trough (-502/-535 Q3) to a still-deeply-negative Q4
+(-174/-202) — aligned bad-and-stuck per the 08-21 ruling, not
+"still rising, needs more budget." **CORRECTION**: `-modeseq1-s1`'s
+FIRST attempt was mis-recorded `FAILED`/"CANARY FAIL - INFRASTRUCTURE"
+by a checkup false positive (SUSPECT fired on a slow periodic-eval/
+video-render round, not a real hang) — its train log shows it actually
+completed all 2,031,616 steps cleanly with a real exported checkpoint;
+this call uses that checkpoint's real eval data, which matches seed0's
+signature exactly, and supersedes the infra-failure framing. The
+identical-seed retry `-modeseq1-s1r` that the false positive triggered
+(separately triaged by a concurrent cycle, same FAIL signature) is a
+redundant duplicate, not additional evidence. **Routed to the
+pre-registered fallback**: launched `cw-standwalk-stance-mesh2-
+stage2-dualbc1-anchor1`/`-anchor1-s1` (2M canary pair, both VERIFIED
+RUNNING) — identical recipe + the `cw-arch-gru-dual1`-proven
+stance-only/walk-off `train.bc_anchor_*` bundle (coef=3.0,
+state_aligned/stratified/foot_z/flat_time_indexed/lower=1.0,
+min_h_ahead_mm=8, **bc_anchor_walk=0.0**) so PPO gradients on stance
+ticks get pulled back toward the proven mesh stance teacher while walk
+ticks train unconstrained through their own dedicated dual-core head.
+PASS if hold/lower termination collapses to isolated (<=1/6) on BOTH
+seeds with walk holding/improving its current weak translation; FAIL
+at the same majority-term signature escalates to a routing/gradient-
+isolation dig-in (the dual-core architecture itself leaking
+stance-destructive gradients), not a third anchor dose. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_
+{modeseq1,modeseq1_s1}_{gate,owncfg}/`, W&B `zygtbdyy`/`v38ba434`.)
+
+Prior entry, 2026-08-26 ~14:1x (**Stage-2 first-cell canary, seed-1
 read posted: `-modeseq1-s1r` = CANARY FAIL - MECHANISM own-scope. The
 bare PPO fine-tune ERASED all three dual-BC skills by 2M — walk
 park-creep 0.44m/30s det / frozen-stance sto, hold 6/6 min-load
@@ -3123,20 +3170,26 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--1.5 STAGE-2 FIRST ARM LAUNCHED (08-26 ~12:0x, this cycle): see the
-    Last-updated banner for the full de-risking story (3 measurement
-    probes + `verify_modeseq_teachers` generalization + the completed
-    `ppo_goal_cw_standwalk_stage2_dualbc1.zip` dual-teacher BC clone).
-    `cw-standwalk-stance-mesh2-stage2-dualbc1-modeseq1[/-s1]` (2M,
-    train-0/train-1) VERIFIED RUNNING, untriaged. **Whoever triages
-    it next:** read the ledger hypothesis/gate; the registered PASS/
-    FAIL branches route to either promoting the bare-fine-tune recipe
-    or funding the `train.bc_anchor_*` (stance-only, walk-tick-off)
-    fallback per the `cw-arch-gru-dual1` precedent. If it PASSES
-    cross-seed, this closes Stage-2's first walking-source x mechanism
-    cell and the item below (-1, superseded language kept for
-    context) becomes "pre-register the NEXT cell for a robustness/
-    seed-reliability read," not a fresh design task.
+-1.5 STAGE-2 FIRST CELL: BARE FINE-TUNE CLOSED FAIL, FALLBACK IN
+    FLIGHT (08-26 ~14:2x). `cw-standwalk-stance-mesh2-stage2-dualbc1-
+    modeseq1`/`-s1` (bare RL fine-tune from the dual-teacher BC init,
+    no `train.bc_anchor_*`) BOTH CANARY FAIL - MECHANISM, cross-seed
+    replicated (hold 24/24 TERM, lower 0/6 success everywhere, walk a
+    weak near-static crawl) — full evidence in the Last-updated
+    banner. This closes the bare-fine-tune cell of the walking-source
+    x mechanism matrix as FAIL, not PASS. **Whoever triages next:**
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor1`/`-anchor1-s1`
+    (2M, the `cw-arch-gru-dual1`-proven stance-only/walk-off
+    `train.bc_anchor_*` bundle, `bc_anchor_walk=0.0`) are VERIFIED
+    RUNNING — read their own ledger gate. PASS (hold/lower termination
+    collapses to isolated, walk holds/improves) closes Stage-2's first
+    walking-source x mechanism cell for real and promotes the anchor
+    recipe; FAIL at the same majority-term signature means the
+    dual-core architecture itself leaks stance-destructive gradients
+    even with the anchor active — escalate to a routing/gradient-
+    isolation dig-in (read `bc_anchor.py`'s dual-core wiring and the
+    per-tick gradient-masking tests), do NOT fund a third anchor dose
+    or config first.
 
 -1. (context, superseded by -1.5 above) STAND_HEIGHT RUNG-5 CLOSED
     (08-26): the composed rise->hold(height-cmd)->lower lower-phase
