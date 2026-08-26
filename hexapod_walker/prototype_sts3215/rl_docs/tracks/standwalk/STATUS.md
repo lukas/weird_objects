@@ -1,6 +1,53 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~07:5x (**STAND_HEIGHT RUNG-5 JOINT CALL
+Last updated: 2026-08-26 ~09:1x (**SEGFIX JOINT CALL: REAL DIVERGENCE,
+NOT A CLEAN PASS — the composed-segment-window widen (6-8s->9-11s)
+FIXES seed1's severe flat-in-composition collapse outright but
+REGRESSES seed0, which had no such problem before. DIG-IN flagged;
+do not promote the widened window.** Own scope (`-segfix-s1`, seed 1)
+ACQUISITION PASS: the generic composed seqprobe (registered
+instrument) happened to draw ZERO flat-kind episodes in its n=12 rise
+sample (confirmed per-episode `start_kind`: rsi/crouch/bridge only,
+deterministic under the shared `--seed 0`) — untestable for the
+flat-specific hypothesis as configured, so this cycle built a
+DEDICATED flat-pinned composed probe (`goal.mode_seq_stance=1` +
+`goal.rise_flat_frac=1.0/partial=0/rsi=0` on each recipe's own segment
+window, n=12 det+sto) and ran it on BOTH seeds' segfix checkpoints
+AND their un-widened acq8m parents for a direct, matched before/after
+(4 extra CPU-pod eval passes, read-only diagnostics, on top of the
+standard gate/owncfg/seqprobe). Results: **seed 1** acq8m-s1 (6-8s
+window) 2/12 valid, 10/12 `hold_low_height` terms (herr 48-72mm) ->
+segfix-s1 (9-11s window) **12/12 valid, ZERO terms, herr 0.3-3.6mm**
+— clean, video-confirmed fix (contact sheets: genuine
+splay->tuck->full-stand every draw). **seed 0** acq8m (6-8s window)
+12/12 valid, ZERO terms, herr 0.3-1.9mm (no flat-in-composition
+problem existed) -> segfix (9-11s window) **9/12 valid, 3 NEW
+hold_low_height terms** (herr 49-52mm), video-confirmed genuine
+stall-low (crouched terminal frame, never completes the last stretch
+to full height) on the failing draws. The identical config change
+that cures seed1 (2/12->12/12) breaks seed0 (12/12->9/12) — the
+gate's own PASS branch and its FAIL branch ("unchanged or worse")
+BOTH fire on the same arm, split by seed; this is not the
+"unchanged/worse in both seeds" the gate anticipated, nor a clean
+joint pass. The `-segfix` (seed0) run itself belongs to a concurrent
+cycle — its evidence is cited here as read-only diagnostic
+cross-reference, not verdicted on its behalf. **Recommendation: do
+NOT promote the widened segment window as a blanket replacement;
+`acq8m`/`acq8m-s1` (6-8s default) remain the standing stage-1
+checkpoints.** DIG-IN flagged: root-cause why widening — which the
+Next-0.5 root-cause note predicted could only ever HELP a
+time-starved first segment — instead introduces a brand-new failure
+in seed0 (leading suspect: the flat-time-indexed BC-anchor clock is
+tuned to a ~7s reference ramp and may mis-pace differently inside a
+9-11s segment for a subset of draws than it did inside the old 6-8s
+one). SKILLS.md row added. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_standheight_rung5_acq8m_segfix_s1_{gate,
+owncfg,seqprobe,seqprobe_flat}/` (this run, own scope), `..._segfix_
+{seqprobe,seqprobe_flat}/` (sibling, cited only), `..._acq8m_
+seqprobe_flat/` + `..._acq8m_s1_seqprobe_flat/` (matched pre-fix
+baselines built this cycle). W&B `i50v00p9`.)
+
+Prior entry: 2026-08-26 ~07:5x (**STAND_HEIGHT RUNG-5 JOINT CALL
 CLOSED: the composed rise->hold(height-cmd)->lower lower-phase fix
 holds on BOTH seeds under the CORRECTED motor slew contract -- rung-5
 is closed for its own question; flat-start rise carries forward as
@@ -2544,10 +2591,27 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**STAND_HEIGHT RUNG-5 JOINT CALL CLOSED, 08-26 ~07:5x — the composed
-lower fix holds cross-seed under the CORRECTED motor contract; rung-5
-is closed for its own question, flat-start rise carries forward as
-the pre-existing open residual.** Closing the joint call the prior
+**SEGFIX JOINT CALL: REAL DIVERGENCE, 08-26 ~09:1x — the composed
+mode_seq segment-window widen (6-8s->9-11s) FIXES seed1's severe
+flat-in-composition collapse (2/12->12/12 valid, matched flat-pinned
+composed probe) but REGRESSES seed0 (12/12->9/12, 3 NEW
+hold_low_height terms) on the identical config change.** Full
+before/after numbers, video confirmation, and the recommendation
+(do NOT promote the widened window; `acq8m`/`acq8m-s1` stay the
+standing stage-1 checkpoints pending root-cause) are in the
+Last-updated banner at the top of this file — not duplicated here.
+DIG-IN flagged for the seed0 regression's root cause. Own-scope
+verdict (`-segfix-s1`) recorded; `-segfix` (seed0) belongs to a
+concurrent cycle. SKILLS.md row added. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_standheight_rung5_acq8m_segfix_s1_{gate,
+owncfg,seqprobe,seqprobe_flat}/`, `..._segfix_{seqprobe,
+seqprobe_flat}/` (sibling, cited), `..._acq8m_seqprobe_flat/` +
+`..._acq8m_s1_seqprobe_flat/` (matched baselines). W&B `i50v00p9`.
+
+Prior entry, 08-26 ~07:5x (**STAND_HEIGHT RUNG-5 JOINT CALL CLOSED —
+the composed lower fix holds cross-seed under the CORRECTED motor
+contract; rung-5 is closed for its own question, flat-start rise
+carries forward as the pre-existing open residual.** Closing the joint call the prior
 entry left open: `-s1`'s own gate/owncfg/seqprobe were confirmed
 genuinely pre-fix (`report.json.motor_contract.safety.max_delta_q_deg
 == 1.5`) this cycle — deleted those artifacts and re-ran all three on
