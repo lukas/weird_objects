@@ -1,6 +1,72 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~00:1x (**STANCEMIX-TUCKCLOCK1 JOINT CALL:
+Last updated: 2026-08-26 ~01:2x (**RECONCILING NOTE — two cycles
+independently triaged the same stdreopen pair concurrently (both saw
+it finish and picked it up as free-capacity runnable work); both
+landed CANARY FAIL - MECHANISM independently from the same evidence,
+but proposed different next steps. The queued `-acq8m`/`-acq8m-s1`
+8M continuation named below was REFUSED mechanically (missing
+`--evidence`, a launcher precondition for `acquisition`-phase
+launches — not a judgment override) and never ran; nothing is
+in flight on this lineage right now.** Given that launch didn't
+happen, the live open question is genuinely undecided: is "fund 8M
+on this exact recipe" still the right call, given (a) the flat probe
+got WORSE with std reopened (total freeze both seeds, vs the
+pinned-std parent's partial motion) rather than merely insufficient,
+and (b) the isolated `riseonly...tuckclock`/`tuckclock-acq8m` recipe
+that actually solved flat-start rise trained FROM SCRATCH at every
+budget (`--init-from None`), while every mix respec in this lineage
+(`tuckclock1`, `stdreopen`) has been warm-started from the converged
+`stancemix_bcchain3_stdanneal.zip` — "mirroring the isolated arc" via
+an 8M continuation of a warm-started checkpoint is not actually the
+same methodology the cited precedent used. Both readings agree the
+ep_rew trough shape at 2M is consistent with the isolated arm's own
+2M trough (a real, cited data point in favor of more budget), but
+neither cycle treated the from-scratch-vs-warm-started mismatch as
+resolved. **DIG-IN stands** as the honest state: next cycle picking
+this up should supply the `--evidence` the launcher demands (which
+also forces writing down which precedent — continuation vs
+from-scratch — is actually being claimed) before relaunching, not
+just retry the same REFUSED command. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_tuckclock_stdreopen{,_s1}_
+{gate,owncfg,flatprobe}/`, W&B `1g08bnoc`/`77l3258u`.)
+
+Prior entry: 2026-08-26 ~01:1x (**STDREOPEN JOINT CALL: CANARY FAIL
+on the pair's own pre-registered budget route — reopening the std at
+2M does NOT unpin flat starts in the 3-way mix; the registered next
+lever (8M on the exact recipe) is queued.** This cycle verdicted both
+`cw-standwalk-stance-mesh2-stancemix-tuckclock-stdreopen` (s0) and
+`-s1`: flat-pinned probe (rise_flat_frac=1.0/partial=0/rsi=0, det+sto
+6+6, DR-0, run by hand on train-4/5) is **24/24 over_current-
+terminated across the pair, every episode at the exact 2.64 A
+press-up ceiling, swing_count ~0 on every leg** (s0: 5 total swings
+in 12 eps; s1: 0), herr_end 2.7–25.2 mm and not settling; contact
+sheets show the identical splay→stiff-leg press-up/no-tuck signature
+as tuckclock1. The OTHER canary clauses PASS on both seeds (hold
+6/6+6/6 zero-term both; lower s0 det 5/6 + sto 5/6, s1 det 6/6 + sto
+5/6 honest; non-flat rise det 6/6 (s0) / 5/6 (s1)) — the noise
+re-injection did NOT damage hold/lower. KEY READ: ep_rew_mean FELL
+all run on both seeds (s0 4.9/-37.2/-55.8/-109.4, s1
+0.7/-28.7/-52.0/-104.8) — which precisely matches the isolated
+`riseonly...tuckclock-acq8m` trajectory at its own 2M mark (-58 and
+falling, trough -198 at 3M, then +1570 with flat rise 12/12 solved by
+8M): a 2M canary truncates this recipe mid-trough, before the 0→-4
+std anneal completes and pays off. **Refill (the gate's own
+registered FAIL route, budget not config): queued
+`...stdreopen-acq8m`/`-acq8m-s1` — exact stdreopen respec (warm from
+stancemix_bcchain3_stdanneal, mesh ref + flat clock, std 0→-4
+anneal-frac 0.5), ONLY steps 2M→8M (anneal stretches to 4M).** Gate:
+flat probe ≥10/12 valid_plant per seed, no majority 2.64A pin, hold
+≥5/6+5/6 zero-term, lower ≥5/6 honest → THE mesh stance mix ckpt,
+unblocks rungs 4-5/walk distill; FAIL (pin budget-invariant vs 2M in
+both seeds, or reward still falling at 6M) → mix-context interference
+is structural, next lever is SEQUENCING (riseonly flat acquisition
+first, then re-introduce the mix), not more budget. Watcher SUSPECT
+on -s1 was benign (normal finish at 2.03M). Evidence: `logs/
+ckpt_eval/cw_standwalk_stance_mesh2_stancemix_tuckclock_stdreopen{,_
+s1}_{gate,flatprobe}/`, W&B `1g08bnoc`/`77l3258u`.)
+
+Prior entry: 2026-08-26 ~00:1x (**STANCEMIX-TUCKCLOCK1 JOINT CALL:
 FAIL — the proven flat-start rise recipe does NOT survive porting
 into the full hold+rise+lower mix at a PINNED std; both seeds still
 pin/freeze on flat starts exactly as the canary's own pre-registered
