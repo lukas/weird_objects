@@ -13,7 +13,11 @@ servo — is a cantilever.  This variant closes the structure from the top:
 * **`chassis_top_rigid`** (print 1): a second 200 mm flat-to-flat, 4 mm
   hex FRAME (same footprint/thickness as chassis_bottom's sheet).  Six
   Φ44 full-height bosses pocket the bearings' outer races from below at
-  Φ37.15, each race retained by a complete 360° Φ34 shoulder.  A large
+  Φ37.15, each race retained by a complete 360° Φ34 shoulder, and each
+  bearing sealed from above by a **1.6 mm integral dust roof** flush
+  with the deck (user, Aug 26: the whole ring top is one continuous
+  surface; the roof is thinner than the sheet so the rotating boss tip
+  keeps a 2.4 mm air gap under it).  A large
   hex chunk of the middle (128 mm across flats) is cut out for the
   service hatch; the 140 mm `chassis_top` is not used in this variant.
 * **`top_hatch_rigid`** (print 1): a removable 4 mm hex lid over the
@@ -493,8 +497,9 @@ long.  The robot's top deck drops 14 mm vs the pre-shortening build
 | 61.55 | hip cap outer face (stock) |
 | 67.05 | pedestal top = inner-race seat |
 | 67.55 | plate ring bottom (0.5 clearance over the race seat) |
-| 74.05 | race top = Φ34 shoulder = sheet bottom |
-| 78.05 | deck face |
+| 74.05 | race top = Φ34 shoulder = sheet bottom = boss tip top |
+| 76.45 | dust-roof underside (2.4 mm air over the rotating tip) |
+| 78.05 | deck face = dust-roof top (flush, one continuous surface) |
 
 (All five planes are 14 mm lower than the pre-shortening build — 4 mm
 from the rev-3 skirt/platform delete, 5 mm from the Aug-24 M3×25
@@ -800,9 +805,11 @@ serviceable option.
 
 ## Print notes
 
-* `chassis_top_rigid`: deck face down.  Pockets then print as upward
-  blind bores (clean press walls); the Φ34→37.15 shoulder is a short
-  internal bridge, same as the bottom tower prints.
+* `chassis_top_rigid`: deck face down.  The dust roofs print first as
+  solid layers straight on the bed (no bridging), then the pockets
+  print as upward blind bores (clean press walls); the Φ34→37.15
+  shoulder is a short internal bridge, same as the bottom tower
+  prints.
 * `top_hatch_rigid`: lid face down, lip up — flat print, no supports.
 * `corner_pillar`: foot down, column up — plain solid column, no
   supports.

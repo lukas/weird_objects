@@ -177,6 +177,22 @@ BOSS_TIP_STEP = 0.575                     # stepped lead-in: tip at Phi 24.0
 BOSS_TIP_H = 0.8
 POCKET_LEADIN = 0.8                       # pocket-mouth lead-in (per side)
 
+# DUST ROOF over each top bearing (user, Aug 26): the Phi 34 shoulder
+# opening used to run clean through the sheet, leaving the bearing top
+# open to the sky.  Nothing ever needed that opening (the boss lead-in
+# tip stops exactly at the sheet BOTTOM plane, the driver holes are
+# separate), so the plate now keeps a thin integral roof at the deck
+# face -- the whole ring top is one flush surface ("all go up to the
+# same height") and dirt cannot reach the bearing from above.  The
+# roof is thinner than the sheet so the rotating parts keep an air gap
+# under it: tip top 74.05, roof underside 76.45 -> 2.4 mm running
+# clearance (asserted >= BR_ROOF_MIN_CL in check_yaw_sweep).
+BR_ROOF_T = 1.6                           # roof thickness (prints flat on
+                                          # the bed: the plate prints deck
+                                          # face down, so the pocket is now
+                                          # a true blind bore, no bridging)
+BR_ROOF_MIN_CL = 0.5                      # min rotating-vs-roof air gap
+
 PLATE_T = hp.CHASSIS_PLATE_T              # 4 -- same sheet as chassis_bottom
 CENTRE_HOLE_D = 40.0                      # wiring / standoff-wrench access
 HOLE_D = hp.BRACKET_BOLT_HOLE             # 3.4 -- M3 clearance
@@ -1057,6 +1073,22 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     print(f"  seated cap/bearing vs plate: no overlap "
           f"(race top z = {br.bounds[1][2]:.2f}, shoulder at {SHEET_Z0:.2f})")
 
+    # dust roof: solid plate directly over every bearing at the deck,
+    # with the air gap below it actually open (probe both sides)
+    roof_bot = SHEET_Z1 - BR_ROOF_T
+    probes_solid, probes_air = [], []
+    for _i, edge, _R, _R3 in hp._leg_chassis_frames():
+        x, y = float(edge[0]), float(edge[1])
+        probes_solid.append([x, y, (roof_bot + SHEET_Z1) / 2.0])
+        probes_air.append([x, y, roof_bot - 0.2])
+    assert plate.contains(np.asarray(probes_solid)).all(), \
+        "dust roof missing over a bearing (probe found air at the deck)"
+    assert not plate.contains(np.asarray(probes_air)).any(), \
+        "no air gap under a dust roof (probe found solid below it)"
+    tip_gap = roof_bot - TIP_Y1 - (CAP_FACE_W - CAP_FACE_Y)
+    print(f"  dust roof: {BR_ROOF_T:g} mm disc flush at the deck over all "
+          f"6 bearings, {tip_gap:.2f} mm air over the boss tip")
+
     # --- driver access holes: web clearances + clear line of sight ------
     holes = _access_hole_xy()
     open_vertex_r = HATCH_OPEN_APO / np.cos(np.pi / 6.0)   # 73.90
@@ -1793,11 +1825,16 @@ def check_yaw_sweep(meshes: dict[str, trimesh.Trimesh]) -> None:
         assert not bad.any(), (
             f"{key}: {int(bad.sum())} vertices sweep into the plate "
             f"(z > {RING_BOT_W - 0.5:.2f} outside the shoulder bore)")
-        # anything above the ring bottom must also stay under the shoulder
-        # plane minus nothing -- only the boss tip may pass SHEET_Z0
+        # anything above the ring bottom must also keep the running air
+        # gap under the dust roof -- only the boss tip may pass SHEET_Z0,
+        # and even the tip must stay BR_ROOF_MIN_CL under the roof
         inbore = hi & (rad <= SHOULDER_OD / 2.0 - 1.0)
         if inbore.any():
-            assert v[inbore, 2].max() <= SHEET_Z1 + 1e-6
+            roof_bot = SHEET_Z1 - BR_ROOF_T
+            top = v[inbore, 2].max()
+            assert top <= roof_bot - BR_ROOF_MIN_CL + 1e-6, (
+                f"{key}: rotating material at z {top:.2f} within "
+                f"{BR_ROOF_MIN_CL:g} mm of the dust roof ({roof_bot:.2f})")
     for phi in (0.0, 90.0, 180.0, 270.0):
         T = leg_transforms(0, yaw_deg=phi)
         for key, frame in rotating:

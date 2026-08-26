@@ -235,7 +235,8 @@ parts:
       bosses — one per yaw axis, half-bulging outboard exactly like the
       bottom towers — pocket the third bearings' outer races from BELOW
       at phi 37.15, each retained by a complete 360-deg phi 34
-      shoulder.  Carries the existing standoff pattern (4x M3 at
+      shoulder and sealed from above by a thin integral dust roof
+      flush with the deck.  Carries the existing standoff pattern (4x M3 at
       +/-31.1), the electronics-deck pattern (+/-24.75), and a phi 40
       centre access hole.  Replaces the 140 mm chassis_top deck.
       1 per robot.
@@ -274,6 +275,30 @@ parts:
             value: 44.0
             code_name: RING_OD
             description: "= bearing OD + 2x YAW_TOWER_WALL, same wall as the bottom tower."
+      dust_roof:
+        label: "1.6 mm integral dust roof over each bearing (x6)"
+        kind: "boss"
+        purpose: >-
+          The phi 34 shoulder bore used to run through the sheet,
+          leaving the bearing open to falling dirt (user, Aug 26).
+          The bore now stops 1.6 mm short of the deck, leaving a thin
+          integral roof whose top is FLUSH with the deck face (the
+          whole ring top is one continuous surface).  Thinner than
+          the 4 mm sheet on purpose: the rotating boss lead-in tip
+          stops at the sheet bottom plane, so 2.4 mm of air sits
+          between it and the roof underside (asserted >= 0.5 mm on
+          every rebuild, plus solid/air probes over all six
+          bearings).  Printed deck-face down, the roof is bed
+          layers -- no bridging.
+        dimensions:
+          roof_t:
+            label: "Roof thickness"
+            value: 1.6
+            code_name: BR_ROOF_T
+          roof_min_clearance:
+            label: "Min rotating-vs-roof air gap"
+            value: 0.5
+            code_name: BR_ROOF_MIN_CL
       cap_bolt_access:
         label: "Phi 7 driver pass-through above each inboard cap bolt (x6)"
         kind: "bore"

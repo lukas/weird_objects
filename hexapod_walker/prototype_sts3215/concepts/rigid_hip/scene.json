@@ -2870,11 +2870,11 @@
     "023-L0 knee cap"
    ],
    "limits": {
-    "min": -47.5,
+    "min": -55.0,
     "max": 30.0
    },
    "home": 0,
-   "label": "L0 hip (up-limit -47.5 due to plate)"
+   "label": "L0 hip (up-limit -55 due to plate)"
   },
   {
    "id": "L0-knee",
@@ -2947,11 +2947,11 @@
     "036-L1 knee cap"
    ],
    "limits": {
-    "min": -47.5,
+    "min": -55.0,
     "max": 30.0
    },
    "home": 0,
-   "label": "L1 hip (up-limit -47.5 due to plate)"
+   "label": "L1 hip (up-limit -55 due to plate)"
   },
   {
    "id": "L1-knee",
@@ -3024,11 +3024,11 @@
     "049-L2 knee cap"
    ],
    "limits": {
-    "min": -47.5,
+    "min": -55.0,
     "max": 30.0
    },
    "home": 0,
-   "label": "L2 hip (up-limit -47.5 due to plate)"
+   "label": "L2 hip (up-limit -55 due to plate)"
   },
   {
    "id": "L2-knee",
@@ -3101,11 +3101,11 @@
     "062-L3 knee cap"
    ],
    "limits": {
-    "min": -47.5,
+    "min": -55.0,
     "max": 30.0
    },
    "home": 0,
-   "label": "L3 hip (up-limit -47.5 due to plate)"
+   "label": "L3 hip (up-limit -55 due to plate)"
   },
   {
    "id": "L3-knee",
@@ -3178,11 +3178,11 @@
     "075-L4 knee cap"
    ],
    "limits": {
-    "min": -47.5,
+    "min": -55.0,
     "max": 30.0
    },
    "home": 0,
-   "label": "L4 hip (up-limit -47.5 due to plate)"
+   "label": "L4 hip (up-limit -55 due to plate)"
   },
   {
    "id": "L4-knee",
@@ -3255,11 +3255,11 @@
     "088-L5 knee cap"
    ],
    "limits": {
-    "min": -47.5,
+    "min": -55.0,
     "max": 30.0
    },
    "home": 0,
-   "label": "L5 hip (up-limit -47.5 due to plate)"
+   "label": "L5 hip (up-limit -55 due to plate)"
   },
   {
    "id": "L5-knee",
@@ -3314,9 +3314,9 @@
   },
   {
    "id": "femur-up-limit",
-   "name": "L0 femur at the NEW up limit (-47.5 deg abs)",
+   "name": "L0 femur at the NEW up limit (-55 deg abs)",
    "jointValues": {
-    "L0-hip": -22.5
+    "L0-hip": -30.0
    }
   }
  ],
@@ -3359,14 +3359,14 @@
      "t": 5.5,
      "jointValues": {
       "L0-yaw": 0,
-      "L0-hip": -22.5
+      "L0-hip": -30.0
      }
     },
     {
      "t": 6.5,
      "jointValues": {
       "L0-yaw": 0,
-      "L0-hip": -22.5
+      "L0-hip": -30.0
      }
     },
     {
