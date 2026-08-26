@@ -326,8 +326,11 @@ parts:
       A 4 mm hex lid (136 across flats) over the frame opening, sitting
       ON the deck face with a 1.5 mm registration lip dropping just
       inside the opening (0.3 mm/side clearance; straight drop-in
-      verified at build time).  Held by 6x M3 x 16 button-heads that
-      pass through lid AND frame into the corner-pillar top plugs,
+      verified at build time).  Held by 6x M3 x 14 button-heads that
+      pass through lid AND frame into brass HEAT-SET INSERTS in the
+      corner-pillar top plugs (user, Aug 26: the lid cycles on/off
+      constantly, so no screw may cycle a printed thread -- inserts
+      keep full screw clamp preload, i.e. the plate stiffness),
       plus the 4 chassis standoff screws (standoff stacks grow to
       ~76 mm so they anchor the hatch; chassis-hang loads run
       standoffs -> hatch -> deck face -> frame in pure
@@ -366,8 +369,10 @@ parts:
     label: "Rim pillar tying the top frame to chassis_bottom (concept)"
     aliases: ["pillar", "corner column", "rim tie"]
     description: >-
-      Solid printed column (elliptical section: 20 mm radial x 14 mm
-      tangential) at each corner azimuth (rho 81.6, az 0/60/...), from
+      Solid printed column (elliptical section: 22 mm radial x 14 mm
+      tangential; radial grown 20 -> 22 for the heat-set insert bore
+      walls, tangential -- the leg-clearance direction -- pinned) at
+      each corner azimuth (rho 81.6, az 0/60/...), from
       the bottom sheet's top face (z 2) to 0.1 mm under the frame
       sheet (z 73.95; the six bearing RACES define the plate plane,
       the screws close the gap).  This is the variant's top-to-bottom
@@ -381,7 +386,7 @@ parts:
       cylinder about its own axis (see coxa_link_rigid), and the
       column surface sits 43.24 mm from each neighbouring axis, so
       >= 5 mm clearance holds at EVERY yaw angle by construction
-      (measured 5.03 mm; envelope + distance asserted on every
+      (measured 5.01 mm; envelope + distance asserted on every
       rebuild; the hip servo never gets within 13.8 mm; clear even
       for a 360-deg hand spin).
       The foot keeps the old corner Wago-tray bay footprint but the
@@ -402,15 +407,34 @@ parts:
         z: "Up"
     features:
       top_plug:
-        label: "10 mm solid top plug with two M3 pilots"
+        label: "Solid top plug with two M3 heat-set insert stations"
         kind: "boss"
         purpose: >-
           Receives the shared hatch-perimeter screw (rho 76.2: one
-          M3 x 16 clamps lid -> frame -> pillar) and the dedicated
-          frame screw (rho 87) so the frame stays clamped with the lid
-          off.  Phi 2.5 self-tap pilots, insert-ready (phi 4 x 6
-          drill-out for 94459A130).
+          M3 x 14 clamps lid -> frame -> pillar) and the dedicated
+          frame screw (rho 87, M3 x 10) so the frame stays clamped
+          with the lid off.  Both stations are printed phi 4.0 x 8
+          install bores for M3 x ~5.7 brass heat-set inserts
+          (Ruthex RX-M3 / McMaster 94459A130), each under a shallow
+          phi 5.5 x 0.4 melt-relief counterbore so install
+          displacement stays below the seating plane and can never
+          prop the frame off the pillar.  Steel-into-brass threads
+          survive unlimited service cycles at full clamp preload
+          (user, Aug 26: frequent removal + keep the plate
+          stiffness).
         dimensions:
+          insert_bore_od:
+            label: "Insert install bore diameter"
+            value: 4.0
+            code_name: INSERT_BORE_OD
+          insert_bore_depth:
+            label: "Insert install bore depth"
+            value: 8.0
+            code_name: INSERT_BORE_DEPTH
+          insert_relief_od:
+            label: "Melt-relief counterbore diameter"
+            value: 5.5
+            code_name: INSERT_RELIEF_OD
           top_gap:
             label: "Nominal gap under the frame sheet"
             value: 0.1

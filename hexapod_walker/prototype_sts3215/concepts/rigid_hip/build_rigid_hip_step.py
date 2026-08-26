@@ -197,14 +197,21 @@ def make_corner_pillar() -> object:
                (rv.PILLAR_RHO - rv.PILLAR_OD / 2.0 - 2.0, 0.0,
                 rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T / 2.0))
     body = step._union(col, bar, tab)
-    cuts = [
-        _cyl_z(rv.PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
-               x=rv.HATCH_SCREW_RHO),
-        _cyl_z(rv.PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
-               x=rv.PILLAR_FRAME_SCREW_RHO),
+    # Both top screw stations take an M3 x 5.7 HEAT-SET INSERT (user,
+    # Aug 26: frequent hatch/plate removal must not cycle printed
+    # threads): the Phi 4.0 install bore, plus a shallow Phi 5.5 x 0.4
+    # relief so insert melt displacement stays below the seating plane.
+    cuts = []
+    for station_rho in (rv.HATCH_SCREW_RHO, rv.PILLAR_FRAME_SCREW_RHO):
+        cuts.append(_cyl_z(rv.INSERT_BORE_OD / 2.0,
+                           top_z - rv.INSERT_BORE_DEPTH, top_z + 1.0,
+                           x=station_rho))
+        cuts.append(_cyl_z(rv.INSERT_RELIEF_OD / 2.0,
+                           top_z - rv.INSERT_RELIEF_DEPTH, top_z + 1.0,
+                           x=station_rho))
+    cuts.append(
         _cyl_z(rv.HOLE_D / 2.0, rv.PILLAR_BOT_Z - 1.0,
-               rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T + 1.0, x=rv.PILLAR_TAB_RHO),
-    ]
+               rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T + 1.0, x=rv.PILLAR_TAB_RHO))
     for sy in (+1.0, -1.0):
         cuts.append(_cyl_z(rv.HOLE_D / 2.0, rv.PILLAR_BOT_Z - 1.0,
                            rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T + 1.0,

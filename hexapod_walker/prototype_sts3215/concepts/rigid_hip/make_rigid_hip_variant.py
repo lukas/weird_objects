@@ -31,9 +31,12 @@ pair.  This variant closes the loop from the TOP:
     couple actually wants to react (push at the bottom tower, pull at
     the top ring) and where torsional leverage is ~4x the old standoff
     radius.  Each pillar doubles as the lid-screw boss: the hatch
-    perimeter screw threads into the pillar top through the frame; one
-    dedicated frame screw per pillar keeps the frame clamped with the
-    lid off; two M3 through-bolts with belly nylocs hold each foot
+    perimeter screw threads through the frame into an M3 BRASS HEAT-SET
+    INSERT in the pillar top, and one dedicated frame screw per pillar
+    (its own insert) keeps the frame clamped with the lid off -- both
+    stations survive unlimited on/off cycles at full screw preload
+    (user, Aug 26: frequent removal + keep the plate stiffness).
+    Two M3 through-bolts with belly nylocs hold each foot
     through printed holes in ``chassis_bottom_rigid`` (on a STOCK
     chassis print: drill them using the foot as the jig).  The four
     central 90 mm standoffs remain only as hatch/electronics anchors.
@@ -210,7 +213,22 @@ HATCH_EAR_OD = 9.0                        # round lid ears around the screws:
                                           # ~0.3 mm wall at the hole (hub
                                           # check caught it); the ear gives
                                           # a 2.8 mm annulus, over solid frame
-PILOT_OD = hp.CLAMP_BOLT_PILOT_OD         # 2.5 -- M3 self-tap (insert-ready)
+# HEAT-SET INSERTS at both pillar-top screw stations (user, Aug 26: the
+# hatch/plate come off "a lot" -- self-tapped PETG threads would strip;
+# "but I also want the stiffness of the plate" rules out magnets /
+# quarter-turn latches, which cannot deliver the clamp preload the rim
+# force couple needs).  M3 x 5.7 brass inserts (Ruthex-style, Phi 4.6
+# knurl): steel-into-brass threads survive unlimited service cycles at
+# the SAME screw clamping, so the joint stiffness is unchanged.
+INSERT_BORE_OD = 4.0                      # install bore for the M3 insert
+INSERT_LEN = 5.7                          # insert length (flush at the top)
+INSERT_BORE_DEPTH = 8.0                   # bore depth: insert + 2.3 tip room
+INSERT_RELIEF_OD = 5.5                    # shallow top counterbore: melt
+INSERT_RELIEF_DEPTH = 0.4                 # displacement stays BELOW the
+                                          # seating plane (races define the
+                                          # plate plane; a proud melt ring
+                                          # would prop the frame off the
+                                          # pillar and rock the joint)
 
 # Corner pillars (user, Aug 23 eve): the top-bottom tie must carry each
 # hip moment's force couple as RIM SHEAR (push at the bottom tower, pull
@@ -222,10 +240,23 @@ PILOT_OD = hp.CLAMP_BOLT_PILOT_OD         # 2.5 -- M3 self-tap (insert-ready)
 # leverage scales with r^2.
 # Each pillar doubles as the lid-screw boss: the hatch perimeter screw
 # passes lid -> frame -> pillar top, and one dedicated frame screw per
-# pillar keeps the frame clamped with the lid off.  The four central
+# pillar keeps the frame clamped with the lid off.  Both stations take
+# M3 HEAT-SET INSERTS (see the INSERT_* block above): M3x14 for the
+# shared lid screw (lid 4 + frame 4 + 5.7 engagement), M3x10 for the
+# dedicated frame screw (frame 4 + 5.7).  The four central
 # standoffs remain only as hatch/electronics anchors.
-PILLAR_OD = 20.0                          # column RADIAL outer diameter
-PILLAR_TAN_SCALE = 0.7                    # ELLIPTICAL section: tangential
+PILLAR_OD = 22.0                          # column RADIAL outer diameter
+                                          # (20 -> 22 with the heat-set
+                                          # inserts: the Phi 4.0 bores at
+                                          # +/-5.4 from centre keep a
+                                          # 3.6 mm radial edge wall; the
+                                          # TANGENTIAL width is pinned at
+                                          # 14 below, so leg clearance is
+                                          # untouched)
+PILLAR_TAN_OD = 14.0                      # tangential outer width, PINNED
+                                          # (this is the leg-clearance
+                                          # direction -- do not grow it)
+PILLAR_TAN_SCALE = PILLAR_TAN_OD / PILLAR_OD  # ELLIPTICAL section: tangential
                                           # half-axis 7 (a round Phi 20 was
                                           # a measured graze on the coxa
                                           # sweep at 2.9 mm; slimming the
@@ -1522,8 +1553,8 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
 def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
     """Corner pillars: land exactly on the bottom sheet, stop PILLAR_TOP_GAP
     short of the frame (races define the plate plane, screws close the
-    gap), keep their screw pilots inside the solid plug, and stay clear
-    of every leg through the whole operating yaw range with margin."""
+    gap), keep their heat-set insert bores inside the solid plug, and stay
+    clear of every leg through the whole operating yaw range with margin."""
     pillar = meshes["corner_pillar"]
     b = pillar.bounds
     assert abs(b[0][2] - PILLAR_BOT_Z) < 1e-3, "pillar foot not on the sheet"
@@ -1533,12 +1564,24 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
     print(f"  corner_pillar: {vol:.1f} cm3 (~{vol * 1.27:.0f} g PETG), "
           f"top gap {PILLAR_TOP_GAP:g} mm under the frame")
 
-    # screw pilots must sit deep inside the Phi 20 plug with real webs
+    # insert bores must sit deep inside the plug with real walls: the
+    # RADIAL edge wall (thinnest direction), the TANGENTIAL ellipse wall
+    # at each station's offset, and the web between the two bores.
     for rho in (HATCH_SCREW_RHO, PILLAR_FRAME_SCREW_RHO):
-        edge = PILLAR_OD / 2.0 - abs(rho - PILLAR_RHO) - PILOT_OD / 2.0
-        assert edge >= 3.0, f"pilot at rho {rho:g}: only {edge:.2f} mm wall"
-    web = abs(HATCH_SCREW_RHO - PILLAR_FRAME_SCREW_RHO) - PILOT_OD
-    assert web >= 2.0, f"only {web:.2f} mm between the two top pilots"
+        off = abs(rho - PILLAR_RHO)
+        edge = PILLAR_OD / 2.0 - off - INSERT_BORE_OD / 2.0
+        assert edge >= 3.0, \
+            f"insert bore at rho {rho:g}: only {edge:.2f} mm radial wall"
+        half_tan = (PILLAR_TAN_OD / 2.0) \
+            * np.sqrt(1.0 - (off / (PILLAR_OD / 2.0)) ** 2)
+        tan_wall = half_tan - INSERT_BORE_OD / 2.0
+        assert tan_wall >= 3.0, \
+            f"insert bore at rho {rho:g}: only {tan_wall:.2f} mm tangential wall"
+    web = abs(HATCH_SCREW_RHO - PILLAR_FRAME_SCREW_RHO) - INSERT_BORE_OD
+    assert web >= 2.0, f"only {web:.2f} mm between the two insert bores"
+    print(f"  pillar insert bores: Phi {INSERT_BORE_OD:g} x "
+          f"{INSERT_BORE_DEPTH:g} for M3x{INSERT_LEN:g} heat-set "
+          f"(melt relief Phi {INSERT_RELIEF_OD:g} x {INSERT_RELIEF_DEPTH:g})")
 
     placed = _pillar_meshes(meshes)
     # seated robot: every pillar vs every leg's static parts + both plates

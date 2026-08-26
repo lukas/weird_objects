@@ -26,8 +26,10 @@ servo — is a cantilever.  This variant closes the structure from the top:
 * **`corner_pillar`** (print 6): plain solid elliptical columns at the
   six corner azimuths tying the frame to chassis_bottom at the RIM —
   the actual top↔bottom structural connection (see below).  Each
-  stands where a corner Wago tray used to be and doubles as the boss
-  its hatch perimeter screw threads into.
+  stands where a corner Wago tray used to be and doubles as the screw
+  boss for the hatch + frame screws — both stations carry **printed-in
+  M3 heat-set insert bores** so frequent lid/plate removal never
+  cycles a plastic thread (user, Aug 26).
 * **`coxa_link_rigid`** (print 6): the production coxa with four
   variant edits — servo-cradle corners rounded to the 38.2 mm yaw
   envelope so the plain columns clear the swinging leg by 5 mm at
@@ -514,12 +516,16 @@ the bearing rings are):
 * **Lid**: 4 mm hex (136 across flats) sitting ON the deck face with a
   1.5 mm registration lip dropping just inside the opening (0.3 mm/side
   clearance — straight drop-in verified at build time).
-* **Retention**: 6× M3×16 button-heads that pass through the lid AND
-  the frame into the corner pillars' top plugs (Φ2.5 self-tap pilots,
-  insert-ready: drill Φ4 × 6), PLUS the 4 chassis standoff screws,
-  which now pass through the hatch into the standoffs.  Chassis-hang
-  loads run standoffs → hatch → deck face → frame in pure compression;
-  the screws only see rebound.
+* **Retention**: 6× M3×14 button-heads that pass through the lid AND
+  the frame into **brass heat-set inserts in the corner pillar tops**
+  (user, Aug 26: the lid comes off "a lot", so no screw ever cycles a
+  printed thread — steel-into-brass survives unlimited service at full
+  clamp preload, which is what keeps the plate's stiffness; magnets /
+  quarter-turn latches were rejected for exactly that reason), PLUS
+  the 4 chassis standoff screws, which now pass through the hatch into
+  the (metal-threaded) standoffs.  Chassis-hang loads run standoffs →
+  hatch → deck face → frame in pure compression; the screws only see
+  rebound.
 * **Interior access** = remove 10 screws (6 perimeter + 4 standoff)
   and lift the lid — the frame, bearings and legs are untouched.  The
   disc-horn clamp screws under the rings still need the full
@@ -536,15 +542,16 @@ hatch/electronics anchors only.  The tie is six printed pillars at the
 corner azimuths (rho 81.6, between adjacent legs — the only rim
 territory outside every swing envelope):
 
-* **Column**: plain solid ellipse, 20 mm radial × 14 mm tangential,
-  z 2 → 73.95, ~22 g each in PETG.  Clearance to the swinging legs is
+* **Column**: plain solid ellipse, 22 mm radial × 14 mm tangential
+  (grown 20 → 22 radially for the insert bores' walls; the TANGENTIAL
+  width — the leg-clearance direction — is pinned at 14), z 2 → 73.95,
+  ~24 g each in PETG.  Clearance to the swinging legs is
   **not** the column's problem: every part that rotates with a yaw
   joint is kept inside a **38.2 mm envelope** about its own axis (the
   coxa's cradle corners are rounded to that arc — see
   `coxa_link_rigid` below; the hip cap already fits at 37.0, the
-  servo at 29.4).  The column surface sits 43.2 mm from each
-  neighbouring axis, so **≥ 5 mm clearance holds at every yaw angle
-  by construction** — measured 5.03 mm at build time, envelope and
+  servo at 29.4).  **≥ 5 mm clearance holds at every yaw angle
+  by construction** — measured 5.01 mm at build time, envelope and
   distance both asserted on every rebuild, verified clear for a full
   360° hand-spin of a disassembled leg.
 * **`coxa_link_rigid`** (print 6): the production coxa with its two
@@ -556,10 +563,15 @@ territory outside every swing envelope):
   is a variant coxa print.
 * **Top**: stops 0.1 mm short of the frame sheet (the six bearing
   RACES define the plate plane — the screws pull the sheet down onto
-  the pillar; sand/shim a proud pillar, never let it rock).  Two Φ2.5
-  pilots in a 10 mm solid plug: the hatch perimeter screw (one M3×16
-  clamps lid → frame → pillar) and a dedicated frame screw at rho 87
-  so the frame stays clamped with the lid off.
+  the pillar; sand/shim a proud pillar, never let it rock).  Two **M3
+  heat-set insert stations** in the solid plug (Φ4.0 × 8 install
+  bores, each under a shallow Φ5.5 × 0.4 melt-relief counterbore so
+  insert install displacement stays BELOW the seating plane and can
+  never prop the frame): the hatch perimeter screw (one M3×14 clamps
+  lid → frame → pillar) and a dedicated frame screw at rho 87 (M3×10)
+  so the frame stays clamped with the lid off.  Walls asserted every
+  build: 3.6 mm radial edge, ≥ 3 mm tangential, 6.8 mm web between
+  the bores.
 * **Foot = the old corner Wago tray bay**: production chassis_bottom
   grows a three-walled tray for a 5-way Wago at every corner flat.
   With the top frame on, those Wagos would be buried under solid deck
@@ -670,9 +682,15 @@ variation only moves parts that stay outboard/below the plate.
   78.05; e.g. 40+36 F-F, or M3 threaded rod in printed sleeves) + M3
   screws down through the hatch into the stack tops — **non-structural**
   in this variant (hatch/electronics anchors only)
-* 6× M3×16 button-heads for the hatch perimeter (through lid + frame
-  into the pillar plugs)
-* 6× M3×10 for the dedicated frame→pillar screws
+* **12× M3 brass heat-set inserts** (~5.7 mm long, e.g. Ruthex RX-M3
+  or McMaster 94459A130) for the pillar tops — 2 per pillar, printed
+  Φ4.0 × 8 bores with melt-relief counterbores; install with a
+  soldering iron (~230 °C for PETG) before the pillars are bolted down
+* 6× M3×14 button-heads for the hatch perimeter (through lid + frame
+  into the pillar-top inserts; lid 4 + frame 4 + ~5.7 engagement — an
+  M3×16 would bottom out in the 8 mm bore)
+* 6× M3×10 for the dedicated frame→pillar screws (into the second
+  insert of each pillar)
 * 18× M3×12 + 18× M3 nyloc nuts for the pillar feet (belly side)
 * the 140 mm `chassis_top` deck + its 20 mm standoffs are not used
 * **−4 Wago 221-415**: the 6 corner + 2 trunk nuts become 4 in
@@ -688,8 +706,9 @@ variation only moves parts that stay outboard/below the plate.
   foot holes, corner Wago trays deleted.  (The Aug-25 lowered pocket
   makes the reprint effectively mandatory — see the bench-mod note
   above)
-* recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
-  cap pilots, +12 for the pillar-top pilots — see "Disassembly & service"
+* recommended: 12× more M3 heat-set inserts for the hip cap pilots
+  (drill-and-fit, see "Disassembly & service") — the pillar-top pair
+  is already printed-in and counted above
 
 ## Assembly order
 
@@ -710,11 +729,12 @@ variation only moves parts that stay outboard/below the plate.
    chassis solid), seat 4× 221-415, jumper each pair, land the battery
    leads through the trunk pass into the east ports and each leg's
    (lengthened) pigtails into the fan-out ports.  The 6 corner and 2
-   trunk nuts are retired.  Then sit each `corner_pillar` flat on the
-   sheet at its corner flat and bolt down with M3×12 + belly nylocs
-   through the printed foot holes (stock chassis: the tray walls are
-   still there — drop the foot between them and drill first, using
-   the foot as the jig).
+   trunk nuts are retired.  Then heat-set the two M3 inserts into each
+   `corner_pillar` top (flush or a hair below — the relief counterbore
+   catches the melt), sit each pillar flat on the sheet at its corner
+   flat and bolt down with M3×12 + belly nylocs through the printed
+   foot holes (stock chassis: the tray walls are still there — drop
+   the foot between them and drill first, using the foot as the jig).
 3. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
 4. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time —
@@ -722,8 +742,8 @@ variation only moves parts that stay outboard/below the plate.
    the shoulders touch the race tops, then drive the 6 frame→pillar
    screws.
 5. Drop `top_hatch_rigid` into the frame opening (lip registers), drive
-   the 6 perimeter M3×16s into the pillar plugs and the 4 standoff
-   screws.
+   the 6 perimeter M3×14s into the pillar-top inserts and the 4
+   standoff screws.
 
 ## Disassembly & service — the cap is a captive bearing carrier
 
@@ -738,7 +758,8 @@ line-of-sight for a Φ6.5 driver shaft down to the cap counterbore.
 
 * **Any service** (hip servo swap, leg work, plate off): set legs to
   yaw 0, remove the 6 inboard cap screws through the access holes, the
-  6 outboard screws, the 6 frame→pillar screws and the 4 standoff
+  6 outboard screws, the 6 frame→pillar screws (into pillar-top brass
+  inserts — cycle them as often as you like) and the 4 standoff
   screws — 22 screws, all from above/outside, **zero force** — then
   lift the plate: all six caps and bearings come with it as one rigid
   subassembly, leaving every hip servo sitting open in its cradle (the
