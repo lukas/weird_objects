@@ -2851,7 +2851,56 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**ANCHOR-LEAK FIX CONFIRMED CROSS-SEED (08-26 ~19:2x) — walk is
+**anchor3/-anchor3-s1 TRAINING DONE (2.03M/2M both, W&B finished ~19:50)
+but eval copy-back INFRA-STALLED, not stuck — fixed with new detached
+tooling, no verdict yet (08-26 ~21:0x idle-kick).** Both W&B runs
+finished cleanly. The automatic prestage eval (`pod_eval.py`, launched
+19:39:45) died on the CONTROLLER side — root-caused this cycle: the
+live `watch_loop.py` process (running since Aug 9, never restarted)
+holds STALE in-memory code with a shorter subprocess wrapper timeout
+than what's on disk today (orchestrator.log shows a `TimeoutExpired(...,
+3300)` at 20:34:45; no `3300` constant exists anywhere in the current
+source — the on-disk value is 7500s). Confirmed via `ps aux` on both
+pods that the actual remote `kubectl exec`'d `eval_checkpoint`
+processes were UNAFFECTED and kept computing correctly the whole time
+(healthy CPU load, new episode videos appearing every 1-3 min,
+including a `--start-jitter-panel` epilogue on `walk` that adds 12 more
+episodes per pass beyond the visible per-mode count — the real reason
+this run's eval takes longer wall-clock than anchor2's). Nothing was
+ever going to copy the finished artifacts back or write
+`_prestage.synced`, and the watcher's `reap_cycles` marks a triage
+cycle's runs `processed` on ANY rc==0 exit whether or not a verdict
+landed — so BOTH the 19:39 triage cycle and the 20:00 idle-kick that
+correctly read "still mid-flight, do not touch" left these two runs
+invisible to the normal newly-finished poll forever, a real leak (only
+surfaces via track-STATUS "Next", which is why this note exists).
+**Fix, code landed this cycle:** `rl_move/orchestrator/
+resume_orphaned_eval.py` — finishes only the copy-back half of
+`pod_eval.py`'s job (poll for remote `report.json`, `kubectl cp` it
+back, write the same `SYNCED` line + the `_prestage.synced` sentinel)
+for a run already mid-eval on its pod, with ZERO new compute /
+duplicate CPU contention. Smoke-tested (15s bounded timeout against
+the still-running anchor3-s1: correctly reports TIMEOUT, writes no
+false-ready sentinel once the stray test artifact was cleaned up), then
+launched DETACHED (`nohup`+`disown`, survives this cycle ending) for
+both `anchor3` and `anchor3-s1`, 5400s bound, logs
+`/tmp/resume_orphaned_eval_<run>.log`. As of this note: gate 12/24,
+owncfg 14/24, s1_gate 22/24 (closest), s1_owncfg 12/24 jitter-panel
+files synced-pending: ETA roughly 15-20 more minutes at the observed
+~1 episode/1.5-3min pace (2 eval jobs sharing CPU per pod slows both).
+**Next cycle: do NOT run `ops.sh podeval`/relaunch anything on these
+two names (would duplicate the still-running remote processes).**
+Just check `ls logs/ckpt_eval/*stage2_dualbc1_anchor3*_prestage.synced`
+or tail the `/tmp/resume_orphaned_eval_*.log` files; once both
+sentinels exist, `ops.sh review`/`ops.sh report` and verdict against
+the pre-registered LEAK-STAYS-FIXED / DOSE-WORKS / FAIL branches in the
+ledger gate text (unchanged, still valid). If not yet ready, this is a
+genuine no-op wait, not a rediscovery — do not re-investigate, just
+note the same ETA math and idle. Committed this cycle: `debe1433`
+(tool) + `016d39d7` (landed the PRIOR cycle's uncommitted anchor2
+verdict docs, which had also never made it to git — see RL_LOG).
+
+Previous entry, 08-26 ~19:2x (**ANCHOR-LEAK FIX CONFIRMED CROSS-SEED — walk is
 repaired, stance is the gate's own registered FAIL-B, dose-raise pair
 launched.** `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2`/`-s1`
 (anchor1's exact recipe, ONE change: `train.bc_anchor_isolate_update=1`)
