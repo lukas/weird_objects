@@ -1,6 +1,48 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~18:0x (**ANCHOR-LEAK ROOT CAUSE FOUND, FIX
+Last updated: 2026-08-26 ~21:3x (**IDLE-KICK DRAIN: anchor3/-anchor3-s1
+dose-raise CLOSED (CANARY PASS/DOSE-WORKS FAIL), full-mix stdanneal
+PARTIAL with a strong lower win, two new arms launched.** Cleared the
+untriaged-finished queue left by the prior cycle's infra-stall detour:
+(1) `anchor3`/`-anchor3-s1` (bc_anchor_coef 3.0->6.0 on the leak-fixed
+dual-core recipe) both **CANARY PASS** on mechanism health -- the
+isolate_update leak-fix survives 2x dose, walk/det stays clean both
+seeds (gait_valid 6/6, prog 0.29-0.43, zero sacrificed legs, no
+anchor1-class catastrophe) -- but the **DOSE-WORKS branch FAILS**:
+hold/sto stays an unchanged total 6/6 `hold_min_load` termination at
+both DR-0 and own-DR(0.5), bit-for-bit anchor2's own coef=3.0
+signature. `bc_anchor_coef` is confirmed NOT the lever for the
+stochastic hold collapse -- do not raise it further. Seed-1 flagged a
+caution worth remembering: its walk/sto gait_valid dropped 6/6->2/6
+with new leg-sacrifice/over_current at the higher dose (seed0 stayed
+clean) -- a real but partial fragility increase, not a full
+catastrophe. (2) `stancemix-bcchain3-stdanneal` (full hold+rise+lower
+mix, std-annealed, 8M) **PARTIAL**: lower is now the BEST result of
+the whole campaign (6/6 det+sto clean, zero terms, both DR-0 and
+own-DR 0.2), DR-0 hold is also clean (6/6 both modes, zero terms), but
+**rise remains the bottleneck** -- barely clears its own >=2/6 DR-0
+bar (2/6, rest over_current/tilt_pitch) and collapses to 0/6 (all
+over_current) at own-DR; video confirms hold/lower are clean planted
+crouches but rise is still a splayed non-stand even in nominally-
+passing episodes. Reward was still climbing hard at cutoff (quarters
+-76/-148/204/632, Q4 >> Q3) -- the 08-21 continue signal, not a
+plateau. **Two refills launched off these reads** (both VERIFIED
+RUNNING): `cw-standwalk-stance-mesh2-stancemix-bcchain3-stdanneal-
+cont1` (train-0, same recipe +8M/16M total, single lever = budget,
+tests whether rise keeps climbing now that hold/lower are solved) and
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor4-stdanneal` (train-1,
+anchor2's leak-fixed dual-core recipe, coef reverted to 3.0, + the
+SAME `--log-std-anneal-frac 0.5 --log-std-final -4.0` schedule that
+just solved hold in isolation AND in the full-mix -- testing whether
+the dual-core's own hold/sto failure is the same exploration-noise
+artifact rather than a structural dose problem). Also closed two
+stale ledger-housekeeping items with no story change: `holdterm40-s1`
+(seed twin of an already-superseded rung-5 FAIL, deferred and
+forgotten 08-25) and the cross-track `cw-amp-m4-turnpushfault1-
+style05-ypfix1-r3` (fully narrated FAIL from 08-23, ledger field never
+flipped). Prior banner below.)
+
+Previous entry, 2026-08-26 ~18:0x (**ANCHOR-LEAK ROOT CAUSE FOUND, FIX
 LANDED + TESTED, REPAIRED PAIR RUNNING.** The pre-registered
 routing/gradient-isolation dig-in on `-anchor1`/`-anchor1-s1` closed
 with a mechanical answer: the stance-only anchor never leaked
