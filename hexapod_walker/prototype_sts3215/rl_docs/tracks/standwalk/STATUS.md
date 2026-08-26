@@ -1,6 +1,63 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~14:2x (**Stage-2 first-cell JOINT CALL
+Last updated: 2026-08-26 ~16:4x (**Stage-2 FALLBACK CELL ALSO CLOSED
+FAIL: `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor1`(seed0) /
+`-anchor1-s1`(seed1), the `cw-arch-gru-dual1`-proven stance-only/
+walk-off `bc_anchor` fallback (coef=3.0, `bc_anchor_walk=0.0`), BOTH
+CANARY FAIL - MECHANISM, cross-seed replicated, real per-episode
+report.json, DR-0 + own-DR(0.5), det+sto (4 full reads).** Plain
+English: pulling PPO's stance-tick gradients back toward the proven
+mesh teacher does NOT rescue hold/lower to isolated failure, AND it
+additionally wrecks walk far worse than the bare fine-tune it was
+meant to fix — the fallback is a bigger regression than the problem.
+**hold**: sto success is **0/6 in all four reads** (both seeds, both
+DR) — the parent's exact 6/6-TERM signature survives completely
+unchanged on the stochastic axis; det partially recovers (5/6 seed0,
+4/6 seed1 at DR-0) but is DR-sensitive, collapsing to 3/6 and 2/6 at
+own-DR — never isolated on both det+sto together, either seed.
+**lower**: best single cell is 5/6 (seed1, DR-0, sto) but its own
+det companion the same seed same DR is only 4/6, and own-DR drags
+both back to 2-3/6 — the gate needs BOTH cells isolated (<=1/6 fail)
+simultaneously; never achieved anywhere. Video: stuck mid-crouch,
+worst_clear 34-52mm, never completes the plant. **walk: 0/6 success
+in ALL 8 walk cells (2 seeds x 2 DR x det/sto)** — catastrophically
+worse than the bare fine-tune's own weak-but-positive crawl
+(prog_ratio 0.19-0.38 on modeseq1) — and the two seeds fail in TWO
+DIFFERENT new ways: seed0 is a near-total leg-sacrifice freeze
+(`sacrificed_legs` 5 of 6, prog_ratio -0.004..+0.06); seed1 is a
+high-slip shuffle-in-place (`gait_valid` nominally True/legs cycling,
+but prog_ratio NEGATIVE, slip/m 44-49, ~15x the 2.9 joystick cap).
+Both contact sheets (walk_det_0, both seeds) show a static splayed
+stance with ZERO visible translation across the full 30s strip.
+Reward both seeds: healthy BC-init Q1 (+37/+39) -> deep Q3 trough
+(-344/-456) -> still deeply negative Q4 (-112/-122, never recovers) —
+aligned bad-and-stuck per the 08-21 ruling, not a rising-reward
+continuation case. **This fires the gate's own pre-registered
+escalation exactly, and in a stronger form than anticipated**: not
+only does hold/lower stay majority-fail at the parent's own
+signature, the anchor also destabilizes the walk head it was
+explicitly built to leave unconstrained — evidence the dual-core
+routing leaks the massive (coef=3.0) stance-anchor gradient into
+walk/shared-value-function territory, not just failing to reach
+hold/lower. **Per the gate's own text: do NOT fund a third
+stance-anchor dose/config.** Next owner: a routing/gradient-isolation
+dig-in reading `bc_anchor.py`'s dual-core wiring + the per-tick
+gradient-masking tests to find where stance-tick gradients bleed into
+walk-tick parameters, before any further arm on this lever.
+**Also corrected this cycle**: `-anchor1-s1`'s original attempt had
+been mis-recorded `CANARY FAIL - INFRASTRUCTURE`/KILLED by an earlier
+pass of this same cycle acting on a stale "deadlock" read; fresh W&B
+evidence (state=finished, global_step 2031616, full 787-row history,
+real exported checkpoint byte-identical in size to seed0's) shows it
+actually completed cleanly — the same false-positive shape already
+seen on `modeseq1-s1r`. The infra-retry it spawned (`-anchor1-s1-r1`)
+was killed this cycle at ~1.05M/1M-target steps (superseded, no skill
+data, negligible compute lost); this verdict uses the ORIGINAL
+checkpoint's real reads. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_anchor1{,_s1}_{gate,
+owncfg}/`, W&B `sqprmus4`/`g6hghec7`. Prior banner below.)
+
+Previous entry, 2026-08-26 ~14:2x (**Stage-2 first-cell JOINT CALL
 CLOSED: `cw-standwalk-stance-mesh2-stage2-dualbc1-modeseq1`(seed0) /
 `-modeseq1-s1`(seed1) both CANARY FAIL - MECHANISM, cross-seed
 replicated with real per-episode report.json data (not just cached
@@ -3170,26 +3227,37 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--1.5 STAGE-2 FIRST CELL: BARE FINE-TUNE CLOSED FAIL, FALLBACK IN
-    FLIGHT (08-26 ~14:2x). `cw-standwalk-stance-mesh2-stage2-dualbc1-
-    modeseq1`/`-s1` (bare RL fine-tune from the dual-teacher BC init,
-    no `train.bc_anchor_*`) BOTH CANARY FAIL - MECHANISM, cross-seed
-    replicated (hold 24/24 TERM, lower 0/6 success everywhere, walk a
-    weak near-static crawl) — full evidence in the Last-updated
-    banner. This closes the bare-fine-tune cell of the walking-source
-    x mechanism matrix as FAIL, not PASS. **Whoever triages next:**
-    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor1`/`-anchor1-s1`
-    (2M, the `cw-arch-gru-dual1`-proven stance-only/walk-off
-    `train.bc_anchor_*` bundle, `bc_anchor_walk=0.0`) are VERIFIED
-    RUNNING — read their own ledger gate. PASS (hold/lower termination
-    collapses to isolated, walk holds/improves) closes Stage-2's first
-    walking-source x mechanism cell for real and promotes the anchor
-    recipe; FAIL at the same majority-term signature means the
-    dual-core architecture itself leaks stance-destructive gradients
-    even with the anchor active — escalate to a routing/gradient-
-    isolation dig-in (read `bc_anchor.py`'s dual-core wiring and the
-    per-tick gradient-masking tests), do NOT fund a third anchor dose
-    or config first.
+-1.6 STAGE-2 FIRST CELL FULLY CLOSED, BOTH MECHANISMS FAIL (08-26
+    ~16:4x). Both the bare RL fine-tune (`modeseq1`/`-s1`) AND its
+    pre-registered stance-only/walk-off `bc_anchor` fallback
+    (`anchor1`/`-anchor1-s1`) are now CANARY FAIL - MECHANISM,
+    cross-seed replicated, DR-0 + own-DR(0.5), det+sto — full evidence
+    in the Last-updated banner and prior banner below. The anchor
+    fallback is WORSE than the thing it was meant to fix: hold/lower
+    never reach isolated failure on both det+sto in either seed, and
+    walk collapses from a weak-but-positive crawl to 0/6 success
+    everywhere with two DIFFERENT severe new pathologies per seed
+    (leg-sacrifice freeze vs. high-slip shuffle-in-place) — evidence
+    the coef=3.0 stance-anchor gradient leaks into walk/shared-value
+    territory, not just fails to reach hold/lower. **Per both gates'
+    own text: do NOT fund a third anchor dose/config.** REAL NEXT
+    STEP (dig-in scope, not a triage-cycle launch): read
+    `bc_anchor.py`'s dual-core wiring and the per-tick
+    gradient-masking tests to find where/why stance-tick gradients
+    reach walk-tick parameters (or a shared value head) despite
+    `bc_anchor_walk=0.0` — candidates: a shared trunk upstream of the
+    two heads, a shared critic/value function the huge anchor loss
+    dominates, or an optimizer-state-level interaction (Adam moments
+    shared across the whole network even when per-tick loss masking
+    is correct). Only after that root cause is named should a new
+    mechanism (true parameter-level isolation, a second optimizer,
+    or a smaller anchor coefficient with a verified-isolated gradient
+    path) be designed and gated. Until this dig-in lands, standwalk
+    stage-2 has no fundable arm on the dual-core-BC-init lineage; the
+    stage-1 mesh stance checkpoints (`acq8m`/`acq8m-s1`) remain the
+    best available stance teachers and stotight45-seed13 remains the
+    walking source for whatever composition mechanism the dig-in
+    recommends next.
 
 -1. (context, superseded by -1.5 above) STAND_HEIGHT RUNG-5 CLOSED
     (08-26): the composed rise->hold(height-cmd)->lower lower-phase
