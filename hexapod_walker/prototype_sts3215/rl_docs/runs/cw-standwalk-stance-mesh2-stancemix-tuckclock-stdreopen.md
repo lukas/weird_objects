@@ -1,0 +1,20 @@
+# cw-standwalk-stance-mesh2-stancemix-tuckclock-stdreopen
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-26T00:11:47+00:00
+
+**pod**: hexapod-mjx-train-4
+
+**steps**: 2000000
+
+**parent**: cw-standwalk-stance-mesh2-stancemix-tuckclock1
+
+**wandb_id**: 1g08bnoc
+
+**hypothesis**: Does the proven flat-start rise recipe (mesh-native scripted ref + flat-time-indexed BC-anchor clock) transfer into the full hold+rise+lower mix once exploration noise is restored, instead of the pinned std that just FAILED (stancemix-tuckclock1 pair: flat probe pinned/froze in both seeds, cur_max_a=2.64A every episode, exactly the joint call's own FAIL route)? Single lever changed vs the FAILED tuckclock1: --log-std-init 0 (was -4.0, pinned) -- log-std-final stays -4.0 with the same 0.5 anneal-frac, so std still re-anneals down to exploitation by the end, matching exactly how the isolated riseonly acq8m recipe (which DID solve flat-start rise) trained: from-scratch with std annealing 0->-4 over the whole run. Same warm-start parent (stancemix_bcchain3_stdanneal.zip), same mesh-ref+flat-clock keys, same everything else. Prediction-if-true: flat-pinned probe shows genuine non-freeze tuck (duty>0 AND swing_count>0, no 2.64A pin every episode) in both seeds by 2M, hold/lower unregressed. Prediction-if-false: still pins/freezes despite reopened std -> exploration alone is not sufficient at 2M canary budget in the 3-way mix (the isolated recipe needed the FULL 8M to fully close, per its own 2M->8M canary->acquisition arc) -- next lever is budget (fund an 8M mix acquisition directly) not another single-key respec.
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY (2M, joint 2-seed pair with seed 1): PASS if flat-pinned probe (rise_flat_frac=1.0, det+sto 6+6, DR-0) shows genuine non-freeze tuck motion in both seeds (duty>0 AND swing_count>0, no 2.64A press-up pin signature in the MAJORITY of episodes) AND hold det+sto >=5/6+5/6 zero-term AND lower >=5/6 honest (<=10mm herr) -> fund an 8M mix acquisition pair (mirroring the isolated recipe's own 2M canary -> 8M acquisition arc). FAIL if flat probe still shows the freeze/press-up pin in both seeds -> reopening std at 2M is not enough on its own; the next lever is budget (fund 8M directly on this exact recipe, matching the isolated arm's own required budget) not another config change.
+
