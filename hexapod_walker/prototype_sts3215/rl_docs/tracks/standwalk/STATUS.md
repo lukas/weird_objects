@@ -1,6 +1,133 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~02:1x (**STDREOPEN-ACQ8M-S1 (seed 1) ACQUISITION
+Last updated: 2026-08-26 ~03:2x (**SEQRISE JOINT CALL CLOSED: CANARY
+FAIL - MECHANISM on both seeds — warm-starting the 3-way mix from the
+solved riseonly flat-rise checkpoint does NOT preserve the skill —
+PLUS a lineage-wide mechanical discovery that re-frames the whole
+stdreopen family.** Seed 0 (this cycle, train-4 probe + gate, strips
+watched): flat probe 0/12 valid_plant, robot lies belly-down all
+episode waving raised legs (herr 79.3–87.0mm), NO OC-pin (cur_max
+0.55–1.59A, zero terms, real swings on all six legs) — a THIRD
+pathology (quiet lying) vs stdreopen's press-pin and s1's half-mast
+plateau (30–34mm); hold 12/12 zero-term but parked 13.1mm off; rise
+det 5/6 / sto 3/6; **lower 0/12** (herr 15.6–21.6mm, zero terms,
+hangs at mid-height, never completes the sit) — the "hold/lower easy
+to re-acquire" premise is refuted at 2M on this seed. **DISCOVERY
+(W&B `train/std` + trainer source, encoded in CURRENT_TRUTHS):
+`--log-std-init` is a SILENT NO-OP under `--init-from` — the entire
+stdreopen sub-lineage (stdreopen/-s1/-acq8m/-acq8m-s1/seqrise/-s1,
+and the running stdreopen-s2) trained at pinned std 0.0183 from step
+0. The "std reopen" lever never existed; stdreopen-2M's "reopening
+exploration collapsed tuck motion" mechanism story is refuted (those
+were config-identical tuckclock1 re-runs; differences = replicate
+variance), and the acq8m 2/12-vs-11/12 seed divergence is variance of
+pinned-std warm-started mix training. The genuine lever is
+`--warm-log-std-override`.** Re-pricing (the seqrise gate's
+registered FAIL branch) deprioritized with cause: static pricing is
+measurably correct (solved policies earn ~+1385 on in-mix flat rise
+vs −344..−772 for lying; acq8m-s1 reached 11/12 with this pricing) —
+the failure class is optimization-path fragility, not mispricing.
+**Refill (launched this cycle): `cw-standwalk-stance-mesh2-stancemix-
+tuckclock-scratch8m`/`-s1` — FROM-SCRATCH 3-way mix, flat clock, real
+std 1.0→0.018 anneal (frac 0.5 = 4M), 8M x 2 seeds — the untested
+cell two prior dig-ins flagged, methodology-matched to the only
+recipe that solved mesh flat rise 2/2 (riseonly-tuckclock-acq8m
+24/24). Named fallback if it fails: warm-start + `--warm-log-std-
+override 0`.** Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stancemix_seqrise_{gate,owncfg,flatprobe}/`, W&B `9zzi5ael`.)
+
+Prior entry: 2026-08-26 ~03:1x (**seqrise-s1 (own scope) CANARY FAIL
+- MECHANISM: the SEQUENCING lever avoids the OC-pin entirely but the
+flat probe still doesn't reach a valid plant — it stalls at a NEW,
+stable half-rise plateau instead. Separately, a concurrent cycle's
+dig-in on the sibling `seqrise` run found a load-bearing bug:
+`--log-std-init` is a SILENT NO-OP under `--init-from` (see
+CURRENT_TRUTHS "CORRECTION (08-26, seqrise dig-in)"), so the ENTIRE
+stdreopen/acq8m/seqrise sub-lineage actually trained at the parent's
+pinned std 0.0183 the whole time — "reopening exploration" never
+happened, and the acq8m s0/s1 2/12-vs-11/12 divergence is warm-started
+mix-training seed variance, not an exploration effect.** This cycle's
+own read (`cw-standwalk-stance-mesh2-stancemix-seqrise-s1`, W&B
+`6x4ivpd1`, evidence `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stancemix_seqrise_s1_{gate,owncfg,flatprobe_det,flatprobe_sto}/`):
+flat-pinned probe 0/12 valid_plant (0/6 det, 0/6 sto) — BUT for the
+first time in this whole rise campaign, NOT current-pinned (cur_max
+2.04–2.62A, well under the 2.64A trip, zero terminations) and NOT
+frozen (uniform per-leg duty 0.67–0.78, real swing counts every leg,
+leg-idx1 hitting 9–26 swings). Video/contact-sheets (det+sto, both
+clean): genuine splay→partial-tuck that SETTLES INTO A STABLE
+HALF-RISE PLATEAU (height_err_end pinned 30–34mm — roughly triple the
+solved lineage's <5mm) and never completes the push to the 79–87mm
+target for the full 15s episode. This is a THIRD residual pathology —
+neither stdreopen's over-current press-up pin nor tuckexempt's
+snap-fold freeze — call it "stalls at half-mast." Non-flat/mixed-kind
+DR-0 gate stays at-or-above the meshref parent's band (hold 6/6+6/6
+zero-term, rise det 5/6 + sto 4/6 valid_plant, lower det+sto 0 terms);
+own-DR(0.2) hold 6/6+6/6 zero-term, lower 0 terms both, rise 3/6 det +
+2/6 sto (1 OC term each) — the compound gate's hold/lower clause
+(≥5/6+5/6 zero-term) is clearly met on this seed alone; only the flat
+valid_plant sub-clause misses (0/12 clears neither the 2/12 nor 11/12
+reading of the registered comparator floor), and the literal FAIL
+trigger ("still-majority-pinned") is also false here — a genuine
+third outcome the gate text didn't anticipate. **JOINT SEQUENCING call
+NOT decided here** — needs the sibling `seqrise` (seed 0, concurrent
+cycle) and `stdreopen-s2` (still training) reads. If the sibling also
+plateaus rather than pins, the honest joint read is "sequencing swaps
+one residual (current-pin) for another (stalled plateau) — net motion
+in the right direction, not yet solved," and likely worth an 8M
+extension since the plateau is NOT current-limited (unlike the pin),
+so budget has real room to work with. Evidence W&B `6x4ivpd1`.)
+
+Prior entry: 2026-08-26 ~02:2x (**seed0 twin of the stdreopen-acq8m
+pair now formally VERDICTED (FAIL, own scope) — the joint call the
+prior entry flagged is now a confirmed 2/12 vs 11/12 split, not a
+placeholder. Refill: 3-arm batch queued to resolve it (SEQUENCING vs
+seed-noise), all VERIFIED RUNNING.** `cw-standwalk-stance-mesh2-
+stancemix-tuckclock-stdreopen-acq8m` (s0) VERDICTED FAIL: flat probe
+2/12 valid_plant (10/12 over_current-pinned at the exact 2.64A
+ceiling, video-confirmed splayed press-up with no belly lift),
+essentially unmoved from its own 2M canary (0/12) despite reward
+rising 5x (quarters -52.0/174.9/764.5/1267.5) and hold/lower staying
+fully clean (DR-0 6/6+6/6 both, own-DR 6/4 and 6/4) — the flat-rise
+clause alone is budget-invariant on this seed, matching the gate's
+own pre-registered FAIL branch, while the s1 twin (posted by a
+concurrent cycle, prior entry below) cleared every clause at 11/12.
+Two clean readings of the identical 8M recipe/budget/warm-start,
+opposite outcomes — real seed-sensitivity, not a race/read error (both
+sides re-checked their own report.json term_reason/valid_plant fields
+directly, not just summary lines). **Refill (batch, 3 launches, one
+question each):** (1)/(2) `cw-standwalk-stance-mesh2-stancemix-
+seqrise`/`-s1` (2M canary pair) — the SEQUENCING lever: exact stdreopen
+recipe (goal-mix hold=.1/rise=.45/lower=.45, mesh ref, flat-time-
+indexed BC-anchor chain, log-std 0->-4 anneal-frac 0.5) but
+`--init-from` swapped to the ALREADY-SOLVED riseonly-bcchain3-meshref-
+tuckclock-acq8m checkpoint (12/12 flat valid_plant alone) instead of
+`stancemix_bcchain3_stdanneal` (which never saw the mesh-native ref
+during its own training) — tests whether starting the mix from a
+policy that already knows how to stand up flat sidesteps the
+interference entirely. Both finished their short 2M budget mid-cycle
+(pods free again within ~13 min); evals (gate/owncfg/flatprobe) were
+started but NOT read this cycle — next cycle triages them fresh. (3)
+`cw-standwalk-stance-mesh2-stancemix-tuckclock-stdreopen-s2` (2M
+canary) — the SEED-NOISE lever: identical stdreopen recipe, seed=2,
+nothing else changed, to see whether a 3rd seed lands nearer seed0's
+total-freeze or seed1's clean pass (the isolated tuckclock-acq8m
+precedent replicated 24/24 cross-seed at just 2 seeds, so a 1/2 split
+here is itself informative about how reliable this particular mix
+port is). Whichever cycle reads these three should treat them as a
+joint set: SEQUENCING passing on both seqrise seeds argues for
+adopting the solved-checkpoint warm-start going forward regardless of
+what stdreopen-s2 shows; stdreopen-s2 matching seed1 argues the
+existing recipe is fine and seed0 was the outlier; stdreopen-s2
+matching seed0 argues for a real ~1/3-reliable recipe needing either
+more seeds or the seqrise fix. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_tuckclock_stdreopen_acq8m_
+{gate,owncfg,flatprobe_det,flatprobe_sto}/`, W&B `5xk1serz` (s0 FAIL),
+`hryo39z1` (s1 PASS, prior entry); new arms W&B `9zzi5ael` (seqrise),
+TBD (seqrise-s1, stdreopen-s2 — check ledger, not yet in local W&B
+cache as of this write).)
+
+Prior entry: 2026-08-26 ~02:1x (**STDREOPEN-ACQ8M-S1 (seed 1) ACQUISITION
 PASS on all three pre-registered clauses, decisively — but the seed-0
 twin's own already-posted evidence is a SHARP DIVERGENCE (2/12 vs
 11/12 flat-pinned valid_plant), so the joint call this pair was set up
