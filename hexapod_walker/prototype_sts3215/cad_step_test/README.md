@@ -63,7 +63,11 @@ It imports the variant constants from
 `concepts/rigid_hip/make_rigid_hip_variant.py`, reuses this sidecar's BREP
 builders for the production parts the variant edits (coxa link, chassis
 bottom, servo clamp cap), and fails the build if any BREP part drifts more
-than 2% in volume or 0.6 mm in bbox from its mesh-pipeline twin:
+than 2% in volume or 0.6 mm in bbox from its mesh-pipeline twin.  Unlike the
+base and C-horn exporters it does NOT write into the shared `out/` pool: its
+outputs land in the concept directory, `concepts/rigid_hip/step/` (`*.step`
+directly there, BREP-derived STLs in `step/stl/`, manifest + bundle
+alongside), next to the mesh-pipeline print set in `concepts/rigid_hip/stl/`:
 
 ```bash
 uv run --no-project --python 3.12 \
@@ -72,9 +76,12 @@ uv run --no-project --python 3.12 \
 ```
 
 Shared export machinery (part spec dataclass, STEP+STL export, manifest rows,
-bundle zipping) lives in `step_common.py`; all three exporters use it.
+bundle zipping) lives in `step_common.py`; all three exporters use it.  The
+output directories are parameterizable (`export_all`/`export_one`/
+`write_bundle` take an `out_dir`, defaulting to the shared `out/` pool);
+manifest paths and bundle members are relative to that `out_dir`.
 
-Outputs are written to `cad_step_test/out/`:
+Base and C-horn outputs are written to `cad_step_test/out/`:
 
 - `step/*.step`: clean CAD/BREP exchange files.
 - `stl/*.stl`: final tessellated slicer meshes generated from the BREP solids.
@@ -84,11 +91,20 @@ Outputs are written to `cad_step_test/out/`:
   using BuildViz's assembly frames.
 - `yaw_bearing_focus_L*_manifest.json`: compact one-leg yaw stack diagnostics.
 - `chorn_manifest.json`: STEP-first stock C-horn variant diagnostics.
-- `rigid_hip_manifest.json`: rigid-hip variant diagnostics incl. the
-  BREP-vs-mesh equivalence check results.
 - `hexapod_step_first_test_bundle.zip`: a small bundle suitable for uploading
   to Onshape as a test.
 - `chorn_step_first_bundle.zip`: C-horn variant STEP/STL bundle.
+
+Rigid-hip outputs live in the concept directory instead,
+`concepts/rigid_hip/step/`:
+
+- `*.step`: the seven variant printables as CAD/BREP exchange files.
+- `stl/*.stl`: BREP-derived tessellations (equivalence gate + the assembled
+  `sts3215-rigid-hip-step` viewer build via
+  `concepts/rigid_hip/publish_step_scene.py`; the PRINT set stays the
+  mesh-pipeline `concepts/rigid_hip/stl/`).
+- `rigid_hip_manifest.json`: rigid-hip variant diagnostics incl. the
+  BREP-vs-mesh equivalence check results.
 - `rigid_hip_step_first_bundle.zip`: rigid-hip variant STEP/STL bundle.
 
 ## Current migration scope

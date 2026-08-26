@@ -807,6 +807,19 @@ serviceable option.
   There is no `yaw_bearing_cap.stl` here — that production part is
   not used.  `*_DO_NOT_PRINT.stl` are COTS visuals.
 
+## Directory layout: `stl/` is the print set, `step/` is the STEP pipeline
+
+* `stl/` — the mesh-pipeline printables from
+  `make_rigid_hip_variant.py`.  **This is the print set**: slice these.
+* `step/` — the STEP-first sidecar's outputs
+  (`cad_step_test/build_rigid_hip_step.py`): `*.step` CAD/BREP
+  exchange files (Onshape etc.), `step/stl/` BREP-tessellated STLs
+  (derived from the STEP solids — used for the equivalence gate and
+  the `sts3215-rigid-hip-step` viewer build, **not** for printing),
+  plus `rigid_hip_manifest.json` and
+  `rigid_hip_step_first_bundle.zip`.  Regenerated artifacts, not in
+  git.
+
 ## Build & view
 
 ```sh
@@ -819,17 +832,17 @@ npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
 # http://127.0.0.1:5183/?build=sts3215-rigid-hip
 
 # STEP/BREP exports (Onshape etc.) of all seven variant printables --
+# writes into concepts/rigid_hip/step/ (.step + step/stl/ + manifest);
 # see cad_step_test/README.md; verifies BREP vs these meshes at build time
 uv run --no-project --python 3.12 --with build123d --with trimesh --with numpy \
   python hexapod_walker/prototype_sts3215/cad_step_test/build_rigid_hip_step.py
 
-# the STEP files themselves are also viewable in BuildViz (native STEP
-# ingest; parts laid out side by side, print-checkable):
-#   cd cad_step_test/out/step && npx buildviz push-step \
-#     hip_clamp_cap_rigid.step chassis_top_rigid.step top_hatch_rigid.step \
-#     corner_pillar.step centre_wago_block.step coxa_link_rigid.step \
-#     chassis_bottom_rigid.step --build-id sts3215-rigid-hip-step
+# assembled STEP-pipeline viewer build (scene.json transforms + the
+# BREP-tessellated STLs from step/stl/ for the seven variant printables;
+# overwrites main in place on the local hub):
+python concepts/rigid_hip/publish_step_scene.py -m "<changelog note>"
 # http://127.0.0.1:5183/?build=sts3215-rigid-hip-step
+# cloud mirror: tools/push_cloud_buildviz.py --build-id sts3215-rigid-hip-step
 ```
 
 Checks run at build time: watertightness, seated-stack placement, the

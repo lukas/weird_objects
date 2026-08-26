@@ -28,7 +28,6 @@ from build123d import (
 )
 
 from step_common import (
-    OUT_DIR,
     PROTO_DIR,
     THIS_DIR,
     StepPart,
@@ -39,6 +38,11 @@ from step_common import (
 sys.path.insert(0, str(THIS_DIR))
 sys.path.insert(0, str(PROTO_DIR))
 sys.path.insert(0, str(PROTO_DIR / "concepts" / "rigid_hip"))
+
+# Outputs live IN the concept directory (next to the mesh-pipeline print set
+# in concepts/rigid_hip/stl/): .step files directly in step/, the
+# BREP-derived STLs in step/stl/, manifest + bundle alongside the .step files.
+STEP_OUT_DIR = PROTO_DIR / "concepts" / "rigid_hip" / "step"
 
 import build_step_first_test as step  # noqa: E402
 import hexapod_prototype as hp  # noqa: E402
@@ -458,8 +462,6 @@ def _equivalence_problems(rows: list[dict]) -> list[str]:
     gate) -- the whitelist census catches a single leftover wall."""
     import trimesh
 
-    from step_common import THIS_DIR as _here
-
     problems = []
     for row in rows:
         legacy = row["legacy_stl"]
@@ -478,7 +480,7 @@ def _equivalence_problems(rows: list[dict]) -> list[str]:
                 f"{row['name']}: bbox size delta {worst:.3f} mm vs mesh"
             )
         if row["name"] == "chassis_bottom_rigid":
-            derived = trimesh.load(_here / row["stl"])
+            derived = trimesh.load(STEP_OUT_DIR / row["stl"])
             n_bad, worst_r = rv.chassis_whitelist_violations(derived)
             if n_bad:
                 problems.append(
@@ -492,7 +494,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
 
-    exported = export_all(rigid_hip_part_specs())
+    exported = export_all(rigid_hip_part_specs(), out_dir=STEP_OUT_DIR,
+                          step_dir=STEP_OUT_DIR,
+                          stl_dir=STEP_OUT_DIR / "stl")
     problems = _equivalence_problems(exported)
     manifest = {
         "units": "mm",
@@ -507,12 +511,12 @@ def main() -> None:
         },
         "files": [rel for row in exported for rel in (row["step"], row["stl"])],
     }
-    manifest_path = OUT_DIR / "rigid_hip_manifest.json"
+    manifest_path = STEP_OUT_DIR / "rigid_hip_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     bundle = write_bundle(manifest, "rigid_hip_step_first_bundle.zip",
-                          "rigid_hip_manifest.json")
-    print(f"wrote {manifest_path.relative_to(THIS_DIR)}")
-    print(f"wrote {bundle.relative_to(THIS_DIR)}")
+                          "rigid_hip_manifest.json", out_dir=STEP_OUT_DIR)
+    print(f"wrote {manifest_path.relative_to(PROTO_DIR)}")
+    print(f"wrote {bundle.relative_to(PROTO_DIR)}")
     if problems:
         print("rigid-hip STEP checks failed:")
         for problem in problems:

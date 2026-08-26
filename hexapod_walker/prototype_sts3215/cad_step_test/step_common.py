@@ -87,10 +87,17 @@ def _mesh_stats(path: Path) -> dict:
     }
 
 
-def export_one(spec: StepPart) -> dict:
+def export_one(spec: StepPart, out_dir: Path = OUT_DIR,
+               step_dir: Path | None = None,
+               stl_dir: Path | None = None) -> dict:
+    """Export one part. Manifest paths are relative to ``out_dir``; the
+    STEP/STL files land in ``step_dir``/``stl_dir`` (default: ``out_dir``'s
+    ``step/`` and ``stl/`` subdirectories, the shared-pool layout)."""
     part = spec.builder()
-    step_path = STEP_DIR / f"{spec.name}.step"
-    stl_path = STL_DIR / f"{spec.name}.stl"
+    step_dir = step_dir if step_dir is not None else out_dir / "step"
+    stl_dir = stl_dir if stl_dir is not None else out_dir / "stl"
+    step_path = step_dir / f"{spec.name}.step"
+    stl_path = stl_dir / f"{spec.name}.stl"
     export_step(part, step_path)
     export_stl(part, stl_path)
 
@@ -106,8 +113,8 @@ def export_one(spec: StepPart) -> dict:
         "name": spec.name,
         "note": spec.note,
         "printable": spec.printable,
-        "step": str(step_path.relative_to(THIS_DIR)),
-        "stl": str(stl_path.relative_to(THIS_DIR)),
+        "step": str(step_path.relative_to(out_dir)),
+        "stl": str(stl_path.relative_to(out_dir)),
         "brep_faces": int(len(part.faces())),
         "brep_volume_mm3": round(float(part.volume), 4),
         "brep_bbox": bbox,
@@ -117,12 +124,16 @@ def export_one(spec: StepPart) -> dict:
     }
 
 
-def export_all(specs: list[StepPart]) -> list[dict]:
-    STEP_DIR.mkdir(parents=True, exist_ok=True)
-    STL_DIR.mkdir(parents=True, exist_ok=True)
+def export_all(specs: list[StepPart], out_dir: Path = OUT_DIR,
+               step_dir: Path | None = None,
+               stl_dir: Path | None = None) -> list[dict]:
+    step_dir = step_dir if step_dir is not None else out_dir / "step"
+    stl_dir = stl_dir if stl_dir is not None else out_dir / "stl"
+    step_dir.mkdir(parents=True, exist_ok=True)
+    stl_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for spec in specs:
-        row = export_one(spec)
+        row = export_one(spec, out_dir, step_dir, stl_dir)
         rows.append(row)
         size = row["brep_bbox"]["size"]
         print(
@@ -133,10 +144,11 @@ def export_all(specs: list[StepPart]) -> list[dict]:
     return rows
 
 
-def write_bundle(manifest: dict, bundle_name: str, manifest_name: str) -> Path:
-    bundle = OUT_DIR / bundle_name
+def write_bundle(manifest: dict, bundle_name: str, manifest_name: str,
+                 out_dir: Path = OUT_DIR) -> Path:
+    bundle = out_dir / bundle_name
     with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(OUT_DIR / manifest_name, manifest_name)
+        zf.write(out_dir / manifest_name, manifest_name)
         for rel in manifest["files"]:
-            zf.write(THIS_DIR / rel, rel)
+            zf.write(out_dir / rel, rel)
     return bundle

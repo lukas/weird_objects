@@ -273,7 +273,7 @@ def _static_checks() -> list[str]:
 def _clearance_checks_from_stl(rows: list[dict]) -> list[str]:
     meshes = []
     for row in rows:
-        mesh = trimesh.load(THIS_DIR / row["stl"], process=True)
+        mesh = trimesh.load(OUT_DIR / row["stl"], process=True)
         if isinstance(mesh, trimesh.Scene):
             mesh = trimesh.util.concatenate(
                 [g for g in mesh.geometry.values() if len(g.faces) > 0]
