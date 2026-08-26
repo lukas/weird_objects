@@ -1472,3 +1472,55 @@ follow-ups.
   (esp. one with episode-seconds>=60) should re-run
   `ops.sh podeval <run>` (now safe) rather than trust an `rc=-1`-era
   read.
+- **`pod_eval.py` `legacy_eval_cfgs` silently ran EVERY 100 Hz run's
+  automated gate/owncfg/session-cfg/joygate pass under the LEGACY
+  25 Hz slew contract (1.5 deg/tick = 150 deg/s) instead of the
+  actual 100 Hz contract (0.375 deg/tick = 37.5 deg/s) — found+fixed
+  08-26 on `cw-standwalk-stance-mesh2-standheight-rung5-acq8m`
+  triage.** The two pins (`control.hz=25`, `safety.max_delta_q_deg=
+  1.5`) were meant to fire TOGETHER only when a ledger entry has
+  NO `control.hz` key at all (= pre-08-24-flip, genuinely 25 Hz) —
+  but they were coded as two INDEPENDENT `if not
+  _has_cfg_key(...)` checks. Every post-flip 100 Hz launch has an
+  explicit `control.hz=100` (so the first check never fires) but
+  almost NONE explicitly restate `safety.max_delta_q_deg` (0.375 is
+  config.yaml's own default for the 100 Hz contract, so a correctly
+  written launch command never repeats it) — so the SECOND check
+  fired alone on essentially every one of them, force-overriding the
+  correct 0.375 with the legacy 1.5 (a 4x-looser per-tick clamp than
+  the policy actually trained under). Confirmed by cfg audit: 161 of
+  1712 ledger launches carry an explicit `control.hz=100` with no
+  explicit `max_delta_q_deg` — every one of their automated
+  gate/owncfg/session-partner-cfg/joygate passes since the 08-24 flip
+  ran the checkpoint under the wrong motor contract. This is a live
+  suspect for the mesh stancemix/rise campaign's pervasive
+  "cur_max pinned 2.4-2.64A near the safety ceiling, non-terminal but
+  never resolved" residual documented across nearly every "solved"
+  rise arm since 08-24 (STATUS.md) — a policy trained to expect
+  0.375 deg/tick clamping, evaluated with 4x more per-tick authority
+  available, can overshoot/oscillate into exactly that current
+  signature. **Historical caution**: any post-08-24 gate/owncfg/
+  session/joygate verdict on a `control.hz=100` checkpoint that did
+  NOT explicitly restate `safety.max_delta_q_deg` in its own launch
+  command was evaluated under the wrong contract; do not trust its
+  `cur_max_a`/over_current numbers as clean evidence of a training-
+  time defect without re-running under the fix. Not retroactively
+  re-run fleet-wide this cycle (out of scope for one triage) — the
+  `standheight-rung5-acq8m` gate/owncfg/seqprobe were re-run under
+  the fix as part of this finding; other campaigns' affected arms
+  should be re-verified before further mechanism work is justified by
+  their old current-ceiling reads. **CONFIRMED instance**: `-acq8m-s1`
+  (the seed-1 twin, read-only checked, left untouched — off-limits to
+  the fixing cycle) has `report.json.motor_contract.safety.
+  max_delta_q_deg == 1.5` in its already-finished gate/owncfg/seqprobe
+  — genuinely pre-fix, not just plausibly so; do not close that joint
+  call on those numbers. **FIXED**: the second pin now only
+  fires INSIDE the first's `if` (both-or-neither, tied to the same
+  "control.hz missing = legacy" condition) — `rl_move/orchestrator/
+  pod_eval.py::legacy_eval_cfgs`, 2 new regression tests in
+  `test_pod_eval_session.py` (explicit-100Hz-no-mdq stays untouched;
+  missing-both still pins both together). Session's own cfg (eval_
+  session, the stance+walk pairing partner) was NEVER affected — it
+  takes no `--cfg-set` at all, always used config.yaml's correct
+  0.375 default. Joygate and the main gate/owncfg DID carry the bug.
+  Snapshot `podeval-max-delta-q-deg-legacy-bugfix`.

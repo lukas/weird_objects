@@ -1,6 +1,77 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~04:3x (**JOINT CALL CLOSED: JOINT PASS — the
+Last updated: 2026-08-26 ~07:1x (**STAND_HEIGHT rung-5 acq8m (seed 0)
+ACQUISITION PASS, own-scope — the composed lower-phase residual the
+2M canary left open is CLOSED at 8M. PLUS: found+fixed a live bug in
+the automated eval pipeline that had been silently running every
+100 Hz run's gate/owncfg/session pass under the WRONG (4x looser)
+motor slew contract since the 08-24 rate flip.** Composed
+`mode_seq_stance`+`hold_height_cmd` seqprobe (the registered gate
+instrument, re-run under the fix): lower det 6/6 + sto 6/6 (herr
+14.1–14.9mm, all inside the ≤15mm bar, ZERO terminations — up from
+the 2M canary's mixed 2/6 det pass at 18–20.5mm); hold det 6/6 (0
+term) + sto 5/6 (1 hold_low_height) and rise det 5/6 (1 over_current)
++ sto 5/6 (1 over_current) sit at-or-above the 2M canary's own levels
+(2M: hold sto 5/6, rise det+sto 4/6 each) — no regression on the
+other two registered clauses. Isolated DR-0 gate (mode_seq stripped,
+full per-mode episode budget — confirms the underlying skills, not
+just the composed probe) is clean and strong: hold 5/6 det (1
+hold_low_height term) + 6/6 sto, rise 6/6+6/6 zero-term, lower 6/6+6/6
+zero-term, herr 1.1–4.6mm; own-DR(0.2) comparable (hold 5/6+6/6, rise
+6/6 det + 5/6 sto [1 over_current], lower 6/6+6/6). Reading the video:
+the composed lower's 14–15mm residual (vs the isolated skill's
+1–5mm) is a segment-TIMING effect, not a skill gap — `_sample_mode_
+seq_stance`'s segment sampler draws 6–8s segments up to
+`mode_seq_max_segments`, so when `lower` lands as the sequence's 3rd
+segment it can be handed as little as the ~3s `min_tail` floor to
+descend the same range an isolated episode gets the full ~15s for;
+the isolated numbers (1–5mm) show the underlying skill is not the
+constraint. Video (all isolated hold/rise/lower strips, det+sto)
+confirms upright, six-foot-planted stands throughout — no fall/tip/
+collapse; session harness HARD GATES PASS (no_falls/rise/sit_
+descends). Reward rose every quarter (-14.1/204.4/455.3/860.9).
+Residual unchanged from every solved rise/lower arm this campaign:
+cur_max still kisses 2.4–2.65A on most rise/lower episodes without
+tripping (structural, non-terminal); a single-episode over_current
+tail persists in own-DR rise (matches the catalogued bridge/rsi
+deep-start tail). **Own-scope only — the registered gate is JOINT
+with `-s1` (seed 1), which is off-limits to this cycle (still/recently
+finished elsewhere).** **BUG FOUND+FIXED (real, live, campaign-wide
+impact):** `rl_move/orchestrator/pod_eval.py::legacy_eval_cfgs` pins
+`control.hz=25`+`safety.max_delta_q_deg=1.5` together ONLY when a
+ledger entry has no `control.hz` key (pre-08-24, genuinely 25 Hz) —
+but the two pins were coded as INDEPENDENT `if not has_key` checks.
+Every post-flip 100 Hz launch has an explicit `control.hz=100` (first
+check never fires) but almost none explicitly restate `safety.max_
+delta_q_deg` (0.375 is config.yaml's own 100 Hz default, so a
+correctly-written launch never repeats it) — so the SECOND check
+fired ALONE on essentially every one of them, silently overriding the
+correct 0.375 deg/tick contract with the legacy 1.5 deg/tick (4x
+looser) for every automated gate/owncfg/session/joygate pass since
+the flip. Cfg audit: 161 of 1712 ledger launches carry this exact
+signature. This is a live suspect for the mesh stancemix/rise
+campaign's pervasive "cur_max pinned 2.4–2.64A, non-terminal but never
+resolved" residual documented across nearly every "solved" rise arm
+since 08-24 — a policy trained to expect a 0.375 deg/tick clamp,
+evaluated with 4x more per-tick authority available, can overshoot
+into exactly that current signature. **This run's own gate/owncfg/
+session (and the manually-launched seqprobe) were killed and RE-RUN
+under the fix — every number in this entry is post-fix.** Fixed: the
+second pin now only fires inside the first's `if` (both-or-neither),
+`test_pod_eval_session.py` +2 regression tests. Snapshot `podeval-
+max-delta-q-deg-legacy-bugfix`. Full note: CURRENT_TRUTHS.md. **Not
+retroactively re-run fleet-wide this cycle** (out of scope for one
+triage) — any cycle relying on a post-08-24 100 Hz run's old
+cur_max/over_current reading as evidence of a training-time defect
+should re-verify under the fix first, especially `-s1`'s own gate/
+owncfg/seqprobe (started ~10 min before this fix landed — confirm
+post-fix or re-run before closing the joint call). **Refill:** none
+launched this cycle pending the `-s1` joint call — the next lever
+(closing rung-5 outright vs. building the height-cmd-segment
+`bc_anchor_coef` loosening) is a joint decision per the gate's own
+text, not a call this seed's evidence alone should make.)
+
+Prior entry: 2026-08-26 ~04:3x (**JOINT CALL CLOSED: JOINT PASS — the
 from-scratch real-std-anneal full hold=.1/rise=.45/lower=.45 mix clears
 every registered clause on BOTH seeds; PROMOTED as THE mesh stancemix
 recipe, closing the multi-day from-scratch-vs-warm-started/std-reopen
@@ -2503,10 +2574,30 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**STAND_HEIGHT RUNG-5 (compose mode_seq rise->hold->lower WITH the
-height command), 08-26 ~06:0x — first canary pair BOTH CANARY PASS
+**STAND_HEIGHT RUNG-5, 08-26 ~07:1x — seed-0 acq8m ACQUISITION PASS
+own-scope: the composed-lower residual the 2M canary flagged for
+seed0 is CLOSED at 8M (6/6 det+sto, was 2/6 det).** Full detail in the
+banner at the top of this file (including a live pod_eval slew-
+contract bug found+fixed this cycle — every number below is post-fix).
+**Open: the joint call with `-s1` (seed 1, own 2M canary residual was
+the OPPOSITE shape — over_current pin, not high-herr drift) — its
+gate/owncfg/seqprobe are already DONE on train-0 but CONFIRMED
+PRE-FIX (read-only check this cycle: `report.json.motor_contract.
+safety.max_delta_q_deg == 1.5`, the legacy value, not the 0.375 this
+checkpoint trained under) — do NOT trust those numbers for the joint
+call; re-run `-s1`'s gate/owncfg + the manual seqprobe under the fix
+before closing (left untouched this cycle per the off-limits
+instruction — `-s1` belongs to another cycle). If `-s1`
+also clears its own residual: rung-5 is CLOSED, open stage-2 design
+(rise→walk→lower composition, needs a walking source per the track's
+Stage-2 text). If `-s1` still fails on the over_current shape: rung-5
+is PARTIAL (one seed clean, one still current-pinned) — the next
+lever is the height-cmd-segment `bc_anchor_coef` loosening (new
+default-off cfg + bank rows + unit tests), not a 3rd seed.**
+
+Prior entry: 08-26 ~06:0x — first canary pair BOTH CANARY PASS
 (caveated) — mechanism works, residual is seed-dependent lower-phase
-softening; funded an 8M continuation before calling rung-5 closed.**
+softening; funded an 8M continuation before calling rung-5 closed.
 `cw-standwalk-stance-mesh2-standheight-rung5`/`-s1` (2M, warm from
 this cycle's freshly-promoted scratch8m mesh-stancemix champion,
 `goal.mode_seq_stance=1` + `goal.mode_seq_hold_height_cmd=1` +
