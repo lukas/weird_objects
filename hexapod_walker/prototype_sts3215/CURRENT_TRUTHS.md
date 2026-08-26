@@ -327,6 +327,26 @@ follow-ups.
   (bank rate fix `_ref_row`, tag `exp/bcanchor-chain-tests-rate-fix`).
   Footlow2 checkpoints themselves are primitive-family/25 Hz — recipe
   rerun only, never a warm-start (model-family continuity rule).
+  **CORRECTION (08-26, seqrise dig-in): `--log-std-init` is a SILENT
+  NO-OP under `--init-from`** (documented in train_ppo_mjx's own
+  `--warm-log-std-override` help: "--log-std-init only affects
+  from-scratch/transplant builds, never a plain warm start"); a
+  warm-started policy keeps the parent checkpoint's log_std, and
+  `--log-std-final` then anneals from THAT value. Consequence, W&B
+  `train/std` verified: the entire standwalk "stdreopen" sub-lineage
+  (`stancemix-tuckclock-stdreopen`, `-s1`, `-acq8m`, `-acq8m-s1`, and
+  `stancemix-seqrise`/`-s1`) trained at pinned std 0.0183 (e^-4) from
+  step 0 — the "re-open exploration" lever those runs' hypotheses/
+  verdicts claim to test NEVER EXISTED. Re-read: (a) the stdreopen-2M
+  "reopening exploration collapsed tuck motion" mechanism story is
+  refuted — those runs were config-identical tuckclock1 re-runs and
+  their behavioral differences are replicate variance; (b) the sharp
+  acq8m s0/s1 divergence (2/12 vs 11/12 flat) is variance of
+  pinned-std warm-started mix training, not an exploration effect;
+  (c) the only recipe that reliably (2/2 seeds, 24/24) solved
+  mesh-flat rise remains the FROM-SCRATCH riseonly arc with a real
+  std 1.0→0.018 anneal. Warm-started std experiments must use
+  `--warm-log-std-override`.
 - **AMP M4/M5: FIRST-EVER FULL `eval_amp_m5` PASS (08-23 ~06:5x)** —
   `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05` (turn+push+fault
   composition, single lever `goal.walk_turn_in_place_frac=0.5` —

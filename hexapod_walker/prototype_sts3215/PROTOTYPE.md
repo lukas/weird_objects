@@ -393,7 +393,7 @@ as a single body — no socket, no slip fit, no retention pin.
 | `yaw_servo_retainer.stl` | Anti-rotation saddle under each yaw cradle + short ground FEET (Aug 2026 v4: four 8 mm corner poles to small Ø12 pads, 34 mm below the belly — the underside stays open so the case-back servo plug is reachable, and the wire exits ride ~9 mm off the floor when the robot belly-sits); bolts to the chassis_bottom anchor bosses and captures the hanging yaw servo body. | Flange down (flipped) |
 | `femur_link.stl` | The WHOLE femur, one printed part (Jul 2026): hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + SOLID Ø18 spar (8 mm yoke spine plate, small cone flares at both spar ends — Aug 2026) + knee fixed side (symmetric servo cradle; rear retention tab — 2 × M2.5 × 6 into the servo's rear molded pair, holes fully enclosed since the Aug 17 2026 1 mm-longer tab, heads flush in Ø5.2 × 2 mm recesses). | Yoke spine down, spar horizontal, knee mount plate up (support the knee well through its open back) |
 | `tibia_knee_yoke.stl` | Knee moving yoke (symmetric clevis — driven + passive disc horns) + Ø8 CF-tube socket. | Spine down |
-| `foot_boot.stl` (**TPU 95A**) | Compliant foot boot pressed over the tibia CF-tube end (Aug 2026: replaces `tibia_foot_fitting` + `foot_pad` + the M3 hinge pin/nyloc). Ø8.1 bore over the Ø8 tube — same nominal slip fit as the tibia yoke socket (Aug 17 2026, two bench rounds: Ø7.7 and Ø7.9 both too tight, TPU bores print undersized; printed fit lands snug, CA/epoxy dab for keeps); 8 mm solid tip ending in a hemispherical R7 dome (Aug 19 2026 — replaces the flat chamfer-rimmed face that caught floor texture then broke free abruptly; the dome IS the MuJoCo contact sphere, apex at the kinematic tip). Short CF legs 0/4 take `extra_stl/foot_boot_plus4.stl` (+4 mm tip). Interim: PETG until TPU is on hand — see `extra_stl/foot_boot_wide.stl` for the 3-variant PETG walk test. | Mouth face on bed, dome up (45° internal blind-end cone, nothing bridges) — no supports |
+| `foot_boot.stl` (**TPU 95A**) | Standard compliant foot boot pressed over every tibia CF-tube end (Aug 2026: replaces `tibia_foot_fitting` + `foot_pad` + the M3 hinge pin/nyloc). Ø8.1 bore over the Ø8 tube, same nominal slip fit as the tibia yoke socket; printed TPU lands snug, CA/epoxy dab for keeps. The boot has a nominal Ø9 rounded/spherical ground-contact end, an 8 mm solid tip section, and puts the furthest foot tip at the shared 150 mm knee-centre-to-tip station on all six legs. Extra slicer copy: regenerate `extra_stl/foot_boot.stl` with `tools/make_extra_foot_boot.py`. | Mouth face on bed, dome up (45° internal blind-end cone, nothing bridges) — no supports |
 
 > **Femur** = `femur_link`, one printed body — nothing to join (no CF,
 > no epoxy, no pins; the Jul 2026 merge fused the old hip yoke and knee
@@ -638,14 +638,13 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 6. **Tibia onto the knee joint:** seat the `tibia_knee_yoke`'s clevis
    arms onto the driven + passive knee disc horns and bolt each arm to
    its disc (4 × M3 × 10 per horn) as in step 4.
-7. **Foot boot:** press the TPU `foot_boot` over the free end of the
+7. **Foot boot:** press the TPU `foot_boot` over the free end of each
    tibia CF tube until the tube bottoms in the 20 mm socket (Ø8.1 bore
    over the Ø8 tube, same slip fit as the yoke socket — a drop of isopropyl helps
    it slide, then grips when dry).  No fastener, no hinge (Aug 2026:
-   the boot's compliance replaces the old passive hinge).  Legs 0/4
-   with the short CF tubes take `foot_boot_plus4` instead (transitional
-   — at the next tube recut, cut all six at 128 mm and retire the
-   plus4 variant).
+   the boot's compliance replaces the old passive hinge).  All six legs
+   use the same standard boot and the same 150 mm knee-centre-to-tip
+   geometry.
 
 You now have a complete leg (yaw pad → hip → femur → knee → tibia →
 foot) ready to drop onto its `chassis_bottom` yaw cradle. Repeat 6

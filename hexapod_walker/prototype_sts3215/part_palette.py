@@ -66,7 +66,6 @@ PART_COLORS: dict[str, tuple[float, float, float]] = {
     # Foot boot - tab:brown (TPU boot over the tibia tube end, Aug 2026;
     # replaces the hinged foot_pad + tibia_foot_fitting).
     "foot_boot":           (0.549, 0.337, 0.294),
-    "foot_boot_plus4":     (0.549, 0.337, 0.294),
     # Legacy alias kept so old scenes / labels still resolve a color.
     "foot_pad":            (0.549, 0.337, 0.294),
     # Servo horn adapter - tab:cyan
@@ -200,7 +199,7 @@ def instance_role(
         return "hip-pitch -> knee"
     if part_type == "tibia_link":
         return "knee -> foot"
-    if part_type in ("foot_pad", "foot_boot", "foot_boot_plus4"):
+    if part_type in ("foot_pad", "foot_boot"):
         return "foot"
     if part_type == "servo_horn_adapter":
         suffix = _JOINT_ROLE.get(joint or "", "joint")

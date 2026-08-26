@@ -51,8 +51,8 @@ Discovered by diffing against `mujoco_prototype.py` while building this:
    the yoke socket and lands the boot apex at ~179.5 mm; the bench-measured
    knee→tip span is `TIBIA_LENGTH` = 150 mm. Printed parts stay exact here;
    the CF tube (a cut-to-length bought part) is cut so the apex lands at
-   exactly 150 mm. Legs 0/4 get the as-built 4 mm-short tube +
-   `foot_boot_plus4` (same apex).
+   exactly 150 mm. All six legs use the same tube length and standard
+   `foot_boot`.
 4. **The CAD display stance (−25°/+75°) is not a standing pose.** With the
    real hip height the feet reach 22 mm above the under-belly hardware:
    holding it, the robot rests on the six yaw-servo retainer stirrups

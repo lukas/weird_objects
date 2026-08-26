@@ -25,11 +25,11 @@ so qpos semantics carry over.  What is MORE accurate than the legacy sim:
     offset -- the legacy sim left the foot ~24 mm off the leg radial;
   * per-part mesh collision instead of two capsules + three boxes.
 
-The CF tibia tube is CUT to length here so the boot apex lands exactly at the
-bench-measured ``TIBIA_LENGTH`` (150 mm knee->tip; legs 0/4 use the 4 mm-short
-tube + ``foot_boot_plus4``, same apex).  The CAD's merged-tibia formula would
-land it at ~179.5 mm; the tube is a cut-to-length bought part, so the printed
-parts stay exact.
+The CF tibia tube is CUT to length here so the standard boot apex lands exactly
+at the bench-measured ``TIBIA_LENGTH`` (150 mm knee->tip).  All six legs use
+the same tube run and the same standard ``foot_boot``.  The CAD's merged-tibia
+formula would land it at ~179.5 mm; the tube is a cut-to-length bought part, so
+the printed parts stay exact.
 
 Outputs:
   assets/*.stl          part meshes in mm, gitignored (MJCF scale 0.001)
@@ -45,7 +45,8 @@ Outputs:
                         legcol/collision/foot) so servo_model's
                         leg_chassis_collision bitmask rewrites apply as-is.
 
-Run (repo venv):  python build_mesh_model.py [--no-render]
+Run:
+  uv run --with numpy --with trimesh python build_mesh_model.py [--no-render]
 
 The electronics-stack STL helpers are required.  If those generated STL files
 are absent, the builder refuses by default instead of emitting a lighter
@@ -107,7 +108,7 @@ EXTRA_MASS_G = {
     "chassis": 74.0 + 150.0,
     "coxa": 9.1 + 4.0,    # 12 hip screws / leg + servo-lead share
     "femur": 9.1 + 4.0,   # 12 knee screws / leg + servo-lead share
-    "tibia": 0.0, "pad": 0.0, "pad_short": 0.0,
+    "tibia": 0.0, "pad": 0.0,
 }
 LEGACY_TOTAL_KG = 2.104  # old sim total, printed for comparison only
 
@@ -163,18 +164,14 @@ def tibia_tube_geometry():
     """As-built tibia tube runs.  The CAD merged-tibia formula measures the
     tube from the yoke socket, overshooting the bench-measured knee->apex span
     (TIBIA_LENGTH).  Reality: the tube is CUT so the apex lands at
-    TIBIA_LENGTH.  Returns (socket_point_ta, std_run_mm, short_run_mm)."""
+    TIBIA_LENGTH.  Returns (socket_point_ta, run_mm)."""
     xz = (1, 0, 0), HP.LEG_PITCH_AXIS
     Mk0 = HP._joint_place((0.0, 0.0, 0.0), *xz)
     ta = (Mk0 @ np.array([HP._YOKE_SOCKET_X, 0.0, HP.JOINT_SOCKET_Z, 1.0]))[:3]
     std_run = HP.TIBIA_LENGTH - HP.FOOT_BOOT_TIP_L - ta[0]
-    short_run = std_run - HP.FOOT_BOOT_SHORT_EXTRA
     # apex = ta.x + run + tip_l must land exactly at TIBIA_LENGTH
     assert abs(ta[0] + std_run + HP.FOOT_BOOT_TIP_L - HP.TIBIA_LENGTH) < 1e-9
-    assert abs(ta[0] + short_run
-               + HP.FOOT_BOOT_TIP_L + HP.FOOT_BOOT_SHORT_EXTRA
-               - HP.TIBIA_LENGTH) < 1e-9
-    return ta, std_run, short_run
+    return ta, std_run
 
 
 class Part:
@@ -215,7 +212,6 @@ def collect_parts(*, allow_missing_electronics: bool = False):
     assets: dict[str, trimesh.Trimesh] = {}
     bodies: dict[str, list[Part]] = {
         "chassis": [], "coxa": [], "femur": [], "tibia": [], "pad": [],
-        "pad_short": [],
     }
 
     def add(body: str, part_type: str, mesh, world_or_local, *,
@@ -254,19 +250,13 @@ def collect_parts(*, allow_missing_electronics: bool = False):
             V._passive_horn_world_transform(joint, 0), asset="disc_horn")
 
     # -- tibia tube, cut to the measured span; boot on the pad body ---------
-    ta, std_run, short_run = tibia_tube_geometry()
+    ta, std_run = tibia_tube_geometry()
     r = HP.LEG_TUBE_OD / 2.0
     add("tibia", "tibia_tube",
         HP._tube_between(ta, ta + np.array([std_run, 0, 0]), r),
-        np.eye(4), asset="tibia_tube_std", in_world=False)
-    assets["tibia_tube_short"] = HP._tube_between(
-        ta, ta + np.array([short_run, 0, 0]), r)
+        np.eye(4), asset="tibia_tube", in_world=False)
     # boots live on the L{i}_pad body whose origin is the tube end
     add("pad", "foot_boot", HP.make_foot_boot(), np.eye(4), in_world=False)
-    bodies["pad_short"].append(
-        Part("foot_boot", "foot_boot_plus4", HP.make_foot_boot_plus4(),
-             np.eye(4), collide=True))
-    assets["foot_boot_plus4"] = bodies["pad_short"][0].mesh
 
     # -- chassis: printed plates + as-built electronics ---------------------
     try:
@@ -427,11 +417,10 @@ def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
         px, py = apothem * math.cos(a), apothem * math.sin(a)
         pz = HP.CHASSIS_YAW_OUTPUT_Z * MM
         qw, qz = math.cos(a / 2.0), math.sin(a / 2.0)
-        short = i in HP.SHORT_CF_LEG_INDICES
-        tube_asset = "tibia_tube_short" if short else "tibia_tube_std"
-        pad_parts = bodies["pad_short" if short else "pad"]
-        tube_end_x = (ta[0] + (short_run if short else std_run)) * MM
-        tip_l = HP.FOOT_BOOT_TIP_L + (HP.FOOT_BOOT_SHORT_EXTRA if short else 0)
+        tube_asset = "tibia_tube"
+        pad_parts = bodies["pad"]
+        tube_end_x = (ta[0] + std_run) * MM
+        tip_l = HP.FOOT_BOOT_TIP_L
         site_x = (tip_l - HP.FOOT_BOOT_OD / 2.0) * MM  # dome centre
 
         def geoms(body: str, indent: str, leg=i) -> str:
@@ -663,10 +652,9 @@ def build_mjx_xml(bodies, tube_info, inertials: dict, base_z: dict) -> str:
         px, py = apothem * math.cos(a), apothem * math.sin(a)
         pz = HP.CHASSIS_YAW_OUTPUT_Z * MM
         qw, qz = math.cos(a / 2.0), math.sin(a / 2.0)
-        short = i in HP.SHORT_CF_LEG_INDICES
-        run = short_run if short else std_run
+        run = std_run
         tube_end_x = (ta[0] + run) * MM
-        tip_l = HP.FOOT_BOOT_TIP_L + (HP.FOOT_BOOT_SHORT_EXTRA if short else 0)
+        tip_l = HP.FOOT_BOOT_TIP_L
         site_x = (tip_l - HP.FOOT_BOOT_OD / 2.0) * MM
         fem_cap = (f'type="capsule" fromto="0 {fem_y:.6f} 0 '
                    f'{femur:.6f} {fem_y:.6f} 0" size="0.010"')

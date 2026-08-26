@@ -1668,12 +1668,6 @@ def part_specs() -> list[StepPart]:
             "Printable TPU boot; revolved BREP profile.",
         ),
         StepPart(
-            "foot_boot_plus4",
-            lambda: make_foot_boot(extra_tip=hp.FOOT_BOOT_SHORT_EXTRA),
-            proto / "extra_stl" / "foot_boot_plus4.stl",
-            "Printable TPU boot variant for the two short CF legs.",
-        ),
-        StepPart(
             "servo_body",
             make_servo_body,
             proto / "stl_reference" / "servo_body_DO_NOT_PRINT.stl",

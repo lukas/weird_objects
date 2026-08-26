@@ -1,39 +1,1274 @@
 {
-  "scene": "scene.json",
-  "generatedBy": "buildviz_checks.py (generic prototype)",
-  "config": {
-    "overlapMm3": 80.0,
-    "pitchMm": 2.0
+  "generatedAt": "2026-08-26T01:00:31.712097+00:00",
+  "build": {
+    "id": "prototype_sts3215",
+    "name": "Hexapod STS3215 \u2014 full robot"
   },
-  "results": [
+  "generatedBy": "full_robot_viz_build.py (precomputed offline)",
+  "checksConfig": {
+    "overlapMm3": 80.0,
+    "pitchMm": 2.0,
+    "ignoreOverlapPairs": [
+      [
+        "chassis_bottom",
+        "lipo_battery"
+      ],
+      [
+        "chassis_bottom",
+        "yaw_servo"
+      ],
+      [
+        "coxa_link",
+        "hip_servo"
+      ],
+      [
+        "coxa_link",
+        "yaw_bearing_cap"
+      ],
+      [
+        "coxa_link",
+        "yaw_bearing_lower"
+      ],
+      [
+        "coxa_link",
+        "yaw_bearing_upper"
+      ],
+      [
+        "disc_horn_hip",
+        "femur_link"
+      ],
+      [
+        "disc_horn_hip",
+        "hip_servo"
+      ],
+      [
+        "disc_horn_knee",
+        "knee_servo"
+      ],
+      [
+        "disc_horn_knee",
+        "tibia_knee_yoke"
+      ],
+      [
+        "disc_horn_yaw",
+        "yaw_servo"
+      ],
+      [
+        "femur_link",
+        "knee_servo"
+      ],
+      [
+        "femur_link",
+        "passive_horn_hip"
+      ],
+      [
+        "foot_boot",
+        "tibia_tube"
+      ],
+      [
+        "hip_clamp_cap",
+        "hip_servo"
+      ],
+      [
+        "knee_clamp_cap",
+        "knee_servo"
+      ],
+      [
+        "passive_horn_knee",
+        "tibia_knee_yoke"
+      ],
+      [
+        "tibia_knee_yoke",
+        "tibia_tube"
+      ]
+    ]
+  },
+  "summary": {
+    "total": 45,
+    "pass": 45,
+    "warn": 0,
+    "fail": 0,
+    "byKind": {
+      "scene_meta": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "mesh_overlap": {
+        "pass": 40,
+        "warn": 0,
+        "fail": 0
+      },
+      "connector_clearance": {
+        "pass": 4,
+        "warn": 0,
+        "fail": 0
+      }
+    }
+  },
+  "checks": [
     {
-      "check": "scene_meta",
-      "pass": true,
-      "detail": "manifest OK",
-      "offenders": []
+      "id": "scene_meta-unique-ids",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "405 instances, ids unique"
     },
     {
-      "check": "placement",
-      "pass": true,
-      "detail": "405 instances placed sanely",
-      "offenders": []
+      "id": "mesh_overlap-0",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1297 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "053-knee_servo",
+        "055-knee_clamp_cap"
+      ],
+      "point": [
+        153.66357156513845,
+        87.22566929734799,
+        143.52523421117644
+      ],
+      "region": {
+        "min": [
+          130.0900296447739,
+          64.36527876084453,
+          134.6488929935956
+        ],
+        "max": [
+          176.40789341795244,
+          111.60847484843876,
+          151.94376986452707
+        ]
+      }
     },
     {
-      "check": "mesh_overlap",
-      "pass": true,
-      "detail": "no solids interpenetrate above 80 mm^3",
-      "offenders": []
+      "id": "mesh_overlap-1",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1297 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "095-knee_servo",
+        "097-knee_clamp_cap"
+      ],
+      "point": [
+        -153.66357156513848,
+        -87.22566929734796,
+        143.52523421117627
+      ],
+      "region": {
+        "min": [
+          -176.40789341795244,
+          -111.60847484843875,
+          134.6488929935956
+        ],
+        "max": [
+          -130.0900296447739,
+          -64.36527876084452,
+          151.94376986452707
+        ]
+      }
     },
     {
-      "check": "fastener_attach",
-      "pass": true,
-      "detail": "248 fasteners all touch a solid (within 1 mm)",
-      "offenders": []
+      "id": "mesh_overlap-2",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1286 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "081-knee_servo",
+        "083-knee_clamp_cap"
+      ],
+      "point": [
+        -152.47508090081647,
+        89.26249372908049,
+        143.51509103233914
+      ],
+      "region": {
+        "min": [
+          -178.75622309868234,
+          69.04405335243246,
+          134.6488929935956
+        ],
+        "max": [
+          -128.58313344821116,
+          112.45893932249587,
+          151.94376986452707
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-3",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1286 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "123-knee_servo",
+        "125-knee_clamp_cap"
+      ],
+      "point": [
+        152.4750809008164,
+        -89.26249372908049,
+        143.51509103233934
+      ],
+      "region": {
+        "min": [
+          128.5831334482112,
+          -112.45893932249581,
+          134.6488929935956
+        ],
+        "max": [
+          178.7562230986824,
+          -69.0440533524324,
+          151.94376986452707
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-4",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1267 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "109-knee_servo",
+        "111-knee_clamp_cap"
+      ],
+      "point": [
+        -0.06656765458159344,
+        -176.92474568241516,
+        143.71846969588117
+      ],
+      "region": {
+        "min": [
+          -16.63420980353118,
+          -198.14377611889194,
+          136.81075260246203
+        ],
+        "max": [
+          15.618421132940885,
+          -161.04705739029288,
+          151.94376986452707
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-5",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "knee_servo \u2229 knee_clamp_cap = 1267 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "067-knee_servo",
+        "069-knee_clamp_cap"
+      ],
+      "point": [
+        0.06656765458150027,
+        176.92474568241514,
+        143.71846969588117
+      ],
+      "region": {
+        "min": [
+          -15.618421132940957,
+          161.04705739029288,
+          136.81075260246203
+        ],
+        "max": [
+          16.634209803531085,
+          198.14377611889194,
+          151.94376986452707
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-6",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1166 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "093-yaw_servo"
+      ],
+      "point": [
+        -69.39362412043045,
+        -40.00715694282905,
+        55.08981244344594
+      ],
+      "region": {
+        "min": [
+          -99.56729779616349,
+          -63.830650052758436,
+          55.08981244344578
+        ],
+        "max": [
+          -51.98714786611329,
+          -23.66934994724153,
+          55.08981244344578
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-7",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1166 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "121-yaw_servo"
+      ],
+      "point": [
+        69.3936241204305,
+        -40.00715694282905,
+        55.08981244344594
+      ],
+      "region": {
+        "min": [
+          51.987147866113276,
+          -63.83065005275845,
+          55.08981244344578
+        ],
+        "max": [
+          99.56729779616347,
+          -23.669349947241543,
+          55.08981244344578
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-8",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1166 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "079-yaw_servo"
+      ],
+      "point": [
+        -69.39362412043045,
+        40.00715694282907,
+        55.08981244344594
+      ],
+      "region": {
+        "min": [
+          -99.56729779616347,
+          23.669349947241578,
+          55.08981244344578
+        ],
+        "max": [
+          -51.98714786611329,
+          63.830650052758486,
+          55.08981244344578
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-9",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 1166 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "051-yaw_servo"
+      ],
+      "point": [
+        69.3936241204305,
+        40.00715694282905,
+        55.08981244344594
+      ],
+      "region": {
+        "min": [
+          51.98714786611329,
+          23.66934994724155,
+          55.08981244344578
+        ],
+        "max": [
+          99.56729779616349,
+          63.830650052758436,
+          55.08981244344578
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-10",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 904 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "107-yaw_servo"
+      ],
+      "point": [
+        -5.684341886080802e-14,
+        -78.671359922001,
+        55.089812443445894
+      ],
+      "region": {
+        "min": [
+          -10.333333015441964,
+          -108.13636432994497,
+          55.08981244344578
+        ],
+        "max": [
+          10.333333015441848,
+          -66.86363567005503,
+          55.08981244344578
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-11",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "chassis_bottom \u2229 yaw_servo = 904 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "000-chassis_bottom",
+        "065-yaw_servo"
+      ],
+      "point": [
+        1.0658141036401503e-14,
+        78.67135992200099,
+        55.089812443445894
+      ],
+      "region": {
+        "min": [
+          -10.333333015441877,
+          66.86363567005505,
+          55.08981244344578
+        ],
+        "max": [
+          10.333333015441921,
+          108.13636432994495,
+          55.08981244344578
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-12",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 disc_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "118-tibia_knee_yoke",
+        "392-disc_horn_knee"
+      ],
+      "point": [
+        156.81891274107517,
+        -113.81679893793189,
+        138.48270309474358
+      ],
+      "region": {
+        "min": [
+          151.12432780267608,
+          -117.5680095472385,
+          130.78633150928073
+        ],
+        "max": [
+          163.32700981353122,
+          -110.53448965478859,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-13",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 passive_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "118-tibia_knee_yoke",
+        "404-passive_horn_knee"
+      ],
+      "point": [
+        177.81620521027466,
+        -82.84897810672011,
+        138.63071024061784
+      ],
+      "region": {
+        "min": [
+          171.3081081378186,
+          -86.13128738986339,
+          130.78633150928073
+        ],
+        "max": [
+          183.51079014867375,
+          -79.09776749741347,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-14",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 passive_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "076-tibia_knee_yoke",
+        "401-passive_horn_knee"
+      ],
+      "point": [
+        -177.81620521027475,
+        82.84897810671997,
+        138.63071024061784
+      ],
+      "region": {
+        "min": [
+          -183.5107901486738,
+          79.09776749741337,
+          130.78633150928073
+        ],
+        "max": [
+          -171.30810813781866,
+          86.13128738986327,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-15",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 disc_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "048-tibia_knee_yoke",
+        "387-disc_horn_knee"
+      ],
+      "point": [
+        179.31620521027477,
+        80.25090189536668,
+        138.63071024061784
+      ],
+      "region": {
+        "min": [
+          172.8081081378187,
+          76.49969128606008,
+          130.78633150928073
+        ],
+        "max": [
+          185.01079014867383,
+          83.53321117850997,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-16",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 passive_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "048-tibia_knee_yoke",
+        "399-passive_horn_knee"
+      ],
+      "point": [
+        158.31891274107522,
+        111.2187227265785,
+        138.48270309474358
+      ],
+      "region": {
+        "min": [
+          152.62432780267616,
+          107.9364134434352,
+          130.78633150928073
+        ],
+        "max": [
+          164.8270098135313,
+          114.96993333588509,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-17",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 disc_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "076-tibia_knee_yoke",
+        "389-disc_horn_knee"
+      ],
+      "point": [
+        -156.81891274107525,
+        113.81679893793181,
+        138.48270309474358
+      ],
+      "region": {
+        "min": [
+          -163.3270098135313,
+          110.53448965478852,
+          130.78633150928073
+        ],
+        "max": [
+          -151.12432780267616,
+          117.5680095472384,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-18",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 disc_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "090-tibia_knee_yoke",
+        "390-disc_horn_knee"
+      ],
+      "point": [
+        -179.31620521027475,
+        -80.25090189536662,
+        138.63071024061784
+      ],
+      "region": {
+        "min": [
+          -185.0107901486738,
+          -83.53321117850993,
+          130.78633150928073
+        ],
+        "max": [
+          -172.80810813781866,
+          -76.49969128606004,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-19",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "tibia_knee_yoke \u2229 passive_horn_knee = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "090-tibia_knee_yoke",
+        "402-passive_horn_knee"
+      ],
+      "point": [
+        -158.31891274107517,
+        -111.21872272657846,
+        138.48270309474358
+      ],
+      "region": {
+        "min": [
+          -164.82700981353128,
+          -114.96993333588506,
+          130.78633150928073
+        ],
+        "max": [
+          -152.62432780267613,
+          -107.93641344343517,
+          146.32708182608076
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-20",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 passive_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "117-femur_link",
+        "398-passive_horn_hip"
+      ],
+      "point": [
+        106.0918213110298,
+        -41.43992592591635,
+        100.44705953898361
+      ],
+      "region": {
+        "min": [
+          100.66840714654172,
+          -45.347436936644385,
+          92.75068804742818
+        ],
+        "max": [
+          112.87108901663993,
+          -38.31391711733392,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-21",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 passive_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "047-femur_link",
+        "393-passive_horn_hip"
+      ],
+      "point": [
+        88.76389454046884,
+        71.0600740740837,
+        100.595066683052
+      ],
+      "region": {
+        "min": [
+          81.98462683485874,
+          67.15256306335567,
+          92.75068804742818
+        ],
+        "max": [
+          94.18730870495695,
+          74.18608288266613,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-22",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 disc_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "075-femur_link",
+        "383-disc_horn_hip"
+      ],
+      "point": [
+        -87.26389454046885,
+        73.65815028543702,
+        100.59506668305198
+      ],
+      "region": {
+        "min": [
+          -92.68730870495695,
+          69.75063927470899,
+          92.75068804742818
+        ],
+        "max": [
+          -80.48462683485874,
+          76.78415909401944,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-23",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 passive_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "089-femur_link",
+        "396-passive_horn_hip"
+      ],
+      "point": [
+        -88.76389454046888,
+        -71.06007407408369,
+        100.59506668305198
+      ],
+      "region": {
+        "min": [
+          -94.18730870495696,
+          -74.18608288266611,
+          92.75068804742818
+        ],
+        "max": [
+          -81.98462683485876,
+          -67.15256306335566,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-24",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 disc_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "117-femur_link",
+        "386-disc_horn_hip"
+      ],
+      "point": [
+        87.2638945404688,
+        -73.65815028543707,
+        100.595066683052
+      ],
+      "region": {
+        "min": [
+          80.48462683485869,
+          -76.7841590940195,
+          92.75068804742818
+        ],
+        "max": [
+          92.68730870495689,
+          -69.75063927470904,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-25",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 disc_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "047-femur_link",
+        "381-disc_horn_hip"
+      ],
+      "point": [
+        107.59182131102982,
+        38.84184971456297,
+        100.44705953898361
+      ],
+      "region": {
+        "min": [
+          102.16840714654177,
+          35.71584090598054,
+          92.75068804742818
+        ],
+        "max": [
+          114.37108901663997,
+          42.749360725291,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-26",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 passive_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "075-femur_link",
+        "395-passive_horn_hip"
+      ],
+      "point": [
+        -106.09182131102986,
+        41.43992592591629,
+        100.44705953898362
+      ],
+      "region": {
+        "min": [
+          -112.87108901663998,
+          38.31391711733386,
+          92.75068804742818
+        ],
+        "max": [
+          -100.66840714654178,
+          45.347436936644314,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-27",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "femur_link \u2229 disc_horn_hip = 107 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "089-femur_link",
+        "384-disc_horn_hip"
+      ],
+      "point": [
+        -107.59182131102986,
+        -38.841849714562954,
+        100.44705953898362
+      ],
+      "region": {
+        "min": [
+          -114.37108901663998,
+          -42.74936072529099,
+          92.75068804742818
+        ],
+        "max": [
+          -102.16840714654178,
+          -35.71584090598053,
+          108.2914381746074
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-28",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_lower = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "057-coxa_link",
+        "059-yaw_bearing_lower"
+      ],
+      "point": [
+        1.865174681370263e-14,
+        100.0,
+        66.1210631110178
+      ],
+      "region": {
+        "min": [
+          -12.333333333333313,
+          87.66666666666667,
+          64.95439644435113
+        ],
+        "max": [
+          12.33333333333335,
+          112.33333333333333,
+          67.28772977768446
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-29",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_lower = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "099-coxa_link",
+        "101-yaw_bearing_lower"
+      ],
+      "point": [
+        -6.661338147750939e-14,
+        -100.00000000000001,
+        66.1210631110178
+      ],
+      "region": {
+        "min": [
+          -12.333333333333398,
+          -112.33333333333333,
+          64.95439644435113
+        ],
+        "max": [
+          12.333333333333265,
+          -87.66666666666667,
+          67.28772977768446
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-30",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_upper = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "057-coxa_link",
+        "060-yaw_bearing_upper"
+      ],
+      "point": [
+        1.865174681370263e-14,
+        100.0,
+        73.1210631110178
+      ],
+      "region": {
+        "min": [
+          -12.333333333333313,
+          87.66666666666667,
+          71.95439644435113
+        ],
+        "max": [
+          12.33333333333335,
+          112.33333333333333,
+          74.28772977768448
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-31",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_upper = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "099-coxa_link",
+        "102-yaw_bearing_upper"
+      ],
+      "point": [
+        -6.661338147750939e-14,
+        -100.00000000000001,
+        73.1210631110178
+      ],
+      "region": {
+        "min": [
+          -12.333333333333398,
+          -112.33333333333333,
+          71.95439644435113
+        ],
+        "max": [
+          12.333333333333265,
+          -87.66666666666667,
+          74.28772977768448
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-32",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_lower = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "071-coxa_link",
+        "073-yaw_bearing_lower"
+      ],
+      "point": [
+        -86.60254037844382,
+        50.000000000000014,
+        66.1210631110178
+      ],
+      "region": {
+        "min": [
+          -98.93587321883484,
+          37.666667159609034,
+          64.95439644435113
+        ],
+        "max": [
+          -74.26920753805285,
+          62.33333284039102,
+          67.28772977768446
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-33",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_lower = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "085-coxa_link",
+        "087-yaw_bearing_lower"
+      ],
+      "point": [
+        -86.60254037844386,
+        -49.99999999999999,
+        66.1210631110178
+      ],
+      "region": {
+        "min": [
+          -98.93587321883487,
+          -62.33333284039098,
+          64.95439644435113
+        ],
+        "max": [
+          -74.26920753805288,
+          -37.66666715960899,
+          67.28772977768446
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-34",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_lower = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "113-coxa_link",
+        "115-yaw_bearing_lower"
+      ],
+      "point": [
+        86.60254037844388,
+        -50.0,
+        66.1210631110178
+      ],
+      "region": {
+        "min": [
+          74.26920753805288,
+          -62.333332840390995,
+          64.95439644435113
+        ],
+        "max": [
+          98.93587321883487,
+          -37.666667159609005,
+          67.28772977768446
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-35",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_lower = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "043-coxa_link",
+        "045-yaw_bearing_lower"
+      ],
+      "point": [
+        86.60254037844388,
+        49.99999999999999,
+        66.1210631110178
+      ],
+      "region": {
+        "min": [
+          74.26920753805288,
+          37.666667159609,
+          64.95439644435113
+        ],
+        "max": [
+          98.93587321883487,
+          62.33333284039098,
+          67.28772977768446
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-36",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_upper = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "071-coxa_link",
+        "074-yaw_bearing_upper"
+      ],
+      "point": [
+        -86.60254037844382,
+        50.000000000000014,
+        73.1210631110178
+      ],
+      "region": {
+        "min": [
+          -98.93587321883484,
+          37.666667159609034,
+          71.95439644435113
+        ],
+        "max": [
+          -74.26920753805285,
+          62.33333284039102,
+          74.28772977768448
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-37",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_upper = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "085-coxa_link",
+        "088-yaw_bearing_upper"
+      ],
+      "point": [
+        -86.60254037844386,
+        -49.99999999999999,
+        73.1210631110178
+      ],
+      "region": {
+        "min": [
+          -98.93587321883487,
+          -62.33333284039098,
+          71.95439644435113
+        ],
+        "max": [
+          -74.26920753805288,
+          -37.66666715960899,
+          74.28772977768448
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-38",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_upper = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "113-coxa_link",
+        "116-yaw_bearing_upper"
+      ],
+      "point": [
+        86.60254037844388,
+        -50.0,
+        73.1210631110178
+      ],
+      "region": {
+        "min": [
+          74.26920753805288,
+          -62.333332840390995,
+          71.95439644435113
+        ],
+        "max": [
+          98.93587321883487,
+          -37.666667159609005,
+          74.28772977768448
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-39",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "coxa_link \u2229 yaw_bearing_upper = 106 mm\u00b3 interpenetration (allowed)",
+      "instances": [
+        "043-coxa_link",
+        "046-yaw_bearing_upper"
+      ],
+      "point": [
+        86.60254037844388,
+        49.99999999999999,
+        73.1210631110178
+      ],
+      "region": {
+        "min": [
+          74.26920753805288,
+          37.666667159609,
+          71.95439644435113
+        ],
+        "max": [
+          98.93587321883487,
+          62.33333284039098,
+          74.28772977768448
+        ]
+      }
+    },
+    {
+      "id": "connector_clearance-0",
+      "kind": "connector_clearance",
+      "status": "pass",
+      "label": "motor_controller servo/UART face (+X): clear",
+      "region": {
+        "min": [
+          -7.5,
+          -21.0,
+          70.8710631110178
+        ],
+        "max": [
+          6.5,
+          21.0,
+          86.8710631110178
+        ]
+      }
+    },
+    {
+      "id": "connector_clearance-1",
+      "kind": "connector_clearance",
+      "status": "pass",
+      "label": "motor_controller terminal/USB face (-X): clear",
+      "region": {
+        "min": [
+          -53.5,
+          -21.0,
+          70.8710631110178
+        ],
+        "max": [
+          -40.5,
+          21.0,
+          86.8710631110178
+        ]
+      }
+    },
+    {
+      "id": "connector_clearance-2",
+      "kind": "connector_clearance",
+      "status": "pass",
+      "label": "mpu6050 header row (-X): clear",
+      "region": {
+        "min": [
+          -20.2,
+          -53.6,
+          70.8710631110178
+        ],
+        "max": [
+          -6.199999999999999,
+          -32.4,
+          82.8710631110178
+        ]
+      }
+    },
+    {
+      "id": "connector_clearance-3",
+      "kind": "connector_clearance",
+      "status": "pass",
+      "label": "motor_controller USB-C bench-plug corridor (-X, robot parked): clear",
+      "region": {
+        "min": [
+          -70.5,
+          -21.0,
+          70.8710631110178
+        ],
+        "max": [
+          -40.5,
+          21.0,
+          86.8710631110178
+        ]
+      }
     }
   ],
   "highlights": {
     "parts": [],
-    "points": []
-  },
-  "allPass": true
+    "points": [],
+    "regions": []
+  }
 }
