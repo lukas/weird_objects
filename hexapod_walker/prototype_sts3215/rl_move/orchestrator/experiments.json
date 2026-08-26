@@ -138724,7 +138724,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-23T03:06:47+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -138772,8 +138772,9 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnpushfault1-style05-ypfix1-r3 since 2026-08-23T03:17:58",
-    "triage_note": "TRIAGE 08-23 03:4x (verdict deferred to dig-in, model-tiering): finished 6.03M (8M total), reward rose 99->171->181->194. Pre-registered FAIL branch conditions met: (1) income-probe yaw_ratio UNCHANGED at 1.649/1.786 (logs/probe_walk_income/ypfix1_r3_income_probe.json) - deterministic tip rollouts are BIT-IDENTICAL to parent r2 probe (wz_mean/rmse/slip exact float match) despite weights moving (max|dW|=0.87, verified tensor-by-tensor): the overshoot keys repriced the farm (yaw_prog on same trajectory 291->131 left / ~294->100 right) but behavior did not move; (2) corrected-bus eval_yaw tips 0.3909/0.4742 vs bar 0.20 (parent 0.4248/0.4932; artifact logs/ckpt_eval/cw_amp_m4_turnpushfault1_style05_ypfix1_r3_gate/yaw_corrected_bus.json); (3) safety bar eroded to edge: gait_valid 10/12 (bar >=10), topples 1det+0sto ok, but TWO new sacrificed legs (sto/1 sac[5], sto/3 sac[0], upright limps on video, lineage baseline zero). Mechanism lead for dig-in: probe feas shows requested joint speeds pegged EXACTLY at the 5.0deg/tick safety clamp (125 deg/s p95=max) in tip scenarios - tip behavior looks pinned at a clamp/quantization attractor that pricing cannot sculpt (sub-count action drift leaves executed servo counts unchanged). FAIL branch prescription stands: reward-structure (or actuation-regime) dig-in before ANY further turn+X budget. Matched no-keys control cont1 still training - completes keys-vs-budget attribution."
+    "triage": "done",
+    "triage_note": "TRIAGE 08-23 03:4x (verdict deferred to dig-in, model-tiering): finished 6.03M (8M total), reward rose 99->171->181->194. Pre-registered FAIL branch conditions met: (1) income-probe yaw_ratio UNCHANGED at 1.649/1.786 (logs/probe_walk_income/ypfix1_r3_income_probe.json) - deterministic tip rollouts are BIT-IDENTICAL to parent r2 probe (wz_mean/rmse/slip exact float match) despite weights moving (max|dW|=0.87, verified tensor-by-tensor): the overshoot keys repriced the farm (yaw_prog on same trajectory 291->131 left / ~294->100 right) but behavior did not move; (2) corrected-bus eval_yaw tips 0.3909/0.4742 vs bar 0.20 (parent 0.4248/0.4932; artifact logs/ckpt_eval/cw_amp_m4_turnpushfault1_style05_ypfix1_r3_gate/yaw_corrected_bus.json); (3) safety bar eroded to edge: gait_valid 10/12 (bar >=10), topples 1det+0sto ok, but TWO new sacrificed legs (sto/1 sac[5], sto/3 sac[0], upright limps on video, lineage baseline zero). Mechanism lead for dig-in: probe feas shows requested joint speeds pegged EXACTLY at the 5.0deg/tick safety clamp (125 deg/s p95=max) in tip scenarios - tip behavior looks pinned at a clamp/quantization attractor that pricing cannot sculpt (sub-count action drift leaves executed servo counts unchanged). FAIL branch prescription stands: reward-structure (or actuation-regime) dig-in before ANY further turn+X budget. Matched no-keys control cont1 still training - completes keys-vs-budget attribution.",
+    "verdict": "Ledger housekeeping only, no new science: this run finished and was fully analyzed 08-23 ~03:4x (amp STATUS.md) but its ledger status field was never flipped from RUNNING, leaving it perpetually in the untriaged queue. Result stands as recorded then: the banked yaw-overshoot-decay pricing keys (6M continuation, 8M total, reward rose 99->194) did NOT move tip behavior at all -- deterministic tip rollouts BIT-IDENTICAL to parent r2 (yaw_ratio 1.649/1.786, income probe exact float match) despite weights moving (max|dW|=0.87); corrected-bus eval_yaw tips 0.39/0.47 (bar 0.20) and safety eroded to 10/12 gait_valid with two NEW sacrificed legs. Root cause found same-cycle-cluster: tip-scenario joint speed commands pin exactly at the 5deg/tick safety clamp, a quantization attractor reward pricing cannot sculpt. Matches its own pre-registered FAIL branch. No further action: this specific turn+push+fault composition lineage was superseded by the amp track's M5 GATE GREEN (2026-08-23/24, phasehz11 lineage) which is the current champion; ypfix1-r3's turn-composition question is closed history, not blocking work."
   },
   {
     "run": "cw-amp-m4-turnpushfault1-style05-cont1",
@@ -183185,7 +183186,7 @@
       "safety.hold_height_grace_s=1.0"
     ],
     "created": "2026-08-25T09:45:24+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -183231,7 +183232,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-holdterm40-s1 since 2026-08-25T09:55:57"
+    "triage": "done",
+    "verdict": "Ledger housekeeping: seed-1 twin of rung-5 holdterm40, deferred to 'another cycle's read' at launch (08-25) and never closed. Confirms the already-verdicted rung-5 FAIL cross-seed: 12/12 hold episodes (det+sto, own-DR 0.2) terminate hold_low_height, reward falling not rising across the run (-102/-365/-521/-405), matching seed-0's pinned-at-40mm-drop-line hover signature exactly. No new information -- rung-5 (height-drop lever alone) was already superseded by rung-6 (min-load termination, also FAIL) and then rung-7 (BC-anchor, PASS on hold, closed the hold rung 08-25 13:1x). Closing this stale ledger entry so it stops showing as untriaged; no track-story change."
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-movecur1-dose5x-acq1",
@@ -187151,7 +187153,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3.zip"
     ],
     "created": "2026-08-25T14:52:52+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -187198,7 +187200,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stancemix-bcchain3-stdanneal since 2026-08-25T15:11:56"
+    "triage": "done",
+    "verdict": "Full-mix stance curriculum (hold+rise+lower together, std-annealed, 8M) mostly vindicates the operator's full-mix directive but rise is still the bottleneck. Plain English: at DR-0 the robot now holds AND lowers cleanly every time -- lower is the best result of the whole standwalk campaign (6/6 det+sto, zero terminations, own-DR 0.2 also 6/6/6/6) -- but rising is still fragile: it only just clears the pre-registered >=2/6-valid bar at DR-0 det (2/6, rest over_current/tilt_pitch terms) and collapses to 0/6 (all over_current) the moment own-DR(0.2) is applied. hold is clean at DR-0 (6/6 both modes, zero terms) but softens at own-DR (4/6 sto, one hold_min_load term). Video (contact_sheet.png, gate mode): hold and lower rows show a clean planted six-leg crouch; the rise row shows a splayed, non-standing pose even in the nominally-passing episodes -- not a controlled stand-up, hardware-ready: no. Reward is still rising steeply and accelerating at cutoff (quarters -76/-148/204/632, Q4 >> Q3), which is the textbook 08-21 continue signal, not a stall. Per the run's own gate text this reads as PARTIAL ('hold cools/stabilizes but rise... diluted') though lower substantially beats that description. Root cause matches the standing rise-vs-hold/lower interference story already on file (rise's over_current signature recurs across isolated bcanchor rung-7 runs too) -- this is cross-mode reward interference in the shared aux batch, not a new defect. Next: continue this exact lineage further (reward still climbing hard) rather than fork yet -- refilling a same-recipe +8M continuation to see whether rise catches up now that hold/lower are solved, per 08-21."
   },
   {
     "run": "cw-standwalk-stance-mesh2-riseonly-bcchain3-quarterchain",
@@ -203295,7 +203298,7 @@
       "train.bc_anchor_isolate_update=1"
     ],
     "created": "2026-08-26T19:16:32+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -203341,7 +203344,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor3-cw-standwal since 2026-08-26T19:39:43"
+    "triage": "done",
+    "verdict": "CANARY PASS (LEAK-STAYS-FIXED at 2x dose; joint w/ -s1) -- DOSE-WORKS branch FAILS. Mechanism-health read: raising bc_anchor_coef 3.0->6.0 on the leak-fixed (isolate_update=1) dual-core recipe does NOT reopen the momentum-leak wreck -- walk/det stays clean both DR levels (gait_valid 6/6, prog 0.29-0.43 within/above the anchor2 modeseq1 band, zero sacrificed legs, no anchor1-class freeze/shuffle). The DOSE-WORKS behavioral question this arm was launched to answer reads FAIL: hold/sto stays an UNCHANGED total 6/6 hold_min_load termination at both DR-0 and own-DR(0.5), bit-for-bit the same signature as anchor2's coef=3.0 read -- bc_anchor_coef is confirmed NOT the lever for the stochastic hold collapse, it can be left at 3.0. lower/det and rise are unchanged mixed-fail (not this arm's target axis). Next: do not raise this coef further; the hold/sto failure needs a different lever -- the campaign's own std-anneal fix (proven on the isolated rung-7 bcanchor3-stdanneal and again this cycle on stancemix-bcchain3-stdanneal, both of which cleared hold/sto) is the analogous candidate for the dual-core stage-2 recipe."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor3-s1",
@@ -203538,7 +203542,7 @@
       "train.bc_anchor_isolate_update=1"
     ],
     "created": "2026-08-26T19:20:43+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -203592,6 +203596,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor3-cw-standwal since 2026-08-26T19:39:43"
+    "triage": "done",
+    "verdict": "CANARY PASS (LEAK-STAYS-FIXED at 2x dose, joint w/ anchor3) with a flagged caution -- DOSE-WORKS branch FAILS, same as seed0. walk/det stays clean (gait_valid 6/6, prog 0.39-0.40, zero sacrificed legs) -- no anchor1-class det catastrophe, mechanism intact. CAUTION (new this seed): walk/sto degraded from anchor2-s1's clean 6/6 gait_valid to 2/6 here, with 3/6 episodes now hitting over_current and 1-2 sacrificed legs each (sac[2,4,5], sac[5], sac[2,5]) -- worse than seed0's clean walk/sto (6/6 valid, no sac) at the same dose. This is NOT the full anchor1 catastrophe (det is unaffected, no freeze/shuffle signature) but is a real seed-specific fragility increase on the stochastic axis at 2x dose -- treat as a soft warning against pushing bc_anchor_coef higher without re-checking this seed. hold/sto unchanged total 6/6 hold_min_load term (identical to seed0 and to anchor2) -- coef confirmed not the lever for stance. Joint call with anchor3: overall CANARY PASS on mechanism, FAIL on the dose-works question; do not raise this coef further, pivot to std-anneal for the stance axis."
   }
 ]
