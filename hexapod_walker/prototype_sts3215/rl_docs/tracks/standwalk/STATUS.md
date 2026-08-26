@@ -1,6 +1,111 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~03:2x (**SEQRISE JOINT CALL CLOSED: CANARY
+Last updated: 2026-08-26 ~04:3x (**JOINT CALL CLOSED: JOINT PASS — the
+from-scratch real-std-anneal full hold=.1/rise=.45/lower=.45 mix clears
+every registered clause on BOTH seeds; PROMOTED as THE mesh stancemix
+recipe, closing the multi-day from-scratch-vs-warm-started/std-reopen
+saga. PLUS: built + tested the STAND_HEIGHT rung-5 wiring (mode_seq hold
+segments can now carry a height command) and launched its first canary.**
+`-s1` (seed 1, this cycle): flat-pinned probe 11/12 valid_plant (det 6/6,
+sto 5/6 — 1 over_current fall, not a majority/pin), herr 0.2–8.6mm, real
+per-leg swing counts; DR-0 gate hold 6/6+6/6 zero-term (herr≤5.5mm),
+lower 6/6 det+6/6 sto success (herr 3.0–5.0mm, well under the 10mm bar —
+`valid_plant` reads 0 for lower because that flag means rise-height
+plant, not lower's own success criterion, which is `success=true`
+here); own-DR(0.2) hold 6/6+6/6, lower 6/6+6/6, rise 5/6 det (1 OC term)
++ 6/6 sto. Combined with seed-0's own 12/12 flat + zero-term hold/lower
+(posted last entry), **both seeds clear all three registered clauses
+(flat probe ≥10/12, hold ≥5/6+5/6 zero-term, lower ≥5/6 honest ≤10mm) —
+JOINT PASS.** Promoting seed-0's checkpoint
+(`ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip`,
+marginally cleaner: 12/12 vs 11/12 flat, zero own-DR rise terms vs
+seed-1's one) as THE mesh stancemix recipe. Residual (both seeds, same
+shape as every prior "solved" rise arm): cur_max still kisses 2.4–2.64A
+on most rise episodes without tripping (structural, non-terminal); a
+thin over_current/fall tail remains on the hardest deep starts
+(bridge/rsi/flat-sto), ~3/84 read episodes per seed across all three
+reports — this is Stage-1's cleanest result yet, not a zero-fall
+closure, so it does not by itself close the track's Stage-1 GATE text
+("zero falls/tips"). SKILLS.md row added (joint-scope). **Refill (built
+this cycle, real code):** STAND_HEIGHT.md's rung-5 text claimed
+`goal.mode_seq_stance`'s hold segments already carry a height command
+"as a drop-in" — false on inspection: `_seq_segment_traj`'s hold branch
+never called the existing `_hold_height_schedule` (mid-sequence hold
+segments were always flat-zero regardless of `hold_height_cmd_frac`).
+Added `goal.mode_seq_hold_height_cmd` (default 0 = OFF, bit-exact — the
+array stays the pre-initialized zeros exactly as before) in
+`rl_move/sim/goal_task.py::_seq_segment_traj`: ON (+ the generator's own
+`hold_height_cmd_frac>0`) calls `_hold_height_schedule` in the segment's
+own local clock (`n - tick` steps), which composes cleanly because that
+schedule already starts every draw at 0 with its own settle window —
+the same convention the rise/lower branches already rely on for a
+seamless segment-switch. 4 new tests
+(`rl_move/tests/test_mode_seq_hold_height.py`: default-off flat,
+on-but-frac-zero flat, on-composes varying/continuous/in-range, unset-
+vs-explicit-zero stream parity) + the full `test_mode_seq_stance.py`/
+`test_mode_seq.py`/`test_hold_height_cmd.py`/
+`test_eval_modeseq_rise_from_h.py` banks stay green (36/36). Launched
+the pre-registered STAND_HEIGHT rung-5 first canary off THIS cycle's
+promoted checkpoint (see below). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m_s1_{gate,owncfg,
+flatprobe}/`, W&B `nl1im163`.)
+
+Prior entry: 2026-08-26 ~04:2x (**SCRATCH8M (seed 0) ACQUISITION PASS — the
+cleanest single-seed mesh stancemix read of the whole campaign, and the
+first from-scratch (not warm-started, not pinned-std) full-mix arm to be
+read.** Flat-pinned probe (det+sto 6+6, DR-0): 12/12 valid_plant, herr
+0.6–7.1mm, real per-leg swing motion (e.g. [13,0,1,0,5,1]), roll clean —
+video confirms genuine splay→tuck-under→level six-foot plant, NOT the
+stdreopen/seqrise family's press-pin or half-mast freeze (the 2.4–2.64A
+seen during tuck/press is the same non-terminal structural ceiling every
+solved rise arm rides, not a frozen pin: swings are real, herr is low).
+DR-0 gate: hold 6/6+6/6 AND lower 6/6+6/6 both **ZERO terminations**
+(herr ≤0.7mm hold, ≤2.8mm lower) — both registered clauses cleared with
+zero terms, not merely above-bar; rise/sto DR-0 4/6 (2 bridge/rsi
+over_current falls — the campaign's already-catalogued deep-start OC
+tail, not new). Own-DR(0.2): hold det 6/6 + sto 5/6 (1 hold_min_load
+term); **rise det 6/6 + sto 6/6, ALL valid_plant zero-term** (stronger
+than this seed's own DR-0 rise/sto); lower 6/6+6/6 zero-term. Reward rose
+every quarter (-32.4/20.5/659.2/1236.9), matching the isolated
+tuckclock-acq8m trough-then-breakout arc this recipe deliberately
+mirrors. **Verdicted own-scope only — the registered gate is JOINT with
+`-s1`** (seed 1, identical from-scratch recipe, still training as of this
+entry — off-limits to this cycle). If `-s1` also clears every clause,
+this closes the from-scratch-vs-warm-started/std-reopen saga outright:
+promote as THE mesh stancemix recipe, unblocking STAND_HEIGHT rungs 4-5
+and walk distillation. If `-s1` instead shows the seed-fragility pattern
+the stdreopen-acq8m pair did (2/12 vs 11/12), the honest read becomes
+"from-scratch real-std-anneal is ALSO only partially seed-reliable" —
+worth a 3rd seed before promoting either family. SKILLS.md row added
+(seed-0 scoped). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stancemix_tuckclock_scratch8m_{gate,owncfg,flatprobe}/`, W&B `pjatb078`.)
+
+Prior entry: 2026-08-26 ~03:3x (**STDREOPEN 3-SEED READ CLOSED:
+seed-2 matches seed-0's total freeze (0/12 flat valid_plant, WORSE
+than seed-0's 2/12, all 12 over_current-pinned at 2.64A, near-zero
+swing_count), not seed-1's clean 11/12 pass — CANARY FAIL - MECHANISM
+recorded. Three seeds now read 2/12, 11/12, 0/12: genuinely ~1/3
+reliable, exactly this canary's own pre-registered "seed2 matches
+seed0" branch. Hold/lower stay clean regardless (12/12+12/12 DR-0
+both), confirming the flat sub-case alone is the broken piece. Root
+cause is NOT the recipe's own "std reopen" lever, though — the
+concurrent seqrise dig-in (see next entry) found `--log-std-init` is
+a silent no-op under `--init-from`, so this entire warm-started
+sub-lineage (stdreopen/-s1/-acq8m/-acq8m-s1/seqrise/-s1/-s2) trained
+at the parent's pinned std 0.0183 the whole time; the seed spread is
+pinned-std warm-start optimization variance, not an exploration
+effect. No further stdreopen-recipe seeds are warranted — the correct
+lever is the from-scratch real-std-anneal arm below.
+`cw-standwalk-stance-mesh2-stancemix-tuckclock-scratch8m`'s first
+launch attempt was mechanically REFUSED (pod code-sync) and only its
+retry (seed 0, train-6) ended up running with no seed twin queued;
+completed the pre-registered pair this cycle —
+`cw-standwalk-stance-mesh2-stancemix-tuckclock-scratch8m-s1` (seed 1,
+identical from-scratch recipe) launched VERIFIED RUNNING on train-7.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_
+tuckclock_stdreopen_s2_{gate,owncfg,flatprobe}/`, W&B `s9yxuq93`.)
+
+Prior entry: 2026-08-26 ~03:2x (**SEQRISE JOINT CALL CLOSED: CANARY
 FAIL - MECHANISM on both seeds — warm-starting the 3-way mix from the
 solved riseonly flat-rise checkpoint does NOT preserve the skill —
 PLUS a lineage-wide mechanical discovery that re-frames the whole
@@ -35,6 +140,28 @@ recipe that solved mesh flat rise 2/2 (riseonly-tuckclock-acq8m
 24/24). Named fallback if it fails: warm-start + `--warm-log-std-
 override 0`.** Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
 stancemix_seqrise_{gate,owncfg,flatprobe}/`, W&B `9zzi5ael`.)
+
+UPDATE (03:3x, this cycle): the scratch8m launch above was initially
+REFUSED (stale code marker on train-6, `95e8933f...` vs local HEAD) —
+`snapshot.sh --sync hexapod-mjx-train-6` + `--sync hexapod-mjx-
+train-7` fixed it; **both `scratch8m` (seed 0, train-6) and `-s1`
+(seed 1, train-7) are now confirmed VERIFIED RUNNING (8M each)** —
+no -s1 twin existed yet, launched this cycle with the identical
+recipe/seed=1 to make it a real joint pair per this campaign's
+2-seed convention. Also closed this cycle (own scope, complements
+the seqrise joint call above): `cw-standwalk-stance-mesh2-stancemix-
+tuckclock-stdreopen-s2` (the 3rd stdreopen seed) VERDICTED CANARY
+FAIL - MECHANISM — flat probe 12/12 over_current-terminated at the
+exact 2.64A ceiling, zero swings, pattern-matching seed0's
+total-freeze (NOT seed1's clean pass); hold/lower clean both DR
+settings. This closes the SEED-NOISE half of the earlier joint
+question standalone: with seed0=freeze, seed1=pass, seed2=freeze,
+the stdreopen recipe (warm-started, pinned-std per the discovery
+above) is only ~1/3 seed-reliable — consistent with, and independent
+confirmation of, the decision above to move to the from-scratch
+real-std-anneal recipe rather than fund more stdreopen seeds.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_
+tuckclock_stdreopen_s2_{gate,owncfg,flatprobe}/`, W&B `s9yxuq93`.
 
 Prior entry: 2026-08-26 ~03:1x (**seqrise-s1 (own scope) CANARY FAIL
 - MECHANISM: the SEQUENCING lever avoids the OC-pin entirely but the
