@@ -54,6 +54,21 @@ def main(argv=None) -> int:
                     default="rise=0.40,walk=0.30,lower=0.15,hold=0.15")
     ap.add_argument("--out", type=Path, default=None,
                     help="write the stats record as JSON")
+    # 08-26 (standwalk stage-2 design): the original R3_CFG overlay is
+    # a stale r3/r4c-era recipe snapshot -- it does NOT match any real
+    # walk teacher's actual training cfg (goal.walk_phase_obs,
+    # walk_obs_body_vel etc change obs WIDTH; a mismatch crashes with
+    # "checkpoint obs width does not fit env"). This lets a caller pass
+    # a teacher's own launch --cfg-set list verbatim (env.model_source
+    # / control.hz included) so the composed env matches what BOTH
+    # teachers actually trained under. Parsed with the same
+    # _parse_cfg_set used by every other harness -- one dotted-key
+    # convention repo-wide.
+    ap.add_argument("--extra-cfg-set", action="append", default=[],
+                    help="k=v env/goal/reward/safety overrides layered "
+                         "on top of the default sequence-probe overlay "
+                         "(e.g. a walk teacher's own training cfg, or "
+                         "env.model_source=mesh control.hz=100).")
     args = ap.parse_args(argv)
 
     from stable_baselines3 import PPO
@@ -61,12 +76,15 @@ def main(argv=None) -> int:
     from .distill_gru import (
         DIET, _build_cfg, _make_env, collect_transitions,
     )
+    from .train_ppo_sim import _parse_cfg_set
 
     seg_lo, seg_hi = (float(x) for x in args.seq_segment_s.split(","))
-    cfg = _build_cfg({"obs.mode_onehot": 1.0,
-                      "goal.mode_seq": 1.0,
-                      "goal.mode_seq_segment_s_min": seg_lo,
-                      "goal.mode_seq_segment_s_max": seg_hi})
+    overlay = {"obs.mode_onehot": 1.0,
+               "goal.mode_seq": 1.0,
+               "goal.mode_seq_segment_s_min": seg_lo,
+               "goal.mode_seq_segment_s_max": seg_hi}
+    overlay.update(_parse_cfg_set(args.extra_cfg_set))
+    cfg = _build_cfg(overlay)
     params = SimServoParams.load()
     env = _make_env(args, cfg, params)
     first_mix = {k: float(v) for k, v in

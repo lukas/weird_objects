@@ -582,15 +582,19 @@ def main(argv: list[str] | None = None) -> int:
     # --cfg-set K=V passthrough (08-14, Arm-2 follow-up lever): parsed
     # once, applied as _build_cfg extras everywhere. None/[] = empty
     # dict = _build_cfg items unchanged = bit-exact prior behavior.
-    cfg_overrides: dict[str, float | str] = {}
+    # 08-26 (standwalk stage-2 design): now shares train_ppo_sim's
+    # _parse_cfg_set instead of a local float-or-string parser — the
+    # local version silently kept "[79,87]"-style range overrides
+    # (goal.rise_height_mm etc, needed to match a real stance teacher's
+    # training cfg) as a raw STRING instead of a parsed list, which
+    # would break any downstream cfg_get(...) numeric use. No behavior
+    # change for plain float/string values (float-else-string in both).
+    from .train_ppo_sim import _parse_cfg_set
     for spec in (args.cfg_set or []):
-        key, val = spec.split("=", 1)
-        if "." not in key:
+        if "." not in spec.split("=", 1)[0]:
             raise SystemExit(f"--cfg-set needs a dotted key, got: {spec}")
-        try:
-            cfg_overrides[key] = float(val)
-        except ValueError:
-            cfg_overrides[key] = val.strip()
+    cfg_overrides: dict[str, float | str | list] = _parse_cfg_set(
+        args.cfg_set or [])
 
     extra_mix: dict[str, float] = {}
     if args.dagger_extra_mix:

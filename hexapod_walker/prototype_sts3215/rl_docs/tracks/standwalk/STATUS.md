@@ -1,6 +1,94 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~09:1x (**SEGFIX JOINT CALL: REAL DIVERGENCE,
+Last updated: 2026-08-26 ~10:2x (**STAGE-2 DE-RISKED: the primitive
+walk teacher (`stotight45-seed13`, 25 Hz) transfers to mesh dynamics +
+the real 100 Hz motor contract almost for free, and composes with the
+mesh stance teacher (`acq8m`) via `goal.mode_seq` at only a 10 % fall
+rate concentrated entirely in the ALREADY-TRACKED rise/hold residual
+— zero new walk-composition pathology. Dual-teacher BC distillation
+launched (background, CPU) as the first real Stage-2 mechanism arm.**
+Plain English: everyone assumed unifying rise/lower (mesh, 100 Hz)
+with walking (still only proven on the OLD lighter/25 Hz robot) would
+need a whole rate-conversion engineering effort before it could even
+be tested. It didn't — three cheap measurement probes (no training,
+pure inference, `eval_joystick_gate`/`verify_modeseq_teachers`, this
+cycle) answer the Binding-Constraints "measure before trusting"
+requirement directly:
+1. `stotight45-seed13` run AS-IS on `env.model_source=mesh` at its
+   OWN native `control.hz=25` (isolating the mass/geometry variable
+   alone): joystick DONE-gate n=24 DR-0, PASS (0 falls, slip/m 2.567,
+   dir_err 31.4deg, gait_valid 1.0) — the +66% mass / shifted hip axis
+   does NOT break this gait.
+2. Same checkpoint at `control.hz=100` under the CURRENT real mesh
+   motor contract (`safety.max_delta_q_deg=0.375` default, not this
+   run's own trained 5.0 deg/tick@25Hz — i.e. the actual contract any
+   unified stage-2 policy must use), DR-0, n=24, full 60s episodes:
+   PASS (0 falls, slip/m 2.426, dir_err 39.84deg — just inside the
+   40deg cap, gait_valid 1.0). Adding own-DR(0.35) tips direction
+   error just over the cap (combined med 40.72 vs 40.0; slip stays
+   in-band) — CANARY FAIL on the full DR panel, but by the smallest
+   possible margin, with zero falls and perfect gait validity anywhere
+   in the panel. **Conclusion: no rate-conversion hack (action-hold /
+   interpolation) is even structurally necessary — direct inference
+   at the target Hz/contract already sits at the gate's edge.**
+3. `verify_modeseq_teachers.py` (existing tool, generalized this cycle
+   — see below) driving `acq8m` (stance) + `stotight45-seed13` (walk)
+   through `goal.mode_seq` composition on mesh/100 Hz, DR 0.5,
+   stochastic_frac 0.3 (deliberately harder than the gate panels): 60
+   sequences, 30s each — **6/60 (10%) fell, split `{hold: 3, rise: 3},
+   ZERO walk-segment falls.** The failures match the segfix dig-in's
+   own already-open residual (rise flat-start / hold min-load) exactly
+   — this is not a new walk-composition pathology, it's the
+   pre-existing stance-side story recurring under composition, which
+   is the expected/tracked risk, not a surprise.
+**Tooling built (real code, tested):** `verify_modeseq_teachers.py`
+gained `--extra-cfg-set` (was hardcoded to a stale r3/r4c-era overlay
+that doesn't match ANY current teacher's real obs-width-affecting cfg
+— crashed on stotight45's 74-wide obs otherwise); `distill_gru.py`'s
+`--cfg-set` parser now shares `train_ppo_sim._parse_cfg_set` instead
+of a local float-or-string parser that silently mis-typed `[lo,hi]`
+range overrides (e.g. `goal.rise_height_mm=[79,87]`, needed to match
+acq8m's real training cfg) as a raw string — latent bug since 08-14,
+never triggered because no prior `--cfg-set` caller passed a bracketed
+value. `test_mode_seq*.py` (23 tests) stays green; both changes
+smoke-tested end-to-end (tiny dual-BC run, 4 transitions/8 episodes/2
+epochs, full pipeline completes and saves a loadable SB3 zip) before
+committing to the real-scale run. **Launched (background, CPU,
+`nohup`, not GPU/ledger-tracked — this is BC pretraining, the same
+class of work as every prior `distill_gru` arm):**
+`ppo_goal_cw_standwalk_stage2_dualbc1.zip` —
+`--transitions 60 --episodes 120 --epochs 20
+--mix walk=0.30,rise=0.40,lower=0.15,hold=0.15`, walk-teacher
+`stotight45-seed13`, stance-teacher `acq8m`, env cfg = the exact
+merged walk+stance training cfg from probes 1-3 above (`env.model_
+source=mesh control.hz=100`, no legacy motor-contract override — the
+REAL target contract). No DAgger round yet (one lever at a time — get
+a plain dual-teacher BC read before paying for on-policy correction).
+**Next (whoever picks this up if still running): once
+`ppo_goal_cw_standwalk_stage2_dualbc1.zip` finishes, (a) run its own
+`quick_probe`/seq-probe output (printed at the end of the distill log,
+`/tmp/dualbc1.log` on the controller if this session is still live —
+otherwise rerun is cheap, ~30-40 min CPU) — a competent BC clone
+should already beat raw teacher composition's 10% fall rate on the
+SAME probe episodes, since BC labels are teacher-optimal and it never
+compounds mode-switch-timing quirks the two independent policies
+never saw together; (b) if the seq probe is not obviously broken
+(no total freeze / no majority fall), launch a 2M canary PAIR
+GPU-side (`train_ppo_mjx --gru --init-from
+ppo_goal_cw_standwalk_stage2_dualbc1.zip --task joint_walk
+goal.mode_seq=1` + the same merged env cfg) — this IS the Stage-2
+walking-source x mechanism matrix's first cell (source=primitive
+`stotight45-seed13` via direct-inference BC transfer, mechanism=dual-
+teacher BC + RL fine-tune); (c) if the BC probe IS broken, the
+fallback is the DAgger round already scaffolded (`--dagger-rounds`)
+before concluding the mechanism itself needs redesign — do not treat
+a bad BC-only read as a mechanism refutation without at least one
+DAgger round, the docstring's own TRANSITIONS_DIRECTIVE lesson.
+Evidence: `/tmp/probe_stotight45_meshhz25`, `/tmp/probe_stotight45_
+meshhz100_truecontract{,_full,_ownDR}`, `/tmp/verify_modeseq_{smoke,
+full}.json` (controller `/tmp`, not artifact-durable — rerun cheap if
+needed for audit; each probe command is fully specified above).
+Prior entry, 08-26 ~09:1x (**SEGFIX JOINT CALL: REAL DIVERGENCE,
 NOT A CLEAN PASS — the composed-segment-window widen (6-8s->9-11s)
 FIXES seed1's severe flat-in-composition collapse outright but
 REGRESSES seed0, which had no such problem before. DIG-IN flagged;
