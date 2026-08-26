@@ -1,6 +1,45 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~21:3x (**IDLE-KICK DRAIN: anchor3/-anchor3-s1
+Last updated: 2026-08-26 ~22:2x (**stancemix-bcchain3-stdanneal-cont1
+FAIL, closes the stale-ref full-mix sub-lineage for good; batch-
+completed the anchor4-stdanneal seed pair.** `cont1` (+8M budget,
+16M total, on `stancemix-bcchain3-stdanneal`) hits its own
+pre-registered FAIL branch: rise did NOT improve with more budget, it
+got slightly WORSE (DR-0 det 2/6->1/6, sto 1/6, own-DR det 1/6/sto
+0/6; flat-start rise stayed pinned at literal 0 the whole run per
+in-training `SCORE/rise_flat_success`) while hold stayed clean (6/6
+det+sto both DR) and lower mostly held (DR-0 6/6 both modes) but
+softened on own-DR sto (6/6->4/6, sub-threshold but real). Reward kept
+climbing hard (quarters -128/-4.8/312/611, `bc_anchor_loss_rise`
+tightened 0.22->0.035) — the 08-21 "still rising" shape, but this is
+the SECOND budget continuation on the identical non-result, and the
+cause is now understood, not mysterious: this whole bcchain3-stdanneal/
+cont1 sub-lineage trains against `reward.rise_ref_path=
+rise_ref_belly2plant.npz`, the STALE 25Hz-primitive-derived reference
+already refuted for deep/flat starts at rung-9. The real fix
+(mesh-native `rise_ref_mesh_scripted.npz` via the tuckclock lineage,
+12/12 flat in isolation) was discovered and PROMOTED into
+`stancemix-tuckclock-scratch8m` on 08-26 ~04:3x — BEFORE this parent's
+own long-delayed triage even happened — and the currently-active
+stage-2 dual-core work (`anchor2/3/4-stdanneal`) already trains on
+that fixed ref. **Verdict: close the bcchain3-stdanneal/cont1
+sub-lineage, no more budget on the stale-ref full-mix recipe, and do
+NOT open a new stage-2-distillation fork — the fixed-ref stage-2
+lineage is already the one running.** Also this cycle: noticed
+`anchor4-stdanneal` (seed0, marked "still training" at cycle start)
+had already finished (W&B synced, checkpoint exported ~21:55) by the
+time this cycle got to it — its own triage belongs to whichever cycle
+picks up the newly-finished-run poll next, NOT verdicted here. Its
+own pod freeing up let this cycle batch-complete the seed pair the
+anchor-series has used throughout: launched `anchor4-stdanneal-s1`
+(seed 1, warm from `anchor2-s1`'s own leak-fixed checkpoint, identical
+`--log-std-anneal-frac 0.5 --log-std-final -4.0` lever, VERIFIED
+RUNNING train-1) so the STDANNEAL-WORKS/FAIL joint call doesn't cost a
+whole extra cycle once seed0's read lands. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal_cont1_{gate,
+owncfg}/`, W&B `uosykeys`. Prior banner below.)
+
+Previous entry, 2026-08-26 ~21:3x (**IDLE-KICK DRAIN: anchor3/-anchor3-s1
 dose-raise CLOSED (CANARY PASS/DOSE-WORKS FAIL), full-mix stdanneal
 PARTIAL with a strong lower win, two new arms launched.** Cleared the
 untriaged-finished queue left by the prior cycle's infra-stall detour:
