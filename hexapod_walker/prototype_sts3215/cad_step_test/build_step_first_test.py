@@ -686,9 +686,10 @@ def _sandwich_moving_yoke(*,
                           socket_length: float | None = None,
                           socket_pin_inset: float | None = None,
                           socket_pin: bool = True,
-                          spine_extra_t: float = 0.0) -> object:
+                          spine_extra_t: float = 0.0,
+                          pad_extra_reach: float = 0.0) -> object:
     arm_t = hp._YOKE_ARM_T
-    reach = hp.YOKE_ARM_PAD + hp.YOKE_SEAT_INTERF
+    reach = hp.YOKE_ARM_PAD + hp.YOKE_SEAT_INTERF + pad_extra_reach
 
     def _disc_arm(seat_z: float, arm_dir: int) -> object:
         d = float(arm_dir)
@@ -771,6 +772,7 @@ def make_tibia_knee_yoke() -> object:
         tube_socket=True,
         socket_pin=False,
         spine_extra_t=hp.TIBIA_YOKE_SPINE_PAD_T,
+        pad_extra_reach=hp.YOKE_PAD_EXTRA_REACH,
     )
 
 
@@ -820,6 +822,7 @@ def make_femur_link_part() -> object:
     yoke = _sandwich_moving_yoke(
         tube_socket=False,
         spine_extra_t=hp.FEMUR_YOKE_SPINE_PAD_T,
+        pad_extra_reach=hp.YOKE_PAD_EXTRA_REACH,
     )
     spar = _femur_fused_spar()
     knee = Pos(hp.FEMUR_LENGTH, 0.0, 0.0) * _femur_knee_fixed_solid()
@@ -1220,8 +1223,12 @@ def make_coxa_hip_bracket(*, one_piece: bool = False) -> object:
     if not one_piece:
         body = _diff(body, _coxa_part_a_envelope())
 
+    # Femur-swing clearance (production FEMUR_CLEAR_X/Z locals): the Z
+    # threshold rides with the hip axis as COXA_HIP_DROP - 24.9 (it was
+    # bench-derived as 18.5 back when the drop was 43.4 -- hardcoding
+    # 18.5 here cut a phantom 0.5 mm step into the slab underside).
     femur_clear_x = 27.5
-    femur_clear_z = 18.5
+    femur_clear_z = hp.COXA_HIP_DROP - 24.9
     body = _diff(
         body,
         _box(
@@ -1575,21 +1582,24 @@ def _chassis_bottom_floor_solid() -> object:
 
 
 def _chassis_wago_tray_solid() -> object:
-    bay_w = hp.WAGO3_W + hp.WAGO_MOUNT_BAY_CLEAR
-    bay_d = hp.WAGO3_D + hp.WAGO_MOUNT_BAY_CLEAR
-    wall_t = hp.WAGO_MOUNT_WALL_T
-    half_x = bay_d / 2.0 + wall_t
-    half_y = bay_w + 1.5 * wall_t
+    """ONE single-bay WAGO5 corner tray, mirroring production's
+    ``_chassis_wago_tray_solid`` (Aug 16 2026: one 5-port 221-415 bay per
+    corner, press-fit; the two-bay WAGO3 pair this port used to model is
+    RETIRED)."""
+    bay_w = hp.WAGO5_W + hp.WAGO_MOUNT_BAY_CLEAR
+    bay_d = hp.WAGO5_D + hp.WAGO_MOUNT_BAY_CLEAR
+    t = hp.WAGO_MOUNT_WALL_T
+    half_x = bay_d / 2.0 + t
+    half_y = bay_w / 2.0 + t
     emb = 1.0
     h = hp.WAGO_MOUNT_WALL_H + emb
     z_c = hp.WAGO_MOUNT_WALL_H / 2.0 - emb / 2.0
-    outer = _box((wall_t, 2.0 * half_y, h), (half_x - wall_t / 2.0, 0.0, z_c))
-    side_walls = [
-        _box((2.0 * half_x, wall_t, h), (0.0, s * (half_y - wall_t / 2.0), z_c))
+    outer = _box((t, 2.0 * half_y, h), (half_x - t / 2.0, 0.0, z_c))
+    walls = [
+        _box((2.0 * half_x, t, h), (0.0, s * (half_y - t / 2.0), z_c))
         for s in (-1.0, 1.0)
     ]
-    divider = _box((2.0 * half_x, wall_t, h), (0.0, 0.0, z_c))
-    return _union(outer, *side_walls, divider)
+    return _union(outer, *walls)
 
 
 def make_chassis_bottom() -> object:
@@ -1597,6 +1607,18 @@ def make_chassis_bottom() -> object:
     big = 800.0
     high = _diff(full, _box((big, big, big), (0.0, 0.0, hp.CHASSIS_SPLIT_Z - big / 2.0)))
     merged = _union(high, _chassis_bottom_floor_solid())
+
+    # Standoff SEAT PADS (production, Aug 16 2026): full-stack Phi 9 pad at
+    # each standoff site, unioned BEFORE the through-cuts re-drill the
+    # Phi 3.4 bore -- restores the solid seat annulus the inboard-shifted
+    # harness ports clip.
+    pad_top_z = hp.CHASSIS_PLATE_T / 2.0
+    pad_bot_z = hp.CHASSIS_SPLIT_Z - hp.CHASSIS_BOTTOM_FLOOR_T
+    merged = _union(merged, *[
+        _cyl_z(hp.CHASSIS_STANDOFF_SEAT_PAD_OD / 2.0, pad_top_z - pad_bot_z,
+               (cx, cy, 0.5 * (pad_top_z + pad_bot_z)))
+        for (cx, cy) in hp.CHASSIS_STANDOFF_HOLES_XY
+    ])
 
     through_cuts = []
     for strap_dx in hp.BATTERY_STRAP_DX:
@@ -1621,14 +1643,12 @@ def make_chassis_bottom() -> object:
     )
     merged = _diff(merged, *through_cuts)
 
-    bay_d = hp.WAGO3_D + hp.WAGO_MOUNT_BAY_CLEAR
-    r0 = hp.WAGO_MOUNT_EDGE_R - hp.WAGO_MOUNT_WALL_T - bay_d / 2.0
     trays = []
-    for i in range(6):
-        az = i * math.pi / 3.0
+    for M in hp.wago_tray_corner_transforms():
+        deg = math.degrees(math.atan2(M[1, 0], M[0, 0]))
         trays.append(
-            Pos(r0 * math.cos(az), r0 * math.sin(az), hp.CHASSIS_PLATE_T / 2.0)
-            * Rotation(0, 0, math.degrees(az))
+            Pos(float(M[0, 3]), float(M[1, 3]), float(M[2, 3]))
+            * Rotation(0, 0, deg)
             * _chassis_wago_tray_solid()
         )
     return _union(merged, *trays)

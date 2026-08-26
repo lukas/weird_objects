@@ -346,15 +346,18 @@ def make_chassis_bottom_rigid() -> object:
                x=rv.APOTHEM * math.cos((i + 0.5) * math.pi / 3.0),
                y=rv.APOTHEM * math.sin((i + 0.5) * math.pi / 3.0))
         for i in range(6)]        # tower cylinders -- EVERYTHING else above
-    cutters.append(step._diff(    # z 2 goes to the sheet.  This is what
-        _box((400.0, 400.0,       # kills the L-stubs the blacklist passes
-              rv.CHB_WL_Z1 - rv.CHB_FLAT_Z0),  # missed here: the base STEP
-             (0.0, 0.0, (rv.CHB_FLAT_Z0 + rv.CHB_WL_Z1) / 2.0)),  # chassis
-        *wl_keeps))               # still models the RETIRED two-bay WAGO3
-    # corner trays, 4.8 mm wider than the WAGO5 tray the tray-delete
-    # cutter above is sized for, so their side walls survived at all six
-    # corners (the circled diagonal slashes / L-brackets).  The rims are
-    # unioned after, so the towers are untouched.
+    cutters.append(step._diff(    # z 2 goes to the sheet.  Historically
+        _box((400.0, 400.0,       # this is what killed the L-stubs the
+              rv.CHB_WL_Z1 - rv.CHB_FLAT_Z0),  # blacklist passes missed:
+             (0.0, 0.0, (rv.CHB_FLAT_Z0 + rv.CHB_WL_Z1) / 2.0)),  # the base
+        *wl_keeps))               # STEP chassis used to model the RETIRED
+    # two-bay WAGO3 corner trays, 4.8 mm wider than the WAGO5 tray the
+    # tray-delete cutter above is sized for, so their side walls survived
+    # at all six corners (the circled diagonal slashes / L-brackets).
+    # Fixed Aug 26 (the base port now builds production's WAGO5 tray, so
+    # the tray-delete alone clears them) -- the whitelist stays as the
+    # catch-all guarantee.  The rims are unioned after, so the towers are
+    # untouched.
     body = step._diff(cb, *cutters)
     rims = []                    # rebuilt full-wrap tower rings: Phi 44 /
     for i in range(6):           # Phi 37.15, deck band to the race top

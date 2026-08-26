@@ -142,16 +142,37 @@ features they predated -- the clamp cap's back-face hook, horn-side mini
 hook, and yoke-sweep edge chamfers (Aug 18-19); the cradle's rear retention
 tab and retired wire-exit corridor / end-face bolts on the hip cradle
 (Aug 17); and the coxa's yoke-sweep reliefs and deeper centre-screw seat.
-`servo_clamp_cap` and `coxa_link` now match their mesh twins within 0.1%
-volume; `femur_link` is within 0.5% (remaining femur port details are
-untracked).  Some derived STLs (`coxa_link`, `femur_link`, `foot_boot`)
-tessellate non-watertight out of OCC -- the BREP STEP files are the
-deliverable; the print STLs still come from the mesh pipeline.
+
+Aug 26 2026 equivalence audit (two-sided surface deviation + boolean XOR
+against the production meshes, gating the build_all.py flip) found and
+fixed three more real port gaps:
+
+- the moving-yoke port lacked production's ``pad_extra_reach`` --
+  ``YOKE_PAD_EXTRA_REACH`` (0.5 mm deeper horn pads on the femur hip yoke
+  and tibia knee yoke; femur volume gap 0.5% -> 0.01%);
+- ``make_coxa_hip_bracket`` hardcoded the old femur-swing clearance plane
+  ``18.5`` instead of ``hp.COXA_HIP_DROP - 24.9`` (a phantom 0.5 mm step
+  cut into the slab underside);
+- ``make_chassis_bottom`` still modelled the RETIRED two-bay WAGO3 corner
+  trays and lacked the Phi 9 standoff seat pads (Aug 16 production
+  features; max deviation 6.5 mm -> 0.05 mm).
+
+All ten ``stl_prototype/`` printables now match their mesh twins within
+0.13 mm max surface deviation (nine within 0.06 mm).  The one 0.12 mm
+outlier is ``chassis_top``: the mesh pipeline clips the deck with a
+48-gon circle (``CYL_SECTIONS``) whose sagitta sits 0.123 mm inside the
+true BREP circle -- a tessellation artifact of the LEGACY pipeline, not a
+port defect (the BREP is more accurate).  ``coxa_link`` / ``femur_link``
+/ ``foot_boot`` still tessellate non-watertight out of OCC;
+``hp._heal_for_export`` closes all three (verified ``is_volume``), which
+is exactly the pass the print-set installer applies before anything
+reaches ``stl_prototype/``.
 
 Still pending:
 
-- None. The current production printables covered by this sidecar now have
-  native BREP builders and derived STL exports.
+- None. Every production printable has a native BREP builder here, proven
+  equivalent; the print set is generated from these builders via
+  ``build_step_prototype.py`` (see the prototype README).
 
 A mesh-to-STEP wrapper would preserve the triangles and would not solve the
 Onshape artifact issue; this sidecar uses native BREP solids before exporting
