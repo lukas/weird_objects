@@ -117,7 +117,6 @@ Migrated in this sidecar:
 - `disc_horn`
 - `femur_link`
 - `foot_boot`
-- `foot_boot_plus4`
 - `servo_body`
 - `servo_clamp_cap`
 - `switch_holster`
