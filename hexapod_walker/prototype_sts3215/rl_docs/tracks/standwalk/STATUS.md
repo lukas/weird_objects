@@ -1,75 +1,45 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~07:1x (**STAND_HEIGHT rung-5 acq8m (seed 0)
-ACQUISITION PASS, own-scope — the composed lower-phase residual the
-2M canary left open is CLOSED at 8M. PLUS: found+fixed a live bug in
-the automated eval pipeline that had been silently running every
-100 Hz run's gate/owncfg/session pass under the WRONG (4x looser)
-motor slew contract since the 08-24 rate flip.** Composed
-`mode_seq_stance`+`hold_height_cmd` seqprobe (the registered gate
-instrument, re-run under the fix): lower det 6/6 + sto 6/6 (herr
-14.1–14.9mm, all inside the ≤15mm bar, ZERO terminations — up from
-the 2M canary's mixed 2/6 det pass at 18–20.5mm); hold det 6/6 (0
-term) + sto 5/6 (1 hold_low_height) and rise det 5/6 (1 over_current)
-+ sto 5/6 (1 over_current) sit at-or-above the 2M canary's own levels
-(2M: hold sto 5/6, rise det+sto 4/6 each) — no regression on the
-other two registered clauses. Isolated DR-0 gate (mode_seq stripped,
-full per-mode episode budget — confirms the underlying skills, not
-just the composed probe) is clean and strong: hold 5/6 det (1
-hold_low_height term) + 6/6 sto, rise 6/6+6/6 zero-term, lower 6/6+6/6
-zero-term, herr 1.1–4.6mm; own-DR(0.2) comparable (hold 5/6+6/6, rise
-6/6 det + 5/6 sto [1 over_current], lower 6/6+6/6). Reading the video:
-the composed lower's 14–15mm residual (vs the isolated skill's
-1–5mm) is a segment-TIMING effect, not a skill gap — `_sample_mode_
-seq_stance`'s segment sampler draws 6–8s segments up to
-`mode_seq_max_segments`, so when `lower` lands as the sequence's 3rd
-segment it can be handed as little as the ~3s `min_tail` floor to
-descend the same range an isolated episode gets the full ~15s for;
-the isolated numbers (1–5mm) show the underlying skill is not the
-constraint. Video (all isolated hold/rise/lower strips, det+sto)
-confirms upright, six-foot-planted stands throughout — no fall/tip/
-collapse; session harness HARD GATES PASS (no_falls/rise/sit_
-descends). Reward rose every quarter (-14.1/204.4/455.3/860.9).
-Residual unchanged from every solved rise/lower arm this campaign:
-cur_max still kisses 2.4–2.65A on most rise/lower episodes without
-tripping (structural, non-terminal); a single-episode over_current
-tail persists in own-DR rise (matches the catalogued bridge/rsi
-deep-start tail). **Own-scope only — the registered gate is JOINT
-with `-s1` (seed 1), which is off-limits to this cycle (still/recently
-finished elsewhere).** **BUG FOUND+FIXED (real, live, campaign-wide
-impact):** `rl_move/orchestrator/pod_eval.py::legacy_eval_cfgs` pins
-`control.hz=25`+`safety.max_delta_q_deg=1.5` together ONLY when a
-ledger entry has no `control.hz` key (pre-08-24, genuinely 25 Hz) —
-but the two pins were coded as INDEPENDENT `if not has_key` checks.
-Every post-flip 100 Hz launch has an explicit `control.hz=100` (first
-check never fires) but almost none explicitly restate `safety.max_
-delta_q_deg` (0.375 is config.yaml's own 100 Hz default, so a
-correctly-written launch never repeats it) — so the SECOND check
-fired ALONE on essentially every one of them, silently overriding the
-correct 0.375 deg/tick contract with the legacy 1.5 deg/tick (4x
-looser) for every automated gate/owncfg/session/joygate pass since
-the flip. Cfg audit: 161 of 1712 ledger launches carry this exact
-signature. This is a live suspect for the mesh stancemix/rise
-campaign's pervasive "cur_max pinned 2.4–2.64A, non-terminal but never
-resolved" residual documented across nearly every "solved" rise arm
-since 08-24 — a policy trained to expect a 0.375 deg/tick clamp,
-evaluated with 4x more per-tick authority available, can overshoot
-into exactly that current signature. **This run's own gate/owncfg/
-session (and the manually-launched seqprobe) were killed and RE-RUN
-under the fix — every number in this entry is post-fix.** Fixed: the
-second pin now only fires inside the first's `if` (both-or-neither),
-`test_pod_eval_session.py` +2 regression tests. Snapshot `podeval-
-max-delta-q-deg-legacy-bugfix`. Full note: CURRENT_TRUTHS.md. **Not
-retroactively re-run fleet-wide this cycle** (out of scope for one
-triage) — any cycle relying on a post-08-24 100 Hz run's old
-cur_max/over_current reading as evidence of a training-time defect
-should re-verify under the fix first, especially `-s1`'s own gate/
-owncfg/seqprobe (started ~10 min before this fix landed — confirm
-post-fix or re-run before closing the joint call). **Refill:** none
-launched this cycle pending the `-s1` joint call — the next lever
-(closing rung-5 outright vs. building the height-cmd-segment
-`bc_anchor_coef` loosening) is a joint decision per the gate's own
-text, not a call this seed's evidence alone should make.)
+Last updated: 2026-08-26 ~07:5x (**STAND_HEIGHT RUNG-5 JOINT CALL
+CLOSED: the composed rise->hold(height-cmd)->lower lower-phase fix
+holds on BOTH seeds under the CORRECTED motor slew contract -- rung-5
+is closed for its own question; flat-start rise carries forward as
+the pre-existing, seed-sensitive residual.** A concurrent cycle found
++fixed a live bug (`pod_eval.py::legacy_eval_cfgs`) that had been
+silently running every 100 Hz run's automated gate/owncfg/session
+pass under the LEGACY 25 Hz slew contract (1.5 deg/tick, 4x looser)
+instead of the real 0.375 deg/tick the policies actually trained
+under, since the 08-24 rate flip (161 of 1712 ledger launches
+affected). This cycle found `-s1`'s own gate/owncfg/seqprobe were
+genuinely pre-fix too (`report.json.motor_contract.safety.
+max_delta_q_deg == 1.5`), deleted them, and re-ran all three on
+train-0 under the landed fix. **Composed seqprobe (the registered
+gate instrument) post-fix: lower/det 6/6 + lower/sto 6/6, BOTH
+zero-termination (herr 9.4-10.7mm)** -- matches seed-0's own
+already-corrected 6/6+6/6 (herr 14.1-14.9mm) -- the exact fix this
+arm was funded for (2M canary `-s1` lower/det was 0/6, ALL
+over_current-pinned) replicates cross-seed under the TRUE trained
+contract. hold clean both seeds. **rise reveals a real cross-seed
+divergence invisible under the buggy contract**: seed0 10/12 (2
+over_current only) vs seed1 7/12 (5 fails, mostly a `hold_low_height`
+stall concentrated on flat starts) -- the pre-existing flat-start-rise
+residual (Next 0.5/RUNG-9), sharpened, not a new blocker. Video
+(fresh post-fix contact sheets + isolated strips, both seeds):
+upright, six-foot-planted, no fall/tip/collapse; rise fails are
+stall-low, not falls. **Verdict: rung-5's own question (does
+composing the height-cmd hold segment into rise->hold->lower
+sequencing preserve skill) = YES, closed cross-seed. Next: open
+stage-2 design** (rise->walk->lower composition) off either seed's
+acq8m checkpoint; walking source is still the track's pre-registered
+fallback (`stotight45-seed13`, primitive-family) pending a mesh-era
+joystick champion. SKILLS.md row added (joint-scope). Full detail +
+per-episode numbers in the "Now" section below. Evidence: `logs/
+ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5_acq8m{,_s1}_
+{gate,owncfg,seqprobe}/` (both post-fix; `-s1` pre-fix artifacts kept
+as `*_prefix_bugged`), W&B `i78gd6k3`/`auf0f70c`. Any pre-08-26-~06:33
+`control.hz=100` eval read (cur_max/over_current numbers especially)
+should be treated as suspect until re-verified under the fix — see
+CURRENT_TRUTHS.md.)
 
 Prior entry: 2026-08-26 ~04:3x (**JOINT CALL CLOSED: JOINT PASS — the
 from-scratch real-std-anneal full hold=.1/rise=.45/lower=.45 mix clears
@@ -2574,6 +2544,47 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**STAND_HEIGHT RUNG-5 JOINT CALL CLOSED, 08-26 ~07:5x — the composed
+lower fix holds cross-seed under the CORRECTED motor contract; rung-5
+is closed for its own question, flat-start rise carries forward as
+the pre-existing open residual.** Closing the joint call the prior
+entry left open: `-s1`'s own gate/owncfg/seqprobe were confirmed
+genuinely pre-fix (`report.json.motor_contract.safety.max_delta_q_deg
+== 1.5`) this cycle — deleted those artifacts and re-ran all three on
+train-0 under the landed fix (`report.json.motor_contract` now reads
+`0.375` on all three). **Composed seqprobe (the registered instrument)
+post-fix: lower/det 6/6 + lower/sto 6/6, BOTH zero-termination
+(herr 9.4–10.7mm)** — the exact fix this arm was funded for (2M
+canary's `-s1` lower/det was 0/6, ALL over_current-pinned) replicates
+under the checkpoint's TRUE trained contract, matching seed-0's own
+already-corrected 6/6+6/6 (herr 14.1–14.9mm). hold clean both seeds
+(seed0 6/6+5/6, seed1 6/6+6/6). **rise reveals a real cross-seed
+divergence invisible under the buggy contract**: seed0 10/12 (2
+over_current only) vs seed1 7/12 (5 fails, mostly a `hold_low_height`
+stall — robot tucks but stays low, never completes the post-rise
+transition — concentrated on flat starts: 0/2 det, 1/3 sto flat).
+Video (fresh contact sheet + `rise_det_5` + `lower_det_0`, all
+re-pulled post-fix): upright six-foot-planted stands throughout every
+mode, no fall/tip; the rise fails are stall-low, not collapse.
+**Verdict: rung-5's own named question (does composing the
+height-cmd hold segment into rise→hold→lower sequencing preserve
+skill) is answered YES — the lower-phase fix is real and cross-seed —
+CLOSED. Flat-start rise is NOT solved by this arm's extra budget and
+now has sharper cross-seed evidence (10/12 vs 7/12) that it is a
+seed-sensitive, budget-invariant residual** — this is the same
+pre-existing item already tracked below (Next 0.5 / RUNG-9: mint a
+mesh-native `rise_ref` or edit the flat segment of the existing one),
+not a new blocker. **Next: open stage-2 design** (rise→walk→lower
+composition) using either seed's acq8m checkpoint as the stance
+teacher; the walking source is still the track's pre-registered
+fallback (`stotight45-seed13`, primitive-family) pending a mesh-era
+joystick champion. SKILLS.md row added (joint-scope). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5_acq8m{,_s1}_
+{gate,owncfg,seqprobe}/` (both post-fix; `-s1`'s pre-fix artifacts kept
+as `*_prefix_bugged` for audit), W&B `i78gd6k3`/`auf0f70c`.
+
+Prior entry:
+
 **RE-VERIFICATION IN FLIGHT (launched this cycle, 08-26 ~07:1x, no
 ledger entry — direct pod_eval/eval_checkpoint invocations, not a
 `launch_run.py` launch): the promoted THE-mesh-stancemix-recipe
@@ -2939,6 +2950,23 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
   hardening rung.
 
 ## Next
+
+-1. STAND_HEIGHT RUNG-5 CLOSED (08-26, this cycle's joint call): the
+    composed rise->hold(height-cmd)->lower lower-phase fix is
+    cross-seed-verified under the corrected motor contract (both
+    seeds 6/6+6/6 zero-term). The immediate open design item is
+    **STAGE-2** (rise->walk->lower composition, see "Stage 2" section
+    above): pre-register the walking-source x mechanism matrix
+    (primitive `stotight45-seed13` teacher at 25 Hz needs a rate-
+    conversion story per this file's own Binding Constraints, OR wait
+    for a mesh-era joystick champion) and launch as a batch per the
+    cycle's own refill rule. Caveat carried forward, not a blocker:
+    flat-start rise remains unsolved and is now confirmed
+    seed-sensitive (10/12 vs 7/12 on the acq8m pair) — stage-1's own
+    "zero falls/tips" gate text is still not fully closed by any
+    single arm; the acq8m checkpoints are the best available stance
+    teacher candidates but carry that residual into stage-2's own
+    session-level eval.
 
 0. OPERATOR DIRECTIVE (08-25, fb_20260825T140238_d43b35 — binding
    priority): the raw-18 `joint_goal` **footlow2** curriculum
