@@ -2851,7 +2851,32 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**SEGFIX JOINT CALL: REAL DIVERGENCE, 08-26 ~09:1x — the composed
+**ANCHOR-LEAK FIX CONFIRMED CROSS-SEED (08-26 ~19:2x) — walk is
+repaired, stance is the gate's own registered FAIL-B, dose-raise pair
+launched.** `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2`/`-s1`
+(anchor1's exact recipe, ONE change: `train.bc_anchor_isolate_update=1`)
+both CANARY PASS on the leak-fix question: det walk `gait_valid` 6/6
+BOTH seeds BOTH DR (anchor1 was 0/6 everywhere, 5-of-6-leg-sacrifice
+freeze / high-slip shuffle), `progress_ratio` 0.32-0.38 det (matches/
+tops the bare-fine-tune `modeseq1` lineage's own 0.19-0.38 band), sto
+keeps gait mostly-to-fully intact (seed1 ZERO leg sacrifice either DR,
+seed0 partial 2-3-leg sac, nowhere near anchor1's total collapse).
+Video: real forward-cycling gait, no freeze. This is NOT a full pass:
+hold/sto is an unchanged clean TOTAL `hold_min_load` term (6/6, all 4
+read cells both seeds both DR) — identical to anchor1's own unaffected
+signature, since the fix only removes walk's exposure to the anchor,
+not the anchor's own strength on stance; hold/det mixed (2-4/6 fail),
+lower/det weak (2-3/6 fail), lower/sto mostly fine (4-5/6). Exactly the
+gate's own pre-registered FAIL-B branch (walk fixed, stance still
+majority-fail sto) -> next funded lever is the stance anchor's own
+dose, no longer leak-capped. Launched + VERIFIED RUNNING same cycle:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor3`/`-anchor3-s1`
+(train-0/1, 2M canary pair, identical recipe + `train.bc_anchor_coef`
+3.0->6.0). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stage2_dualbc1_anchor2{,_s1}_{gate,owncfg}/`, W&B `eytblwvv`/
+`wajl5mrl`. SKILLS.md row added. Prior banner below.
+
+Previous entry, 08-26 ~09:1x (**SEGFIX JOINT CALL: REAL DIVERGENCE — the composed
 mode_seq segment-window widen (6-8s->9-11s) FIXES seed1's severe
 flat-in-composition collapse (2/12->12/12 valid, matched flat-pinned
 composed probe) but REGRESSES seed0 (12/12->9/12, 3 NEW
