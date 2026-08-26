@@ -2574,6 +2574,31 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**RE-VERIFICATION IN FLIGHT (launched this cycle, 08-26 ~07:1x, no
+ledger entry — direct pod_eval/eval_checkpoint invocations, not a
+`launch_run.py` launch): the promoted THE-mesh-stancemix-recipe
+champion's own headline evidence (`stancemix_tuckclock_scratch8m` +
+`-s1`, promoted 08-26 ~04:3x) was ALSO measured pre-fix (confirmed:
+its committed `report.json.motor_contract.safety.max_delta_q_deg ==
+1.5`) — it is the foundation every later standwalk arm (including
+rung-5 above) warm-starts from, so it is the highest-value re-check.
+Re-running gate+owncfg+flatprobe for BOTH seeds under the fix on
+their original pods (train-6 seed0, train-7 seed1; code synced).**
+Old (pre-fix) artifact dirs moved aside to `*_PREFIX` (not deleted —
+comparison value). Expected output:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_tuckclock_
+scratch8m{,_s1}_{gate,owncfg,flatprobe}/` (fresh, post-fix). Whoever
+picks this up next: diff the flat-pinned valid_plant counts and
+DR-0 hold/lower zero-term claims against the `_PREFIX` dirs — if
+unchanged, the champion promotion stands as-is (the current-ceiling
+residual is a genuine training-time characteristic, confirmed
+independent of the eval bug); if the current-ceiling/over_current
+tail shrinks or vanishes, the "not a zero-fall closure" caveat on the
+promotion should be revisited (possibly upgrades to a cleaner PASS).
+Not yet read as of this write — launched, not triaged.
+
+Prior entry:
+
 **STAND_HEIGHT RUNG-5, 08-26 ~07:1x — seed-0 acq8m ACQUISITION PASS
 own-scope: the composed-lower residual the 2M canary flagged for
 seed0 is CLOSED at 8M (6/6 det+sto, was 2/6 det).** Full detail in the
