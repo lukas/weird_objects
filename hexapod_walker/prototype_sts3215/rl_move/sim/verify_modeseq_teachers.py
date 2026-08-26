@@ -27,6 +27,21 @@ falls), not 44%.
 """
 from __future__ import annotations
 
+import os
+
+# Cap math-library thread pools BEFORE numpy/torch import them — same
+# fix as eval_checkpoint.py/distill_gru.py (08-26 port): unbounded
+# OpenBLAS/OMP pools default to VISIBLE cores and a long collect_
+# transitions rollout (this tool's only real workload) pays full-node
+# thread-pool spin-up/sync overhead on every teacher.predict() call,
+# which can make wall-clock progress crawl even though CPU% reads high
+# (this module happened not to trip it in short smoke runs, but the
+# same collect_transitions loop in distill_gru.py did at ~60 episodes
+# without this cap — fix ported here pre-emptively, not reactively).
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "2")
+
 import argparse
 import json
 import sys

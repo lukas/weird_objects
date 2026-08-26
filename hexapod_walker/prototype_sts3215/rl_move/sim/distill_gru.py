@@ -37,6 +37,20 @@ behavior unchanged. Arm 1 recipe:
 """
 from __future__ import annotations
 
+import os
+
+# Cap math-library thread pools BEFORE numpy/torch import them (same
+# fix as eval_checkpoint.py, ported here 08-26 after a stage-2
+# dual-teacher collection run sat at ~1800% CPU for 20+ minutes with
+# ZERO episodes reported — default OpenBLAS/OMP pools size to VISIBLE
+# cores (70+ on CoreWeave nodes); every teacher.predict()/rollout step
+# was paying full-node thread-pool spin-up/sync overhead. This script
+# is MuJoCo-stepping + tiny-MLP-forward bound, never matmul-bound; 2
+# threads is plenty (measured plenty by eval_checkpoint's own fix).
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "2")
+
 import argparse
 import time
 from pathlib import Path
