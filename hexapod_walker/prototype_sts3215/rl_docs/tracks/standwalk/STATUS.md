@@ -1,6 +1,21 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~10:2x (**STAGE-2 DE-RISKED: the primitive
+Last updated: 2026-08-26 ~14:1x (**Stage-2 first-cell canary, seed-1
+read posted: `-modeseq1-s1r` = CANARY FAIL - MECHANISM own-scope. The
+bare PPO fine-tune ERASED all three dual-BC skills by 2M — walk
+park-creep 0.44m/30s det / frozen-stance sto, hold 6/6 min-load
+splay-collapse, rise/lower majority over_current, at BOTH DR-0 and
+own-DR 0.5; reward trough -771 then plateau -185, far below the BC
+init's +61. Every pre-registered FAIL clause fires. The infra retry
+itself SUCCEEDED (no recurrence of `-s1`'s 1M-boundary eval deadlock —
+sporadic, not reproducible). JOINT CALL + the pre-registered
+`train.bc_anchor` (stance-only, walk-off) fallback pend the seed-0
+twin, whose triage is owned by a concurrent cycle; its cached W&B
+end-state shows the same signature (ep_rew -197, canaries 0).
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_
+modeseq1_s1r_{gate,owncfg}/`, W&B `gmtsnhem`.**)
+
+Prior entry: 2026-08-26 ~10:2x (**STAGE-2 DE-RISKED: the primitive
 walk teacher (`stotight45-seed13`, 25 Hz) transfers to mesh dynamics +
 the real 100 Hz motor contract almost for free, and composes with the
 mesh stance teacher (`acq8m`) via `goal.mode_seq` at only a 10 % fall
