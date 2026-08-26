@@ -162,8 +162,9 @@ The Web UI **Checkup** route runs, in order: safe zero, IMU rest/bias,
 ground-contact plant search, per-leg dimension sweep, geometry plausibility,
 quad IMU body-frame map, IMU-frame validation, stability-margin probe,
 mass-shift response, traction/slip probe, return-to-zero, a proprioception
-consistency score, optional camera witness metadata, bus/power health,
-actuator snapshot, then one calibration report.  The
+consistency score, optional camera witness metadata, bus error-rate checks
+while still and during the motion phases, bus/power health, actuator snapshot,
+then one calibration report.  The
 proprioception phase is read-only after return-to-zero: it compares the expected
 zero pose with live servo encoders/current/voltage/temperature and flags large
 command-vs-feedback errors.  It cannot prove where the feet moved in the room;
