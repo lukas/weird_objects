@@ -1,6 +1,54 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~16:4x (**Stage-2 FALLBACK CELL ALSO CLOSED
+Last updated: 2026-08-26 ~18:0x (**ANCHOR-LEAK ROOT CAUSE FOUND, FIX
+LANDED + TESTED, REPAIRED PAIR RUNNING.** The pre-registered
+routing/gradient-isolation dig-in on `-anchor1`/`-anchor1-s1` closed
+with a mechanical answer: the stance-only anchor never leaked
+GRADIENT into the walk core — it leaked **shared-Adam MOMENTUM**. On
+a stance-only aux minibatch the dual-core gate multiplies the walk
+path by exactly 0.0, but autograd still POPULATES all-zero `.grad`
+tensors on core A's GRU + actor head, and `bc_anchor.BCAnchorPPO.
+train()`'s `policy.optimizer.step()` (the shared Adam) then applies a
+pure stale-momentum update to those params anyway — 8 extra
+uncommanded steps per PPO update, every update. Empirical probe: one
+momentum-priming step + 8 stance-only aux minibatches moved the walk
+actor path by total |dParam| 0.815 with total |grad| exactly 0. The
+existing `test_dual_gradient_isolation` passes because it asserts
+grads are zero-or-None — it pins GRADIENT isolation, not UPDATE
+isolation. This also explains the dual1-vs-anchor1 discrepancy:
+`cw-arch-gru-dual1`'s walk core was near-converged (tiny PPO grads →
+tiny momentum, walk=0.60 mix kept correcting) so the same leak was
+benign; anchor1's walk head was mid-collapse on mesh (reward trough
+−344/−456 → large momentum) at walk=0.30, so the leak became a
+dominant seed-dependent random walk — matching the two DIFFERENT
+catastrophes (seed0 freeze vs seed1 shuffle: optimizer noise, not a
+reward incentive). Also corrected the "identical recipe" claim:
+anchor1 was NOT dual1's recipe (coef 3.0 vs 1.0, + foot_z /
+flat_time_indexed / min_h_ahead, mesh/100 Hz, mode_seq=0.75).
+**Fix landed (commit `2f585a97`, tag `exp/bcanchor-isolate-update`):
+`train.bc_anchor_isolate_update=1` drops populated all-zero grads
+(sets `.grad=None`) before the aux optimizer step so Adam skips
+untouched params entirely; default 0 = legacy bit-exact. Two new
+tests pin the defect AND the fix (`test_dual_anchor_aux_step_leaks_
+momentum_into_gated_out_core`, `test_dual_anchor_isolate_update_
+protects_gated_out_core`); full `test_bc_anchor.py` (70) +
+`test_gru_policy.py` (27) green. LAUNCHED + VERIFIED RUNNING:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2`/`-anchor2-s1`
+(train-0/1, 2M canary each), the anchor1 recipe with exactly ONE
+change (isolate_update=1). Joint gate: LEAK-FIX PASS if walk shows no
+anchor1-class catastrophe on both seeds (prog back in modeseq1's
+0.19–0.38 band or better); FULL PASS additionally needs hold+lower
+isolated (<=1/6) det+sto; FAIL-A (walk still wrecked) escalates to
+the PPO-side twin of the same channel (single-family recurrent
+minibatches under mode_seq=0.75 zero-grad momentum + value mixing);
+FAIL-B (walk fixed, stance still majority-fail sto) moves the lever
+to stance teacher/dose. NOTE for future audits: the SAME zero-grad
+momentum channel exists inside PPO's own update whenever a recurrent
+minibatch happens to be single-family — inherent to dual-core +
+shared Adam since dual1; unfunded until anchor2 reads back.
+Prior banner below.)
+
+Previous entry, 2026-08-26 ~16:4x (**Stage-2 FALLBACK CELL ALSO CLOSED
 FAIL: `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor1`(seed0) /
 `-anchor1-s1`(seed1), the `cw-arch-gru-dual1`-proven stance-only/
 walk-off `bc_anchor` fallback (coef=3.0, `bc_anchor_walk=0.0`), BOTH
@@ -3226,6 +3274,23 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
   hardening rung.
 
 ## Next
+
+-1.7 ANCHOR-LEAK DIG-IN RESOLVED; REPAIRED PAIR RUNNING (08-26
+    ~18:0x). The -1.6 dig-in landed: stance→walk interference is a
+    shared-Adam UPDATE-isolation defect (populated all-zero grads on
+    the gated-out core + momentum step), not a gradient-masking or
+    routing bug — full mechanism, probe numbers, and the dual1
+    reconciliation in the Last-updated banner. Fix
+    `train.bc_anchor_isolate_update` (default 0 bit-exact) landed at
+    `2f585a97` with defect+fix unit tests. `cw-standwalk-stance-
+    mesh2-stage2-dualbc1-anchor2`/`-anchor2-s1` (2M canary pair,
+    train-0/1) re-run the anchor1 recipe with only the fix ON; the
+    joint gate's LEAK-FIX/FULL-PASS/FAIL-A/FAIL-B branches (see
+    banner/ledger) name the next owner in every outcome. Nothing else
+    on the dual-core-BC-init lineage is fundable until that pair
+    reads back. Open follow-up owned by FAIL-A if it fires: the same
+    zero-grad momentum channel inside PPO's own update
+    (single-family recurrent minibatches under mode_seq=0.75).
 
 -1.6 STAGE-2 FIRST CELL FULLY CLOSED, BOTH MECHANISMS FAIL (08-26
     ~16:4x). Both the bare RL fine-tune (`modeseq1`/`-s1`) AND its
