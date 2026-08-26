@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""THE geometry source for the rigid-hip variant's seven printables.
+"""THE geometry source for the rigid-hip variant's six printables.
 
 STEP-FIRST (user, Aug 2026: "the official way is to make step files"):
 every variant printable is authored HERE as a build123d/OpenCascade BREP
@@ -32,15 +32,7 @@ import math
 import sys
 from pathlib import Path
 
-from build123d import (
-    BuildPart,
-    BuildSketch,
-    Ellipse,
-    Plane,
-    Pos,
-    Rotation,
-    extrude,
-)
+from build123d import Pos, Rotation
 
 HERE = Path(__file__).resolve().parent            # concepts/rigid_hip
 PROTO_DIR = HERE.parent.parent                    # prototype_sts3215
@@ -118,7 +110,8 @@ def make_hip_clamp_cap_rigid() -> object:
 
 
 def make_chassis_top_rigid() -> object:
-    """Hex frame sheet + six bearing-pocket bosses + hatch opening."""
+    """Hex frame sheet + six bearing-pocket bosses + hatch opening +
+    six under-sheet insert bosses for the hatch screws."""
     solids = [_hex_prism(rv.APOTHEM, rv.SHEET_Z0, rv.SHEET_Z1)]
     cuts = []
     for _i, edge, _R, _R3 in hp._leg_chassis_frames():
@@ -137,16 +130,30 @@ def make_chassis_top_rigid() -> object:
     for x, y in rv._access_hole_xy():
         cuts.append(_cyl_z(rv.ACCESS_HOLE_D / 2.0, rv.SHEET_Z0 - 1.0,
                            rv.SHEET_Z1 + 1.0, x, y))
-    cuts.append(_hex_prism(rv.HATCH_OPEN_APO, rv.SHEET_Z0 - 1.0,
-                           rv.SHEET_Z1 + 1.0, flats_at_rings=True))
+    # With the pillars deleted (user, Aug 26) the hatch screws thread
+    # into the FRAME itself: a boss hangs under the sheet at each screw,
+    # the M3 heat-set insert installs from below (screw tension then
+    # pulls the insert AGAINST the sheet, compression -- the strong
+    # direction), with the melt-relief counterbore on the open bottom
+    # face.  The hatch-opening cutter runs down past the bosses so any
+    # sliver poking inside the opening is trimmed flush at the wall,
+    # preserving the lid lip's drop-in clearance.
     for x, y in rv._hatch_screw_xy():
+        solids.append(_cyl_z(rv.FRAME_BOSS_OD / 2.0,
+                             rv.SHEET_Z0 - rv.FRAME_BOSS_H,
+                             rv.SHEET_Z0 + 1.0, x, y))
+        cuts.append(_cyl_z(rv.INSERT_BORE_OD / 2.0,
+                           rv.SHEET_Z0 - rv.FRAME_BOSS_H - 0.01,
+                           rv.SHEET_Z0, x, y))
+        cuts.append(_cyl_z(rv.INSERT_RELIEF_OD / 2.0,
+                           rv.SHEET_Z0 - rv.FRAME_BOSS_H - 0.01,
+                           rv.SHEET_Z0 - rv.FRAME_BOSS_H
+                           + rv.INSERT_RELIEF_DEPTH, x, y))
         cuts.append(_cyl_z(rv.HOLE_D / 2.0, rv.SHEET_Z0 - 1.0,
                            rv.SHEET_Z1 + 1.0, x, y))
-    for az in range(0, 360, 60):
-        cuts.append(_cyl_z(rv.HOLE_D / 2.0, rv.SHEET_Z0 - 1.0,
-                           rv.SHEET_Z1 + 1.0,
-                           rv.PILLAR_FRAME_SCREW_RHO * math.cos(math.radians(az)),
-                           rv.PILLAR_FRAME_SCREW_RHO * math.sin(math.radians(az))))
+    cuts.append(_hex_prism(rv.HATCH_OPEN_APO,
+                           rv.SHEET_Z0 - rv.FRAME_BOSS_H - 1.0,
+                           rv.SHEET_Z1 + 1.0, flats_at_rings=True))
     return step._diff(step._union(*solids), *cuts)
 
 
@@ -177,54 +184,9 @@ def make_top_hatch_rigid() -> object:
     return step._diff(body, *cuts)
 
 
-def make_corner_pillar() -> object:
-    """Plain elliptical rim column with Wago-bay foot plate and inboard tab, modeled at az 0."""
-    top_z = rv.SHEET_Z0 - rv.PILLAR_TOP_GAP
-
-    def _ecyl(r_rad: float, z0: float, z1: float) -> object:
-        with BuildPart() as col:
-            with BuildSketch(Plane.XY):
-                Ellipse(r_rad, r_rad * rv.PILLAR_TAN_SCALE)
-            extrude(amount=z1 - z0)
-        return Pos(rv.PILLAR_RHO, 0.0, z0) * col.part
-
-    col = _ecyl(rv.PILLAR_OD / 2.0, rv.PILLAR_BOT_Z, top_z)
-    bay_x0 = rv.PILLAR_RHO + 2.0
-    bay_x1 = rv._BAY_OUT_X - rv.PILLAR_KEY_CL
-    bay_half = rv._WAGO_BAY_W / 2.0 - rv.PILLAR_KEY_CL
-    bar = _box((bay_x1 - bay_x0, 2.0 * bay_half, rv.PILLAR_FOOT_T),
-               ((bay_x0 + bay_x1) / 2.0, 0.0,
-                rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T / 2.0))
-    tab = _box((12.0, 12.0, rv.PILLAR_FOOT_T),
-               (rv.PILLAR_RHO - rv.PILLAR_OD / 2.0 - 2.0, 0.0,
-                rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T / 2.0))
-    body = step._union(col, bar, tab)
-    # Both top screw stations take an M3 x 5.7 HEAT-SET INSERT (user,
-    # Aug 26: frequent hatch/plate removal must not cycle printed
-    # threads): the Phi 4.0 install bore, plus a shallow Phi 5.5 x 0.4
-    # relief so insert melt displacement stays below the seating plane.
-    cuts = []
-    for station_rho in (rv.HATCH_SCREW_RHO, rv.PILLAR_FRAME_SCREW_RHO):
-        cuts.append(_cyl_z(rv.INSERT_BORE_OD / 2.0,
-                           top_z - rv.INSERT_BORE_DEPTH, top_z + 1.0,
-                           x=station_rho))
-        cuts.append(_cyl_z(rv.INSERT_RELIEF_OD / 2.0,
-                           top_z - rv.INSERT_RELIEF_DEPTH, top_z + 1.0,
-                           x=station_rho))
-    cuts.append(
-        _cyl_z(rv.HOLE_D / 2.0, rv.PILLAR_BOT_Z - 1.0,
-               rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T + 1.0, x=rv.PILLAR_TAB_RHO))
-    for sy in (+1.0, -1.0):
-        cuts.append(_cyl_z(rv.HOLE_D / 2.0, rv.PILLAR_BOT_Z - 1.0,
-                           rv.PILLAR_BOT_Z + rv.PILLAR_FOOT_T + 1.0,
-                           x=rv.PILLAR_BAR_HOLE_X,
-                           y=sy * rv.PILLAR_BAR_HOLE_Y))
-    return step._diff(body, *cuts)
-
-
 def make_centre_wago_block() -> object:
     """Central 4-bay Wago 221-415 splice block."""
-    z0 = rv.PILLAR_BOT_Z
+    z0 = rv.BOT_SHEET_TOP_Z
     zf = z0 + rv.WBLK_FLOOR_T
     top = zf + rv.WBLK_WALL_H
     body = _box((2.0 * rv.WBLK_HALF_X, 2.0 * rv.WBLK_HALF_Y, top - z0),
@@ -300,8 +262,8 @@ def make_coxa_link_rigid() -> object:
 
 def make_chassis_bottom_rigid() -> object:
     """Production chassis bottom + corner trim to the tower cylinder, all
-    three dead-ear shaves (az 210 flush to the deck top), pillar-foot
-    holes, wago-tray deletes, the per-leg wire-corridor + cradle-shell
+    three dead-ear shaves (az 210 flush to the deck top),
+    wago-tray deletes, the per-leg wire-corridor + cradle-shell
     flatten (rv.CHB_FLAT_* box minus the tower keep cylinder -- Aug 24
     rev 5 + Aug 25 rev 6), the Aug 25 LOWERED bearing
     pocket: the old tower band above the new deck-level seat plane is
@@ -370,12 +332,6 @@ def make_chassis_bottom_rigid() -> object:
         cutters.extend(Rotation(0, 0, deg) * c
                        for c in (corner, ear330, box90, ear210, flat, bump,
                                  band))
-    for az in range(0, 360, 60):
-        for hx, hy in ((rv.PILLAR_BAR_HOLE_X, +rv.PILLAR_BAR_HOLE_Y),
-                       (rv.PILLAR_BAR_HOLE_X, -rv.PILLAR_BAR_HOLE_Y),
-                       (rv.PILLAR_TAB_RHO, 0.0)):
-            cutters.append(Rotation(0, 0, az)
-                           * _cyl_z(rv.HOLE_D / 2.0, -12.0, 12.0, hx, hy))
     for M in hp.wago_tray_corner_transforms():   # wago tray delete (Aug 24)
         deg = math.degrees(math.atan2(M[1, 0], M[0, 0]))
         cutters.append(
@@ -439,12 +395,6 @@ def rigid_hip_part_specs() -> list[StepPart]:
             "Removable service lid with registration lip and screw ears.",
         ),
         StepPart(
-            "corner_pillar",
-            make_corner_pillar,
-            None,
-            "Elliptical rim column tying the frame to the bottom sheet (6x).",
-        ),
-        StepPart(
             "centre_wago_block",
             make_centre_wago_block,
             None,
@@ -460,8 +410,8 @@ def rigid_hip_part_specs() -> list[StepPart]:
             "chassis_bottom_rigid",
             make_chassis_bottom_rigid,
             None,
-            "Production chassis bottom with tower-cylinder corners, the "
-            "lowered deck-level bearing pocket and foot holes.",
+            "Production chassis bottom with tower-cylinder corners and the "
+            "lowered deck-level bearing pocket.",
         ),
     ]
 

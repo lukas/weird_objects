@@ -22,24 +22,16 @@ pair.  This variant closes the loop from the TOP:
     pressed on once and never removed; all service unbolts the cap from
     the coxa cradle (both bolts reachable with the plate on) and lifts
     the plate + caps + bearings off as one rigid unit.
-  * ``corner_pillar`` (x6) -- plain solid elliptical printed columns
-    at the six corner azimuths (rho 81.6, between adjacent rings);
-    >= 5 mm leg clearance at every yaw angle is guaranteed by the
-    rotating parts' ROT_ENVELOPE_R trim (see ``coxa_link_rigid``),
-    not by shaping the column.  They tie the top
-    frame to chassis_bottom at the RIM, where each hip moment's force
-    couple actually wants to react (push at the bottom tower, pull at
-    the top ring) and where torsional leverage is ~4x the old standoff
-    radius.  Each pillar doubles as the lid-screw boss: the hatch
-    perimeter screw threads through the frame into an M3 BRASS HEAT-SET
-    INSERT in the pillar top, and one dedicated frame screw per pillar
-    (its own insert) keeps the frame clamped with the lid off -- both
-    stations survive unlimited on/off cycles at full screw preload
-    (user, Aug 26: frequent removal + keep the plate stiffness).
-    Two M3 through-bolts with belly nylocs hold each foot
-    through printed holes in ``chassis_bottom_rigid`` (on a STOCK
-    chassis print: drill them using the foot as the jig).  The four
-    central 90 mm standoffs remain only as hatch/electronics anchors.
+  * NO CORNER PILLARS (user, Aug 26 pm: "I actually think its sturdy
+    enough without the columns") -- the Aug-23 rim columns are
+    deleted.  The plate-to-bottom tie is the bearing sandwich itself:
+    each hip moment closes through its own two 6805s, and the plate
+    couples to chassis_bottom through the other five legs' towers
+    (plus the four central 90 mm standoffs, which anchor the hatch /
+    electronics).  The hatch perimeter screws that used to thread
+    into the pillar tops now thread into M3 BRASS HEAT-SET INSERTS in
+    six FRAME_BOSS bosses hanging under the frame sheet (user, Aug 26
+    am: frequent removal must not cycle printed threads).
   * ``coxa_link_rigid`` (x6) -- the production coxa with four variant
     edits: the vertical hub column SHORTENED by COL_DROP (the Phi 52.4
     platform disc, dust-lip skirt and uflange -- all sized around the
@@ -66,27 +58,27 @@ pair.  This variant closes the loop from the TOP:
     Aug 25: bearing right on top of the servo, race bottom 0.5 mm
     over the case), the dead cap-bolt ear lugs shaved (outboard +
     tangential + the inboard one, whose below-deck root now goes with
-    the rev-6 shell flatten), the 18 pillar-foot
-    holes printed in, the six corner Wago TRAY WALL SETS DELETED
+    the rev-6 shell flatten), the six corner Wago TRAY WALL SETS DELETED
     (user, Aug 24 -- the splices live in centre_wago_block now, so
     the trays are dead geometry), and the wago-era WIRE-CORRIDOR
     APPARATUS plus the whole CRADLE-SHELL run outboard of it (side
-    walls + deck-skin roof, the "two gray things" that flanked each
-    corner pillar) FLATTENED to the sheet up to the tower keep
+    walls + deck-skin roof, the "two gray things" at each corner
+    flat) FLATTENED to the sheet up to the tower keep
     cylinder (user, Aug 24 rev 5 -- "that CRADLE WALL isnt doing
     shit, just flatten it out" -- and Aug 25 rev 6; see the
     CHB_FLAT_* constants).  See the CHB_* constant block.  Every
     remaining functional surface (pocket, seat, well collar, slots)
     is production geometry.
-  * ``centre_wago_block`` -- the corner Wagos are gone (pillars stand
-    there), so the power tree consolidates: 4x 5-port 221-415 (two per
+  * ``centre_wago_block`` -- the corner Wagos are gone (their trays
+    are deleted and with the frame on they had no lever access), so
+    the power tree consolidates: 4x 5-port 221-415 (two per
     net, jumpered) in one printed press-fit block at the chassis
     centre, under the open hatch, replacing the 6 corner + 2 trunk
     nuts.
 
   Load path: hip moment -> cap boss -> top bearing -> top plate ->
-  six rim pillars -> chassis_bottom / five other legs.  Each yaw axis
-  becomes simply-supported (one bearing below, one above, ~65 mm
+  the five other legs' bearing towers -> chassis_bottom.  Each yaw
+  axis becomes simply-supported (one bearing below, one above, ~65 mm
   mid-plane to mid-plane) instead of cantilevered.
 
   BEARING COUNT (user, Aug 24: "we really only need one bearing on
@@ -120,7 +112,7 @@ to this variant live in THIS directory's ``stl/`` (never in
 ``stl_prototype/``).  BuildViz build id: ``sts3215-rigid-hip``.
 
 STEP-FIRST PIPELINE (user, Aug 2026: "the official way is to make step
-files"): the seven variant printables are authored as build123d /
+files"): the six variant printables are authored as build123d /
 OpenCascade BREP solids in ``build_rigid_hip_step.py`` (same dir), which
 exports .step + tessellated .stl into ``step/``.  THIS script is the
 assembly/check driver: it runs that exporter, loads its tessellations,
@@ -219,82 +211,70 @@ HATCH_APO = 68.0                          # lid apothem: 4 mm overlap onto the
 HATCH_LIP_CL = 0.3                        # lid registration lip vs opening
 HATCH_LIP_H = 1.5                         # lip drop into the opening
 HATCH_LIP_W = 2.7                         # lip ring radial width
-HATCH_SCREW_RHO = 76.2                    # 6x M3 at the opening's VERTEX
+HATCH_SCREW_RHO = 78.0                    # 6x M3 at the opening's VERTEX
                                           # azimuths (0..300 deg): clear of
-                                          # rings, driver holes and the
-                                          # opening corner (0.6 mm margins,
-                                          # asserted in check_static)
+                                          # rings and driver holes; moved
+                                          # 76.2 -> 78.0 when the pillars
+                                          # were deleted so the FRAME's own
+                                          # insert boss keeps a 2.1 mm bore
+                                          # wall to the opening corner
+                                          # (73.90); the lid ear covers the
+                                          # bare-corner shortfall
 HATCH_EAR_OD = 9.0                        # round lid ears around the screws:
-                                          # the bare hex corner leaves only
-                                          # ~0.3 mm wall at the hole (hub
-                                          # check caught it); the ear gives
-                                          # a 2.8 mm annulus, over solid frame
-# HEAT-SET INSERTS at both pillar-top screw stations (user, Aug 26: the
-# hatch/plate come off "a lot" -- self-tapped PETG threads would strip;
-# "but I also want the stiffness of the plate" rules out magnets /
-# quarter-turn latches, which cannot deliver the clamp preload the rim
-# force couple needs).  M3 x 5.7 brass inserts (Ruthex-style, Phi 4.6
-# knurl): steel-into-brass threads survive unlimited service cycles at
-# the SAME screw clamping, so the joint stiffness is unchanged.
+                                          # the bare hex corner (78.52) no
+                                          # longer covers the hole at rho 78;
+                                          # the ear does (2.8 mm annulus,
+                                          # bearing on solid frame deck)
+# HEAT-SET INSERTS for the hatch screws (user, Aug 26: the hatch comes
+# off "a lot" -- self-tapped PETG threads would strip; "but I also want
+# the stiffness of the plate" rules out magnets / quarter-turn latches,
+# which cannot deliver full screw clamp preload).  M3 x 5.7 brass
+# inserts (Ruthex-style, Phi 4.6 knurl): steel-into-brass threads
+# survive unlimited service cycles at the SAME screw clamping.
+# NO PILLARS (user, Aug 26 pm: "sturdy enough without the columns"):
+# the inserts moved from the deleted pillar tops into six FRAME_BOSS
+# bosses hanging under the frame sheet at the hatch-screw stations.
+# The insert installs from BELOW, so screw tension pulls it against
+# the sheet (compression -- the strong direction).  Screw stack: lid 4
+# + sheet 4 + 0.3 air + 5.7 insert = M3x14, tip flush at the boss
+# bottom.
 INSERT_BORE_OD = 4.0                      # install bore for the M3 insert
-INSERT_LEN = 5.7                          # insert length (flush at the top)
-INSERT_BORE_DEPTH = 8.0                   # bore depth: insert + 2.3 tip room
-INSERT_RELIEF_OD = 5.5                    # shallow top counterbore: melt
-INSERT_RELIEF_DEPTH = 0.4                 # displacement stays BELOW the
-                                          # seating plane (races define the
-                                          # plate plane; a proud melt ring
-                                          # would prop the frame off the
-                                          # pillar and rock the joint)
+INSERT_LEN = 5.7                          # insert length (flush at the
+                                          # boss BOTTOM face)
+INSERT_RELIEF_OD = 5.5                    # shallow entry counterbore: melt
+INSERT_RELIEF_DEPTH = 0.4                 # displacement stays behind the
+                                          # boss face, never proud
+FRAME_BOSS_OD = 10.0                      # insert boss under the frame sheet
+FRAME_BOSS_H = 6.0                        # boss drop below the sheet =
+                                          # through-bore depth (insert 5.7
+                                          # + 0.3 air up to the sheet); the
+                                          # hatch-opening cutter trims the
+                                          # boss flush at the opening wall,
+                                          # keeping the lid lip's 0.3 mm
+                                          # drop-in clearance
 
-# Corner pillars (user, Aug 23 eve): the top-bottom tie must carry each
-# hip moment's force couple as RIM SHEAR (push at the bottom tower, pull
-# at the top ring) -- the four central 90 mm M3 standoff stacks are
-# slender bending columns at rho 44 and were the compliance that would
-# have given the rigidity back.  Six printed pillars at the corner
-# azimuths (between adjacent rings, the only rim territory outside
-# every swing envelope) tie the plates at the rim, where torsion
-# leverage scales with r^2.
-# Each pillar doubles as the lid-screw boss: the hatch perimeter screw
-# passes lid -> frame -> pillar top, and one dedicated frame screw per
-# pillar keeps the frame clamped with the lid off.  Both stations take
-# M3 HEAT-SET INSERTS (see the INSERT_* block above): M3x14 for the
-# shared lid screw (lid 4 + frame 4 + 5.7 engagement), M3x10 for the
-# dedicated frame screw (frame 4 + 5.7).  The four central
-# standoffs remain only as hatch/electronics anchors.
-PILLAR_OD = 22.0                          # column RADIAL outer diameter
-                                          # (20 -> 22 with the heat-set
-                                          # inserts: the Phi 4.0 bores at
-                                          # +/-5.4 from centre keep a
-                                          # 3.6 mm radial edge wall; the
-                                          # TANGENTIAL width is pinned at
-                                          # 14 below, so leg clearance is
-                                          # untouched)
-PILLAR_TAN_OD = 14.0                      # tangential outer width, PINNED
-                                          # (this is the leg-clearance
-                                          # direction -- do not grow it)
-PILLAR_TAN_SCALE = PILLAR_TAN_OD / PILLAR_OD  # ELLIPTICAL section: tangential
-                                          # half-axis 7 (a round Phi 20 was
-                                          # a measured graze on the coxa
-                                          # sweep at 2.9 mm; slimming the
-                                          # tangential axis buys the margin)
-# ROUNDED-CORNER ENVELOPE (user, Aug 24: "round the corners of the
-# servo holder instead of making the pillar a weird shape").  The
-# scalloped column is gone; instead, everything that rotates with a
-# yaw joint is kept inside a 38.2 mm cylinder about its own axis, and
-# the column is a plain solid ellipse.  Axis-to-column-surface is
-# 43.24 mm (measured: 43.24 - 40.36 gave the old 2.88 graze), so a
-# <= 38.2 mm rotating envelope guarantees >= 5 mm clearance at EVERY
-# yaw angle -- same guarantee the scallops gave, now carried by the
-# rotating parts:
-#   * coxa_link_rigid -- the production coxa's servo-cradle corners
-#     reached 40.36 mm; they are rounded back to the envelope arc
-#     (max 2.16 mm off two vertical wall corners, 8 vertices; the
-#     cap-bolt bosses are untouched).  THE COXA IS NOT A STOCK PRINT
-#     in this variant (6 reprints) -- the price of the plain column.
-#   * hip_clamp_cap_rigid already fits (max reach 36.98) -- asserted.
-#   * hip servo: max reach 29.38, COTS, nothing to trim.
-ROT_ENVELOPE_R = 38.2                     # max rotating reach, enforced
-PILLAR_MIN_CL = 5.0                       # guaranteed clearance to column
+# PILLARS DELETED (user, Aug 26 pm: "I actually think its sturdy
+# enough without the columns").  The Aug-23 rim pillars tied the frame
+# to chassis_bottom at the corner azimuths; the user judges the
+# bearing sandwich alone sufficient: each hip moment still closes
+# through its own two 6805s into the plate and bottom sheet, and the
+# plate couples to the bottom through the OTHER five legs' bearing
+# towers (plus the four central standoffs via the hatch).  The frame
+# is retained on the six races by the pocket press fits and the
+# bolted caps below them.  What went with the pillars: 6 prints,
+# 18 M3x12 + belly nylocs, 18 printed foot holes in the bottom sheet,
+# 6 dedicated frame->pillar screws (+ their frame holes), and 6 of
+# the 12 pillar-top inserts.
+# ROUNDED-CORNER ENVELOPE (user, Aug 24, for the since-deleted
+# pillars): everything that rotates with a yaw joint is kept inside a
+# 38.2 mm cylinder about its own axis (the coxa's servo-cradle corners
+# were rounded back from 40.36 to the envelope arc, max 2.16 mm off
+# two vertical wall corners).  The pillars this cleared are gone, but
+# the trim is KEPT: it costs nothing, the coxa is a variant print
+# anyway, and any future rim furniture inherits the guarantee.
+ROT_ENVELOPE_R = 38.2                     # max rotating reach (coxa trim)
+ENV_MIN_CL = 5.0                          # generic static-vs-envelope margin
+                                          # (wago lever check)
 ROT_BAND_Z0 = 19.0                        # lowest z where anything rotates
                                           # outside the (static) tower --
                                           # the M3x20 drop puts the slab
@@ -389,8 +369,8 @@ ROT_BAND_Z0 = 19.0                        # lowest z where anything rotates
 # all ride along) by COL_DROP so the well floor lands COL_HEAD_CL
 # above the screw heads, deletes the skirt + disc outright, and
 # truncates the hub boss at the dropped slab.  The hip axis and
-# EVERYTHING keyed to it (cap boss, top bearing, top plate, pillars,
-# hatch, standoffs) drop by the same COL_DROP -- shorter pillars,
+# EVERYTHING keyed to it (cap boss, top bearing, top plate,
+# hatch, standoffs) drop by the same COL_DROP -- a
 # shorter robot, same simply-supported stack.
 #
 # HORN SCREWS SHORTENED M3x30 -> M3x20 (user, Aug 25: "worry about
@@ -501,9 +481,6 @@ BRIM_TOP_Z = SLAB_BOT_Z + 1.0             # 5.0 -- 2 mm brim, fuses 1 mm into
 #     risks gouging the collar, and it invisibly stiffens the deck.
 #     After this, NOTHING pokes past the tower cylinder above the
 #     deck at any azimuth: the six towers read as clean bare columns.
-# Since the chassis is a variant print now anyway, the 18 pillar-
-# foot bolt holes are PRINTED IN (the foot-as-drill-jig bench mod
-# remains the documented path for modifying a STOCK chassis print).
 CHB_PLATE_TOP = 6.25          # platform top face = ear-lug bottom (measured)
 CHB_DECK_TOP = 10.25          # servo-mount deck top face (measured); the
                               # az-210 ear is shaved flush to THIS plane
@@ -546,8 +523,8 @@ CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
 # fine" / "its flatening random bumps in the top of the chassis plate
 # that serve no purpose"; rev 6 user, Aug 25: "how are there still
 # these two gray things from the waygo sticking up on each side of
-# the column" -- the cradle-shell ends rev 5 left standing, flanking
-# each corner pillar at ~10 mm).  Rev 5 cut the wago-era WIRE-
+# the column" -- the cradle-shell ends rev 5 left standing at each
+# corner flat).  Rev 5 cut the wago-era WIRE-
 # CORRIDOR apparatus (cradle end wall at x 61.5..64.5, porch canopy,
 # inboard side-wall stubs) back to the bare sheet with a box ending
 # at x 64.65.  Rev 6 extends that same box to the yaw axis and
@@ -560,7 +537,7 @@ CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
 # servo's "case top = deck top 10.25" plane is only the horn-boss
 # region inside the tower; the visual servo block is a fat envelope).
 # Measured before cutting (Aug 25): nothing bears on that roof (the
-# bearing and the top plate ride the towers/pillars), the roof
+# bearing and the top plate ride the towers), the roof
 # registers nothing, and the walls' only job was holding the roof up.
 # The servo is REGISTERED elsewhere, all untouched by this cut: the
 # sheet-level well (z 0..2) hugs the case at 0.75 mm/side for its
@@ -604,10 +581,9 @@ CHB_FLAT_Z1 = 12.0            # clears the deck top (10.25); the only
 #      roof outside it, and the servo is registered by the sheet-level
 #      well + the belly retainer);
 #   3. features a placed part verifiably mates with -- measured EMPTY:
-#      the pillars bolt through holes in the SHEET and stand no closer
-#      than 5.2 mm to any above-sheet material outside the towers, the
-#      retainer bolts from BELOW the sheet, the wago block is taped to
-#      the sheet at the centre.
+#      the retainer bolts from BELOW the sheet, the wago block is taped
+#      to the sheet at the centre (nothing else stands on the plate
+#      since the pillars were deleted).
 # So the whitelist cutter is one global box (sheet top -> above the
 # rim) minus the six tower cylinders, applied in BOTH pipelines before
 # the rim re-union; check_chassis_variant enforces it on every build
@@ -620,47 +596,17 @@ CHB_WL_KEEP_R = CHB_TRIM_R + 0.01   # 22.03: 0.01 proud of the trim
                               # pockets untouched by construction)
 CHB_WL_TOL = 0.03             # assert slack over CHB_TRIM_R (matches
                               # the rev-7 cylindricity assert)
-PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
-                                          # midway between the lid-screw
-                                          # pilot (76.2) and the dedicated
-                                          # frame-screw pilot (87.0) so both
-                                          # get equal 3.35 mm plug walls
-PILLAR_TOP_GAP = 0.1                      # nominal gap to the frame sheet:
-                                          # the six RACES define the plate
-                                          # plane; the two top screws pull
-                                          # the sheet down onto the pillar
-                                          # (never the reverse -- shim/sand
-                                          # a proud pillar, do not rock)
-PILLAR_FRAME_SCREW_RHO = 87.0             # dedicated frame->pillar M3
-PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
+BOT_SHEET_TOP_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
 
-# The pillar stands where the production WAGO TRAY sat at each corner
-# flat.  With the top frame installed those corner Wagos are buried
-# under solid deck (no lever access), so in this variant the corner +
-# trunk splices CONSOLIDATE into the central block (see WBLK_* below)
-# and the six integrated tray WALL SETS ARE DELETED from the chassis
-# print (user, Aug 24: "they dont make any sense anymore") -- see the
-# tray-cut block in build_rigid_hip_step.py's make_chassis_bottom_rigid.
-# The pillar foot keeps
-# the exact bay-sized footprint (all hole positions unchanged) but now
-# registers on its THREE M3 through-bolts instead of the old 0.3 mm
-# wall key.  The surrounding corner is otherwise
-# claimed (probed against the real solid): the leg cradle's diagonal
-# well wall at y ~ +/-19..26 and the retainer's corner pads (z to 9.25)
-# forbid any foot wings outside the old bay footprint, so both bar
-# bolts sit INSIDE it, plus a small INBOARD tab whose bolt lands under
-# the open hatch (driver comes straight down, even with the frame on).
-# Nyloc nuts go on the belly (-6 face, verified open at all three
-# spots).  On a STOCK chassis print the tray walls still exist; the
-# foot was sized to fit them with 0.3 mm clearance, so it still drops
-# straight in (the walls just become a bonus shear key there).
+# The corner WAGO TRAYS are deleted from the chassis print (user,
+# Aug 24: with the top frame installed those corner Wagos would be
+# buried under solid deck, no lever access -- the corner + trunk
+# splices CONSOLIDATE into the central block, see WBLK_* below).  The
+# tray-cut block lives in build_rigid_hip_step.py's
+# make_chassis_bottom_rigid.  (The Aug-23..26 corner pillars that
+# briefly stood in the vacated bays are deleted too -- see the
+# no-pillars note above -- so the bays are now simply bare sheet.)
 _WAGO_BAY_W = hp.WAGO5_W + hp.WAGO_MOUNT_BAY_CLEAR    # 29.85 tangential
-PILLAR_KEY_CL = 0.3                       # foot vs (stock-print) wall, per side
-_BAY_OUT_X = hp.WAGO_MOUNT_EDGE_R - hp.WAGO_MOUNT_WALL_T   # 97.6 old outer wall
-PILLAR_BAR_HOLE_X = 93.0                  # in-bay bolt pair, radial pos
-PILLAR_BAR_HOLE_Y = 11.0                  # in-bay bolt pair, tangential +/-
-PILLAR_TAB_RHO = 67.6                     # inboard tab bolt radius
-PILLAR_FOOT_T = 4.0                       # foot plate thickness
 # Tray wall-set envelope (for the delete cut + the gone-check): the
 # production tray is 2 side walls + 1 outer wall, 2.4 thick, 6.5 tall,
 # on the plate top face at each corner flat (az 0/60/...).
@@ -669,7 +615,7 @@ TRAY_HALF_X = (hp.WAGO5_D + hp.WAGO_MOUNT_BAY_CLEAR) / 2.0 \
 TRAY_HALF_Y = _WAGO_BAY_W / 2.0 + hp.WAGO_MOUNT_WALL_T   # 17.325 tangential
 
 # CENTRAL SPLICE BLOCK (user, Aug 24: consolidate).  With the corner
-# trays claimed by the pillars, the power tree collapses into ONE
+# trays deleted, the power tree collapses into ONE
 # printed block at the chassis centre: 4x 5-port 221-415 in two
 # back-to-back press-fit rows (north pair = V+, south pair = GND; the
 # two nuts of a net are jumpered, leaving battery-in + 6 leg branches
@@ -769,7 +715,7 @@ def _inter_vol(a: trimesh.Trimesh, b: trimesh.Trimesh) -> float:
 # ---------------------------------------------------------------------------
 # Placement helpers + visual (non-printed) parts.
 #
-# The seven variant PRINTABLES are no longer built here: geometry is
+# The six variant PRINTABLES are no longer built here: geometry is
 # authored STEP-FIRST as build123d/OpenCascade BREP solids in
 # build_rigid_hip_step.py (user, Aug 2026: "the official way is to make
 # step files").  This driver loads that script's tessellations from
@@ -860,23 +806,11 @@ def chassis_whitelist_violations(mesh: trimesh.Trimesh,
 
 
 
-def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
-    """The six placed pillar copies (az 0/60/.../300)."""
-    out = []
-    for az in range(0, 360, 60):
-        m = meshes["corner_pillar"].copy()
-        m.apply_transform(_rotz(np.deg2rad(az)))
-        out.append(m)
-    return out
-
-
-
-
 def _wago5_scene_frames() -> list[np.ndarray]:
     """World 4x4 for the four seated splice nuts (visuals).  The wago5
     visual's local -X is the wire-entry face; rotate it outward."""
     y_c = WBLK_WALL_T / 2.0 + WBLK_BAY_D / 2.0     # 10.425
-    zf = PILLAR_BOT_Z + WBLK_FLOOR_T
+    zf = BOT_SHEET_TOP_Z + WBLK_FLOOR_T
     x_c = WBLK_WALL_T / 2.0 + WBLK_BAY_W / 2.0     # 16.125
     out = []
     for sy in (+1.0, -1.0):                         # north row, south row
@@ -974,14 +908,13 @@ MESH_FILES = {
     "chassis_top_rigid": (_brep("chassis_top_rigid.stl"),
                           "chassis_top_rigid.stl"),
     "top_hatch_rigid": (_brep("top_hatch_rigid.stl"), "top_hatch_rigid.stl"),
-    "corner_pillar": (_brep("corner_pillar.stl"), "corner_pillar.stl"),
     "centre_wago_block": (_brep("centre_wago_block.stl"),
                           "centre_wago_block.stl"),
     # VARIANT reprints of production parts: the coxa gets its cradle
     # corners rounded to the 38.2 mm yaw envelope + a Phi 29 hub seat
     # ring down to the tower-seated bottom race; the chassis gets its
-    # tower platforms trimmed to the tower's own cylinder, the dead
-    # cap-bolt ears shaved and the pillar-foot holes printed in.
+    # tower platforms trimmed to the tower's own cylinder and the dead
+    # cap-bolt ears shaved.
     "coxa_link": (_brep("coxa_link_rigid.stl"), "coxa_link_rigid.stl"),
     "chassis_bottom": (_brep("chassis_bottom_rigid.stl"),
                        "chassis_bottom_rigid.stl"),
@@ -1010,8 +943,7 @@ MESH_FILES = {
 # The BREP-loaded printables are "always rebuilt" so a stale stl/ copy can
 # never mask a fresh step/stl/ export; loading is cheap.
 BREP_PARTS = {"hip_clamp_cap_rigid", "chassis_top_rigid", "top_hatch_rigid",
-              "corner_pillar", "centre_wago_block", "coxa_link",
-              "chassis_bottom"}
+              "centre_wago_block", "coxa_link", "chassis_bottom"}
 ALWAYS_REBUILD = BREP_PARTS | {"bearing_6805"}
 
 
@@ -1052,7 +984,7 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     """Seated-assembly sanity: new parts watertight, stack lands where the
     constants say, nothing but the boss/bearing enters the plate bore."""
     for key in ("hip_clamp_cap_rigid", "chassis_top_rigid",
-                "top_hatch_rigid", "corner_pillar"):
+                "top_hatch_rigid"):
         m = meshes[key]
         assert m.is_watertight, f"{key} not watertight"
         print(f"  {key:22s} watertight, vol {m.volume / 1000.0:.1f} cm3")
@@ -1092,7 +1024,6 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     # --- driver access holes: web clearances + clear line of sight ------
     holes = _access_hole_xy()
     open_vertex_r = HATCH_OPEN_APO / np.cos(np.pi / 6.0)   # 73.90
-    hatch_vertex_r = HATCH_APO / np.cos(np.pi / 6.0)       # 78.52
     for k, (hx, hy) in enumerate(holes):
         ax = leg_transforms(k)["coxa"][:2, 3]
         web = np.hypot(hx - ax[0], hy - ax[1]) - RING_OD / 2.0 \
@@ -1105,19 +1036,32 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
             f"access hole L{k} breaks into the hatch opening"
         assert rho - ACCESS_HOLE_D / 2.0 - HATCH_APO >= 1.0, \
             f"access hole L{k} covered by the hatch lid"
-        for az in range(0, 360, 60):
-            px = PILLAR_RHO * np.cos(np.deg2rad(az))
-            py = PILLAR_RHO * np.sin(np.deg2rad(az))
-            gap = np.hypot(hx - px, hy - py) \
-                - (ACCESS_HOLE_D + PILLAR_OD) / 2.0
-            assert gap >= 1.5, (
-                f"access hole L{k} within {gap:.2f} mm of a corner pillar")
-    # hatch screw geometry: hole inside the lid overlap band at the
-    # opening's vertex direction
-    assert HATCH_SCREW_RHO - HOLE_D / 2.0 - open_vertex_r >= 0.5, \
-        "hatch screw hole breaks into the opening corner"
-    assert hatch_vertex_r - HATCH_SCREW_RHO - HOLE_D / 2.0 >= 0.5, \
-        "hatch screw hole falls off the lid corner"
+    # hatch screw geometry at the opening's vertex direction: the
+    # insert bore must keep a real wall to the opening corner, and the
+    # lid ear must cover whatever the bare hex corner does not
+    assert HATCH_SCREW_RHO - INSERT_BORE_OD / 2.0 - open_vertex_r >= 1.5, \
+        "frame insert bore too close to the opening corner"
+    # the ear is centred on the hole, so a >= 2.5 mm annulus covers the
+    # hole even where the bare lid corner (78.52) falls short of rho 78
+    assert HATCH_EAR_OD / 2.0 - HOLE_D / 2.0 >= 2.5, \
+        "lid ear annulus under 2.5 mm around the screw hole"
+    # frame insert boss: solid at mid-boss beside the bore, air on the
+    # opening side of the trim wall (probe the real solid)
+    frame = meshes["chassis_top_rigid"]
+    bz = SHEET_Z0 - FRAME_BOSS_H / 2.0
+    p_solid = [[(HATCH_SCREW_RHO + 3.2) * np.cos(np.deg2rad(az)),
+                (HATCH_SCREW_RHO + 3.2) * np.sin(np.deg2rad(az)), bz]
+               for az in range(0, 360, 60)]
+    p_air = [[(open_vertex_r - 0.6) * np.cos(np.deg2rad(az)),
+              (open_vertex_r - 0.6) * np.sin(np.deg2rad(az)), bz]
+             for az in range(0, 360, 60)]
+    assert frame.contains(np.asarray(p_solid)).all(), \
+        "frame insert boss missing under a hatch screw"
+    assert not frame.contains(np.asarray(p_air)).any(), \
+        "frame insert boss pokes past the opening wall (lip collision)"
+    print(f"  hatch screws: 6x M3x14 into Phi {INSERT_BORE_OD:g} insert "
+          f"bores in Phi {FRAME_BOSS_OD:g} under-frame bosses "
+          f"(bore wall to opening {HATCH_SCREW_RHO - INSERT_BORE_OD / 2.0 - open_vertex_r:.2f} mm)")
     # A Phi 6.5 driver shaft dropped through the L0 hole down to the cap
     # face must touch nothing (leg at yaw 0) -- the screw head sits in the
     # cap flange counterbore right below.  The HATCH must not cover it.
@@ -1134,9 +1078,6 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     for key in ("chassis_top_rigid", "top_hatch_rigid"):
         v = _inter_vol(shaft, meshes[key])
         assert v < 1e-6, f"driver shaft fouls {key} ({v:.2f} mm3)"
-    for j, p in enumerate(_pillar_meshes(meshes)):
-        v = _inter_vol(shaft, p)
-        assert v < 1e-6, f"driver shaft fouls pillar az{j * 60} ({v:.2f} mm3)"
     print(f"  cap-bolt driver access: 6 holes Phi {ACCESS_HOLE_D:g}, "
           f"ring web {web:.2f} mm, line of sight clear (hatch ON)")
 
@@ -1374,8 +1315,7 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     the rim on all six legs (rev 7: the swing-relief protect-ring
     bump at z 6.25..10.25 is shaved), all six towers carry the rebuilt full-wrap ring to the
     LOWERED race-top plane (Aug 25: rim at world 17.75, pocket seat
-    ledge at 10.75 on the deck), the printed foot holes are open
-    exactly where the pillar feet expect them, the six Wago tray wall
+    ledge at 10.75 on the deck), the six Wago tray wall
     sets are GONE above the sheet with the sheet still solid
     underneath, and the wire-corridor band PLUS the cradle-shell run
     (side walls + deck-skin roof) around each yaw servo is FLATTENED
@@ -1495,22 +1435,6 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
     # (the sheet below is open here anyway: |y| 11.75 is inside the
     # sheet-level well that registers the servo case)
 
-    # printed foot holes: open at all 18 spots, floor solid beside them
-    centres, beside = [], []
-    for az in range(0, 360, 60):
-        Ra = _rotz(np.deg2rad(az))
-        for hx, hy in ((PILLAR_BAR_HOLE_X, +PILLAR_BAR_HOLE_Y),
-                       (PILLAR_BAR_HOLE_X, -PILLAR_BAR_HOLE_Y),
-                       (PILLAR_TAB_RHO, 0.0)):
-            centres.append(trimesh.transform_points(
-                np.array([[hx, hy, 0.0]]), Ra)[0])
-            beside.append(trimesh.transform_points(
-                np.array([[hx + 3.2, hy, 0.0]]), Ra)[0])
-    assert not cb.contains(np.array(centres)).any(), \
-        "a printed foot hole is blocked"
-    assert cb.contains(np.array(beside)).all(), \
-        "sheet not solid beside a printed foot hole"
-
     # wago trays gone: probe mid-height of all three wall positions of
     # every corner tray (must be air) and the sheet just below each
     # (must still be solid -- the cut may not bite the plate)
@@ -1574,7 +1498,7 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
           f"cylinder (outboard max r {r_max:.2f}), flanks cylindrical "
           f"sheet->rim (rev-7 bump shave), towers rebuilt to the "
           f"LOWERED race top (world {CHB_RIM_W:g}), all 3 dead ears shaved "
-          f"(az 210 flush to the deck), 18 foot holes printed in, "
+          f"(az 210 flush to the deck), "
           f"6 wago trays deleted, corridors + cradle shells flattened "
           f"(x {CHB_FLAT_X0:g}..{CHB_FLAT_X1:g}, |y| {CHB_FLAT_HALF_Y:g}, "
           f"tower keep r {CHB_KEEP_R:g} kept), above-sheet whitelist "
@@ -1582,80 +1506,11 @@ def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
           f"{abs(cb.volume) / 1000.0:.0f} cm3")
 
 
-def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
-    """Corner pillars: land exactly on the bottom sheet, stop PILLAR_TOP_GAP
-    short of the frame (races define the plate plane, screws close the
-    gap), keep their heat-set insert bores inside the solid plug, and stay
-    clear of every leg through the whole operating yaw range with margin."""
-    pillar = meshes["corner_pillar"]
-    b = pillar.bounds
-    assert abs(b[0][2] - PILLAR_BOT_Z) < 1e-3, "pillar foot not on the sheet"
-    assert abs(b[1][2] - (SHEET_Z0 - PILLAR_TOP_GAP)) < 1e-3, \
-        "pillar top not at the frame gap plane"
-    vol = pillar.volume / 1000.0
-    print(f"  corner_pillar: {vol:.1f} cm3 (~{vol * 1.27:.0f} g PETG), "
-          f"top gap {PILLAR_TOP_GAP:g} mm under the frame")
-
-    # insert bores must sit deep inside the plug with real walls: the
-    # RADIAL edge wall (thinnest direction), the TANGENTIAL ellipse wall
-    # at each station's offset, and the web between the two bores.
-    for rho in (HATCH_SCREW_RHO, PILLAR_FRAME_SCREW_RHO):
-        off = abs(rho - PILLAR_RHO)
-        edge = PILLAR_OD / 2.0 - off - INSERT_BORE_OD / 2.0
-        assert edge >= 3.0, \
-            f"insert bore at rho {rho:g}: only {edge:.2f} mm radial wall"
-        half_tan = (PILLAR_TAN_OD / 2.0) \
-            * np.sqrt(1.0 - (off / (PILLAR_OD / 2.0)) ** 2)
-        tan_wall = half_tan - INSERT_BORE_OD / 2.0
-        assert tan_wall >= 3.0, \
-            f"insert bore at rho {rho:g}: only {tan_wall:.2f} mm tangential wall"
-    web = abs(HATCH_SCREW_RHO - PILLAR_FRAME_SCREW_RHO) - INSERT_BORE_OD
-    assert web >= 2.0, f"only {web:.2f} mm between the two insert bores"
-    print(f"  pillar insert bores: Phi {INSERT_BORE_OD:g} x "
-          f"{INSERT_BORE_DEPTH:g} for M3x{INSERT_LEN:g} heat-set "
-          f"(melt relief Phi {INSERT_RELIEF_OD:g} x {INSERT_RELIEF_DEPTH:g})")
-
-    placed = _pillar_meshes(meshes)
-    # seated robot: every pillar vs every leg's static parts + both plates
-    statics = [("chassis_bottom", meshes["chassis_bottom"]),
-               ("chassis_top_rigid", meshes["chassis_top_rigid"])]
-    for i in range(6):
-        T = leg_transforms(i)
-        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
-                        ("hip_clamp_cap_rigid", "hip_cap"),
-                        ("yaw_servo_retainer", "cradle")):
-            m = meshes[key].copy()
-            m.apply_transform(T[fr])
-            statics.append((f"L{i}-{key}", m))
-        ys = meshes["servo_body"].copy()
-        ys.apply_transform(T["coxa"] @ _trans([-hp.SERVO_OUTPUT_X, 0.0,
-                                               -(hp.HORN_STACK_H
-                                                 + hp.WELL_RIM_Z)]))
-        statics.append((f"L{i}-yaw_servo", ys))
-    for j, p in enumerate(placed):
-        for name, m in statics:
-            if not _bounds_touch(p, m):
-                continue
-            v = _inter_vol(p, m)
-            assert v < 1e-6, f"pillar az{j * 60} overlaps {name} ({v:.2f} mm3)"
-    print("  pillars: seated robot clear (all 6 legs + plates + yaw servos)")
-
-    # operating yaw range with margin: leg 0 vs its two flanking pillars
-    for yaw in (-45.0, -35.0, -20.0, 0.0, 20.0, 35.0, 45.0):
-        T = leg_transforms(0, yaw_deg=yaw)
-        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
-                        ("hip_clamp_cap_rigid", "hip_cap")):
-            m = meshes[key].copy()
-            m.apply_transform(T[fr])
-            for j in (0, 1):    # pillars at az 0 and az 60 flank leg 0
-                if not _bounds_touch(placed[j], m):
-                    continue
-                v = _inter_vol(placed[j], m)
-                assert v < 1e-6, \
-                    f"yaw {yaw:+g}: {key} hits pillar az{j * 60} ({v:.2f} mm3)"
-    # ROTATING ENVELOPE (user, Aug 24: round the parts, not the pillar)
-    # -- every rotating part must fit the 38.2 mm cylinder about its
-    # own yaw axis; that alone guarantees the column clearance.
+def check_rot_envelope(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """Rotating parts stay inside the 38.2 mm yaw envelope.  The pillars
+    this once cleared are deleted (user, Aug 26), but the coxa keeps its
+    envelope trim and this assert keeps the guarantee honest for any
+    future rim furniture."""
     r_coxa = float(np.linalg.norm(
         meshes["coxa_link"].vertices[:, :2], axis=1).max())
     assert r_coxa <= ROT_ENVELOPE_R + 0.05, \
@@ -1664,51 +1519,8 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
     r_cap = float(np.hypot(vc[:, 0], vc[:, 2] - AXIS_Z).max())
     assert r_cap <= ROT_ENVELOPE_R + 0.05, \
         f"hip cap reaches {r_cap:.2f} > envelope {ROT_ENVELOPE_R}"
-
-    # QUANTITATIVE margin: not just non-colliding -- assert the
-    # measured distance stays >= the guaranteed clearance minus a
-    # small numerical allowance, across the operating range.
-    from trimesh.proximity import signed_distance
-    min_marg = 1e9
-    for yaw in (-45.0, -20.0, 0.0, 20.0, 45.0):
-        T = leg_transforms(0, yaw_deg=yaw)
-        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
-                        ("hip_clamp_cap_rigid", "hip_cap")):
-            m = meshes[key].copy()
-            m.apply_transform(T[fr])
-            for j in (0, 1):
-                if not _bounds_touch(placed[j], m):
-                    continue
-                d = float(-signed_distance(placed[j], m.vertices).max())
-                min_marg = min(min_marg, d)
-    assert min_marg >= PILLAR_MIN_CL - 0.25, \
-        f"pillar clearance margin dropped to {min_marg:.2f} mm"
-    print(f"  pillars: coxa/cap envelope {r_coxa:.2f}/{r_cap:.2f} <= "
-          f"{ROT_ENVELOPE_R:g}; measured leg clearance >= {min_marg:.2f} mm")
-
-    # informational: full hand-spin (servo out) contact scan
-    first_contact = None
-    for yaw in np.arange(-180.0, 180.0, 15.0):
-        T = leg_transforms(0, yaw_deg=float(yaw))
-        hit = False
-        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
-                        ("hip_clamp_cap_rigid", "hip_cap")):
-            m = meshes[key].copy()
-            m.apply_transform(T[fr])
-            for j in (0, 1):
-                if _bounds_touch(placed[j], m) \
-                        and _inter_vol(placed[j], m) > 1e-6:
-                    hit = True
-        if hit and abs(yaw) > 46.0:
-            first_contact = float(yaw) if first_contact is None \
-                else first_contact
-        assert not (hit and abs(yaw) <= 46.0), \
-            f"pillar contact inside operating yaw range at {yaw:+g}"
-    if first_contact is None:
-        print("  pillars: clear even for a full 360 hand-spin of the leg")
-    else:
-        print(f"  pillars: operating range +/-45 clear; hand-spinning a leg "
-              f"past {first_contact:+g} deg would touch a pillar (note only)")
+    print(f"  rotating envelope: coxa/cap {r_coxa:.2f}/{r_cap:.2f} <= "
+          f"{ROT_ENVELOPE_R:g} (kept after the pillar delete)")
 
 
 def _bounds_touch(a: trimesh.Trimesh, b: trimesh.Trimesh) -> bool:
@@ -1739,7 +1551,7 @@ def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
     ys = np.linspace(-WBLK_HALF_Y + 1, WBLK_HALF_Y - 1, 15)
     XX, YY = np.meshgrid(xs, ys)
     pts = np.column_stack([XX.ravel(), YY.ravel(),
-                           np.full(XX.size, PILLAR_BOT_Z - 1.0)])
+                           np.full(XX.size, BOT_SHEET_TOP_Z - 1.0)])
     frac = meshes["chassis_bottom"].contains(pts).mean()
     assert frac > 0.999, f"floor under wago block only {frac:.1%} solid"
 
@@ -1761,12 +1573,12 @@ def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
     corner_r = float(np.hypot(WBLK_HALF_X, WBLK_HALF_Y))
     assert corner_r <= HATCH_OPEN_APO - 3.0, \
         f"block corner r {corner_r:.1f} not under the hatch opening"
-    lever_top = PILLAR_BOT_Z + WBLK_FLOOR_T + hp.WAGO5_H + 10.0
+    lever_top = BOT_SHEET_TOP_Z + WBLK_FLOOR_T + hp.WAGO5_H + 10.0
     rot_inboard_r = APOTHEM - ROT_ENVELOPE_R                  # 61.8
     lever_rad_cl = rot_inboard_r - corner_r
-    assert lever_rad_cl >= PILLAR_MIN_CL, \
+    assert lever_rad_cl >= ENV_MIN_CL, \
         f"block corner r {corner_r:.1f} within {lever_rad_cl:.1f} of a " \
-        f"yaw rotating envelope (need >= {PILLAR_MIN_CL:g})"
+        f"yaw rotating envelope (need >= {ENV_MIN_CL:g})"
 
     # seated nuts: the 0.15 press wedge is the ONLY block contact
     for M in _wago5_scene_frames():
@@ -1858,8 +1670,6 @@ def check_plate_descent(meshes: dict[str, trimesh.Trimesh]) -> None:
             m = meshes[key].copy()
             m.apply_transform(T[frame])
             static.append((f"L{i}-{key}", m))
-    for j, p in enumerate(_pillar_meshes(meshes)):
-        static.append((f"pillar-az{j * 60}", p))
     plate = meshes["chassis_top_rigid"]
     for dz in (0.5, 2.0, 5.0, 10.0, 25.0, 50.0):
         p = plate.copy()
@@ -1934,7 +1744,7 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
 # ---------------------------------------------------------------------------
 COLORS = {
     "hip_clamp_cap_rigid": "#4878b0", "chassis_top_rigid": "#5b8fd4",
-    "top_hatch_rigid": "#6fa8dc", "corner_pillar": "#3f6ea6",
+    "top_hatch_rigid": "#6fa8dc",
     "centre_wago_block": "#4a90a4", "wago5": "#d9822b",
     "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
@@ -1977,9 +1787,6 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
          np.eye(4))
     inst("chassis_top_rigid", "chassis_top_rigid FRAME (NEW)", np.eye(4))
     inst("top_hatch_rigid", "top_hatch (NEW, removable)", np.eye(4))
-    for az in range(0, 360, 60):
-        inst("corner_pillar", f"corner pillar az{az} (NEW)",
-             _rotz(np.deg2rad(az)))
     inst("centre_wago_block", "central splice block (NEW)", np.eye(4))
     for k, (M, label) in enumerate(zip(_wago5_scene_frames(),
                                        ("V+ west", "V+ east",
@@ -2047,8 +1854,6 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
             "overlapMm3": 80.0, "pitchMm": 2.0,
             "ignoreOverlapPairs": [
                 ["chassis_top_rigid", "top_hatch_rigid"],
-                ["corner_pillar", "chassis_bottom"],
-                ["corner_pillar", "chassis_top_rigid"],
                 ["centre_wago_block", "wago5"],   # 0.15 press wedge
                 ["chassis_bottom", "servo_body"],
                 ["coxa_link", "servo_body"],
@@ -2162,7 +1967,7 @@ def main() -> None:
     check_bottom_joint(meshes)
     check_coxa_column(meshes)
     check_chassis_variant(meshes)
-    check_pillars(meshes)
+    check_rot_envelope(meshes)
     check_wago_block(meshes)
     check_hatch(meshes)
     check_yaw_sweep(meshes)

@@ -71,18 +71,27 @@
 # underside 33.25 -> 19.25 (1.5 over the rim), well floor
 # 41.25 -> 27.25, hip axis 53.65 -> 39.65, cap face 75.55 -> 61.55,
 # top-plate race seat 81.05 -> 67.05, top sheet
-# 88.05..92.05 -> 74.05..78.05, pillars 14 mm shorter.  The femur
+# 88.05..92.05 -> 74.05..78.05.  The femur
 # up-limit is unchanged (-47.5, re-swept): plate and femur pivot
 # dropped together.
+#
+# NO PILLARS (user, Aug 26 pm: "I actually think its sturdy enough
+# without the columns and the columns can be removed"): the six
+# Aug-23 rim columns, their 18 printed foot holes and the dedicated
+# frame screws are deleted.  The top-to-bottom tie is the bearing
+# sandwich itself (each hip's two 6805s + the other five legs'
+# towers) plus the four central standoffs through the hatch.  The
+# hatch screws moved to rho 78 and thread into M3 heat-set inserts
+# in six phi 10 bosses under the frame sheet, installed from below.
 #
 # Chassis variant (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2: "the multiple curves
 # should all match"): chassis_bottom_rigid trims the six square tower
 # platforms to the tower's own phi 44 cylinder (one matching curve
 # from belly to bearing pocket), raises the six tower rims to the
-# race-top plane, shaves the dead cap-bolt ear lugs
+# race-top plane, and shaves the dead cap-bolt ear lugs
 # (outboard + tangential; the inboard one stays merged with the well
-# collar) and prints in the 18 pillar-foot holes.  All remaining
+# collar).  All remaining
 # functional surfaces stay production geometry.
 #
 # Wire corridors + cradle shells flattened (rev 5 user, Aug 24: "that
@@ -97,8 +106,8 @@
 # inboard side-wall stubs -- back to the bare sheet with a box ending
 # at x 64.65.  Rev 6 extends the box to the yaw axis minus the tower
 # keep cylinder (x 50..100, |y| <= 20.5, z 2 -> 12, keep r 21.95),
-# removing the remaining cradle-shell run whose ends flanked each
-# corner pillar at ~10 mm: 5.6 mm side walls at |y| 13.2..18.9
+# removing the remaining cradle-shell run whose ends stood at each
+# corner flat: 5.6 mm side walls at |y| 13.2..18.9
 # (0.85 mm off the case flanks) plus the 2.2 mm deck-skin roof they
 # carried (hovering 1.8 mm above the real case top at z 6.25 --
 # measured: nothing bears on it, it registers nothing).  The servo is
@@ -118,14 +127,14 @@
 # (z 2) the ONLY material allowed is the six tower cylinders
 # (r <= 22.02 about each yaw axis) -- the deck-plateau category
 # measured degenerate (the functional deck lives inside the tower
-# keep cylinder) and the mates category measured empty (pillars bolt
-# through the sheet, >= 5.2 mm clear; retainer bolts from below;
-# wago block is taped).  One global cut enforces it in BOTH
+# keep cylinder) and the mates category measured empty (retainer
+# bolts from below; wago block is taped; nothing else stands on the
+# plate since the pillars were deleted).  One global cut enforces it in BOTH
 # pipelines, and a vertex census (chassis_whitelist_violations)
 # asserts it on every mesh build and on the STEP-derived STL.
 #
 # PIPELINE (STEP-FIRST, user Aug 25: "the official way is to make step
-# files"): the seven variant printables are authored as build123d /
+# files"): the six variant printables are authored as build123d /
 # OpenCascade BREP solids in build_rigid_hip_step.py, which exports
 # .step (the editable CAD truth) + tessellated .stl into step/.
 # make_rigid_hip_variant.py is the assembly/check driver: it runs the
@@ -236,10 +245,12 @@ parts:
       bottom towers — pocket the third bearings' outer races from BELOW
       at phi 37.15, each retained by a complete 360-deg phi 34
       shoulder and sealed from above by a thin integral dust roof
-      flush with the deck.  Carries the existing standoff pattern (4x M3 at
-      +/-31.1), the electronics-deck pattern (+/-24.75), and a phi 40
-      centre access hole.  Replaces the 140 mm chassis_top deck.
-      1 per robot.
+      flush with the deck.  Six phi 10 insert bosses hang under the
+      sheet at the hatch-screw stations (rho 78, vertex azimuths) --
+      M3 heat-set inserts install from below (pillars deleted
+      Aug 26).  The standoff pattern, electronics-deck pattern and
+      centre hole all fell inside the hatch opening and live on the
+      lid.  Replaces the 140 mm chassis_top deck.  1 per robot.
     generated_by:
       file: "concepts/rigid_hip/build_rigid_hip_step.py"
       function: "make_chassis_top_rigid"
@@ -330,10 +341,12 @@ parts:
           where the frame is widest.  The standoff, electronics-deck
           and centre holes all fell inside the opening and moved onto
           the removable top_hatch_rigid lid.  The six lid screws pass
-          THROUGH the frame (phi 3.4 clearance) into the corner-pillar
-          top plugs below; a second phi 3.4 hole per corner (rho 87)
-          takes the dedicated frame-to-pillar screw that keeps the
-          frame clamped down when the lid is off.
+          THROUGH the frame (phi 3.4 clearance) into M3 heat-set
+          inserts in phi 10 bosses hanging under the frame sheet
+          (pillars deleted Aug 26; the opening cutter trims each boss
+          flush at the opening wall so the lid lip keeps its drop-in
+          clearance, and the insert installs from below so screw
+          tension loads it in compression against the sheet).
         dimensions:
           opening_apothem:
             label: "Opening apothem"
@@ -341,8 +354,16 @@ parts:
             code_name: HATCH_OPEN_APO
           screw_rho:
             label: "Lid screw radius (corner azimuths 0/60/...)"
-            value: 76.2
+            value: 78.0
             code_name: HATCH_SCREW_RHO
+          frame_boss_od:
+            label: "Under-sheet insert boss diameter"
+            value: 10.0
+            code_name: FRAME_BOSS_OD
+          frame_boss_h:
+            label: "Boss drop below the sheet (= insert bore depth)"
+            value: 6.0
+            code_name: FRAME_BOSS_H
 
   top_hatch_rigid:
     label: "Removable service hatch (concept)"
@@ -352,10 +373,11 @@ parts:
       ON the deck face with a 1.5 mm registration lip dropping just
       inside the opening (0.3 mm/side clearance; straight drop-in
       verified at build time).  Held by 6x M3 x 14 button-heads that
-      pass through lid AND frame into brass HEAT-SET INSERTS in the
-      corner-pillar top plugs (user, Aug 26: the lid cycles on/off
-      constantly, so no screw may cycle a printed thread -- inserts
-      keep full screw clamp preload, i.e. the plate stiffness),
+      pass through lid AND frame into brass HEAT-SET INSERTS in
+      phi 10 bosses under the frame sheet (user, Aug 26: the lid
+      cycles on/off constantly, so no screw may cycle a printed
+      thread -- inserts keep full screw clamp preload, i.e. the plate
+      stiffness; the pillar tops that used to host them are deleted),
       plus the 4 chassis standoff screws (standoff stacks grow to
       ~76 mm so they anchor the hatch; chassis-hang loads run
       standoffs -> hatch -> deck face -> frame in pure
@@ -390,107 +412,13 @@ parts:
             value: 68.0
             code_name: HATCH_APO
 
-  corner_pillar:
-    label: "Rim pillar tying the top frame to chassis_bottom (concept)"
-    aliases: ["pillar", "corner column", "rim tie"]
-    description: >-
-      Solid printed column (elliptical section: 22 mm radial x 14 mm
-      tangential; radial grown 20 -> 22 for the heat-set insert bore
-      walls, tangential -- the leg-clearance direction -- pinned) at
-      each corner azimuth (rho 81.6, az 0/60/...), from
-      the bottom sheet's top face (z 2) to 0.1 mm under the frame
-      sheet (z 73.95; the six bearing RACES define the plate plane,
-      the screws close the gap).  This is the variant's top-to-bottom
-      structural tie: each hip moment's force couple reacts as rim
-      shear (push at the bottom tower, pull at the top ring), which
-      the four slender central standoffs at rho 44 could not carry;
-      six rim columns take it at ~2x the radius with ~6x the section.
-      PLAIN column (user, Aug 24: no scallops/weird shape) -- leg
-      clearance is guaranteed by the rotating parts instead: every
-      part turning with a yaw joint fits a ROT_ENVELOPE_R = 38.2 mm
-      cylinder about its own axis (see coxa_link_rigid), and the
-      column surface sits 43.24 mm from each neighbouring axis, so
-      >= 5 mm clearance holds at EVERY yaw angle by construction
-      (measured 5.01 mm; envelope + distance asserted on every
-      rebuild; the hip servo never gets within 13.8 mm; clear even
-      for a 360-deg hand spin).
-      The foot keeps the old corner Wago-tray bay footprint but the
-      variant chassis DELETES the tray walls (dead geometry once the
-      corner splices consolidated into centre_wago_block), so the foot
-      registers on its three M3 bolts; on a stock chassis print the
-      surviving walls still fit it with 0.3 mm clearance.  6 per
-      robot.
-    generated_by:
-      file: "concepts/rigid_hip/build_rigid_hip_step.py"
-      function: "make_corner_pillar"
-      output_stl: "stl/corner_pillar.stl"
-    local_frame:
-      origin: "World/chassis frame; the STL is the az-0 pillar, others are 60-deg rotations"
-      axes:
-        x: "Chassis +x (radial at az 0)"
-        y: "Chassis +y (tangential at az 0)"
-        z: "Up"
-    features:
-      top_plug:
-        label: "Solid top plug with two M3 heat-set insert stations"
-        kind: "boss"
-        purpose: >-
-          Receives the shared hatch-perimeter screw (rho 76.2: one
-          M3 x 14 clamps lid -> frame -> pillar) and the dedicated
-          frame screw (rho 87, M3 x 10) so the frame stays clamped
-          with the lid off.  Both stations are printed phi 4.0 x 8
-          install bores for M3 x ~5.7 brass heat-set inserts
-          (Ruthex RX-M3 / McMaster 94459A130), each under a shallow
-          phi 5.5 x 0.4 melt-relief counterbore so install
-          displacement stays below the seating plane and can never
-          prop the frame off the pillar.  Steel-into-brass threads
-          survive unlimited service cycles at full clamp preload
-          (user, Aug 26: frequent removal + keep the plate
-          stiffness).
-        dimensions:
-          insert_bore_od:
-            label: "Insert install bore diameter"
-            value: 4.0
-            code_name: INSERT_BORE_OD
-          insert_bore_depth:
-            label: "Insert install bore depth"
-            value: 8.0
-            code_name: INSERT_BORE_DEPTH
-          insert_relief_od:
-            label: "Melt-relief counterbore diameter"
-            value: 5.5
-            code_name: INSERT_RELIEF_OD
-          top_gap:
-            label: "Nominal gap under the frame sheet"
-            value: 0.1
-            code_name: PILLAR_TOP_GAP
-            description: >-
-              Races locate the plate; screws pull the sheet down onto
-              the pillar.  Sand/shim a proud pillar, never let it rock
-              the plate off the races.
-      bay_foot:
-        label: "Bay-footprint foot with 3 belly through-bolts"
-        kind: "boss"
-        purpose: >-
-          4 mm plate sized to the old tray bay, plus an inboard tab
-          whose bolt lands under the open hatch.  Registration is the
-          three M3 through-bolts (nyloc nuts on the belly); the
-          phi 3.4 holes are printed into chassis_bottom_rigid at the
-          same constants.  On a STOCK chassis print the foot is the
-          drill jig, and the surviving tray walls become a bonus
-          shear key around it.
-        dimensions:
-          key_clearance:
-            label: "Foot-to-wall clearance per side (stock print only)"
-            value: 0.3
-            code_name: PILLAR_KEY_CL
-
   centre_wago_block:
     label: "Central power-splice block (concept)"
     aliases: ["wago block", "splice block", "power block"]
     description: >-
-      The pillars stand where the six corner Wago trays sat (the
-      variant chassis deletes those tray walls outright), so the power
+      The six corner Wago trays are deleted (buried under the frame,
+      no lever access; the corner pillars that briefly reused the
+      vacated bays were themselves deleted Aug 26), so the power
       tree consolidates: 4x 5-port Wago 221-415 in one printed
       press-fit block at the chassis centre, replacing the 6 corner +
       2 trunk nuts (8 -> 4).  Two back-to-back rows share the middle wall
@@ -592,14 +520,14 @@ parts:
       bearing is FULLY housed (7 mm outer-race wrap) with its bottom
       0.5 mm over the servo case top, and the chassis column ends
       exactly at the bearing top, so the stack reads deck -> bearing
-      -> coxa.  (4) FOOT HOLES:
-      the 18 phi 3.4 pillar-foot bolt holes are printed through the
-      sheet at the same PILLAR_* constants as the feet.        (5) WAGO
+      -> coxa.  (4) WAGO
       TRAYS DELETED: the six corner tray wall sets (2.4 mm U-walls,
       6.5 tall) are dead geometry once the splices consolidated into
       centre_wago_block, so everything above the sheet top is cut
-      away (the 1 mm embed band inside the sheet stays); pillar feet
-      register on their bolts.  (6) WIRE CORRIDORS + CRADLE SHELLS
+      away (the 1 mm embed band inside the sheet stays); the vacated
+      bays are bare sheet (the corner pillars that briefly stood
+      there, with their 18 printed foot holes, were deleted Aug 26).
+      (5+6) WIRE CORRIDORS + CRADLE SHELLS
       FLATTENED (rev 5 + rev 6, both user decisions overruling
       keep-verdicts): rev 5 cut the wago-era apparatus inboard of
       each seated yaw servo (cradle end wall, porch canopy skin,
@@ -607,7 +535,7 @@ parts:
       extends the box to the yaw axis minus the tower keep cylinder
       (leg-frame x 50..100, |y| <= 20.5, z 2..12, keep r 21.95),
       removing the cradle-shell walls + deck-skin roof whose ends
-      were the "two gray things" flanking each corner pillar --
+      were the "two gray things" at each corner flat --
       measured to carry and register nothing.  The servo is
       registered by the sheet-level well (0.75 mm/side), the
       belly-bolted retainer and the in-keep shell (which also
@@ -634,8 +562,8 @@ parts:
       and enforced by a vertex census asserted on every build.  The
       whitelist's deck-plateau category is degenerate (the
       functional deck lives inside the keep cylinder) and its mates
-      category measured empty (pillars bolt through the sheet,
-      retainer from below, wago block taped).
+      category measured empty (retainer bolts from below, wago block
+      taped, nothing else stands on the plate).
       The Aug-25 lowered pocket makes a stock-print bench mod
       impractical (it needs the shoulder relief bored out and the
       tower cut 5 mm shorter); reprint for this variant.
@@ -677,18 +605,6 @@ parts:
             label: "Rim plane (world z) = bearing top"
             value: 17.75
             code_name: CHB_RIM_W
-      foot_holes:
-        label: "18x phi 3.4 pillar-foot through-holes"
-        kind: "hole"
-        purpose: >-
-          M3 clearance for the corner_pillar foot bolts (two in-bay +
-          one inboard tab per corner azimuth), belly nylocs; printed
-          at the same constants the feet use, aligned by construction.
-        dimensions:
-          diameter:
-            label: "Hole diameter (M3 clearance)"
-            value: 3.4
-            code_name: HOLE_D
       flank_shave:
         label: "Tower-flank bump shave (x6, rev 7)"
         kind: "cut"
@@ -724,7 +640,7 @@ parts:
           run outboard of them (5.6 mm side walls 0.85 mm off the
           case flanks + the 2.2 mm deck-skin roof hovering 1.8 mm
           over the real case top, whose ends were the "two gray
-          things" flanking each corner pillar -- user decision,
+          things" at each corner flat -- user decision,
           Aug 25 rev 6).  Nothing below the sheet-top plane is
           touched; the servo stays registered by the sheet-level
           well, the belly retainer (pilots x 71/87.5, |y| 21,
@@ -802,11 +718,12 @@ parts:
       ROUND: its two servo-cradle corner edges are rounded to a
       38.2 mm arc about its own yaw axis (ROT_ENVELOPE_R): boolean
       intersection with the envelope cylinder removes at most 2.16 mm
-      from corners that used to reach 40.36 mm.  This keeps every
-      rotating part inside the envelope so the plain corner_pillar
-      columns clear the swinging leg by >= 5 mm at every yaw angle --
-      the user chose rounding the servo holder over scalloping the
-      pillar.  (2) HUB SEAT RING: a phi 29 ring from coxa-local z 2.5
+      from corners that used to reach 40.36 mm.  Introduced to clear
+      the since-deleted corner pillars (the user chose rounding the
+      servo holder over scalloping the pillar); KEPT after the
+      Aug-26 pillar delete -- it costs nothing, and any future rim
+      furniture inherits the >= 5 mm clearance guarantee (still
+      asserted).  (2) HUB SEAT RING: a phi 29 ring from coxa-local z 2.5
       (the top of the single bottom bearing, now seated on the
       chassis tower's deck-level ledge -- Aug 25) up to z 5.0, 1 mm
       inside the dropped cradle slab; it bears only on the
@@ -852,8 +769,8 @@ parts:
         label: "Cradle-corner rounding arc"
         kind: "fillet"
         purpose: >-
-          Caps the coxa's reach from its yaw axis so column clearance
-          is guaranteed by the part, not by pillar shaping.
+          Caps the coxa's reach from its yaw axis; kept after the
+          pillar delete as the standing rotating-envelope guarantee.
         dimensions:
           envelope_radius:
             label: "Yaw-axis envelope radius"
@@ -891,7 +808,7 @@ parts:
           truncates the hub boss 0.75 into the slab, and drops the
           entire slab + cradle + hip servo unit 14 mm so the well
           floor sits COL_HEAD_CL over the M3x20 heads.  Lowers the
-          hip axis, cap, top plate, hatch and pillars by the same
+          hip axis, cap, top plate and hatch by the same
           14 mm (shorter, stiffer sandwich).  Verified by
           check_coxa_column on every rebuild.
         dimensions:
