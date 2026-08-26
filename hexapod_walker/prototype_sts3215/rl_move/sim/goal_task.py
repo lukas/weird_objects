@@ -701,7 +701,27 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
             if end > i1:
                 height[i1:end] = np.linspace(0.0, target, end - i1)
             h_target = target
-        elif mode != "hold":
+        elif mode == "hold":
+            # goal.mode_seq_hold_height_cmd (08-26, STAND_HEIGHT rung 5
+            # prep; default 0 = legacy bit-exact flat-zero hold segment):
+            # when on AND the generator's own goal.hold_height_cmd_frac
+            # is nonzero, a mid-sequence hold segment gets the SAME
+            # piecewise hold/ramp/sine/pulse height-command script a
+            # standalone hold episode would draw, built fresh in the
+            # segment's own LOCAL clock (n_steps = remaining ticks) so
+            # it starts at 0 (= the plant frame the rise segment just
+            # landed the sequence at) with its own settle window --
+            # composes with the existing blend mechanics the same way
+            # rise/lower's ramps already do, no new discontinuity.
+            # Off by default: the array stays the pre-initialized zeros
+            # (identical to every mode_seq_stance run before this key
+            # existed).
+            if (float(cfg_get(self.cfg, "goal", "mode_seq_hold_height_cmd",
+                              default=0.0)) > 0.0
+                    and gen.hold_height_cmd_frac > 0.0):
+                height[tick:] = gen._hold_height_schedule(
+                    rng, n - tick, dt)
+        else:
             raise ValueError(f"mode_seq: unsupported segment {mode!r}")
         traj = GoalTrajectory(mode=mode, roll=np.zeros(n),
                               pitch=np.zeros(n), height=height,

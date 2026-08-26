@@ -654,6 +654,123 @@ def test_dual_bc_anchor_mean_and_detach(tmp_path):
         assert norm > 0.0, f"anchor gradient never reached head {name}"
 
 
+def _dual_anchor_model_with_momentum():
+    """DualGru + BC anchor model whose shared Adam already carries
+    momentum on every parameter (as after any real PPO update), plus a
+    stance-only anchor ring — the exact preconditions of the 08-26
+    stage-2 update-isolation dig-in."""
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from sb3_contrib import RecurrentPPO
+
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+
+    class _DualAnchorEnv(_TinyDualEnv):
+        def __init__(self):
+            super().__init__()
+            self.action_space = spaces.Box(-1, 1, (18,), dtype=np.float32)
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    venv = DummyVecEnv([_DualAnchorEnv for _ in range(2)])
+    model = cls(
+        DualGruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    model.bc_coef = 3.0
+    model.bc_minibatches = 4
+    model.bc_batch_size = 4
+    pol = model.policy
+    # Prime Adam with momentum on ALL params (a PPO update touches
+    # everything).
+    opt = pol.optimizer
+    gen = th.Generator().manual_seed(0)
+    loss = sum((p * th.randn(p.shape, generator=gen)).sum()
+               for p in pol.parameters())
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+    # Stance-only ring (mode hold -> slot 0 -> gate 0 -> pure core B).
+    rng = np.random.default_rng(0)
+    for _ in range(32):
+        obs = np.concatenate([
+            rng.uniform(-1, 1, 3).astype(np.float32), _onehot_tail(0)])
+        model._bc_push(obs, rng.uniform(-1, 1, 18).astype(np.float32),
+                       mode=1, h=rng.uniform(-1, 1, 16).astype(np.float32))
+    return model
+
+
+def _walk_actor_params(pol):
+    """Core A's ACTOR path — everything a stance-only anchor batch must
+    never move (its grads come back as populated exact zeros)."""
+    return (list(pol.lstm_actor.core_a.parameters())
+            + list(pol.mlp_extractor.parameters())
+            + list(pol.action_net.parameters()))
+
+
+def _run_aux_only(model):
+    """Run BCAnchorPPO.train()'s AUX portion through the real code path
+    (super().train() — the PPO update, which needs a rollout buffer and
+    would legitimately move every core — is stubbed to a no-op)."""
+    from unittest import mock
+
+    from stable_baselines3.common.logger import configure
+
+    from sb3_contrib import RecurrentPPO
+
+    model.set_logger(configure(None, ["stdout"]))
+    with mock.patch.object(RecurrentPPO, "train", lambda self: None):
+        model.train()
+
+
+def test_dual_anchor_aux_step_leaks_momentum_into_gated_out_core():
+    """DOCUMENTS THE 08-26 DEFECT (cw-standwalk-stance-mesh2-stage2-
+    dualbc1-anchor1/-s1 dig-in): with update isolation OFF (legacy), a
+    stance-only aux step MOVES the walk core anyway — autograd
+    populates exact-zero grads on the gated-out path and the shared
+    Adam then applies pure stale-momentum steps to it. Gradient
+    isolation (test_dual_gradient_isolation) holds; UPDATE isolation
+    does not. If this test ever fails, the legacy default stopped
+    being leaky — re-audit before trusting bc_anchor_isolate_update
+    A/B history."""
+    model = _dual_anchor_model_with_momentum()
+    pol = model.policy
+    walk = _walk_actor_params(pol)
+    before = [p.detach().clone() for p in walk]
+    model.bc_isolate_update = False
+    _run_aux_only(model)
+    moved = sum(float((p.detach() - b).abs().sum())
+                for p, b in zip(walk, before))
+    assert moved > 1e-6, (
+        "expected the legacy shared-Adam momentum leak into the "
+        "gated-out walk core; it did not reproduce")
+
+
+def test_dual_anchor_isolate_update_protects_gated_out_core():
+    """THE FIX: train.bc_anchor_isolate_update=1 drops populated
+    all-zero grads before the aux optimizer step, so a stance-only
+    anchor batch leaves the walk actor path BIT-IDENTICAL while the
+    stance head still trains."""
+    model = _dual_anchor_model_with_momentum()
+    pol = model.policy
+    walk = _walk_actor_params(pol)
+    stance = (list(pol.lstm_actor.core_b.parameters())
+              + list(pol.mlp_extractor_b.parameters())
+              + list(pol.action_net_b.parameters()))
+    w_before = [p.detach().clone() for p in walk]
+    s_before = [p.detach().clone() for p in stance]
+    model.bc_isolate_update = True
+    _run_aux_only(model)
+    for p, b in zip(walk, w_before):
+        assert th.equal(p.detach(), b), (
+            "bc_anchor_isolate_update leaked an update into the "
+            "gated-out walk core")
+    s_moved = sum(float((p.detach() - b).abs().sum())
+                  for p, b in zip(stance, s_before))
+    assert s_moved > 1e-6, (
+        "isolate_update also froze the STANCE core — the anchor "
+        "stopped being a working lever")
+
+
 @pytest.mark.slow
 def test_gru_learns_memory_task():
     from sb3_contrib import RecurrentPPO

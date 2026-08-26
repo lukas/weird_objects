@@ -1,0 +1,22 @@
+# cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: CANARY PASS
+
+**created**: 2026-08-26T16:57:01+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 2000000
+
+**parent**: cw-standwalk-stance-mesh2-stage2-dualbc1-anchor1
+
+**wandb_id**: eytblwvv
+
+**hypothesis**: Plain English: the stance-only BC anchor was wrecking walking not through its gradients (those are exactly zero on walk ticks) but through the shared Adam optimizer's MOMENTUM -- every aux minibatch also 'stepped' the gated-out walk core on stale PPO momentum (8 extra uncommanded steps per update; dig-in on -anchor1/-anchor1-s1, probe: walk path |dParam| 0.815 with |grad| exactly 0; unit tests pin defect+fix, commit 2f585a97). This arm is the anchor1 recipe with exactly ONE change: train.bc_anchor_isolate_update=1 drops populated all-zero grads before the aux optimizer step, so a stance-only anchor batch leaves the walk actor path bit-identical. Prediction-if-true: walk returns to at least the bare fine-tune's weak crawl (modeseq1 prog_ratio 0.19-0.38 det DR-0) with NO new freeze/shuffle catastrophe, while hold/lower keep at least anchor1's det-side recovery (5/6, 4/6) and plausibly reach isolated failure now that the anchor's effect is clean. Prediction-if-false (walk still catastrophically frozen/shuffling): the momentum leak was not the walk-wrecker -- strongest alternative is the SAME zero-grad momentum channel inside PPO's own update (single-family recurrent minibatches under goal.mode_seq=0.75) or cross-mode value mixing, escalate to that audit before any further anchor arm.
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition or close a behavior/reward class at 2M. Joint call with -anchor2-s1. LEAK-FIX PASS if on BOTH seeds walk shows NO anchor1-class catastrophe (no 5-leg sacrifice freeze, no negative-prog high-slip shuffle; prog_ratio det DR-0 >= ~0.2, i.e. back in the bare fine-tune's own band or better). FULL PASS additionally requires hold AND lower collapsing to isolated failure (<=1/6 term/fail each of det+sto, both DR) on both seeds -- the original anchor promise, now measured without the leak confounder. FAIL-A (walk still wrecked both seeds): momentum leak was not the walk mechanism -> audit PPO-side single-family-minibatch momentum + value mixing; do NOT fund another anchor dose. FAIL-B (walk fixed but hold/lower still majority-fail sto): the leak explanation stands but the stance anchor at coef=3.0 cannot rescue mesh hold-sto -> next lever is the stance teacher/dose, not routing. Read reward trend per the 08-21 ruling before any verdict.
+
+**verdict**: CANARY PASS (LEAK-FIX CONFIRMED, joint w/ -s1; overall FAIL-B, stance dose next -- not a full pass). Plain English: turning off ONLY the shared-Adam momentum leak (train.bc_anchor_isolate_update=1, no other change from anchor1) is enough to restore walk to its pre-anchor health -- det walk gait_valid 6/6 both DR (was 5-of-6-leg-sacrifice freeze), prog_ratio 0.37-0.38 det (top of modeseq1s own 0.19-0.38 band), sto keeps gait mostly intact (gait_valid 5/6, partial sac [2,5]/[2,4,5] -- nowhere near anchor1s total collapse), slip/m 3.5-4.1 det / 20-25 sto. This confirms the leak WAS the walk-wrecker (prediction-if-true fired) and the fix generalizes. NOT a full pass: hold/sto is a clean, TOTAL, unchanged hold_min_load termination in all 6/6 episodes at BOTH DR settings (matches anchor1s exact unaffected parent signature -- the leak fix, as expected, only touched walks corruption, not the stance anchors own weakness). hold/det mixed (2-4/6 fail), lower/det weak (2-3/6 fail), lower/sto mostly fine (4-5/6 success). Video: walk_det shows real cycling forward gait across the 30s strip (no freeze); hold_sto shows a controlled early stop on a still-upright robot (min-load safety trip), not a fall. This is exactly the gates own pre-registered FAIL-B branch (walk fixed, stance still majority-fail sto). Next: with the leak closed, the stance anchors own dose is no longer leak-capped -- fund a coef/dose increase (or a longer acquisition budget on this exact recipe) targeting hold/lower before any further architecture change. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor2_{gate,owncfg}/, W&B eytblwvv.
+

@@ -37,6 +37,20 @@ behavior unchanged. Arm 1 recipe:
 """
 from __future__ import annotations
 
+import os
+
+# Cap math-library thread pools BEFORE numpy/torch import them (same
+# fix as eval_checkpoint.py, ported here 08-26 after a stage-2
+# dual-teacher collection run sat at ~1800% CPU for 20+ minutes with
+# ZERO episodes reported — default OpenBLAS/OMP pools size to VISIBLE
+# cores (70+ on CoreWeave nodes); every teacher.predict()/rollout step
+# was paying full-node thread-pool spin-up/sync overhead. This script
+# is MuJoCo-stepping + tiny-MLP-forward bound, never matmul-bound; 2
+# threads is plenty (measured plenty by eval_checkpoint's own fix).
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "2")
+
 import argparse
 import time
 from pathlib import Path
@@ -582,15 +596,19 @@ def main(argv: list[str] | None = None) -> int:
     # --cfg-set K=V passthrough (08-14, Arm-2 follow-up lever): parsed
     # once, applied as _build_cfg extras everywhere. None/[] = empty
     # dict = _build_cfg items unchanged = bit-exact prior behavior.
-    cfg_overrides: dict[str, float | str] = {}
+    # 08-26 (standwalk stage-2 design): now shares train_ppo_sim's
+    # _parse_cfg_set instead of a local float-or-string parser — the
+    # local version silently kept "[79,87]"-style range overrides
+    # (goal.rise_height_mm etc, needed to match a real stance teacher's
+    # training cfg) as a raw STRING instead of a parsed list, which
+    # would break any downstream cfg_get(...) numeric use. No behavior
+    # change for plain float/string values (float-else-string in both).
+    from .train_ppo_sim import _parse_cfg_set
     for spec in (args.cfg_set or []):
-        key, val = spec.split("=", 1)
-        if "." not in key:
+        if "." not in spec.split("=", 1)[0]:
             raise SystemExit(f"--cfg-set needs a dotted key, got: {spec}")
-        try:
-            cfg_overrides[key] = float(val)
-        except ValueError:
-            cfg_overrides[key] = val.strip()
+    cfg_overrides: dict[str, float | str | list] = _parse_cfg_set(
+        args.cfg_set or [])
 
     extra_mix: dict[str, float] = {}
     if args.dagger_extra_mix:

@@ -141,10 +141,33 @@ part.
   income pays — requires either porting GETUP's staged S-ratchot
   onto hold, or wiring RECOVER's PBRS Φ as a pre-stage gate; needs its
   own dig-in once rise is solved.
-- **Rung 5** (deferred): mode-sequenced `rise -> hold(height-cmd) ->
-  lower` episodes via the existing `goal.mode_seq_stance` planner
-  (`goal_task.py`, already builds rise/hold/lower sequences) — a
-  drop-in once rung 3 passes and rise is solved.
+- **Rung 5**: mode-sequenced `rise -> hold(height-cmd) -> lower`
+  episodes via the existing `goal.mode_seq_stance` planner
+  (`goal_task.py`, already builds rise/hold/lower sequences).
+  **CORRECTION (08-26): NOT actually a drop-in as originally
+  written** — `_seq_segment_traj`'s `hold` branch never called
+  `_hold_height_schedule`; every mid-sequence hold segment was flat-
+  zero regardless of `hold_height_cmd_frac`. Fixed this cycle: new
+  key `goal.mode_seq_hold_height_cmd` (default 0 = OFF, bit-exact)
+  composes the existing schedule into the segment's own local clock
+  (starts at 0, matches the frame the preceding `rise` segment just
+  landed at — no seam discontinuity, same convention `rise`/`lower`
+  already use). 4 new tests (`test_mode_seq_hold_height.py`) + the
+  full `test_mode_seq_stance.py`/`test_mode_seq.py`/
+  `test_hold_height_cmd.py` banks green. Rung 5 was ALSO blocked on
+  "once rise is solved" — the from-scratch stancemix recipe now
+  clears that bar cross-seed (08-26, `STATUS.md`), so rung 5's first
+  canary is launched this cycle: warm-started off the just-promoted
+  `..._stancemix_tuckclock_scratch8m.zip`, `goal.mode_seq_stance=1.0`
+  + `goal.mode_seq_hold_height_cmd=1.0` + `goal.hold_height_cmd_frac=1.0`
+  (range/rate = rung 2/3's proven `[-40,20]mm` @ 15mm/s) +
+  `train.bc_anchor_hold_height_aware=1.0` (the rung-1 fix, since the
+  base stancemix recipe's plain anchor targets a height-blind pose
+  that would fight a moving hold command exactly like rung-1's
+  original regression). MECHANISM-HEALTH CANARY ONLY (2M): does
+  composing height-commands into the mid-sequence hold segment, on
+  top of the promoted rise/hold/lower skill, learn without collapsing
+  rise/lower — not a full rung-5 behavioral close.
 
 ## First science arm (funded once the bank stays green under review;
 ## NOT launched this cycle — see below)

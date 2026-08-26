@@ -169,6 +169,29 @@ Knobs (set via attach_bc_anchor / cfg):
                                it (default 0 = legacy, grad flows into
                                the whole shared trunk; see
                                cw-arch-gru-anchor2 in _bc_policy_mean)
+  train.bc_anchor_isolate_update  (default 0 = legacy, bit-exact) drop
+                               all-zero grads (set .grad=None) before
+                               the aux optimizer step so the SHARED
+                               Adam never touches parameters the aux
+                               loss did not reach. Exists because the
+                               08-26 stage-2 dig-in (cw-standwalk-
+                               stance-mesh2-stage2-dualbc1-anchor1/-s1)
+                               measured the dual-core "walk-off" anchor
+                               still MOVING the walk core: on the
+                               gated-out core autograd populates exact-
+                               ZERO .grad tensors (gate=0 multiplies,
+                               accumulation still happens), and
+                               Adam.step() with a populated zero grad
+                               applies a pure MOMENTUM update — 8 extra
+                               stale-PPO-momentum steps per PPO update
+                               into the walk actor path, every update.
+                               Gradient isolation was never violated
+                               (test_dual_gradient_isolation held);
+                               UPDATE isolation was. Harmless when the
+                               core is converged (cw-arch-gru-dual1,
+                               small momentum), catastrophic mid-
+                               collapse (anchor1: walk destroyed
+                               2 seeds, 2 different pathologies).
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
@@ -410,6 +433,22 @@ def make_bc_anchor_ppo_class(base_cls=None):
                     last_fz = float(fz_loss.detach().cpu())
                 self.policy.optimizer.zero_grad()
                 (coef * loss).backward()
+                if getattr(self, "bc_isolate_update", False):
+                    # UPDATE isolation (08-26 stage-2 dig-in): a param
+                    # the aux loss did not reach can still carry a
+                    # POPULATED all-zero .grad (e.g. the dual-core
+                    # policy's gated-out core: mean = 0*mu_a + 1*mu_b
+                    # backprops exact zeros through the whole mu_a
+                    # subgraph). Adam steps such params on pure stale
+                    # momentum. Dropping the zero grads makes Adam
+                    # skip them entirely (state untouched). Params
+                    # with any nonzero grad are stepped identically,
+                    # and clip_grad_norm_ is unaffected (zeros
+                    # contribute nothing to the norm; None is
+                    # filtered).
+                    for p in self.policy.parameters():
+                        if p.grad is not None and not p.grad.any():
+                            p.grad = None
                 torch.nn.utils.clip_grad_norm_(
                     self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
@@ -539,6 +578,8 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_stratified", default=0.0)) > 0.0
     model.bc_detach_trunk = float(cfg_get(
         cfg, "train", "bc_anchor_detach_trunk", default=0.0)) > 0.0
+    model.bc_isolate_update = float(cfg_get(
+        cfg, "train", "bc_anchor_isolate_update", default=0.0)) > 0.0
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))
     model.bc_batch_size = int(float(cfg_get(

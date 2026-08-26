@@ -74,3 +74,23 @@ def test_legacy_eval_cfgs_preserve_explicit_rate_contract():
         "control.hz=100",
         "safety.max_delta_q_deg=0.375",
     ]
+
+
+def test_legacy_eval_cfgs_explicit_100hz_no_mdq_stays_untouched():
+    # BUG (08-26, standheight-rung5-acq8m triage): explicit control.hz
+    # present (the post-08-24 norm) but max_delta_q_deg NOT restated
+    # (also the norm — 0.375 is config.yaml's own default for 100 Hz,
+    # so launches correctly never repeat it) must NOT get the legacy
+    # 1.5 deg/tick pin bolted on — that pin is only valid when
+    # control.hz is ALSO missing (pre-flip). Regression test for the
+    # independent-ifs bug that silently ran every 100 Hz run's
+    # automated gate/owncfg/session/joygate passes under a 4x-looser
+    # slew than they trained with.
+    assert legacy_eval_cfgs(["control.hz=100"]) == ["control.hz=100"]
+
+
+def test_legacy_eval_cfgs_missing_both_pins_both_together():
+    assert legacy_eval_cfgs([]) == [
+        "control.hz=25",
+        "safety.max_delta_q_deg=1.5",
+    ]
