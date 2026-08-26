@@ -1,6 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~01:2x (**RECONCILING NOTE — two cycles
+Last updated: 2026-08-26 ~02:1x (**STDREOPEN-ACQ8M-S1 (seed 1) ACQUISITION
+PASS on all three pre-registered clauses, decisively — but the seed-0
+twin's own already-posted evidence is a SHARP DIVERGENCE (2/12 vs
+11/12 flat-pinned valid_plant), so the joint call this pair was set up
+to answer is genuinely split, not a clean pass or fail.** The
+`--evidence` the launcher demanded (see prior entry) DID get supplied
+by whichever cycle relaunched this pair at 01:24 (evidence cites the
+isolated `riseonly...tuckclock-acq8m` full-budget precedent) — both
+8M runs completed cleanly. Seed-1's own read
+(`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_tuckclock_
+stdreopen_acq8m_s1_{gate,owncfg,flatprobe}/`, W&B `hryo39z1`): flat
+probe 11/12 valid_plant (det 6/6, sto 5/6, herr 0.2-10.9mm,
+video-confirmed splay→tuck→plant), standard DR-0 gate 35/36 success
+(hold 6/6+6/6, rise 6/6+5/6, lower 6/6+6/6), own-DR(0.2) 33/36 success
+— every clause (>=10/12 flat, hold >=5/6+5/6, lower >=5/6 honest)
+cleared with wide margin, the strongest mesh-mix stance read of the
+whole campaign. Seed-0's own posted flat probe
+(`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_tuckclock_
+stdreopen_acq8m_flatprobe_{det,sto}/`, not yet formally verdicted —
+that run belongs to a concurrent cycle) is only 2/12 valid (0/6 det,
+2/6 sto), i.e. essentially the SAME never-tucks 2.64A press-up
+signature as its own 2M canary — budget did not move it at all,
+which is precisely the gate's own pre-registered FAIL branch
+("budget-invariant vs the 2M canary ... in both seeds"), except it is
+true in only ONE seed while the other seed converged cleanly. Neither
+named branch (clean joint PASS, clean joint FAIL) fits: this is a
+real seed-sensitivity finding on an otherwise-identical
+recipe/budget/warm-start. **Open call for whoever closes the pair**
+(likely the cycle triaging the seed-0 twin, or a fresh cycle if that
+one has already moved on): (a) promote seed-1's checkpoint alone as
+THE mesh stancemix checkpoint — the gate text is written per-seed
+("this becomes THE mesh stance mix checkpoint"), and seed-1
+individually clears every clause; risk = the recipe itself may not be
+reliably reproducible, so a lone-seed promotion is fragile evidence
+for "this becomes the walk-distill base"; or (b) treat this as
+PARTIAL — fund a 3rd seed (or re-run seed-0 with a different seed
+value, since the failure could be an unlucky init rather than a
+structural recipe defect) before promoting, given the campaign's own
+standing bar of cross-seed replication before treating a rise fix as
+solved (the isolated tuckclock-acq8m precedent this pair mirrors DID
+replicate 24/24 across both its seeds). Recommendation (not binding,
+this cycle only owned seed-1): (b) is more consistent with this
+campaign's own track record of demanding cross-seed replication
+before promoting a rise recipe — a single passing seed out of two,
+with the other showing NO movement at all from its 2M canary, reads
+more like "seed-1 got lucky/seed-0 got unlucky on a marginal fix"
+than "the recipe is solved." SKILLS.md row added (seed-1 scoped,
+divergence flagged). Evidence as above; W&B `hryo39z1` (s1) /
+`5xk1serz` (s0, unverdicted).)
+
+Prior entry: 2026-08-26 ~01:2x (**RECONCILING NOTE — two cycles
 independently triaged the same stdreopen pair concurrently (both saw
 it finish and picked it up as free-capacity runnable work); both
 landed CANARY FAIL - MECHANISM independently from the same evidence,
