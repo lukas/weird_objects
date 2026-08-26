@@ -2,17 +2,19 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: ACQUISITION PASS
 
-**created**: 2026-08-26T03:24:27+00:00
+**created**: 2026-08-26T03:26:27+00:00
 
 **pod**: hexapod-mjx-train-6
 
 **steps**: 8000000
 
+**wandb_id**: pjatb078
+
 **hypothesis**: Can the mesh robot learn ALL THREE stance skills (quiet hold, rise-from-flat, lower-to-sit) in one policy if the proven flat-rise recipe is trained FROM SCRATCH inside the 3-way mix, instead of warm-started? Discovery 08-26 (seqrise dig-in): --log-std-init is a silent no-op under --init-from, so every warm-started mix arm (stdreopen family, seqrise pair) actually trained at pinned std 0.0183 and either kept the OC-pin, was seed-fragile at 8M (acq8m 2/12 vs 11/12), or erased a solved rise (seqrise 0/12+0/12). The only 2/2-reliable solver of mesh flat rise is the from-scratch riseonly-tuckclock recipe with the real std 1.0->0.018 anneal arc; this pair runs that exact arc on the mix diet (hold=0.1,rise=0.45,lower=0.45) at the same 8M budget. Prediction-if-true: reward troughs at 2-3M then breaks out (mirroring the isolated arc), flat probe >=10/12 valid_plant per seed by 8M, hold/lower converge as in every 8M mix run. Prediction-if-false: flat rise converges but hold/lower interference reappears (or vice versa) even under full exploration -> mix-diet interference is structural; next lever is a staged/frozen-rise curriculum or per-mode gradient isolation, and the track weighs promoting stdreopen-acq8m-s1's lone passing checkpoint. Strongest alternative: seed luck -- the 2-seed pair hedges it.
 
 **gate**: ACQUISITION (8M, judged jointly with -s1): PASS if flat-pinned probe (goal.rise_flat_frac=1.0/partial=0/rsi=0, det+sto 6+6, DR-0) >=10/12 valid_plant per seed with no majority 2.64A OC-pin, AND hold det+sto >=5/6+5/6 zero-term, AND lower >=5/6 honest (<=10mm herr) per seed -> from-scratch is THE mesh stancemix recipe; promote the better seed's checkpoint and move to STAND_HEIGHT rungs / walk distill. PARTIAL if one seed passes all clauses and the other shows a trough-but-rising trajectory at 8M -> continue the lagging seed per the 08-21 ruling before any recipe verdict. FAIL if both seeds are budget-invariant on the flat clause vs their own 2M mark or hold/lower never converge -> mix-diet interference is structural even under full exploration; next lever is staged/frozen-rise curriculum or per-mode gradient isolation, NOT more seeds/budget, and the track weighs promoting stdreopen-acq8m-s1's checkpoint as stage-1 output.
 
-**refused_reason**: hexapod-mjx-train-6 code marker 95e8933f838bef4fc7aa11091391806f7de2f813 != local HEAD aea393aa2e5e9580c0f8049b7150fb3bf0571f23 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-6 (and snapshot/commit before that if the tree is dirty).
+**verdict**: From-scratch full hold=.1/rise=.45/lower=.45 mix at 8M with a REAL std 1.0->0.018 anneal (not warm-started, not pinned) clears every registered clause on this seed. Flat-pinned probe (rise_flat_frac=1.0/partial=0/rsi=0, det+sto 6+6, DR-0): 12/12 valid_plant, herr 0.6-7.1mm, real per-leg swing counts (e.g. [13,0,1,0,5,1]), roll clean/settled -- video confirms genuine splay->tuck-under->level six-foot plant, NOT the stdreopen/seqrise family's press-pin or half-mast freeze (cur_max 2.4-2.64A during the tuck/press is the same non-terminal structural ceiling every solved rise arm rides, not a frozen pin -- swings are real, herr is low). DR-0 gate: hold 6/6+6/6 zero-term (herr<=0.7mm), lower 6/6+6/6 zero-term (herr<=2.8mm, well under the 10mm bar) -- both registered clauses cleared with zero terminations, not just above-bar. Own-DR(0.2): hold det 6/6, sto 5/6 (1 hold_min_load term); rise det 6/6 + sto 6/6, ALL valid_plant zero-term (better than DR-0's own rise/sto 4/6, which lost 2 episodes to the campaign's already-catalogued bridge/rsi over_current fall tail); lower 6/6+6/6 zero-term. Reward rose every quarter (-32.4/20.5/659.2/1236.9), matching the isolated tuckclock-acq8m trough-then-breakout arc this recipe deliberately mirrors. This is the cleanest single-seed mesh stancemix read of the whole campaign (zero DR-0 hold/lower terms at all, not merely >=5/6). Own scope only -- the registered gate is JOINT with -s1 (seed 1, still training this cycle, off-limits). If -s1 also clears, this closes the from-scratch-vs-warm-started/std-reopen saga outright and promotes as THE mesh stancemix recipe, unblocking STAND_HEIGHT rungs 4-5 and walk distillation.
 

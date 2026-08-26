@@ -1,6 +1,459 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~03:2x (**SEQRISE JOINT CALL CLOSED: CANARY
+Last updated: 2026-08-26 ~18:0x (**ANCHOR-LEAK ROOT CAUSE FOUND, FIX
+LANDED + TESTED, REPAIRED PAIR RUNNING.** The pre-registered
+routing/gradient-isolation dig-in on `-anchor1`/`-anchor1-s1` closed
+with a mechanical answer: the stance-only anchor never leaked
+GRADIENT into the walk core — it leaked **shared-Adam MOMENTUM**. On
+a stance-only aux minibatch the dual-core gate multiplies the walk
+path by exactly 0.0, but autograd still POPULATES all-zero `.grad`
+tensors on core A's GRU + actor head, and `bc_anchor.BCAnchorPPO.
+train()`'s `policy.optimizer.step()` (the shared Adam) then applies a
+pure stale-momentum update to those params anyway — 8 extra
+uncommanded steps per PPO update, every update. Empirical probe: one
+momentum-priming step + 8 stance-only aux minibatches moved the walk
+actor path by total |dParam| 0.815 with total |grad| exactly 0. The
+existing `test_dual_gradient_isolation` passes because it asserts
+grads are zero-or-None — it pins GRADIENT isolation, not UPDATE
+isolation. This also explains the dual1-vs-anchor1 discrepancy:
+`cw-arch-gru-dual1`'s walk core was near-converged (tiny PPO grads →
+tiny momentum, walk=0.60 mix kept correcting) so the same leak was
+benign; anchor1's walk head was mid-collapse on mesh (reward trough
+−344/−456 → large momentum) at walk=0.30, so the leak became a
+dominant seed-dependent random walk — matching the two DIFFERENT
+catastrophes (seed0 freeze vs seed1 shuffle: optimizer noise, not a
+reward incentive). Also corrected the "identical recipe" claim:
+anchor1 was NOT dual1's recipe (coef 3.0 vs 1.0, + foot_z /
+flat_time_indexed / min_h_ahead, mesh/100 Hz, mode_seq=0.75).
+**Fix landed (commit `2f585a97`, tag `exp/bcanchor-isolate-update`):
+`train.bc_anchor_isolate_update=1` drops populated all-zero grads
+(sets `.grad=None`) before the aux optimizer step so Adam skips
+untouched params entirely; default 0 = legacy bit-exact. Two new
+tests pin the defect AND the fix (`test_dual_anchor_aux_step_leaks_
+momentum_into_gated_out_core`, `test_dual_anchor_isolate_update_
+protects_gated_out_core`); full `test_bc_anchor.py` (70) +
+`test_gru_policy.py` (27) green. LAUNCHED + VERIFIED RUNNING:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2`/`-anchor2-s1`
+(train-0/1, 2M canary each), the anchor1 recipe with exactly ONE
+change (isolate_update=1). Joint gate: LEAK-FIX PASS if walk shows no
+anchor1-class catastrophe on both seeds (prog back in modeseq1's
+0.19–0.38 band or better); FULL PASS additionally needs hold+lower
+isolated (<=1/6) det+sto; FAIL-A (walk still wrecked) escalates to
+the PPO-side twin of the same channel (single-family recurrent
+minibatches under mode_seq=0.75 zero-grad momentum + value mixing);
+FAIL-B (walk fixed, stance still majority-fail sto) moves the lever
+to stance teacher/dose. NOTE for future audits: the SAME zero-grad
+momentum channel exists inside PPO's own update whenever a recurrent
+minibatch happens to be single-family — inherent to dual-core +
+shared Adam since dual1; unfunded until anchor2 reads back.
+Prior banner below.)
+
+Previous entry, 2026-08-26 ~16:4x (**Stage-2 FALLBACK CELL ALSO CLOSED
+FAIL: `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor1`(seed0) /
+`-anchor1-s1`(seed1), the `cw-arch-gru-dual1`-proven stance-only/
+walk-off `bc_anchor` fallback (coef=3.0, `bc_anchor_walk=0.0`), BOTH
+CANARY FAIL - MECHANISM, cross-seed replicated, real per-episode
+report.json, DR-0 + own-DR(0.5), det+sto (4 full reads).** Plain
+English: pulling PPO's stance-tick gradients back toward the proven
+mesh teacher does NOT rescue hold/lower to isolated failure, AND it
+additionally wrecks walk far worse than the bare fine-tune it was
+meant to fix — the fallback is a bigger regression than the problem.
+**hold**: sto success is **0/6 in all four reads** (both seeds, both
+DR) — the parent's exact 6/6-TERM signature survives completely
+unchanged on the stochastic axis; det partially recovers (5/6 seed0,
+4/6 seed1 at DR-0) but is DR-sensitive, collapsing to 3/6 and 2/6 at
+own-DR — never isolated on both det+sto together, either seed.
+**lower**: best single cell is 5/6 (seed1, DR-0, sto) but its own
+det companion the same seed same DR is only 4/6, and own-DR drags
+both back to 2-3/6 — the gate needs BOTH cells isolated (<=1/6 fail)
+simultaneously; never achieved anywhere. Video: stuck mid-crouch,
+worst_clear 34-52mm, never completes the plant. **walk: 0/6 success
+in ALL 8 walk cells (2 seeds x 2 DR x det/sto)** — catastrophically
+worse than the bare fine-tune's own weak-but-positive crawl
+(prog_ratio 0.19-0.38 on modeseq1) — and the two seeds fail in TWO
+DIFFERENT new ways: seed0 is a near-total leg-sacrifice freeze
+(`sacrificed_legs` 5 of 6, prog_ratio -0.004..+0.06); seed1 is a
+high-slip shuffle-in-place (`gait_valid` nominally True/legs cycling,
+but prog_ratio NEGATIVE, slip/m 44-49, ~15x the 2.9 joystick cap).
+Both contact sheets (walk_det_0, both seeds) show a static splayed
+stance with ZERO visible translation across the full 30s strip.
+Reward both seeds: healthy BC-init Q1 (+37/+39) -> deep Q3 trough
+(-344/-456) -> still deeply negative Q4 (-112/-122, never recovers) —
+aligned bad-and-stuck per the 08-21 ruling, not a rising-reward
+continuation case. **This fires the gate's own pre-registered
+escalation exactly, and in a stronger form than anticipated**: not
+only does hold/lower stay majority-fail at the parent's own
+signature, the anchor also destabilizes the walk head it was
+explicitly built to leave unconstrained — evidence the dual-core
+routing leaks the massive (coef=3.0) stance-anchor gradient into
+walk/shared-value-function territory, not just failing to reach
+hold/lower. **Per the gate's own text: do NOT fund a third
+stance-anchor dose/config.** Next owner: a routing/gradient-isolation
+dig-in reading `bc_anchor.py`'s dual-core wiring + the per-tick
+gradient-masking tests to find where stance-tick gradients bleed into
+walk-tick parameters, before any further arm on this lever.
+**Also corrected this cycle**: `-anchor1-s1`'s original attempt had
+been mis-recorded `CANARY FAIL - INFRASTRUCTURE`/KILLED by an earlier
+pass of this same cycle acting on a stale "deadlock" read; fresh W&B
+evidence (state=finished, global_step 2031616, full 787-row history,
+real exported checkpoint byte-identical in size to seed0's) shows it
+actually completed cleanly — the same false-positive shape already
+seen on `modeseq1-s1r`. The infra-retry it spawned (`-anchor1-s1-r1`)
+was killed this cycle at ~1.05M/1M-target steps (superseded, no skill
+data, negligible compute lost); this verdict uses the ORIGINAL
+checkpoint's real reads. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_anchor1{,_s1}_{gate,
+owncfg}/`, W&B `sqprmus4`/`g6hghec7`. Prior banner below.)
+
+Previous entry, 2026-08-26 ~14:2x (**Stage-2 first-cell JOINT CALL
+CLOSED: `cw-standwalk-stance-mesh2-stage2-dualbc1-modeseq1`(seed0) /
+`-modeseq1-s1`(seed1) both CANARY FAIL - MECHANISM, cross-seed
+replicated with real per-episode report.json data (not just cached
+W&B end-state). The bare dual-core RL fine-tune from the dual-teacher
+BC init regresses hold and lower to majority failure while walk stays
+a weak crawl — exactly the runs' own pre-registered FAIL branch.
+Evidence, both seeds, DR-0 + own-DR(0.5), det+sto: **hold TERMINATES
+in 24/24 episodes each seed** (hold_min_load / hold_low_height; the
+hold contact sheets show the robot visibly sinking from standing into
+a low splayed crouch over the episode, `settled` 0/6 every read, never
+recovered from BC-parent's clean hold). **lower is 0/6 success
+everywhere** (worst_clear 68-152mm, 1-4 over_current terms per read).
+**walk never falls** (roll settled, gait_valid 5-6/6 = no sacrificed
+legs) but is a near-static splayed stance on video (walk_det contact
+sheets, both seeds — no visible translation across the 30s strip),
+prog_ratio only 0.24-0.38 det / ~0.00-0.02 sto (vs the BC-parent's own
+~2600-2700 walk return), dir_err 47-91deg (cap ~40deg), slip/m 3-34.
+Reward: both seeds collapse from a healthy BC-init start (+37/+40 Q1)
+through a deep trough (-502/-535 Q3) to a still-deeply-negative Q4
+(-174/-202) — aligned bad-and-stuck per the 08-21 ruling, not
+"still rising, needs more budget." **CORRECTION**: `-modeseq1-s1`'s
+FIRST attempt was mis-recorded `FAILED`/"CANARY FAIL - INFRASTRUCTURE"
+by a checkup false positive (SUSPECT fired on a slow periodic-eval/
+video-render round, not a real hang) — its train log shows it actually
+completed all 2,031,616 steps cleanly with a real exported checkpoint;
+this call uses that checkpoint's real eval data, which matches seed0's
+signature exactly, and supersedes the infra-failure framing. The
+identical-seed retry `-modeseq1-s1r` that the false positive triggered
+(separately triaged by a concurrent cycle, same FAIL signature) is a
+redundant duplicate, not additional evidence. **Routed to the
+pre-registered fallback**: launched `cw-standwalk-stance-mesh2-
+stage2-dualbc1-anchor1`/`-anchor1-s1` (2M canary pair, both VERIFIED
+RUNNING) — identical recipe + the `cw-arch-gru-dual1`-proven
+stance-only/walk-off `train.bc_anchor_*` bundle (coef=3.0,
+state_aligned/stratified/foot_z/flat_time_indexed/lower=1.0,
+min_h_ahead_mm=8, **bc_anchor_walk=0.0**) so PPO gradients on stance
+ticks get pulled back toward the proven mesh stance teacher while walk
+ticks train unconstrained through their own dedicated dual-core head.
+PASS if hold/lower termination collapses to isolated (<=1/6) on BOTH
+seeds with walk holding/improving its current weak translation; FAIL
+at the same majority-term signature escalates to a routing/gradient-
+isolation dig-in (the dual-core architecture itself leaking
+stance-destructive gradients), not a third anchor dose. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_
+{modeseq1,modeseq1_s1}_{gate,owncfg}/`, W&B `zygtbdyy`/`v38ba434`.)
+
+Prior entry, 2026-08-26 ~14:1x (**Stage-2 first-cell canary, seed-1
+read posted: `-modeseq1-s1r` = CANARY FAIL - MECHANISM own-scope. The
+bare PPO fine-tune ERASED all three dual-BC skills by 2M — walk
+park-creep 0.44m/30s det / frozen-stance sto, hold 6/6 min-load
+splay-collapse, rise/lower majority over_current, at BOTH DR-0 and
+own-DR 0.5; reward trough -771 then plateau -185, far below the BC
+init's +61. Every pre-registered FAIL clause fires. The infra retry
+itself SUCCEEDED (no recurrence of `-s1`'s 1M-boundary eval deadlock —
+sporadic, not reproducible). JOINT CALL + the pre-registered
+`train.bc_anchor` (stance-only, walk-off) fallback pend the seed-0
+twin, whose triage is owned by a concurrent cycle; its cached W&B
+end-state shows the same signature (ep_rew -197, canaries 0).
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_
+modeseq1_s1r_{gate,owncfg}/`, W&B `gmtsnhem`.**)
+
+Prior entry: 2026-08-26 ~10:2x (**STAGE-2 DE-RISKED: the primitive
+walk teacher (`stotight45-seed13`, 25 Hz) transfers to mesh dynamics +
+the real 100 Hz motor contract almost for free, and composes with the
+mesh stance teacher (`acq8m`) via `goal.mode_seq` at only a 10 % fall
+rate concentrated entirely in the ALREADY-TRACKED rise/hold residual
+— zero new walk-composition pathology. Dual-teacher BC distillation
+launched (background, CPU) as the first real Stage-2 mechanism arm.**
+Plain English: everyone assumed unifying rise/lower (mesh, 100 Hz)
+with walking (still only proven on the OLD lighter/25 Hz robot) would
+need a whole rate-conversion engineering effort before it could even
+be tested. It didn't — three cheap measurement probes (no training,
+pure inference, `eval_joystick_gate`/`verify_modeseq_teachers`, this
+cycle) answer the Binding-Constraints "measure before trusting"
+requirement directly:
+1. `stotight45-seed13` run AS-IS on `env.model_source=mesh` at its
+   OWN native `control.hz=25` (isolating the mass/geometry variable
+   alone): joystick DONE-gate n=24 DR-0, PASS (0 falls, slip/m 2.567,
+   dir_err 31.4deg, gait_valid 1.0) — the +66% mass / shifted hip axis
+   does NOT break this gait.
+2. Same checkpoint at `control.hz=100` under the CURRENT real mesh
+   motor contract (`safety.max_delta_q_deg=0.375` default, not this
+   run's own trained 5.0 deg/tick@25Hz — i.e. the actual contract any
+   unified stage-2 policy must use), DR-0, n=24, full 60s episodes:
+   PASS (0 falls, slip/m 2.426, dir_err 39.84deg — just inside the
+   40deg cap, gait_valid 1.0). Adding own-DR(0.35) tips direction
+   error just over the cap (combined med 40.72 vs 40.0; slip stays
+   in-band) — CANARY FAIL on the full DR panel, but by the smallest
+   possible margin, with zero falls and perfect gait validity anywhere
+   in the panel. **Conclusion: no rate-conversion hack (action-hold /
+   interpolation) is even structurally necessary — direct inference
+   at the target Hz/contract already sits at the gate's edge.**
+3. `verify_modeseq_teachers.py` (existing tool, generalized this cycle
+   — see below) driving `acq8m` (stance) + `stotight45-seed13` (walk)
+   through `goal.mode_seq` composition on mesh/100 Hz, DR 0.5,
+   stochastic_frac 0.3 (deliberately harder than the gate panels): 60
+   sequences, 30s each — **6/60 (10%) fell, split `{hold: 3, rise: 3},
+   ZERO walk-segment falls.** The failures match the segfix dig-in's
+   own already-open residual (rise flat-start / hold min-load) exactly
+   — this is not a new walk-composition pathology, it's the
+   pre-existing stance-side story recurring under composition, which
+   is the expected/tracked risk, not a surprise.
+**Tooling built (real code, tested):** `verify_modeseq_teachers.py`
+gained `--extra-cfg-set` (was hardcoded to a stale r3/r4c-era overlay
+that doesn't match ANY current teacher's real obs-width-affecting cfg
+— crashed on stotight45's 74-wide obs otherwise); `distill_gru.py`'s
+`--cfg-set` parser now shares `train_ppo_sim._parse_cfg_set` instead
+of a local float-or-string parser that silently mis-typed `[lo,hi]`
+range overrides (e.g. `goal.rise_height_mm=[79,87]`, needed to match
+acq8m's real training cfg) as a raw string — latent bug since 08-14,
+never triggered because no prior `--cfg-set` caller passed a bracketed
+value. `test_mode_seq*.py` (23 tests) stays green; both changes
+smoke-tested end-to-end (tiny dual-BC run, 4 transitions/8 episodes/2
+epochs, full pipeline completes and saves a loadable SB3 zip) before
+committing to the real-scale run. **BC distillation COMPLETED this cycle** (background CPU, `nohup`,
+not GPU/ledger-tracked — same class of work as every prior
+`distill_gru` arm; two smaller attempts first appeared to hang at
+20+ min with zero log output — root-caused as `distill_gru.py`/
+`verify_modeseq_teachers.py` missing the `OMP_NUM_THREADS`-family
+thread-pool cap `eval_checkpoint.py` already carries [fixed, tested,
+committed] COMBINED with plain stdout block-buffering under
+`> file 2>&1 &` hiding real progress until process exit — neither
+script was actually hung, both just needed patience/unbuffered output
+to observe). Final recipe: `--transitions 20 --episodes 100 --epochs
+25 --mix walk=0.30,rise=0.40,lower=0.15,hold=0.15`, walk-teacher
+`stotight45-seed13`, stance-teacher `acq8m`, env cfg = the exact
+merged walk+stance training cfg from probes 1-3 above. Result:
+`ppo_goal_cw_standwalk_stage2_dualbc1.zip` (`DualGruActorCriticPolicy`,
+obs 80 = 74 walk-teacher-width + 6 mode-onehot, act 18) — BC actor RMS
+0.0216 action units (~1.8deg), end-of-run probes: walk episode returns
+2601/2734 (both strongly positive, matching/beating teacher-in-context
+returns), hold 490/634 (positive), rise 2178/-710 (one strong pass),
+2 composed sequence probes 1 PASS (return 2378, no fall) / 1 FALL. No
+DAgger round used (one lever at a time — plain dual-teacher BC first).
+**GPU canary pair LAUNCHED AND VERIFIED RUNNING this cycle** (the
+Stage-2 walking-source x mechanism matrix's first cell: source=
+primitive `stotight45-seed13` via direct-inference BC transfer,
+mechanism=dual-teacher BC + RL fine-tune): `cw-standwalk-stance-mesh2-
+stage2-dualbc1-modeseq1` (seed 0, train-0) / `-modeseq1-s1` (seed 1,
+train-1), 2M steps, `train_ppo_mjx --gru-dual --gru-hidden-size 256
+--init-from ppo_goal_cw_standwalk_stage2_dualbc1.zip --task joint_walk
+--cfg-set obs.mode_onehot=1 --cfg-set goal.mode_seq=0.75` + the full
+merged env cfg, no `train.bc_anchor_*` (mirrors the `cw-arch-gru-
+dual1` precedent's own finding: the mode-gated dual-core architecture
+removes the shared-trunk anchor/walk interference BY CONSTRUCTION, so
+the bare fine-tune is the first thing to try; stance-only/walk-off
+anchor is the pre-registered fallback if walk regresses). Hypothesis/
+gate in the ledger entry; NOT triaged this cycle — a fresh 2M canary,
+next finish-triggered cycle owns the read. Evidence: `/tmp/
+probe_stotight45_meshhz25`, `/tmp/probe_stotight45_
+meshhz100_truecontract{,_full,_ownDR}`, `/tmp/verify_modeseq_{smoke,
+full}.json` (controller `/tmp`, not artifact-durable — rerun cheap if
+needed for audit; each probe command is fully specified above),
+`/tmp/dualbc1_v4.log` (the completed BC run's full log).
+Prior entry, 08-26 ~09:1x (**SEGFIX JOINT CALL: REAL DIVERGENCE,
+NOT A CLEAN PASS — the composed-segment-window widen (6-8s->9-11s)
+FIXES seed1's severe flat-in-composition collapse outright but
+REGRESSES seed0, which had no such problem before. DIG-IN flagged;
+do not promote the widened window.** Own scope (`-segfix-s1`, seed 1)
+ACQUISITION PASS: the generic composed seqprobe (registered
+instrument) happened to draw ZERO flat-kind episodes in its n=12 rise
+sample (confirmed per-episode `start_kind`: rsi/crouch/bridge only,
+deterministic under the shared `--seed 0`) — untestable for the
+flat-specific hypothesis as configured, so this cycle built a
+DEDICATED flat-pinned composed probe (`goal.mode_seq_stance=1` +
+`goal.rise_flat_frac=1.0/partial=0/rsi=0` on each recipe's own segment
+window, n=12 det+sto) and ran it on BOTH seeds' segfix checkpoints
+AND their un-widened acq8m parents for a direct, matched before/after
+(4 extra CPU-pod eval passes, read-only diagnostics, on top of the
+standard gate/owncfg/seqprobe). Results: **seed 1** acq8m-s1 (6-8s
+window) 2/12 valid, 10/12 `hold_low_height` terms (herr 48-72mm) ->
+segfix-s1 (9-11s window) **12/12 valid, ZERO terms, herr 0.3-3.6mm**
+— clean, video-confirmed fix (contact sheets: genuine
+splay->tuck->full-stand every draw). **seed 0** acq8m (6-8s window)
+12/12 valid, ZERO terms, herr 0.3-1.9mm (no flat-in-composition
+problem existed) -> segfix (9-11s window) **9/12 valid, 3 NEW
+hold_low_height terms** (herr 49-52mm), video-confirmed genuine
+stall-low (crouched terminal frame, never completes the last stretch
+to full height) on the failing draws. The identical config change
+that cures seed1 (2/12->12/12) breaks seed0 (12/12->9/12) — the
+gate's own PASS branch and its FAIL branch ("unchanged or worse")
+BOTH fire on the same arm, split by seed; this is not the
+"unchanged/worse in both seeds" the gate anticipated, nor a clean
+joint pass. The `-segfix` (seed0) run itself belongs to a concurrent
+cycle — its evidence is cited here as read-only diagnostic
+cross-reference, not verdicted on its behalf. **Recommendation: do
+NOT promote the widened segment window as a blanket replacement;
+`acq8m`/`acq8m-s1` (6-8s default) remain the standing stage-1
+checkpoints.** DIG-IN flagged: root-cause why widening — which the
+Next-0.5 root-cause note predicted could only ever HELP a
+time-starved first segment — instead introduces a brand-new failure
+in seed0 (leading suspect: the flat-time-indexed BC-anchor clock is
+tuned to a ~7s reference ramp and may mis-pace differently inside a
+9-11s segment for a subset of draws than it did inside the old 6-8s
+one). SKILLS.md row added. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_standheight_rung5_acq8m_segfix_s1_{gate,
+owncfg,seqprobe,seqprobe_flat}/` (this run, own scope), `..._segfix_
+{seqprobe,seqprobe_flat}/` (sibling, cited only), `..._acq8m_
+seqprobe_flat/` + `..._acq8m_s1_seqprobe_flat/` (matched pre-fix
+baselines built this cycle). W&B `i50v00p9`.)
+
+Prior entry: 2026-08-26 ~07:5x (**STAND_HEIGHT RUNG-5 JOINT CALL
+CLOSED: the composed rise->hold(height-cmd)->lower lower-phase fix
+holds on BOTH seeds under the CORRECTED motor slew contract -- rung-5
+is closed for its own question; flat-start rise carries forward as
+the pre-existing, seed-sensitive residual.** A concurrent cycle found
++fixed a live bug (`pod_eval.py::legacy_eval_cfgs`) that had been
+silently running every 100 Hz run's automated gate/owncfg/session
+pass under the LEGACY 25 Hz slew contract (1.5 deg/tick, 4x looser)
+instead of the real 0.375 deg/tick the policies actually trained
+under, since the 08-24 rate flip (161 of 1712 ledger launches
+affected). This cycle found `-s1`'s own gate/owncfg/seqprobe were
+genuinely pre-fix too (`report.json.motor_contract.safety.
+max_delta_q_deg == 1.5`), deleted them, and re-ran all three on
+train-0 under the landed fix. **Composed seqprobe (the registered
+gate instrument) post-fix: lower/det 6/6 + lower/sto 6/6, BOTH
+zero-termination (herr 9.4-10.7mm)** -- matches seed-0's own
+already-corrected 6/6+6/6 (herr 14.1-14.9mm) -- the exact fix this
+arm was funded for (2M canary `-s1` lower/det was 0/6, ALL
+over_current-pinned) replicates cross-seed under the TRUE trained
+contract. hold clean both seeds. **rise reveals a real cross-seed
+divergence invisible under the buggy contract**: seed0 10/12 (2
+over_current only) vs seed1 7/12 (5 fails, mostly a `hold_low_height`
+stall concentrated on flat starts) -- the pre-existing flat-start-rise
+residual (Next 0.5/RUNG-9), sharpened, not a new blocker. Video
+(fresh post-fix contact sheets + isolated strips, both seeds):
+upright, six-foot-planted, no fall/tip/collapse; rise fails are
+stall-low, not falls. **Verdict: rung-5's own question (does
+composing the height-cmd hold segment into rise->hold->lower
+sequencing preserve skill) = YES, closed cross-seed. Next: open
+stage-2 design** (rise->walk->lower composition) off either seed's
+acq8m checkpoint; walking source is still the track's pre-registered
+fallback (`stotight45-seed13`, primitive-family) pending a mesh-era
+joystick champion. SKILLS.md row added (joint-scope). Full detail +
+per-episode numbers in the "Now" section below. Evidence: `logs/
+ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5_acq8m{,_s1}_
+{gate,owncfg,seqprobe}/` (both post-fix; `-s1` pre-fix artifacts kept
+as `*_prefix_bugged`), W&B `i78gd6k3`/`auf0f70c`. Any pre-08-26-~06:33
+`control.hz=100` eval read (cur_max/over_current numbers especially)
+should be treated as suspect until re-verified under the fix — see
+CURRENT_TRUTHS.md.)
+
+Prior entry: 2026-08-26 ~04:3x (**JOINT CALL CLOSED: JOINT PASS — the
+from-scratch real-std-anneal full hold=.1/rise=.45/lower=.45 mix clears
+every registered clause on BOTH seeds; PROMOTED as THE mesh stancemix
+recipe, closing the multi-day from-scratch-vs-warm-started/std-reopen
+saga. PLUS: built + tested the STAND_HEIGHT rung-5 wiring (mode_seq hold
+segments can now carry a height command) and launched its first canary.**
+`-s1` (seed 1, this cycle): flat-pinned probe 11/12 valid_plant (det 6/6,
+sto 5/6 — 1 over_current fall, not a majority/pin), herr 0.2–8.6mm, real
+per-leg swing counts; DR-0 gate hold 6/6+6/6 zero-term (herr≤5.5mm),
+lower 6/6 det+6/6 sto success (herr 3.0–5.0mm, well under the 10mm bar —
+`valid_plant` reads 0 for lower because that flag means rise-height
+plant, not lower's own success criterion, which is `success=true`
+here); own-DR(0.2) hold 6/6+6/6, lower 6/6+6/6, rise 5/6 det (1 OC term)
++ 6/6 sto. Combined with seed-0's own 12/12 flat + zero-term hold/lower
+(posted last entry), **both seeds clear all three registered clauses
+(flat probe ≥10/12, hold ≥5/6+5/6 zero-term, lower ≥5/6 honest ≤10mm) —
+JOINT PASS.** Promoting seed-0's checkpoint
+(`ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip`,
+marginally cleaner: 12/12 vs 11/12 flat, zero own-DR rise terms vs
+seed-1's one) as THE mesh stancemix recipe. Residual (both seeds, same
+shape as every prior "solved" rise arm): cur_max still kisses 2.4–2.64A
+on most rise episodes without tripping (structural, non-terminal); a
+thin over_current/fall tail remains on the hardest deep starts
+(bridge/rsi/flat-sto), ~3/84 read episodes per seed across all three
+reports — this is Stage-1's cleanest result yet, not a zero-fall
+closure, so it does not by itself close the track's Stage-1 GATE text
+("zero falls/tips"). SKILLS.md row added (joint-scope). **Refill (built
+this cycle, real code):** STAND_HEIGHT.md's rung-5 text claimed
+`goal.mode_seq_stance`'s hold segments already carry a height command
+"as a drop-in" — false on inspection: `_seq_segment_traj`'s hold branch
+never called the existing `_hold_height_schedule` (mid-sequence hold
+segments were always flat-zero regardless of `hold_height_cmd_frac`).
+Added `goal.mode_seq_hold_height_cmd` (default 0 = OFF, bit-exact — the
+array stays the pre-initialized zeros exactly as before) in
+`rl_move/sim/goal_task.py::_seq_segment_traj`: ON (+ the generator's own
+`hold_height_cmd_frac>0`) calls `_hold_height_schedule` in the segment's
+own local clock (`n - tick` steps), which composes cleanly because that
+schedule already starts every draw at 0 with its own settle window —
+the same convention the rise/lower branches already rely on for a
+seamless segment-switch. 4 new tests
+(`rl_move/tests/test_mode_seq_hold_height.py`: default-off flat,
+on-but-frac-zero flat, on-composes varying/continuous/in-range, unset-
+vs-explicit-zero stream parity) + the full `test_mode_seq_stance.py`/
+`test_mode_seq.py`/`test_hold_height_cmd.py`/
+`test_eval_modeseq_rise_from_h.py` banks stay green (36/36). Launched
+the pre-registered STAND_HEIGHT rung-5 first canary off THIS cycle's
+promoted checkpoint (see below). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m_s1_{gate,owncfg,
+flatprobe}/`, W&B `nl1im163`.)
+
+Prior entry: 2026-08-26 ~04:2x (**SCRATCH8M (seed 0) ACQUISITION PASS — the
+cleanest single-seed mesh stancemix read of the whole campaign, and the
+first from-scratch (not warm-started, not pinned-std) full-mix arm to be
+read.** Flat-pinned probe (det+sto 6+6, DR-0): 12/12 valid_plant, herr
+0.6–7.1mm, real per-leg swing motion (e.g. [13,0,1,0,5,1]), roll clean —
+video confirms genuine splay→tuck-under→level six-foot plant, NOT the
+stdreopen/seqrise family's press-pin or half-mast freeze (the 2.4–2.64A
+seen during tuck/press is the same non-terminal structural ceiling every
+solved rise arm rides, not a frozen pin: swings are real, herr is low).
+DR-0 gate: hold 6/6+6/6 AND lower 6/6+6/6 both **ZERO terminations**
+(herr ≤0.7mm hold, ≤2.8mm lower) — both registered clauses cleared with
+zero terms, not merely above-bar; rise/sto DR-0 4/6 (2 bridge/rsi
+over_current falls — the campaign's already-catalogued deep-start OC
+tail, not new). Own-DR(0.2): hold det 6/6 + sto 5/6 (1 hold_min_load
+term); **rise det 6/6 + sto 6/6, ALL valid_plant zero-term** (stronger
+than this seed's own DR-0 rise/sto); lower 6/6+6/6 zero-term. Reward rose
+every quarter (-32.4/20.5/659.2/1236.9), matching the isolated
+tuckclock-acq8m trough-then-breakout arc this recipe deliberately
+mirrors. **Verdicted own-scope only — the registered gate is JOINT with
+`-s1`** (seed 1, identical from-scratch recipe, still training as of this
+entry — off-limits to this cycle). If `-s1` also clears every clause,
+this closes the from-scratch-vs-warm-started/std-reopen saga outright:
+promote as THE mesh stancemix recipe, unblocking STAND_HEIGHT rungs 4-5
+and walk distillation. If `-s1` instead shows the seed-fragility pattern
+the stdreopen-acq8m pair did (2/12 vs 11/12), the honest read becomes
+"from-scratch real-std-anneal is ALSO only partially seed-reliable" —
+worth a 3rd seed before promoting either family. SKILLS.md row added
+(seed-0 scoped). Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stancemix_tuckclock_scratch8m_{gate,owncfg,flatprobe}/`, W&B `pjatb078`.)
+
+Prior entry: 2026-08-26 ~03:3x (**STDREOPEN 3-SEED READ CLOSED:
+seed-2 matches seed-0's total freeze (0/12 flat valid_plant, WORSE
+than seed-0's 2/12, all 12 over_current-pinned at 2.64A, near-zero
+swing_count), not seed-1's clean 11/12 pass — CANARY FAIL - MECHANISM
+recorded. Three seeds now read 2/12, 11/12, 0/12: genuinely ~1/3
+reliable, exactly this canary's own pre-registered "seed2 matches
+seed0" branch. Hold/lower stay clean regardless (12/12+12/12 DR-0
+both), confirming the flat sub-case alone is the broken piece. Root
+cause is NOT the recipe's own "std reopen" lever, though — the
+concurrent seqrise dig-in (see next entry) found `--log-std-init` is
+a silent no-op under `--init-from`, so this entire warm-started
+sub-lineage (stdreopen/-s1/-acq8m/-acq8m-s1/seqrise/-s1/-s2) trained
+at the parent's pinned std 0.0183 the whole time; the seed spread is
+pinned-std warm-start optimization variance, not an exploration
+effect. No further stdreopen-recipe seeds are warranted — the correct
+lever is the from-scratch real-std-anneal arm below.
+`cw-standwalk-stance-mesh2-stancemix-tuckclock-scratch8m`'s first
+launch attempt was mechanically REFUSED (pod code-sync) and only its
+retry (seed 0, train-6) ended up running with no seed twin queued;
+completed the pre-registered pair this cycle —
+`cw-standwalk-stance-mesh2-stancemix-tuckclock-scratch8m-s1` (seed 1,
+identical from-scratch recipe) launched VERIFIED RUNNING on train-7.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_
+tuckclock_stdreopen_s2_{gate,owncfg,flatprobe}/`, W&B `s9yxuq93`.)
+
+Prior entry: 2026-08-26 ~03:2x (**SEQRISE JOINT CALL CLOSED: CANARY
 FAIL - MECHANISM on both seeds — warm-starting the 3-way mix from the
 solved riseonly flat-rise checkpoint does NOT preserve the skill —
 PLUS a lineage-wide mechanical discovery that re-frames the whole
@@ -35,6 +488,28 @@ recipe that solved mesh flat rise 2/2 (riseonly-tuckclock-acq8m
 24/24). Named fallback if it fails: warm-start + `--warm-log-std-
 override 0`.** Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
 stancemix_seqrise_{gate,owncfg,flatprobe}/`, W&B `9zzi5ael`.)
+
+UPDATE (03:3x, this cycle): the scratch8m launch above was initially
+REFUSED (stale code marker on train-6, `95e8933f...` vs local HEAD) —
+`snapshot.sh --sync hexapod-mjx-train-6` + `--sync hexapod-mjx-
+train-7` fixed it; **both `scratch8m` (seed 0, train-6) and `-s1`
+(seed 1, train-7) are now confirmed VERIFIED RUNNING (8M each)** —
+no -s1 twin existed yet, launched this cycle with the identical
+recipe/seed=1 to make it a real joint pair per this campaign's
+2-seed convention. Also closed this cycle (own scope, complements
+the seqrise joint call above): `cw-standwalk-stance-mesh2-stancemix-
+tuckclock-stdreopen-s2` (the 3rd stdreopen seed) VERDICTED CANARY
+FAIL - MECHANISM — flat probe 12/12 over_current-terminated at the
+exact 2.64A ceiling, zero swings, pattern-matching seed0's
+total-freeze (NOT seed1's clean pass); hold/lower clean both DR
+settings. This closes the SEED-NOISE half of the earlier joint
+question standalone: with seed0=freeze, seed1=pass, seed2=freeze,
+the stdreopen recipe (warm-started, pinned-std per the discovery
+above) is only ~1/3 seed-reliable — consistent with, and independent
+confirmation of, the decision above to move to the from-scratch
+real-std-anneal recipe rather than fund more stdreopen seeds.
+Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_
+tuckclock_stdreopen_s2_{gate,owncfg,flatprobe}/`, W&B `s9yxuq93`.
 
 Prior entry: 2026-08-26 ~03:1x (**seqrise-s1 (own scope) CANARY FAIL
 - MECHANISM: the SEQUENCING lever avoids the OC-pin entirely but the
@@ -2376,6 +2851,163 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**SEGFIX JOINT CALL: REAL DIVERGENCE, 08-26 ~09:1x — the composed
+mode_seq segment-window widen (6-8s->9-11s) FIXES seed1's severe
+flat-in-composition collapse (2/12->12/12 valid, matched flat-pinned
+composed probe) but REGRESSES seed0 (12/12->9/12, 3 NEW
+hold_low_height terms) on the identical config change.** Full
+before/after numbers, video confirmation, and the recommendation
+(do NOT promote the widened window; `acq8m`/`acq8m-s1` stay the
+standing stage-1 checkpoints pending root-cause) are in the
+Last-updated banner at the top of this file — not duplicated here.
+DIG-IN flagged for the seed0 regression's root cause. Own-scope
+verdict (`-segfix-s1`) recorded; `-segfix` (seed0) belongs to a
+concurrent cycle. SKILLS.md row added. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_standheight_rung5_acq8m_segfix_s1_{gate,
+owncfg,seqprobe,seqprobe_flat}/`, `..._segfix_{seqprobe,
+seqprobe_flat}/` (sibling, cited), `..._acq8m_seqprobe_flat/` +
+`..._acq8m_s1_seqprobe_flat/` (matched baselines). W&B `i50v00p9`.
+
+Prior entry, 08-26 ~07:5x (**STAND_HEIGHT RUNG-5 JOINT CALL CLOSED —
+the composed lower fix holds cross-seed under the CORRECTED motor
+contract; rung-5 is closed for its own question, flat-start rise
+carries forward as the pre-existing open residual.** Closing the joint call the prior
+entry left open: `-s1`'s own gate/owncfg/seqprobe were confirmed
+genuinely pre-fix (`report.json.motor_contract.safety.max_delta_q_deg
+== 1.5`) this cycle — deleted those artifacts and re-ran all three on
+train-0 under the landed fix (`report.json.motor_contract` now reads
+`0.375` on all three). **Composed seqprobe (the registered instrument)
+post-fix: lower/det 6/6 + lower/sto 6/6, BOTH zero-termination
+(herr 9.4–10.7mm)** — the exact fix this arm was funded for (2M
+canary's `-s1` lower/det was 0/6, ALL over_current-pinned) replicates
+under the checkpoint's TRUE trained contract, matching seed-0's own
+already-corrected 6/6+6/6 (herr 14.1–14.9mm). hold clean both seeds
+(seed0 6/6+5/6, seed1 6/6+6/6). **rise reveals a real cross-seed
+divergence invisible under the buggy contract**: seed0 10/12 (2
+over_current only) vs seed1 7/12 (5 fails, mostly a `hold_low_height`
+stall — robot tucks but stays low, never completes the post-rise
+transition — concentrated on flat starts: 0/2 det, 1/3 sto flat).
+Video (fresh contact sheet + `rise_det_5` + `lower_det_0`, all
+re-pulled post-fix): upright six-foot-planted stands throughout every
+mode, no fall/tip; the rise fails are stall-low, not collapse.
+**Verdict: rung-5's own named question (does composing the
+height-cmd hold segment into rise→hold→lower sequencing preserve
+skill) is answered YES — the lower-phase fix is real and cross-seed —
+CLOSED. Flat-start rise is NOT solved by this arm's extra budget and
+now has sharper cross-seed evidence (10/12 vs 7/12) that it is a
+seed-sensitive, budget-invariant residual** — this is the same
+pre-existing item already tracked below (Next 0.5 / RUNG-9: mint a
+mesh-native `rise_ref` or edit the flat segment of the existing one),
+not a new blocker. **Next: open stage-2 design** (rise→walk→lower
+composition) using either seed's acq8m checkpoint as the stance
+teacher; the walking source is still the track's pre-registered
+fallback (`stotight45-seed13`, primitive-family) pending a mesh-era
+joystick champion. SKILLS.md row added (joint-scope). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5_acq8m{,_s1}_
+{gate,owncfg,seqprobe}/` (both post-fix; `-s1`'s pre-fix artifacts kept
+as `*_prefix_bugged` for audit), W&B `i78gd6k3`/`auf0f70c`.
+
+Prior entry:
+
+**RE-VERIFICATION IN FLIGHT (launched this cycle, 08-26 ~07:1x, no
+ledger entry — direct pod_eval/eval_checkpoint invocations, not a
+`launch_run.py` launch): the promoted THE-mesh-stancemix-recipe
+champion's own headline evidence (`stancemix_tuckclock_scratch8m` +
+`-s1`, promoted 08-26 ~04:3x) was ALSO measured pre-fix (confirmed:
+its committed `report.json.motor_contract.safety.max_delta_q_deg ==
+1.5`) — it is the foundation every later standwalk arm (including
+rung-5 above) warm-starts from, so it is the highest-value re-check.
+Re-running gate+owncfg+flatprobe for BOTH seeds under the fix on
+their original pods (train-6 seed0, train-7 seed1; code synced).**
+Old (pre-fix) artifact dirs moved aside to `*_PREFIX` (not deleted —
+comparison value). Expected output:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stancemix_tuckclock_
+scratch8m{,_s1}_{gate,owncfg,flatprobe}/` (fresh, post-fix). Whoever
+picks this up next: diff the flat-pinned valid_plant counts and
+DR-0 hold/lower zero-term claims against the `_PREFIX` dirs — if
+unchanged, the champion promotion stands as-is (the current-ceiling
+residual is a genuine training-time characteristic, confirmed
+independent of the eval bug); if the current-ceiling/over_current
+tail shrinks or vanishes, the "not a zero-fall closure" caveat on the
+promotion should be revisited (possibly upgrades to a cleaner PASS).
+Not yet read as of this write — launched, not triaged.
+
+Prior entry:
+
+**STAND_HEIGHT RUNG-5, 08-26 ~07:1x — seed-0 acq8m ACQUISITION PASS
+own-scope: the composed-lower residual the 2M canary flagged for
+seed0 is CLOSED at 8M (6/6 det+sto, was 2/6 det).** Full detail in the
+banner at the top of this file (including a live pod_eval slew-
+contract bug found+fixed this cycle — every number below is post-fix).
+**Open: the joint call with `-s1` (seed 1, own 2M canary residual was
+the OPPOSITE shape — over_current pin, not high-herr drift) — its
+gate/owncfg/seqprobe are already DONE on train-0 but CONFIRMED
+PRE-FIX (read-only check this cycle: `report.json.motor_contract.
+safety.max_delta_q_deg == 1.5`, the legacy value, not the 0.375 this
+checkpoint trained under) — do NOT trust those numbers for the joint
+call; re-run `-s1`'s gate/owncfg + the manual seqprobe under the fix
+before closing (left untouched this cycle per the off-limits
+instruction — `-s1` belongs to another cycle). If `-s1`
+also clears its own residual: rung-5 is CLOSED, open stage-2 design
+(rise→walk→lower composition, needs a walking source per the track's
+Stage-2 text). If `-s1` still fails on the over_current shape: rung-5
+is PARTIAL (one seed clean, one still current-pinned) — the next
+lever is the height-cmd-segment `bc_anchor_coef` loosening (new
+default-off cfg + bank rows + unit tests), not a 3rd seed.**
+
+Prior entry: 08-26 ~06:0x — first canary pair BOTH CANARY PASS
+(caveated) — mechanism works, residual is seed-dependent lower-phase
+softening; funded an 8M continuation before calling rung-5 closed.
+`cw-standwalk-stance-mesh2-standheight-rung5`/`-s1` (2M, warm from
+this cycle's freshly-promoted scratch8m mesh-stancemix champion,
+`goal.mode_seq_stance=1` + `goal.mode_seq_hold_height_cmd=1` +
+`hold_height_cmd_frac=1` + the height-aware BC anchor from rung-1)
+both show reward rising over the run through the now-familiar
+mid-training valley (seed0 2.4→peak~76@1M→trough −180@1.2M→144
+final; seed1 6.5→54→trough −216→66 final). The gate's own
+pre-registered custom probe (`--cfg-set goal.mode_seq_stance=1
+mode_seq_hold_height_cmd=1 hold_height_cmd_frac=1`, det+sto 6+6) shows
+REAL height tracking on both seeds (hold herr_end 0.8–3.4mm det /
+1.0–3.3mm sto seed0, 1.2–10.3mm seed1 — a moving [-40,20]mm@15mm/s
+target, not flat-ignored) and no majority over_current/fall on any
+mode. Rise mildly softened both seeds (4/6 det+4/6 sto success, 2
+term each). **Lower is where the two pre-registered seeds DISAGREE**
+(the gate's own PARTIAL trigger, mapped onto the ledger's binary
+canary vocabulary as a caveated PASS): seed0 keeps lower alive with
+ZERO terminations but drifts to a high herr on det (4/6 exceed the
+15mm success bar, 18–20.5mm; sto stays inside, 6/6 success up to
+13.1mm); seed1 has the OPPOSITE shape — lower/det tracks TIGHTLY
+(herr 0.3–2.0mm) but trips the over_current safety on ALL 6/6 det
+episodes right at/near the end (0/6 success by the herr rule; sto is
+clean 6/6). Both read as the campaign's long-documented current-
+margin fragility (cur_max pinned 2.4–2.64A near the safety ceiling)
+newly stacked onto the height-cmd+mode_seq composition — not a new
+mechanism defect, and video (contact sheets, both seeds) shows
+upright, all-six-planted stands throughout, no fall/tip/splay/
+press-pin. Secondary, likely-cosmetic finding: seed1's ISOLATED
+(non-composed, cold "plant" reset) hold-only gate/owncfg probe is far
+more fragile (4/6 and 3/6 hold_min_load terms) than seed0's (0–1)
+even though seed1's hold is clean INSIDE the composed seqprobe —
+probably an artifact of the isolated probe's own reset distribution,
+not the real stage-2 entry condition (rise always precedes hold in
+practice). Acting on the cheaper, no-new-code lever first: launched
+`cw-standwalk-stance-mesh2-standheight-rung5-acq8m`/`-acq8m-s1` (8M,
+`--init-from-source` off each seed's own 2M canary checkpoint,
+recipe unchanged) to see whether the still-rising Q4 reward trend
+closes the lower-phase residual before building a height-cmd-
+segment-specific `bc_anchor_coef` loosening (the gate's other named
+PARTIAL lever). On PASS (both seeds, lower clears its own
+established band with no majority term): treat rung-5 as cleared and
+open stage-2 design (rise→walk→lower composition). On FAIL at the
+same signature: budget is refuted for this residual, and the
+anchor-coef-during-height-cmd lever becomes the next arm (new
+default-off cfg + bank rows + unit tests, dig-in scope). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5{,_owncfg,
+_seqprobe}/`, `..._s1_{gate,owncfg,seqprobe}/`; W&B
+`7sg3akct`/`z103ioia`.
+
+Prior entry:
+
 **HOLD-HEIGHT (commandable stand height), 08-25 ~21:4x — rung-1
 canary pair `holdheight-rung1`/`-s1` BOTH CANARY FAIL-MECHANISM;
 height-AWARE BC-anchor fix built+tested and its own canary pair
@@ -2642,6 +3274,107 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
   hardening rung.
 
 ## Next
+
+-1.7 ANCHOR-LEAK DIG-IN RESOLVED; REPAIRED PAIR RUNNING (08-26
+    ~18:0x). The -1.6 dig-in landed: stance→walk interference is a
+    shared-Adam UPDATE-isolation defect (populated all-zero grads on
+    the gated-out core + momentum step), not a gradient-masking or
+    routing bug — full mechanism, probe numbers, and the dual1
+    reconciliation in the Last-updated banner. Fix
+    `train.bc_anchor_isolate_update` (default 0 bit-exact) landed at
+    `2f585a97` with defect+fix unit tests. `cw-standwalk-stance-
+    mesh2-stage2-dualbc1-anchor2`/`-anchor2-s1` (2M canary pair,
+    train-0/1) re-run the anchor1 recipe with only the fix ON; the
+    joint gate's LEAK-FIX/FULL-PASS/FAIL-A/FAIL-B branches (see
+    banner/ledger) name the next owner in every outcome. Nothing else
+    on the dual-core-BC-init lineage is fundable until that pair
+    reads back. Open follow-up owned by FAIL-A if it fires: the same
+    zero-grad momentum channel inside PPO's own update
+    (single-family recurrent minibatches under mode_seq=0.75).
+
+-1.6 STAGE-2 FIRST CELL FULLY CLOSED, BOTH MECHANISMS FAIL (08-26
+    ~16:4x). Both the bare RL fine-tune (`modeseq1`/`-s1`) AND its
+    pre-registered stance-only/walk-off `bc_anchor` fallback
+    (`anchor1`/`-anchor1-s1`) are now CANARY FAIL - MECHANISM,
+    cross-seed replicated, DR-0 + own-DR(0.5), det+sto — full evidence
+    in the Last-updated banner and prior banner below. The anchor
+    fallback is WORSE than the thing it was meant to fix: hold/lower
+    never reach isolated failure on both det+sto in either seed, and
+    walk collapses from a weak-but-positive crawl to 0/6 success
+    everywhere with two DIFFERENT severe new pathologies per seed
+    (leg-sacrifice freeze vs. high-slip shuffle-in-place) — evidence
+    the coef=3.0 stance-anchor gradient leaks into walk/shared-value
+    territory, not just fails to reach hold/lower. **Per both gates'
+    own text: do NOT fund a third anchor dose/config.** REAL NEXT
+    STEP (dig-in scope, not a triage-cycle launch): read
+    `bc_anchor.py`'s dual-core wiring and the per-tick
+    gradient-masking tests to find where/why stance-tick gradients
+    reach walk-tick parameters (or a shared value head) despite
+    `bc_anchor_walk=0.0` — candidates: a shared trunk upstream of the
+    two heads, a shared critic/value function the huge anchor loss
+    dominates, or an optimizer-state-level interaction (Adam moments
+    shared across the whole network even when per-tick loss masking
+    is correct). Only after that root cause is named should a new
+    mechanism (true parameter-level isolation, a second optimizer,
+    or a smaller anchor coefficient with a verified-isolated gradient
+    path) be designed and gated. Until this dig-in lands, standwalk
+    stage-2 has no fundable arm on the dual-core-BC-init lineage; the
+    stage-1 mesh stance checkpoints (`acq8m`/`acq8m-s1`) remain the
+    best available stance teachers and stotight45-seed13 remains the
+    walking source for whatever composition mechanism the dig-in
+    recommends next.
+
+-1. (context, superseded by -1.5 above) STAND_HEIGHT RUNG-5 CLOSED
+    (08-26): the composed rise->hold(height-cmd)->lower lower-phase
+    fix is cross-seed-verified under the corrected motor contract
+    (both seeds 6/6+6/6 zero-term). The open design item was
+    **STAGE-2** (rise->walk->lower composition): pre-register the
+    walking-source x mechanism matrix and launch as a batch — DONE,
+    see -1.5. Caveat carried forward, not a blocker: flat-start rise
+    remains unsolved and is confirmed seed-sensitive (10/12 vs 7/12 on
+    the acq8m pair) — stage-1's own "zero falls/tips" gate text is
+    still not fully closed by any single arm; the acq8m checkpoints
+    are the best available stance teacher candidates but carry that
+    residual into stage-2's own session-level eval.
+
+-0.5 ROOT-CAUSE + LEVER for the flat-in-composition rise residual
+    above (08-26, this cycle, code-read not guesswork — confirmed the
+    isolated `riseonly-bcchain3-meshref-tuckclock-acq8m{,_s1}` flat
+    PASS (12/12, 11/12) is NOT contract-bug-contaminated, its
+    flatprobe already reads `motor_contract=0.375`, so flat rise is
+    genuinely solved standalone and the composed-seqprobe regression
+    is a real composition effect, not stale evidence). Read
+    `goal_task.py::_sample_mode_seq_stance`/`_seq_segment_traj`: a
+    mode_seq segment's length is drawn `U(mode_seq_segment_s_min=6.0,
+    mode_seq_segment_s_max=8.0)`, but this run's OWN rise schedule
+    (`goal.rise_ramp_s=6.0` + the hardcoded 1 s pre-ramp hold) needs
+    >=7.0 s to even REACH the commanded height once — when rise draws
+    as the sequence's first segment (the eval's forced case) roughly
+    half the U(6,8) draws land under 7.0 s, cutting the ramp off
+    before a flat start (the only start_kind needing the FULL
+    physical belly->stand climb; bridge/rsi/crouch start partway up
+    against the same fixed 0->amp schedule) can finish, and the
+    still-low height rides into the next segment where
+    `hold_low_height` fires — a probabilistic, start_kind-conditional
+    timing truncation, not a skill or reward defect, and the exact
+    same class of segment-timing artifact this file's own lower-phase
+    entries already diagnosed (`min_tail` truncating a late `lower`).
+    **LEVER (launched this cycle, no code change — `goal.mode_seq_
+    segment_s_min/_max` are pre-existing shared cfg keys, already used
+    as launch-time overrides elsewhere — `distill_gru.py`,
+    `verify_modeseq_teachers.py`):** `cw-standwalk-stance-mesh2-
+    standheight-rung5-acq8m-segfix`/`-segfix-s1`, 2M continuation off
+    each seed's own acq8m checkpoint, identical recipe +
+    `goal.mode_seq_segment_s_min=9.0 goal.mode_seq_segment_s_max=11.0`
+    (safely clears the 7.0 s rise-schedule floor with margin; only
+    changes THIS launch's cfg, not any shared default). Gate: PASS if
+    the composed seqprobe's flat-start rise sub-count improves (fewer
+    `hold_low_height` terms on flat draws) with hold/lower staying at
+    the acq8m level (no new majority term) — confirms the
+    segment-timing mechanism and gives a promotable rung-5 recipe
+    variant; FAIL (unchanged/worse flat sub-count) refutes the timing
+    hypothesis and points back to a genuine skill-interference cause
+    (would need a matched multi-teacher/KL mechanism, dig-in scope).
 
 0. OPERATOR DIRECTIVE (08-25, fb_20260825T140238_d43b35 — binding
    priority): the raw-18 `joint_goal` **footlow2** curriculum

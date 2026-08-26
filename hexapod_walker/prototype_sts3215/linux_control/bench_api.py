@@ -61,6 +61,7 @@ ZERO_TOL_DEG = 6.0
 CAL_TFT_MIN_PERIOD_S = 10.0
 CAL_TFT_PHASE_ORDER = (
     "safe_zero",
+    "bus_error_rate_still",
     "imu_rest",
     "geometry_plant",
     "geometry_sweep",
@@ -70,6 +71,7 @@ CAL_TFT_PHASE_ORDER = (
     "stability_margin",
     "mass_shift_response",
     "traction_probe",
+    "bus_error_rate_moving",
     "return_zero",
     "proprioception_check",
     "camera_witness",
@@ -77,6 +79,9 @@ CAL_TFT_PHASE_ORDER = (
     "actuator_snapshot",
     "report",
 )
+BUS_ERROR_RATE_HZ = 100.0
+BUS_ERROR_RATE_STILL_SECONDS = 2.0
+BUS_ERROR_RATE_OK_MAX = 0.01
 
 
 def _env_truthy(name: str, default: bool = False) -> bool:
@@ -146,6 +151,295 @@ def joint_label(joint: int, names: dict[int, str]) -> str:
         return names[sid]
     leg, axis = divmod(joint, 3)
     return f"L{leg} {AXIS[axis]}"
+
+
+class _BusQualityTracker:
+    """Collect bus transaction success/failure without changing call sites."""
+
+    TRACKED_METHODS = {
+        "read_snapshot",
+        "step_all",
+        "read_all_positions",
+        "read_all_feedback",
+        "read_imu",
+        "read_position_deg",
+        "read_feedback",
+        "write_all",
+        "write_joint",
+        "enable_all_torque",
+        "safe_stop",
+        "scan",
+    }
+    TRACKED_PKT_METHODS = {
+        "WritePosEx",
+        "write1ByteTxRx",
+        "write2ByteTxRx",
+        "read1ByteTxRx",
+        "read2ByteTxRx",
+        "ping",
+    }
+
+    def __init__(self, label: str, *,
+                 expected_joints: int = N_JOINTS,
+                 ok_error_rate: float = BUS_ERROR_RATE_OK_MAX):
+        self.label = label
+        self.expected_joints = int(expected_joints)
+        self.ok_error_rate = float(ok_error_rate)
+        self.attempts = 0
+        self.failures = 0
+        self.ok_count = 0
+        self.durations: list[float] = []
+        self.by_method: dict[str, dict[str, int]] = {}
+        self.first_errors: list[dict] = []
+        self.min_live: int | None = None
+        self.max_live: int | None = None
+        self._first_t: float | None = None
+        self._last_t: float | None = None
+
+    def wrap(self, bus):
+        return _TrackedBus(bus, self)
+
+    def record(self, method: str, elapsed_s: float, *,
+               result=None, exc: BaseException | None = None) -> None:
+        now = time.monotonic()
+        if self._first_t is None:
+            self._first_t = now
+        self._last_t = now
+        self.attempts += 1
+        self.durations.append(float(elapsed_s))
+        row = self.by_method.setdefault(method, {"attempts": 0, "failures": 0})
+        row["attempts"] += 1
+        ok, live = self._result_ok(method, result, exc)
+        if live is not None:
+            self.min_live = live if self.min_live is None else min(self.min_live, live)
+            self.max_live = live if self.max_live is None else max(self.max_live, live)
+        if ok:
+            self.ok_count += 1
+            return
+        self.failures += 1
+        row["failures"] += 1
+        if len(self.first_errors) < 8:
+            err = repr(exc) if exc is not None else self._short_result(result)
+            self.first_errors.append({
+                "method": method,
+                "error": err,
+                **({"live_joints": live} if live is not None else {}),
+            })
+
+    def _result_ok(self, method: str, result,
+                   exc: BaseException | None) -> tuple[bool, int | None]:
+        if exc is not None:
+            return False, None
+        short = method.rsplit(".", 1)[-1]
+        if short in ("read_snapshot", "step_all"):
+            live = 0
+            if isinstance(result, dict):
+                live = len(result.get("pos_deg") or {})
+            return live >= self.expected_joints, live
+        if short in ("read_all_positions", "read_all_feedback"):
+            live = len(result) if isinstance(result, dict) else 0
+            return live >= self.expected_joints, live
+        if short in ("read_position_deg", "read_feedback"):
+            return result is not None, None
+        if short == "read_imu":
+            return isinstance(result, dict), None
+        if short == "scan":
+            live = len(result) if isinstance(result, (list, tuple, set)) else 0
+            return live >= self.expected_joints, live
+        if short in ("write_all", "write_joint", "enable_all_torque",
+                     "safe_stop", "txPacket"):
+            return True, None
+        if short == "WritePosEx":
+            try:
+                return int(result) == 0, None
+            except (TypeError, ValueError):
+                return result is not False, None
+        if short in self.TRACKED_PKT_METHODS:
+            if isinstance(result, tuple) and len(result) >= 2:
+                try:
+                    return int(result[1]) == 0, None
+                except (TypeError, ValueError):
+                    return False, None
+            if isinstance(result, int):
+                return result == 0, None
+            return result is not False, None
+        return result is not False, None
+
+    def _short_result(self, result) -> str:
+        if isinstance(result, dict):
+            keys = ",".join(list(result.keys())[:5])
+            if "pos_deg" in result:
+                return f"dict(pos_deg={len(result.get('pos_deg') or {})})"
+            return f"dict({keys})"
+        if isinstance(result, (list, tuple, set)):
+            return f"{type(result).__name__}(len={len(result)})"
+        return repr(result)
+
+    def summary(self, *, mode: str, target_hz: float | None = None,
+                seconds_target: float | None = None,
+                non_blocking: bool = True) -> dict:
+        if self.attempts <= 0:
+            return {
+                "ok": False,
+                "skipped": True,
+                "non_blocking": non_blocking,
+                "mode": mode,
+                "label": self.label,
+                "msg": f"{self.label} bus error rate unavailable",
+            }
+        error_rate = self.failures / self.attempts
+        elapsed = None
+        if self._first_t is not None and self._last_t is not None:
+            elapsed = max(0.0, self._last_t - self._first_t)
+        durs = sorted(self.durations)
+
+        def pct(q: float) -> float | None:
+            if not durs:
+                return None
+            i = min(len(durs) - 1,
+                    max(0, int(round((q / 100.0) * (len(durs) - 1)))))
+            return durs[i] * 1000.0
+
+        pct_rate = error_rate * 100.0
+        ok = error_rate <= self.ok_error_rate
+        msg = (
+            f"{self.label} bus errors {self.failures}/{self.attempts} "
+            f"({pct_rate:.2f}%)")
+        if self.max_live is not None:
+            msg += (
+                f"; live {self.min_live}-{self.max_live}/"
+                f"{self.expected_joints}")
+        if target_hz:
+            msg += f"; target {target_hz:.0f}Hz"
+        return {
+            "ok": ok,
+            "non_blocking": non_blocking,
+            "mode": mode,
+            "label": self.label,
+            "error": None if ok else msg,
+            "warning": msg if self.failures else None,
+            "msg": msg,
+            "attempts": self.attempts,
+            "ok_count": self.ok_count,
+            "fail_count": self.failures,
+            "error_rate": round(error_rate, 6),
+            "error_rate_pct": round(pct_rate, 3),
+            "ok_error_rate_max": self.ok_error_rate,
+            "target_hz": target_hz,
+            "seconds_target": seconds_target,
+            "elapsed_s": None if elapsed is None else round(elapsed, 3),
+            "attempt_rate_hz": (
+                None if not elapsed else round(self.attempts / elapsed, 2)),
+            "mean_ms": (
+                None if not self.durations
+                else round(sum(self.durations) * 1000.0 / len(self.durations), 3)),
+            "p50_ms": None if pct(50) is None else round(pct(50), 3),
+            "p95_ms": None if pct(95) is None else round(pct(95), 3),
+            "p99_ms": None if pct(99) is None else round(pct(99), 3),
+            "max_ms": (
+                None if not self.durations
+                else round(max(self.durations) * 1000.0, 3)),
+            "min_live_joints": self.min_live,
+            "max_live_joints": self.max_live,
+            "by_method": [
+                {
+                    "method": k,
+                    "attempts": v["attempts"],
+                    "failures": v["failures"],
+                }
+                for k, v in sorted(self.by_method.items())
+            ],
+            "first_errors": list(self.first_errors),
+            "benefit": (
+                "separates serial/bus reliability from geometry, traction, "
+                "or policy behavior"),
+        }
+
+
+class _TrackedBus:
+    def __init__(self, bus, tracker: _BusQualityTracker):
+        object.__setattr__(self, "_bus", bus)
+        object.__setattr__(self, "_tracker", tracker)
+        object.__setattr__(self, "_pkt", None)
+
+    def __getattr__(self, name: str):
+        if name == "pkt":
+            pkt = object.__getattribute__(self, "_pkt")
+            if pkt is None:
+                pkt = _TrackedPkt(
+                    getattr(object.__getattribute__(self, "_bus"), "pkt"),
+                    object.__getattribute__(self, "_tracker"))
+                object.__setattr__(self, "_pkt", pkt)
+            return pkt
+        attr = getattr(object.__getattribute__(self, "_bus"), name)
+        tracker = object.__getattribute__(self, "_tracker")
+        if callable(attr) and name in _BusQualityTracker.TRACKED_METHODS:
+            def wrapped(*args, **kwargs):
+                t0 = time.monotonic()
+                try:
+                    result = attr(*args, **kwargs)
+                except Exception as e:
+                    tracker.record(name, time.monotonic() - t0, exc=e)
+                    raise
+                tracker.record(name, time.monotonic() - t0, result=result)
+                return result
+            return wrapped
+        return attr
+
+    def __setattr__(self, name: str, value) -> None:
+        setattr(object.__getattribute__(self, "_bus"), name, value)
+
+
+class _TrackedPkt:
+    def __init__(self, pkt, tracker: _BusQualityTracker):
+        self._pkt = pkt
+        self._tracker = tracker
+        self._group = None
+
+    def __getattr__(self, name: str):
+        if name == "groupSyncWrite":
+            if self._group is None:
+                self._group = _TrackedGroupSyncWrite(
+                    getattr(self._pkt, "groupSyncWrite"), self._tracker)
+            return self._group
+        attr = getattr(self._pkt, name)
+        if callable(attr) and name in _BusQualityTracker.TRACKED_PKT_METHODS:
+            def wrapped(*args, **kwargs):
+                t0 = time.monotonic()
+                try:
+                    result = attr(*args, **kwargs)
+                except Exception as e:
+                    self._tracker.record(f"pkt.{name}",
+                                         time.monotonic() - t0, exc=e)
+                    raise
+                self._tracker.record(f"pkt.{name}",
+                                     time.monotonic() - t0, result=result)
+                return result
+            return wrapped
+        return attr
+
+
+class _TrackedGroupSyncWrite:
+    def __init__(self, group, tracker: _BusQualityTracker):
+        self._group = group
+        self._tracker = tracker
+
+    def __getattr__(self, name: str):
+        attr = getattr(self._group, name)
+        if name == "txPacket" and callable(attr):
+            def wrapped(*args, **kwargs):
+                t0 = time.monotonic()
+                try:
+                    result = attr(*args, **kwargs)
+                except Exception as e:
+                    self._tracker.record("pkt.groupSyncWrite.txPacket",
+                                         time.monotonic() - t0, exc=e)
+                    raise
+                self._tracker.record("pkt.groupSyncWrite.txPacket",
+                                     time.monotonic() - t0, result=result)
+                return result
+            return wrapped
+        return attr
 
 
 class BenchAPI:
@@ -3833,6 +4127,71 @@ class BenchAPI:
                 "geometry"),
         }
 
+    def _new_bus_quality_tracker(self, label: str) -> _BusQualityTracker:
+        return _BusQualityTracker(label)
+
+    def _bus_error_rate_probe(
+            self, bus=None, *, label: str, mode: str,
+            seconds: float = BUS_ERROR_RATE_STILL_SECONDS,
+            hz: float = BUS_ERROR_RATE_HZ,
+            abort_check=lambda: False) -> dict:
+        """Run a short read-only 100 Hz bus error-rate probe."""
+        if bus is None:
+            return {
+                "ok": False,
+                "skipped": True,
+                "non_blocking": True,
+                "mode": mode,
+                "label": label,
+                "msg": "no bus; bus error rate not available",
+            }
+        method = "read_snapshot"
+        if not callable(getattr(bus, method, None)):
+            method = "read_all_positions"
+        fn = getattr(bus, method, None)
+        if not callable(fn):
+            return {
+                "ok": False,
+                "skipped": True,
+                "non_blocking": True,
+                "mode": mode,
+                "label": label,
+                "msg": "bus has no bulk read path for error-rate probe",
+            }
+
+        tracker = self._new_bus_quality_tracker(label)
+        tracked = tracker.wrap(bus)
+        fn = getattr(tracked, method)
+        seconds = max(0.2, min(10.0, float(seconds)))
+        hz = max(1.0, min(250.0, float(hz)))
+        period = 1.0 / hz
+        deadline = time.monotonic() + seconds
+        next_t = time.monotonic()
+        late_ticks = 0
+        while time.monotonic() < deadline:
+            if abort_check():
+                res = tracker.summary(
+                    mode=mode, target_hz=hz, seconds_target=seconds)
+                res["aborted"] = True
+                res["ok"] = False
+                res["error"] = "bus error-rate probe aborted"
+                return res
+            now = time.monotonic()
+            if now < next_t:
+                time.sleep(next_t - now)
+            elif now - next_t > period:
+                late_ticks += 1
+            try:
+                fn()
+            except Exception:
+                pass
+            next_t += period
+        res = tracker.summary(mode=mode, target_hz=hz,
+                              seconds_target=seconds)
+        res["read_method"] = method
+        res["late_ticks"] = late_ticks
+        return res
+
     def _proprioception_check(
             self, bus=None, *, expected_pose: list[float] | None = None,
             expected_name: str = "pose", tol_deg: float = 8.0,
@@ -4399,7 +4758,8 @@ class BenchAPI:
             mass_shift: dict | None = None,
             proprioception: dict | None = None,
             camera_witness: dict | None = None,
-            bus_power: dict | None = None) -> dict:
+            bus_power: dict | None = None,
+            bus_error_rate: dict | None = None) -> dict:
         log_dir = Path(__file__).resolve().parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -4433,6 +4793,7 @@ class BenchAPI:
             "proprioception": proprioception,
             "camera_witness": camera_witness,
             "bus_power": bus_power,
+            "bus_error_rate": bus_error_rate,
             "actuators": self._actuator_report(bus),
             "path": str(path),
             "log_name": path.name,
@@ -4468,6 +4829,10 @@ class BenchAPI:
                 "synced camera source is supplied",
                 "bus_power is read-only health evidence: live servos, voltage, "
                 "current, and temperature",
+                "bus_error_rate records still 100Hz read-only snapshots and "
+                "the moving-phase transactions observed during checkup; "
+                "nonzero rates point to serial timing, wiring, or power "
+                "margin before blaming policy behavior",
                 "actuators.learned_model comes from the optional motor "
                 "dynamics/sysid run when present",
             ],
@@ -5411,6 +5776,25 @@ class BenchAPI:
                 "log_name": report.get("log_name"),
             }
 
+        bus_error_still_res = None
+        bus_error_moving_res = None
+
+        progress("Still bus error rate", "bus_error_rate_still")
+        bus_error_still_res = self._bus_error_rate_probe(
+            bus, label="still", mode="bus_error_rate_still",
+            abort_check=abort_check)
+        phase("bus_error_rate_still", bus_error_still_res)
+        if abort_check() or bus_error_still_res.get("aborted"):
+            report = self._save_calibration_report(
+                phases=phases, bus=bus,
+                bus_error_rate={"still": bus_error_still_res})
+            return {"ok": False, "aborted": True, "mode": "checkup",
+                    "phases": phases, "report": report,
+                    "path": report.get("path"), "log_name": report.get("log_name")}
+
+        moving_bus_quality = self._new_bus_quality_tracker("moving")
+        moving_bus = moving_bus_quality.wrap(bus)
+
         progress("IMU rest/bias", "imu_rest")
         imu_res = run_imu_calibrate(
             bus, abort_check=abort_check,
@@ -5420,7 +5804,9 @@ class BenchAPI:
                 **{k: v for k, v in p.items() if k != "msg"}))
         phase("imu_rest", imu_res)
         if abort_check() or imu_res.get("aborted"):
-            report = self._save_calibration_report(phases=phases, bus=bus)
+            report = self._save_calibration_report(
+                phases=phases, bus=bus,
+                bus_error_rate={"still": bus_error_still_res})
             return {"ok": False, "aborted": True, "mode": "checkup",
                     "phases": phases, "report": report,
                     "path": report.get("path"), "log_name": report.get("log_name")}
@@ -5428,7 +5814,7 @@ class BenchAPI:
         progress("Ground contact / plant search", "geometry_plant")
         try:
             geo_res = run_geometry_plant(
-                bus, abort_check=abort_check,
+                moving_bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     "Geo plant: " + str(p.get("msg") or "running"),
                     "geometry_plant",
@@ -5462,7 +5848,7 @@ class BenchAPI:
             progress("Geometry dimension sweep", "geometry_sweep")
             try:
                 sweep_res = run_geometry_contact_sweep(
-                    bus, abort_check=abort_check,
+                    moving_bus, abort_check=abort_check,
                     on_progress=lambda p: progress(
                         "Geo sweep: " + str(p.get("msg") or "running"),
                         "geometry_sweep",
@@ -5499,7 +5885,7 @@ class BenchAPI:
         if motion_ok:
             progress("IMU body-frame map from quad rear", "imu_body_frame")
             bf_res = self._calibrate_quad_body_frame(
-                bus, abort_check=abort_check,
+                moving_bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     str(p.get("msg") or "running"), "imu_body_frame",
                     **{k: v for k, v in p.items() if k != "msg"}))
@@ -5535,7 +5921,7 @@ class BenchAPI:
         if motion_ok and (body_ok or body_non_blocking) and not abort_check():
             progress("Stability margin", "stability_margin")
             stability_res = self._run_stability_margin_check(
-                bus, abort_check=abort_check,
+                moving_bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     str(p.get("msg") or "running"), "stability_margin",
                     **{k: v for k, v in p.items() if k != "msg"}))
@@ -5561,7 +5947,7 @@ class BenchAPI:
         if motion_ok and (body_ok or body_non_blocking) and not abort_check():
             progress("Mass shift response", "mass_shift_response")
             mass_shift_res = self._run_mass_shift_response_check(
-                bus, abort_check=abort_check,
+                moving_bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     str(p.get("msg") or "running"), "mass_shift_response",
                     **{k: v for k, v in p.items() if k != "msg"}))
@@ -5585,7 +5971,7 @@ class BenchAPI:
         if motion_ok and (body_ok or body_non_blocking) and not abort_check():
             progress("Traction / slip probe", "traction_probe")
             traction_res = self._run_traction_probe(
-                bus, abort_check=abort_check,
+                moving_bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     str(p.get("msg") or "running"), "traction_probe",
                     **{k: v for k, v in p.items() if k != "msg"}))
@@ -5602,6 +5988,11 @@ class BenchAPI:
                     "not run because a prior motion phase did not finish "
                     "cleanly"),
             })
+
+        progress("Moving bus error rate", "bus_error_rate_moving")
+        bus_error_moving_res = moving_bus_quality.summary(
+            mode="bus_error_rate_moving")
+        phase("bus_error_rate_moving", bus_error_moving_res)
 
         motion_phase_names = {
             "geometry_plant",
@@ -5702,7 +6093,11 @@ class BenchAPI:
             imu_frame_check=imu_frame_check_res,
             stability_margin=stability_res, mass_shift=mass_shift_res,
             proprioception=proprio_res,
-            camera_witness=camera_res, bus_power=bus_power_res)
+            camera_witness=camera_res, bus_power=bus_power_res,
+            bus_error_rate={
+                "still": bus_error_still_res,
+                "moving": bus_error_moving_res,
+            })
         phases.append({
             "name": "report",
             "ok": bool(report.get("path") or report.get("log_name")),
@@ -5737,6 +6132,7 @@ class BenchAPI:
             "proprioception": report.get("proprioception"),
             "camera_witness": report.get("camera_witness"),
             "bus_power": report.get("bus_power"),
+            "bus_error_rate": report.get("bus_error_rate"),
             "actuators": report.get("actuators"),
             "path": report.get("path"),
             "log_name": report.get("log_name"),

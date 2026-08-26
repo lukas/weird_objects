@@ -154,6 +154,41 @@ def _run_checkup(*, sweep_res: dict,
                 "msg": "18/18 servos live",
             }
 
+        def bus_error_probe(*_args, label: str, mode: str, **_kwargs) -> dict:
+            calls.append(f"bus_rate_{label}")
+            return {
+                "ok": True,
+                "non_blocking": True,
+                "mode": mode,
+                "label": label,
+                "attempts": 200,
+                "ok_count": 200,
+                "fail_count": 0,
+                "error_rate": 0.0,
+                "msg": f"{label} bus errors 0/200 (0.00%)",
+            }
+
+        class FakeMovingBusQuality:
+            def __init__(self, label: str):
+                self.label = label
+
+            def wrap(self, bus):
+                return bus
+
+            def summary(self, *, mode: str, **_kwargs) -> dict:
+                calls.append(f"bus_rate_{self.label}")
+                return {
+                    "ok": True,
+                    "non_blocking": True,
+                    "mode": mode,
+                    "label": self.label,
+                    "attempts": 37,
+                    "ok_count": 37,
+                    "fail_count": 0,
+                    "error_rate": 0.0,
+                    "msg": f"{self.label} bus errors 0/37 (0.00%)",
+                }
+
         def report(**_kwargs) -> dict:
             calls.append("report")
             return {
@@ -164,6 +199,7 @@ def _run_checkup(*, sweep_res: dict,
                 "stability_margin": _kwargs.get("stability_margin"),
                 "mass_shift": _kwargs.get("mass_shift"),
                 "bus_power": _kwargs.get("bus_power"),
+                "bus_error_rate": _kwargs.get("bus_error_rate"),
                 "actuators": {},
             }
 
@@ -178,6 +214,8 @@ def _run_checkup(*, sweep_res: dict,
         api._proprioception_check = proprio
         api._camera_witness_check = camera
         api._bus_power_check = bus_power
+        api._bus_error_rate_probe = bus_error_probe
+        api._new_bus_quality_tracker = FakeMovingBusQuality
         api._save_calibration_report = report
 
         return (
@@ -293,6 +331,63 @@ def test_clean_checkup_returns_zero() -> None:
     assert _phase(result["phases"], "mass_shift_response")["ok"] is True
     assert _phase(result["phases"], "camera_witness")["skipped"] is True
     assert _phase(result["phases"], "bus_power_health")["ok"] is True
+    assert _phase(result["phases"], "bus_error_rate_still")["ok"] is True
+    assert _phase(result["phases"], "bus_error_rate_moving")["ok"] is True
+    assert "bus_rate_still" in calls, calls
+    assert "bus_rate_moving" in calls, calls
+    assert result["bus_error_rate"]["still"]["fail_count"] == 0
+    assert result["bus_error_rate"]["moving"]["fail_count"] == 0
+
+
+def test_bus_error_probe_counts_incomplete_snapshots() -> None:
+    class FakeSnapshotBus:
+        def __init__(self):
+            self.calls = 0
+
+        def read_snapshot(self):
+            self.calls += 1
+            live = 17 if self.calls == 2 else 18
+            return {"pos_deg": {j: 0.0 for j in range(live)}}
+
+    api = BenchAPI(object())
+    res = api._bus_error_rate_probe(
+        FakeSnapshotBus(),
+        label="still",
+        mode="bus_error_rate_still",
+        seconds=0.25,
+        hz=20.0,
+        abort_check=lambda: False,
+    )
+    assert res["attempts"] >= 4, res
+    assert res["fail_count"] == 1, res
+    assert not res["ok"], res
+    assert res["first_errors"][0]["live_joints"] == 17
+
+
+def test_moving_bus_tracker_sees_direct_syncwrite_packet() -> None:
+    class FakeGroupSyncWrite:
+        def txPacket(self):
+            return None
+
+        def clearParam(self):
+            return None
+
+    class FakePkt:
+        def __init__(self):
+            self.groupSyncWrite = FakeGroupSyncWrite()
+
+    class FakeBus:
+        def __init__(self):
+            self.pkt = FakePkt()
+
+    tracker = bench_api_module._BusQualityTracker("moving")
+    bus = tracker.wrap(FakeBus())
+    bus.pkt.groupSyncWrite.txPacket()
+    bus.pkt.groupSyncWrite.clearParam()
+    res = tracker.summary(mode="bus_error_rate_moving")
+    assert res["attempts"] == 1, res
+    assert res["fail_count"] == 0, res
+    assert res["by_method"][0]["method"] == "pkt.groupSyncWrite.txPacket"
 
 
 def test_non_blocking_geometry_issue_is_not_final_error() -> None:
