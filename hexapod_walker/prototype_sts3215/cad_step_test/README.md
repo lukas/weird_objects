@@ -58,22 +58,17 @@ uv run --no-project --python 3.12 \
   python hexapod_walker/prototype_sts3215/cad_step_test/build_chorn_step.py
 ```
 
-The rigid-hip variant (`concepts/rigid_hip/`) has its own additive exporter.
-It imports the variant constants from
-`concepts/rigid_hip/make_rigid_hip_variant.py`, reuses this sidecar's BREP
-builders for the production parts the variant edits (coxa link, chassis
-bottom, servo clamp cap), and fails the build if any BREP part drifts more
-than 2% in volume or 0.6 mm in bbox from its mesh-pipeline twin.  Unlike the
-base and C-horn exporters it does NOT write into the shared `out/` pool: its
-outputs land in the concept directory, `concepts/rigid_hip/step/` (`*.step`
-directly there, BREP-derived STLs in `step/stl/`, manifest + bundle
-alongside), next to the mesh-pipeline print set in `concepts/rigid_hip/stl/`:
-
-```bash
-uv run --no-project --python 3.12 \
-  --with build123d --with trimesh --with numpy \
-  python hexapod_walker/prototype_sts3215/cad_step_test/build_rigid_hip_step.py
-```
+The rigid-hip variant's exporter GRADUATED out of this directory (Aug 26
+2026): for that concept, STEP-first is the OFFICIAL pipeline, not a
+sidecar.  Its builder lives at `concepts/rigid_hip/build_rigid_hip_step.py`
+— it is the canonical geometry source for the seven variant printables
+(the trimesh twins are retired), imports the variant constants from
+`concepts/rigid_hip/make_rigid_hip_variant.py`, and still reuses this
+directory's BREP builders for the production parts the variant edits
+(coxa link, chassis bottom, servo clamp cap).  Its outputs land in
+`concepts/rigid_hip/step/`, and `make_rigid_hip_variant.py` (the
+assembly/check driver) runs it automatically.  See
+`concepts/rigid_hip/README.md` for the flow.
 
 Shared export machinery (part spec dataclass, STEP+STL export, manifest rows,
 bundle zipping) lives in `step_common.py`; all three exporters use it.  The
@@ -95,17 +90,10 @@ Base and C-horn outputs are written to `cad_step_test/out/`:
   to Onshape as a test.
 - `chorn_step_first_bundle.zip`: C-horn variant STEP/STL bundle.
 
-Rigid-hip outputs live in the concept directory instead,
-`concepts/rigid_hip/step/`:
-
-- `*.step`: the seven variant printables as CAD/BREP exchange files.
-- `stl/*.stl`: BREP-derived tessellations (equivalence gate + the assembled
-  `sts3215-rigid-hip-step` viewer build via
-  `concepts/rigid_hip/publish_step_scene.py`; the PRINT set stays the
-  mesh-pipeline `concepts/rigid_hip/stl/`).
-- `rigid_hip_manifest.json`: rigid-hip variant diagnostics incl. the
-  BREP-vs-mesh equivalence check results.
-- `rigid_hip_step_first_bundle.zip`: rigid-hip variant STEP/STL bundle.
+Rigid-hip outputs live in the concept directory instead
+(`concepts/rigid_hip/step/`: the seven printables' `.step` files, their
+tessellations in `step/stl/`, manifest + bundle) — documented in
+`concepts/rigid_hip/README.md` now that the exporter graduated there.
 
 ## Current migration scope
 
@@ -138,7 +126,9 @@ Additional additive STEP-first diagnostics:
   - `spacers`
   - `femur_chorn_body`
   - `tibia_chorn_socket`
-- Rigid-hip variant parts (`build_rigid_hip_step.py`):
+- Rigid-hip variant parts (`concepts/rigid_hip/build_rigid_hip_step.py`,
+  graduated out of this directory -- STEP-first is that concept's
+  official pipeline):
   - `hip_clamp_cap_rigid`
   - `chassis_top_rigid`
   - `top_hatch_rigid`

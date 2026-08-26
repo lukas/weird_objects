@@ -319,8 +319,9 @@ thickness around the race unchanged, rotating-part clearances only
 grew.  `check_chassis_variant` now asserts per-leg cylindricity over
 the whole sheet-top → rim band (the assert was verified to reject the
 pre-shave STL).  Before/after from roughly the user's camera angle:
-`tower_flank_smoothed.png` (regenerate with
-`make_tower_flank_figure.py`).
+`tower_flank_smoothed.png` (its generator script needed the retired
+trimesh builder's `bump_shave=False` knob and was deleted with the
+STEP-first flip; the figure and script live in git history).
 
 ### The above-sheet WHITELIST (user, Aug 25 rev 8)
 
@@ -807,43 +808,62 @@ serviceable option.
   There is no `yaw_bearing_cap.stl` here — that production part is
   not used.  `*_DO_NOT_PRINT.stl` are COTS visuals.
 
-## Directory layout: `stl/` is the print set, `step/` is the STEP pipeline
+## Pipeline: STEP-first (the official way)
 
-* `stl/` — the mesh-pipeline printables from
-  `make_rigid_hip_variant.py`.  **This is the print set**: slice these.
-* `step/` — the STEP-first sidecar's outputs
-  (`cad_step_test/build_rigid_hip_step.py`): `*.step` CAD/BREP
-  exchange files (Onshape etc.), `step/stl/` BREP-tessellated STLs
-  (derived from the STEP solids — used for the equivalence gate and
-  the `sts3215-rigid-hip-step` viewer build, **not** for printing),
-  plus `rigid_hip_manifest.json` and
+The seven variant printables are authored **once**, as build123d /
+OpenCascade BREP solids in `build_rigid_hip_step.py` (this directory).
+That is where geometry gets edited.  Everything else derives from it:
+
+1. `build_rigid_hip_step.py` exports each part as `.step` (the editable
+   CAD truth, for Onshape/Fusion/FreeCAD) plus a tessellated `.stl`
+   into `step/stl/`, and gates each tessellation on healing into a
+   closed volume (+ the above-sheet whitelist census for the chassis).
+2. `make_rigid_hip_variant.py` — the **assembly/check driver** — runs
+   that exporter, loads the tessellations, builds the production /
+   visual meshes (femur, boots, retainer, servo bodies, COTS
+   stand-ins) from `hexapod_prototype.py`, runs the full geometric
+   check suite on the assembled robot, copies the printables into the
+   print set (`stl/`), and writes `scene.json` + `preview.png`.
+
+The trimesh twins of the printables were **retired** in the Aug 26
+flip (user: "the official way is to make step files") — their
+rationale comments live in git history before that commit.
+Production parts the variant reuses stay mesh-sourced from
+`hexapod_prototype.py`, unchanged.
+
+## Directory layout: `stl/` is the print set, `step/` is the CAD truth
+
+* `stl/` — **the print set**: slice these.  The seven variant
+  printables are healed copies of the BREP tessellations; the rest are
+  production/visual meshes.
+* `step/` — the canonical geometry exports from
+  `build_rigid_hip_step.py`: `*.step` CAD/BREP exchange files,
+  `step/stl/` raw tessellations, plus `rigid_hip_manifest.json` and
   `rigid_hip_step_first_bundle.zip`.  Regenerated artifacts, not in
   git.
 
 ## Build & view
 
 ```sh
-# from the repo venv
-python concepts/rigid_hip/make_rigid_hip_variant.py            # full checks
-python concepts/rigid_hip/make_rigid_hip_variant.py --skip-sweep  # fast iter
+# THE build command (BREP export -> assembly checks -> print set -> scene):
+uv run python concepts/rigid_hip/make_rigid_hip_variant.py
+#   --skip-sweep  fast geometry iterations (placeholder femur limit)
+#   --skip-brep   reuse the existing step/stl/ exports
+
+# geometry-only re-export (the driver runs this for you):
+uv run --no-project --python 3.12 \
+  --with build123d --with trimesh --with numpy --with manifold3d \
+  python concepts/rigid_hip/build_rigid_hip_step.py
 
 npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
     --build-id sts3215-rigid-hip
 # http://127.0.0.1:5183/?build=sts3215-rigid-hip
-
-# STEP/BREP exports (Onshape etc.) of all seven variant printables --
-# writes into concepts/rigid_hip/step/ (.step + step/stl/ + manifest);
-# see cad_step_test/README.md; verifies BREP vs these meshes at build time
-uv run --no-project --python 3.12 --with build123d --with trimesh --with numpy \
-  python hexapod_walker/prototype_sts3215/cad_step_test/build_rigid_hip_step.py
-
-# assembled STEP-pipeline viewer build (scene.json transforms + the
-# BREP-tessellated STLs from step/stl/ for the seven variant printables;
-# overwrites main in place on the local hub):
-python concepts/rigid_hip/publish_step_scene.py -m "<changelog note>"
-# http://127.0.0.1:5183/?build=sts3215-rigid-hip-step
-# cloud mirror: tools/push_cloud_buildviz.py --build-id sts3215-rigid-hip-step
+# cloud mirror: tools/push_cloud_buildviz.py --build-id sts3215-rigid-hip
 ```
+
+(The separate `sts3215-rigid-hip-step` viewer build and its
+`publish_step_scene.py` are retired: with the flip, the main
+`sts3215-rigid-hip` build **is** the STEP-pipeline geometry.)
 
 Checks run at build time: watertightness, seated-stack placement, the
 bottom joint (race on the deck-level ledge with its 0.5 mm servo-case

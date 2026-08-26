@@ -116,13 +116,25 @@ NOT a production change: nothing in the verified parts registry moves.
 to this variant live in THIS directory's ``stl/`` (never in
 ``stl_prototype/``).  BuildViz build id: ``sts3215-rigid-hip``.
 
-Run:  <repo .venv python> concepts/rigid_hip/make_rigid_hip_variant.py
-      (--skip-sweep for fast geometry-only iterations)
+STEP-FIRST PIPELINE (user, Aug 2026: "the official way is to make step
+files"): the seven variant printables are authored as build123d /
+OpenCascade BREP solids in ``build_rigid_hip_step.py`` (same dir), which
+exports .step + tessellated .stl into ``step/``.  THIS script is the
+assembly/check driver: it runs that exporter, loads its tessellations,
+builds the production/visual meshes, runs the full geometric check
+suite, copies the printables into the print set (``stl/``) and writes
+the BuildViz scene.  Edit printable geometry in build_rigid_hip_step.py
+-- the trimesh builders that used to live here are retired.
+
+Run:  uv run python concepts/rigid_hip/make_rigid_hip_variant.py
+      (--skip-sweep for fast geometry-only iterations;
+       --skip-brep to reuse the existing step/stl/ exports)
 """
 from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 
 import numpy as np
@@ -581,7 +593,8 @@ PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
 # trunk splices CONSOLIDATE into the central block (see WBLK_* below)
 # and the six integrated tray WALL SETS ARE DELETED from the chassis
 # print (user, Aug 24: "they dont make any sense anymore") -- see the
-# tray-cut block in make_chassis_bottom_rigid.  The pillar foot keeps
+# tray-cut block in build_rigid_hip_step.py's make_chassis_bottom_rigid.
+# The pillar foot keeps
 # the exact bay-sized footprint (all hole positions unchanged) but now
 # registers on its THREE M3 through-bolts instead of the old 0.3 mm
 # wall key.  The surrounding corner is otherwise
@@ -707,7 +720,15 @@ def _inter_vol(a: trimesh.Trimesh, b: trimesh.Trimesh) -> float:
 
 
 # ---------------------------------------------------------------------------
-# New printed parts
+# Placement helpers + visual (non-printed) parts.
+#
+# The seven variant PRINTABLES are no longer built here: geometry is
+# authored STEP-FIRST as build123d/OpenCascade BREP solids in
+# build_rigid_hip_step.py (user, Aug 2026: "the official way is to make
+# step files").  This driver loads that script's tessellations from
+# step/stl/ (see the mesh registry below), checks them as an assembly and
+# copies them into the print set.  The old trimesh twins live in git
+# history (pre-flip) if the rationale comments are ever needed.
 # ---------------------------------------------------------------------------
 
 def _hex_prism(apothem: float, z0: float, z1: float,
@@ -749,35 +770,6 @@ def _access_hole_xy() -> list[tuple[float, float]]:
     return out
 
 
-def make_hip_cap_rigid() -> trimesh.Trimesh:
-    """Stock hip clamp cap + yaw-axis pedestal + inner-race press boss.
-
-    The pedestal/boss stack is coaxial with the YAW axis (cap-local
-    x = 0, z = AXIS_Z), which lands on solid flange-bar material: the
-    flange spans x in +/-31.7, z in [0, 34.7] at the outer face, and the
-    Phi 29 pedestal footprint (x +/-14.5, z 1.15..30.15) stays >9 mm
-    clear of the two M3 counterbores at (+/-27.2, 17.15)."""
-    cap = hp.make_servo_clamp_cap()
-    ped = _cyl_y(PED_OD / 2.0, PED_Y0, PED_Y1, x=0.0, z=AXIS_Z)
-    boss = _cyl_y(BOSS_OD / 2.0, PED_Y1 - 1.0, BOSS_Y1, x=0.0, z=AXIS_Z)
-    tip = _cyl_y(BOSS_OD / 2.0 - BOSS_TIP_STEP, BOSS_Y1 - 0.1, TIP_Y1,
-                 x=0.0, z=AXIS_Z)
-    body = _union([cap, ped, boss, tip])
-    # Two puller notches at +/-x: pry slots exposing the inner race's
-    # underside (r 13.0..14.5) so the pressed 6805 can be walked off the
-    # boss with a flat screwdriver / 2-jaw puller instead of being a
-    # one-way assembly.  The notch floor stays clear of the boss root.
-    notches = []
-    for sx in (+1.0, -1.0):
-        n = trimesh.creation.box(extents=(PED_OD / 2.0 - PULLER_NOTCH_R0 + 3.0,
-                                          PULLER_NOTCH_DEPTH + 0.05,
-                                          PULLER_NOTCH_W))
-        n.apply_translation([
-            sx * (PULLER_NOTCH_R0 + n.extents[0] / 2.0),
-            PED_Y1 - PULLER_NOTCH_DEPTH / 2.0 + 0.025,
-            AXIS_Z])
-        notches.append(n)
-    return _diff(body, notches)
 
 
 def make_bearing_6805() -> trimesh.Trimesh:
@@ -793,216 +785,6 @@ def make_bearing_6805() -> trimesh.Trimesh:
     return _diff(outer, [bore])
 
 
-def make_chassis_top_rigid() -> trimesh.Trimesh:
-    """200 mm flat-to-flat hex sheet + six bearing-pocket bosses.
-
-    Same footprint and sheet thickness as chassis_bottom.  Each leg gets
-    a Phi 44 boss (same Phi 37 + 2x3.5 wall as the bottom tower) hanging
-    below the sheet, pocketing the third bearing's outer race from BELOW:
-    press up until the race top hits the Phi 34 shoulder.  Carries the
-    4-hole standoff pattern, the electronics-deck pattern, and a Phi 40
-    centre access hole."""
-    sheet = _hex_prism(APOTHEM, SHEET_Z0, SHEET_Z1)
-
-    solids = [sheet]
-    cuts = []
-    for _i, edge, _R, _R3 in hp._leg_chassis_frames():
-        x, y = float(edge[0]), float(edge[1])
-        # Ring runs to the DECK face: outboard of the hex edge there is no
-        # sheet, so a full-height ring is what completes the Phi 34 race
-        # shoulder all the way around (flush with the deck, no proud lip).
-        solids.append(_cyl_z(RING_OD / 2.0, RING_BOT_W, SHEET_Z1,
-                             x=x, y=y))
-        cuts.append(_cyl_z(POCKET_BORE / 2.0, RING_BOT_W - 1.0, SHEET_Z0,
-                           x=x, y=y))
-        cuts.append(_cyl_z(POCKET_BORE / 2.0 + POCKET_LEADIN,
-                           RING_BOT_W - 1.0, RING_BOT_W + POCKET_LEADIN,
-                           x=x, y=y))
-        cuts.append(_cyl_z(SHOULDER_OD / 2.0, SHEET_Z0 - 0.01, SHEET_Z1 + 1.0,
-                           x=x, y=y))
-    # (The old sub-sheet lid-screw bosses are gone: the corner PILLARS
-    # sit under these positions now and receive the screws instead.)
-    # Driver pass-throughs above the inboard cap bolts (legs at yaw 0):
-    # a hex driver reaches the cap screws with the plate ON, so service
-    # unbolts the cap+bearing unit instead of separating any press fit.
-    for (x, y) in _access_hole_xy():
-        cuts.append(_cyl_z(ACCESS_HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
-                           x=x, y=y, sections=64))
-    # SERVICE-HATCH opening: the standoff, electronics-deck and centre
-    # holes all fell inside it -- they move onto the removable hatch.
-    cuts.append(_hex_prism(HATCH_OPEN_APO, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
-                           flats_at_rings=True))
-    # Lid screws pass THROUGH the frame into the pillar tops (M3
-    # clearance), and each pillar gets one dedicated frame screw so the
-    # frame stays clamped down with the lid removed.
-    for (x, y) in _hatch_screw_xy():
-        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
-                           x=x, y=y, sections=32))
-    for az in range(0, 360, 60):
-        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
-                           x=PILLAR_FRAME_SCREW_RHO * np.cos(np.deg2rad(az)),
-                           y=PILLAR_FRAME_SCREW_RHO * np.sin(np.deg2rad(az)),
-                           sections=32))
-    return _diff(_union(solids), cuts)
-
-
-def make_corner_pillar() -> trimesh.Trimesh:
-    """One rim pillar, modeled in WORLD position at az 0 (instances are
-    placed by 60-deg rotations).  A PLAIN SOLID elliptical column from
-    the bottom sheet's top face up to PILLAR_TOP_GAP below the frame
-    (leg clearance is guaranteed by the rotating parts' ROT_ENVELOPE_R
-    trim, not by shaping the column), with:
-
-      * two Phi 2.5 self-tap pilots in the top face (insert-ready):
-        the shared lid screw (rho 76.2) and the dedicated frame screw
-        (rho 87);
-      * a bottom FOOT plate sized to the old corner Wago tray bay
-        (the variant chassis DELETES the tray walls, so the foot
-        registers on its bolts; on a stock chassis print the
-        surviving walls still fit it with 0.3 mm clearance) carrying
-        two Phi 3.4 through-holes, plus a small inboard TAB whose
-        bolt lands under the open hatch.  All three are M3
-        through-bolts with nyloc nuts on the belly; the matching holes
-        are printed into chassis_bottom_rigid (on a STOCK chassis
-        print, drill them using the foot as the jig).
-    """
-    top_z = SHEET_Z0 - PILLAR_TOP_GAP
-
-    def _ecyl(r_rad: float, z0: float, z1: float) -> trimesh.Trimesh:
-        c = trimesh.creation.cylinder(radius=r_rad, height=z1 - z0,
-                                      sections=64)
-        c.apply_transform(np.diag([1.0, PILLAR_TAN_SCALE, 1.0, 1.0]))
-        c.apply_translation([PILLAR_RHO, 0.0, (z0 + z1) / 2.0])
-        return c
-
-    col = _ecyl(PILLAR_OD / 2.0, PILLAR_BOT_Z, top_z)
-    bay_x0 = PILLAR_RHO + 2.0                       # 83.6 -- inside the bay
-    bay_x1 = _BAY_OUT_X - PILLAR_KEY_CL             # 97.3
-    bay_half = _WAGO_BAY_W / 2.0 - PILLAR_KEY_CL    # 14.63
-    bar = trimesh.creation.box(
-        extents=(bay_x1 - bay_x0, 2.0 * bay_half, PILLAR_FOOT_T))
-    bar.apply_translation([(bay_x0 + bay_x1) / 2.0, 0.0,
-                           PILLAR_BOT_Z + PILLAR_FOOT_T / 2.0])
-    tab = trimesh.creation.box(extents=(12.0, 12.0, PILLAR_FOOT_T))
-    tab.apply_translation([PILLAR_RHO - PILLAR_OD / 2.0 - 2.0, 0.0,
-                           PILLAR_BOT_Z + PILLAR_FOOT_T / 2.0])
-    body = _union([col, bar, tab])
-    cuts = [
-        # top pilots: shared lid screw + dedicated frame screw
-        _cyl_z(PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
-               x=HATCH_SCREW_RHO, y=0.0, sections=32),
-        _cyl_z(PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
-               x=PILLAR_FRAME_SCREW_RHO, y=0.0, sections=32),
-        # inboard tab bolt (under the open hatch)
-        _cyl_z(HOLE_D / 2.0, PILLAR_BOT_Z - 1.0,
-               PILLAR_BOT_Z + PILLAR_FOOT_T + 1.0, x=PILLAR_TAB_RHO, y=0.0,
-               sections=32),
-    ]
-    for sy in (+1.0, -1.0):
-        cuts.append(_cyl_z(HOLE_D / 2.0, PILLAR_BOT_Z - 1.0,
-                           PILLAR_BOT_Z + PILLAR_FOOT_T + 1.0,
-                           x=PILLAR_BAR_HOLE_X,
-                           y=sy * PILLAR_BAR_HOLE_Y, sections=32))
-    return _diff(body, cuts)
-
-
-def make_coxa_link_rigid() -> trimesh.Trimesh:
-    """The production coxa with the four variant edits (see the
-    constant blocks above):
-
-      * SHORTENED COLUMN (user, Aug 24 rev 3 + rev 4): instead of
-        starting from the merged production print, the coxa is
-        re-assembled from its two production sub-solids with the
-        vertical filler removed -- the hub is truncated at HUB_TRIM_Z
-        (deleting the Phi 52.4 platform disc, the dust-lip skirt and
-        the uflange, all of which served the deleted production
-        cap/upper race), the horn screws swap M3x30 -> M3x20 with
-        every seat plane 10 mm deeper (HORN_HEAD_SEAT_Z /
-        HORN_CENTRE_SEAT_Z: identical tip planes and thread
-        engagement, see the HORN SCREWS constants), and the whole
-        slab + cradle unit drops COL_DROP so the well floor lands
-        COL_HEAD_CL above the screw heads.  The horn interface AT the
-        horn (bolt pattern, tip depths) does NOT move.  Hip axis:
-        COXA_HIP_ANCHOR_V.
-      * ENVELOPE ROUND: servo-cradle corners rounded to the
-        ROT_ENVELOPE_R arc about its own yaw axis (max 2.16 mm off two
-        vertical wall corners that used to reach 40.36 mm) so the plain
-        rim columns clear by >= 5 mm at every yaw angle.
-      * HUB SEAT RING: the Phi 29 ring runs from the race top (z 2.5,
-        deck-level tower pocket) up into the dropped slab.  It
-        bears only on the Phi 25..29 inner-race land -- same contact
-        the production uflange made one race higher -- and merges
-        with the boss wall over Phi 24..25.15.  (The PRESS onto the
-        inner race is the production Phi 25.15 wide boss itself,
-        which already spans the whole relocated race band.)
-      * DUST BRIM: a Phi 38 brim (z 3..5) roofs the seal + outer-race
-        band, hovering 0.5 above the race-top / tower-rim plane and
-        stopping 3 mm inside the tower Phi 44.  The old Phi 44
-        skirt+curtain is deleted (it read as more chassis column) --
-        see the TOWER RIM / BRIM_* constants.
-
-    Cradle pilots, cap seat, 688 housing and the horn drive pattern
-    are untouched (the cradle unit translates rigidly).  This makes
-    the coxa a VARIANT print (6x)."""
-    # Hub: production sub-solid, truncated at the dropped slab.  The
-    # explicit annular cut kills the dust-lip skirt (z 14..18, r 23+)
-    # so the halfspace trim cannot leave a floating skirt sliver.
-    hub = hp.make_coxa_yaw_hub(one_piece=True)
-    skirt_cut = _diff(
-        _cyl_z(hp.YAW_HUB_DUST_LIP_OD / 2.0 + 2.0, SLAB_BOT_Z - 1.5,
-               hp.YAW_HUB_BOSS_TOP_Z + 1.0, sections=64),
-        [_cyl_z(20.0, SLAB_BOT_Z - 2.5, hp.YAW_HUB_BOSS_TOP_Z + 2.0,
-                sections=64)])
-    hub = _diff(hub, [skirt_cut])
-    keep_lo = _cyl_z(60.0, hub.bounds[0][2] - 1.0, HUB_TRIM_Z, sections=32)
-    hub = trimesh.boolean.intersection([hub, keep_lo], engine="manifold")
-    # Slab + cradle: production sub-solid dropped as ONE rigid body
-    # (well floor, cradle pilots, cap seat, rear tab, chamfer).
-    bracket = hp.make_coxa_hip_bracket(one_piece=True)
-    bracket.apply_translation([0.0, 0.0, -COL_DROP])
-    ring = _diff(
-        _cyl_z(HUB_RING_OD / 2.0, HUB_RING_Z0, HUB_RING_Z1, sections=128),
-        [_cyl_z(HUB_RING_ID / 2.0, HUB_RING_Z0 - 1.0, HUB_RING_Z1 + 1.0,
-                sections=128)])
-    brim = _diff(
-        _cyl_z(BRIM_OD / 2.0, BRIM_BOT_Z, BRIM_TOP_Z, sections=192),
-        [_cyl_z(HUB_RING_ID / 2.0, BRIM_BOT_Z - 1.0, BRIM_TOP_Z + 1.0,
-                sections=128)])
-    body = _union([hub, bracket, ring, brim])
-    # Yoke-end sweep clearance (mirror of hp.make_coxa_link_part, at
-    # the DROPPED hip axis): the femur yoke arm ends are full r~16
-    # discs about the hip axis; carve their swept cylinders through
-    # the two arm bands.
-    hip_ax_x, _, hip_ax_z = COXA_HIP_ANCHOR_V
-    sweeps = [_cyl_y(16.75, ylo, yhi, x=hip_ax_x, z=hip_ax_z)
-              for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))]
-    # Horn-screw plumbing, re-cut through the dropped slab (mirror of
-    # hp.make_coxa_link_part, seats at the VARIANT planes -- 10 mm
-    # deeper than production, tracking the M3x30 -> M3x20 swap so the
-    # tips land on the production planes): the Phi 5.9 head-access
-    # shafts run from each seat plane up through the well floor;
-    # below each seat the shank clearance (Phi 3.7 drive bolts,
-    # Phi 3.4 centre spline screw) is re-opened through the slab band
-    # the drop slid over it.  The 0.5 mm shank overshoot past the seat
-    # is inside the Phi 5.9 shaft, so the seat annulus is untouched.
-    shaft_top_z = 80.0
-    drive_clear = hp.DISC_HORN_BOLT_OD + 0.3
-    stations = [(0.0, 0.0, HORN_CENTRE_SEAT_Z,
-                 hp.HORN_CENTRE_OD)]
-    r = hp.DISC_HORN_BOLT_PCD / 2.0
-    stations += [(r * np.cos(t), r * np.sin(t),
-                  HORN_HEAD_SEAT_Z, drive_clear)
-                 for t in hp.DISC_HORN_BOLT_ANGLES_RAD]
-    cuts = list(sweeps)
-    for (sx, sy, seat_z, shank_d) in stations:
-        cuts.append(_cyl_z(hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0, seat_z,
-                           shaft_top_z, x=sx, y=sy, sections=48))
-        cuts.append(_cyl_z(shank_d / 2.0, SLAB_BOT_Z - 1.0, seat_z + 0.5,
-                           x=sx, y=sy, sections=32))
-    body = _diff(body, cuts)
-    z0, z1 = body.bounds[0][2] - 1.0, body.bounds[1][2] + 1.0
-    keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
-    return trimesh.boolean.intersection([body, keep], engine="manifold")
 
 
 def chassis_whitelist_violations(mesh: trimesh.Trimesh,
@@ -1029,178 +811,6 @@ def chassis_whitelist_violations(mesh: trimesh.Trimesh,
     return int(bad.sum()), (float(d[bad].max()) if bad.any() else 0.0)
 
 
-def make_chassis_bottom_rigid(bump_shave: bool = True) -> trimesh.Trimesh:
-    """The production chassis_bottom with the CHB_* variant edits (see
-    the constant block above):
-
-      * PLATFORM CORNERS: everything outboard of the hex edge
-        (leg-frame x > 100) between the belly (z -6.5) and the
-        platform top (z 6.25) is trimmed to the tower's own cylinder
-        (r 22.02 about the yaw axis).  The square platform and skirt
-        corners disappear and the whole tower base reads as ONE
-        cylinder from belly to bearing pocket -- no second corner
-        radius anywhere.  The trim is 0.02 proud of the tower wall,
-        so pocket/walls/rim keep production geometry.
-      * LOWERED POCKET (Aug 25): the whole tower band above the new
-        seat plane (world 10.75) is cut away (cylinder r 22.1, so
-        the production Phi 34 shoulder relief, the old Phi 37.15
-        pocket and the old seat all go) and rebuilt as ONE fresh
-        Phi 44 / Phi 37.15 ring from the deck up to the race-top
-        plane (world 17.75, unioned AFTER the cuts so the ear
-        shaves never nick it, 1 mm fusion overlap into the deck
-        band below the seat).  What remains of the Phi 34 relief is
-        a 0.5 mm band over the deck whose top face IS the new
-        outer-race seat ledge (r 17.0..18.575, sitting on the 4 mm
-        deck at every azimuth); the single bearing is fully housed
-        (full 7 mm outer-race wrap) and the chassis column ends
-        exactly at the bearing top, 5 mm lower than before.
-      * DEAD EARS: the outboard (az 330) cap-bolt ear is shaved flush
-        to the tower cylinder, the tangential (az 90) ear flush to the
-        rim-wall face, and the inboard (az 210) ear flush to the
-        servo-mount deck top (z 10.25) -- its below-deck root, which
-        used to stay merged with the roof skin, now goes with the
-        rev-6 shell flatten (the ear centre is outside the tower keep
-        cylinder).  Above the deck, nothing pokes past the tower
-        cylinder at any azimuth.
-      * TOWER FLANK SMOOTHED (user, Aug 25 rev 7): the production
-        +X swing relief spares a protect cylinder 1.5 mm FATTER than
-        the tower (r 23.5), which left two Phi 47 ring-sector arcs
-        per leg bulging off the outboard flank across the mount-plate
-        band (z 6.25..10.25) -- the "weird bump".  They carry nothing
-        (see the rev-7 constant-block note), so a ring cutter shaves
-        them to the same CHB_TRIM_R cylinder as the corner trim: the
-        tower outer surface now reads as ONE vertical cylinder from
-        the sheet top to the rim.
-      * FOOT HOLES: the 18 Phi 3.4 pillar-foot bolt holes are printed
-        through the sheet (same PILLAR_* constants as the feet, so
-        they line up by construction).
-      * WAGO TRAYS DELETED (user, Aug 24): the corner power splices
-        moved into centre_wago_block, so the six integrated tray wall
-        sets are dead geometry -- every wall above the sheet top is
-        cut away (the 1 mm embed band below the top face is interior
-        material and stays).  The pillar feet register on their three
-        M3 bolts instead of the old wall key.
-      * WIRE CORRIDOR + CRADLE SHELL FLATTENED (user, Aug 24 rev 5 +
-        Aug 25 rev 6): one box per leg (leg-frame x CHB_FLAT_X0..X1,
-        |y| <= CHB_FLAT_HALF_Y, sheet top to over the deck) MINUS the
-        tower keep cylinder cuts the wago-era corridor apparatus AND
-        the remaining cradle-shell run (side walls + the deck-skin
-        roof they carried -- the "two gray things" flanking each
-        pillar) back to the bare sheet.  See the CHB_FLAT_* constant
-        block for the measurements showing nothing needs them.  The
-        servo stays registered by the sheet-level well, the belly
-        retainer and the shell inside the keep cylinder (which also
-        carries the 6805 seat's inboard arc); the retainer pilots
-        live below the sheet top, untouched.
-      * ABOVE-SHEET WHITELIST (user, Aug 25 rev 8): one global cut --
-        everything above the bare sheet top (z 2) outside the six
-        tower cylinders goes, at every azimuth, whether or not an
-        earlier blacklist pass named it.  See the CHB_WL_* constant
-        block for the whitelist rule and why its deck-plateau and
-        mates categories are degenerate/empty.
-
-    This makes chassis_bottom the variant's second reprinted
-    production part (chassis_bottom_rigid.stl).
-
-    ``bump_shave=False`` skips only the rev-7 flank cut (i) -- used by
-    make_tower_flank_figure.py to rebuild the BEFORE geometry."""
-    cb = hp.make_chassis_bottom()
-    ear_r = hp.YAW_CAP_BOLT_PCD / 2.0                        # 23.5
-    cutters = []
-    for i in range(6):
-        R = _rotz((i + 0.5) * np.pi / 3.0)                   # leg frame
-        leg_cuts = []
-        box = _box((23.5, 45.0, CHB_PLATE_TOP + 6.5),        # (a) corner trim:
-                   (APOTHEM + 23.5 / 2.0, 0.0,               # x 100..123.5,
-                    (CHB_PLATE_TOP - 6.5) / 2.0))            # z -6.5..6.25
-        leg_cuts.append(_diff(box, [_cyl_z(CHB_TRIM_R, -8.0, 7.5,
-                                           x=APOTHEM, y=0.0, sections=192)]))
-        keep = _cyl_z(CHB_KEEP_R, CHB_PLATE_TOP - 1.0, 21.6,
-                      x=APOTHEM, y=0.0, sections=128)
-        ear330 = _cyl_z(CHB_EAR_R, CHB_PLATE_TOP, 20.6,      # (b) outboard
-                        x=APOTHEM + ear_r * np.cos(-np.pi / 6.0),
-                        y=ear_r * np.sin(-np.pi / 6.0), sections=48)
-        leg_cuts.append(_diff(ear330, [keep.copy()]))
-        box90 = _box((12.0, 10.0, 20.6 - CHB_PLATE_TOP),     # (c) tangential
-                     (APOTHEM, CHB_WALL_FACE_Y + 5.0,
-                      (CHB_PLATE_TOP + 20.6) / 2.0))
-        leg_cuts.append(_diff(box90, [keep.copy()]))
-        ear210 = _cyl_z(CHB_EAR_R, CHB_DECK_TOP, 20.6,       # (b2) inboard,
-                        x=APOTHEM + ear_r * np.cos(np.pi * 7.0 / 6.0),
-                        y=ear_r * np.sin(np.pi * 7.0 / 6.0),  # flush to the
-                        sections=48)                          # deck top only
-        leg_cuts.append(_diff(ear210, [keep]))
-        flat = _box(                                         # (g) corridor +
-            (CHB_FLAT_X1 - CHB_FLAT_X0,                      # cradle-shell
-             2.0 * CHB_FLAT_HALF_Y, CHB_FLAT_Z1 - CHB_FLAT_Z0),  # flatten
-            ((CHB_FLAT_X0 + CHB_FLAT_X1) / 2.0, 0.0,         # (rev 5+6)
-             (CHB_FLAT_Z0 + CHB_FLAT_Z1) / 2.0))
-        leg_cuts.append(_diff(flat, [_cyl_z(                 # tower keep:
-            CHB_KEEP_R, CHB_FLAT_Z0 - 0.5, CHB_FLAT_Z1 + 0.5,    # the shell
-            x=APOTHEM, y=0.0, sections=192)]))               # inside it
-        # carries the 6805 seat's inboard arc -- never cut it
-        if bump_shave:
-            bump = _box((23.5, 45.0,                         # (i) tower-flank
-                         (CHB_DECK_TOP + 0.25) - (CHB_PLATE_TOP - 0.25)),
-                        (APOTHEM + 23.5 / 2.0, 0.0,          # bump shave
-                         (CHB_PLATE_TOP - 0.25                # (rev 7)
-                          + CHB_DECK_TOP + 0.25) / 2.0))
-            leg_cuts.append(_diff(bump, [_cyl_z(
-                CHB_TRIM_R, CHB_PLATE_TOP - 1.0, CHB_DECK_TOP + 1.0,
-                x=APOTHEM, y=0.0, sections=192)]))
-            # the production swing-relief protect ring (r 23.5) bulged
-            # the outboard flank across the mount-plate band; nothing
-            # lives out there (rev-7 constant-block note) -- shave
-            # flush to the same trim cylinder as (a)
-        leg_cuts.append(_cyl_z(CHB_TOWER_R + 0.1,            # (h) tower band
-                               CHB_SEAT_W, CHB_RIM_OLD_W + 1.5,   # rebuild:
-                               x=APOTHEM, y=0.0, sections=192))   # everything
-        # above the NEW seat plane goes (old Phi 34 relief, old pocket,
-        # old seat at 15.75) -- a fresh full-wrap ring is unioned lower,
-        # after the cuts.  The 0.5 mm Phi 34 band left below (10.25..
-        # 10.75) becomes the new race seat ledge.
-        for c in leg_cuts:
-            c.apply_transform(R)
-            cutters.append(c)
-    for az in range(0, 360, 60):                             # (d) foot holes
-        Ra = _rotz(np.deg2rad(az))
-        for hx, hy in ((PILLAR_BAR_HOLE_X, +PILLAR_BAR_HOLE_Y),
-                       (PILLAR_BAR_HOLE_X, -PILLAR_BAR_HOLE_Y),
-                       (PILLAR_TAB_RHO, 0.0)):
-            h = _cyl_z(HOLE_D / 2.0, -12.0, 12.0, x=hx, y=hy, sections=32)
-            h.apply_transform(Ra)
-            cutters.append(h)
-    for M in hp.wago_tray_corner_transforms():               # (e) tray delete
-        c = _box((2.0 * TRAY_HALF_X + 0.4, 2.0 * TRAY_HALF_Y + 0.4,
-                  hp.WAGO_MOUNT_WALL_H + 1.0),
-                 center=(0.0, 0.0, (hp.WAGO_MOUNT_WALL_H + 1.0) / 2.0))
-        c.apply_transform(M)                                 # local z0 = sheet top
-        cutters.append(c)
-    wl_keeps = [_cyl_z(CHB_WL_KEEP_R,                        # (j) rev-8
-                       CHB_FLAT_Z0 - 1.0, CHB_WL_Z1 + 1.0,   # above-sheet
-                       x=APOTHEM * np.cos((i + 0.5) * np.pi / 3.0),
-                       y=APOTHEM * np.sin((i + 0.5) * np.pi / 3.0),
-                       sections=192)
-                for i in range(6)]                           # whitelist cut:
-    cutters.append(_diff(                                    # one global box
-        _box((400.0, 400.0, CHB_WL_Z1 - CHB_FLAT_Z0),        # from the sheet
-             (0.0, 0.0, (CHB_FLAT_Z0 + CHB_WL_Z1) / 2.0)),   # top up, minus
-        wl_keeps))                                           # the six tower
-    # cylinders -- EVERYTHING else above z 2 goes to the sheet, at every
-    # azimuth, whether or not an earlier blacklist pass named it.  The
-    # rebuilt rims are unioned after, so the towers are untouched.
-    cb = _diff(cb, cutters)
-    rims = []                             # (f) rebuilt full-wrap tower rings:
-    for i in range(6):                    # Phi 44 / Phi 37.15, deck to the
-        R = _rotz((i + 0.5) * np.pi / 3.0)  # race top (fuses 1 mm into the
-        rim = _diff(                        # deck band below the seat)
-            _cyl_z(CHB_TOWER_R, CHB_SEAT_W - 1.0, CHB_RIM_W,
-                   x=APOTHEM, y=0.0, sections=192),
-            [_cyl_z(POCKET_BORE / 2.0, CHB_SEAT_W - 2.0, CHB_RIM_W + 1.0,
-                    x=APOTHEM, y=0.0, sections=192)])
-        rim.apply_transform(R)
-        rims.append(rim)
-    return _union([cb, *rims])
 
 
 def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
@@ -1213,32 +823,6 @@ def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
     return out
 
 
-def make_centre_wago_block() -> trimesh.Trimesh:
-    """Central power-splice block: 4x 5-port 221-415 bays in two
-    back-to-back rows sharing the middle wall, production press-fit
-    dims.  Wire entries face outward (north row +Y, south row -Y).
-    Modeled in world position: centred on the chassis origin, floor on
-    the bottom sheet's top face.  See the WBLK_* constant block."""
-    z0 = PILLAR_BOT_Z
-    zf = z0 + WBLK_FLOOR_T
-    top = zf + WBLK_WALL_H
-    # ONE solid minus four bay pockets: cutting (instead of unioning
-    # wall boxes) leaves no exactly-flush coplanar seams to T-junction.
-    body = _box((2 * WBLK_HALF_X, 2 * WBLK_HALF_Y, top - z0),
-                center=(0.0, 0.0, (z0 + top) / 2.0))
-    x_c = WBLK_WALL_T / 2.0 + WBLK_BAY_W / 2.0
-    cuts = []
-    for sy in (+1.0, -1.0):
-        for sx in (-1.0, +1.0):
-            # pocket runs from the middle wall face out PAST the front
-            # edge, so each bay is open at its wire-entry side
-            y0 = WBLK_WALL_T / 2.0
-            y1 = WBLK_HALF_Y + 2.0
-            cuts.append(_box(
-                (WBLK_BAY_W, y1 - y0, WBLK_WALL_H + 2.0),
-                center=(sx * x_c, sy * (y0 + y1) / 2.0,
-                        zf + (WBLK_WALL_H + 2.0) / 2.0)))
-    return _diff(body, cuts)
 
 
 def _wago5_scene_frames() -> list[np.ndarray]:
@@ -1255,38 +839,6 @@ def _wago5_scene_frames() -> list[np.ndarray]:
     return out
 
 
-def make_top_hatch_rigid() -> trimesh.Trimesh:
-    """Removable service hatch: a 4 mm hex lid over the frame opening.
-
-    Sits ON the deck face (4 mm overlap all around), registered by a
-    1.5 mm lip that drops just inside the opening, held by 6x M3 into
-    the frame's pilot bosses (vertex azimuths) AND the 4 chassis
-    standoff screws -- the standoff stacks grow ~4 mm so the standoffs
-    anchor the hatch, and chassis-hang loads run standoffs -> hatch ->
-    deck face -> frame in pure compression (screws only see rebound).
-    Carries the electronics-deck pattern and the Phi 40 centre hole, so
-    10 screws lift the lid + electronics out for full interior access."""
-    lid = _hex_prism(HATCH_APO, SHEET_Z1, SHEET_Z1 + PLATE_T,
-                     flats_at_rings=True)
-    lip = _diff(
-        _hex_prism(HATCH_OPEN_APO - HATCH_LIP_CL,
-                   SHEET_Z1 - HATCH_LIP_H, SHEET_Z1 + 0.1,
-                   flats_at_rings=True),
-        [_hex_prism(HATCH_OPEN_APO - HATCH_LIP_CL - HATCH_LIP_W,
-                    SHEET_Z1 - HATCH_LIP_H - 1.0, SHEET_Z1 + 1.0,
-                    flats_at_rings=True)])
-    ears = [_cyl_z(HATCH_EAR_OD / 2.0, SHEET_Z1, SHEET_Z1 + PLATE_T,
-                   x=x, y=y, sections=48) for (x, y) in _hatch_screw_xy()]
-    body = _union([lid, lip, *ears])
-    cuts = []
-    for (x, y) in list(_hatch_screw_xy()) \
-            + [(float(x), float(y)) for (x, y) in hp.CHASSIS_STANDOFF_HOLES_XY] \
-            + [(float(x), float(y)) for (x, y) in hp.ELEC_CHASSIS_MOUNT_HOLES_XY]:
-        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z1 - 1.0,
-                           SHEET_Z1 + PLATE_T + 1.0, x=x, y=y, sections=48))
-    cuts.append(_cyl_z(CENTRE_HOLE_D / 2.0, SHEET_Z1 - 1.0,
-                       SHEET_Z1 + PLATE_T + 1.0))
-    return _diff(body, cuts)
 
 
 # ---------------------------------------------------------------------------
@@ -1335,22 +887,57 @@ def _tibia_extras() -> tuple[trimesh.Trimesh, np.ndarray]:
 # ---------------------------------------------------------------------------
 # Mesh registry (build once, cache to stl/; REBUILD=1 forces)
 # ---------------------------------------------------------------------------
+BREP_STL_DIR = os.path.join(HERE, "step", "stl")
+BREP_BUILDER = os.path.join(HERE, "build_rigid_hip_step.py")
+# build123d has no Python-3.14 wheels yet, so the exporter runs in its own
+# uv-provisioned 3.12 interpreter (same incantation as cad_step_test) and
+# talks to this driver purely through the step/ files.
+BREP_EXPORT_CMD = ["uv", "run", "--no-project", "--python", "3.12",
+                   "--with", "build123d", "--with", "trimesh",
+                   "--with", "numpy", "--with", "manifold3d",
+                   "python", BREP_BUILDER]
+
+
+def _brep(fname: str):
+    """Loader factory for a variant printable: the geometry is authored in
+    build_rigid_hip_step.py (BREP) and consumed here as its step/stl/
+    tessellation.  process=True welds the STL triangle soup so the
+    checks' watertightness/containment probes work."""
+    def _load() -> trimesh.Trimesh:
+        path = os.path.join(BREP_STL_DIR, fname)
+        if not os.path.exists(path):
+            raise SystemExit(
+                f"{fname}: no BREP tessellation at {path} -- run "
+                "build_rigid_hip_step.py first (main() does that for you "
+                "unless --skip-brep)")
+        m = trimesh.load(path, process=True)
+        if isinstance(m, trimesh.Scene):
+            m = trimesh.util.concatenate(
+                [g for g in m.geometry.values() if len(g.faces) > 0])
+        return m
+    return _load
+
+
 MESH_FILES = {
-    # NEW printed parts (this variant's printed-parts directory) --
-    # always rebuilt, they are what this script iterates on.
-    "hip_clamp_cap_rigid": (make_hip_cap_rigid, "hip_clamp_cap_rigid.stl"),
-    "chassis_top_rigid": (make_chassis_top_rigid, "chassis_top_rigid.stl"),
-    "top_hatch_rigid": (make_top_hatch_rigid, "top_hatch_rigid.stl"),
-    "corner_pillar": (make_corner_pillar, "corner_pillar.stl"),
-    "centre_wago_block": (make_centre_wago_block, "centre_wago_block.stl"),
+    # Variant printables -- GEOMETRY LIVES IN build_rigid_hip_step.py
+    # (STEP-first); loaded from its step/stl/ tessellations, checked as
+    # an assembly below, then exported into the print set (stl/).
+    "hip_clamp_cap_rigid": (_brep("hip_clamp_cap_rigid.stl"),
+                            "hip_clamp_cap_rigid.stl"),
+    "chassis_top_rigid": (_brep("chassis_top_rigid.stl"),
+                          "chassis_top_rigid.stl"),
+    "top_hatch_rigid": (_brep("top_hatch_rigid.stl"), "top_hatch_rigid.stl"),
+    "corner_pillar": (_brep("corner_pillar.stl"), "corner_pillar.stl"),
+    "centre_wago_block": (_brep("centre_wago_block.stl"),
+                          "centre_wago_block.stl"),
     # VARIANT reprints of production parts: the coxa gets its cradle
     # corners rounded to the 38.2 mm yaw envelope + a Phi 29 hub seat
-    # ring down to the tower-seated bottom race (make_coxa_link_rigid);
-    # the chassis gets its tower platforms trimmed to the tower's own
-    # cylinder, the dead cap-bolt ears shaved and the pillar-foot
-    # holes printed in (make_chassis_bottom_rigid).
-    "coxa_link": (make_coxa_link_rigid, "coxa_link_rigid.stl"),
-    "chassis_bottom": (make_chassis_bottom_rigid, "chassis_bottom_rigid.stl"),
+    # ring down to the tower-seated bottom race; the chassis gets its
+    # tower platforms trimmed to the tower's own cylinder, the dead
+    # cap-bolt ears shaved and the pillar-foot holes printed in.
+    "coxa_link": (_brep("coxa_link_rigid.stl"), "coxa_link_rigid.stl"),
+    "chassis_bottom": (_brep("chassis_bottom_rigid.stl"),
+                       "chassis_bottom_rigid.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
     "femur_link": (hp.make_femur_link_part, "femur_link.stl"),
     "tibia_knee_yoke": (hp.make_tibia_knee_yoke, "tibia_knee_yoke.stl"),
@@ -1373,9 +960,12 @@ MESH_FILES = {
     "bearing_6805": (make_bearing_6805, "bearing_6805_DO_NOT_PRINT.stl"),
     "wago5": (hp.make_wago5_visual, "wago5_DO_NOT_PRINT.stl"),
 }
-ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid",
-                  "top_hatch_rigid", "corner_pillar", "centre_wago_block",
-                  "coxa_link", "chassis_bottom", "bearing_6805"}
+# The BREP-loaded printables are "always rebuilt" so a stale stl/ copy can
+# never mask a fresh step/stl/ export; loading is cheap.
+BREP_PARTS = {"hip_clamp_cap_rigid", "chassis_top_rigid", "top_hatch_rigid",
+              "corner_pillar", "centre_wago_block", "coxa_link",
+              "chassis_bottom"}
+ALWAYS_REBUILD = BREP_PARTS | {"bearing_6805"}
 
 
 def build_meshes() -> dict[str, trimesh.Trimesh]:
@@ -1388,8 +978,15 @@ def build_meshes() -> dict[str, trimesh.Trimesh]:
             out[key] = trimesh.load(path)
             print(f"  {key:22s} loaded from cache")
             continue
-        print(f"  {key:22s} building ...", flush=True)
-        m = hp._heal_for_export(factory())   # same heal pass main() uses
+        verb = ("loading BREP tessellation" if key in BREP_PARTS
+                else "building")
+        print(f"  {key:22s} {verb} ...", flush=True)
+        # Heal EVERYTHING, BREP loads included: OpenCascade tessellation
+        # occasionally emits STL-grid slivers (the coxa welds 2 non-manifold
+        # edges) exactly like the manifold boolean kernel does, and the same
+        # guarded pass dissolves them.  stl/ therefore always holds
+        # slicer-clean meshes.
+        m = hp._heal_for_export(factory())
         assert m.is_volume, f"{key}: not a volume even after heal"
         m.export(path)
         out[key] = m
@@ -2471,6 +2068,12 @@ def render_preview(meshes) -> None:
 
 def main() -> None:
     skip_sweep = "--skip-sweep" in sys.argv
+    skip_brep = "--skip-brep" in sys.argv
+    if skip_brep:
+        print("BREP EXPORT SKIPPED (--skip-brep): reusing existing step/stl/")
+    else:
+        print("exporting BREP geometry (build_rigid_hip_step.py) ...")
+        subprocess.run(BREP_EXPORT_CMD, check=True)
     print("building meshes ...")
     meshes = build_meshes()
 

@@ -123,6 +123,18 @@
 # wago block is taped).  One global cut enforces it in BOTH
 # pipelines, and a vertex census (chassis_whitelist_violations)
 # asserts it on every mesh build and on the STEP-derived STL.
+#
+# PIPELINE (STEP-FIRST, user Aug 25: "the official way is to make step
+# files"): the seven variant printables are authored as build123d /
+# OpenCascade BREP solids in build_rigid_hip_step.py, which exports
+# .step (the editable CAD truth) + tessellated .stl into step/.
+# make_rigid_hip_variant.py is the assembly/check driver: it runs the
+# exporter, loads the tessellations, runs the geometric check suite,
+# copies the printables into the print set (stl/) and writes the
+# BuildViz scene.  The trimesh twins of the printables are RETIRED;
+# references to "both pipelines" in the history notes above date from
+# the dual-pipeline era.  generated_by.function below names the BREP
+# builder for each part.
 
 parts:
   hip_clamp_cap_rigid:
@@ -138,8 +150,8 @@ parts:
       the two M3 counterbores.  Same 2x M3 mounting into the same coxa
       cradle pilots; knee caps stay stock.  6 per robot.
     generated_by:
-      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
-      function: "make_hip_cap_rigid"
+      file: "concepts/rigid_hip/build_rigid_hip_step.py"
+      function: "make_hip_clamp_cap_rigid"
       output_stl: "stl/hip_clamp_cap_rigid.stl"
     local_frame:
       origin: "Hip servo well frame (body back-face centre)"
@@ -228,7 +240,7 @@ parts:
       centre access hole.  Replaces the 140 mm chassis_top deck.
       1 per robot.
     generated_by:
-      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      file: "concepts/rigid_hip/build_rigid_hip_step.py"
       function: "make_chassis_top_rigid"
       output_stl: "stl/chassis_top_rigid.stl"
     local_frame:
@@ -324,7 +336,7 @@ parts:
       out WITH the lid: 10 screws open the whole interior without
       touching the frame, bearings or legs.
     geometry_source:
-      function: "make_top_hatch_rigid"
+      function: "make_top_hatch_rigid"   # concepts/rigid_hip/build_rigid_hip_step.py
       output_stl: "stl/top_hatch_rigid.stl"
     local_frame:
       origin: "World/chassis frame (chassis_bottom sheet mid-plane z=0)"
@@ -379,7 +391,7 @@ parts:
       surviving walls still fit it with 0.3 mm clearance.  6 per
       robot.
     generated_by:
-      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      file: "concepts/rigid_hip/build_rigid_hip_step.py"
       function: "make_corner_pillar"
       output_stl: "stl/corner_pillar.stl"
     local_frame:
@@ -450,7 +462,7 @@ parts:
       bench-proven scheme).  2 mm floor, walls 6.5 above it.  1 per
       robot, ~11 g.
     generated_by:
-      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      file: "concepts/rigid_hip/build_rigid_hip_step.py"
       function: "make_centre_wago_block"
       output_stl: "stl/centre_wago_block.stl"
     local_frame:
@@ -579,7 +591,7 @@ parts:
       impractical (it needs the shoulder relief bored out and the
       tower cut 5 mm shorter); reprint for this variant.
     generated_by:
-      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      file: "concepts/rigid_hip/build_rigid_hip_step.py"
       function: "make_chassis_bottom_rigid"
       output_stl: "stl/chassis_bottom_rigid.stl"
     features:
@@ -783,7 +795,7 @@ parts:
       SHCS replace the M3x30s; M3x30s and M3x25s no longer fit),
       replacing the stock coxa_link on this build.
     generated_by:
-      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      file: "concepts/rigid_hip/build_rigid_hip_step.py"
       function: "make_coxa_link_rigid"
       output_stl: "stl/coxa_link_rigid.stl"
     features:

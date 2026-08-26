@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
-"""Export STEP-first parts for the rigid-hip variant (concepts/rigid_hip).
+"""THE geometry source for the rigid-hip variant's seven printables.
 
-Additive sidecar for ``concepts/rigid_hip/make_rigid_hip_variant.py``: it
-imports that module's constants (which in turn come from hexapod_prototype)
-so no dimension forks, rebuilds the seven variant printables as OpenCascade
-BREP solids, and derives STL from the BREP.  Production parts the variant
-edits (coxa link, chassis bottom, servo clamp cap) start from the base
-sidecar's BREP builders and receive the same boolean edits the mesh
-generator applies.
+STEP-FIRST (user, Aug 2026: "the official way is to make step files"):
+every variant printable is authored HERE as a build123d/OpenCascade BREP
+solid.  This script exports each part as .step (the editable CAD truth)
+plus a tessellated .stl into ``step/stl/``; the assembly/check driver
+``make_rigid_hip_variant.py`` then loads those STLs, runs the full
+geometric check suite on the assembled robot, copies them into the
+print set (``stl/``) and builds the BuildViz scene.  There is no trimesh
+twin of these builders anymore -- edit geometry here, nowhere else.
+
+Constants are imported from ``make_rigid_hip_variant.py`` (which in turn
+derives them from hexapod_prototype), so there are no dimension forks.
+Production parts the variant edits (coxa link, chassis bottom, servo
+clamp cap) start from the cad_step_test base sidecar's BREP ports and
+receive the variant's boolean edits.
+
+Run (build123d needs a 3.12 interpreter; make_rigid_hip_variant.py runs
+this for you by default):
+
+  uv run --no-project --python 3.12 \
+    --with build123d --with trimesh --with numpy --with manifold3d \
+    python concepts/rigid_hip/build_rigid_hip_step.py
 """
 
 from __future__ import annotations
@@ -16,6 +30,7 @@ import argparse
 import json
 import math
 import sys
+from pathlib import Path
 
 from build123d import (
     BuildPart,
@@ -27,22 +42,19 @@ from build123d import (
     extrude,
 )
 
-from step_common import (
-    PROTO_DIR,
-    THIS_DIR,
-    StepPart,
-    export_all,
-    write_bundle,
-)
-
-sys.path.insert(0, str(THIS_DIR))
+HERE = Path(__file__).resolve().parent            # concepts/rigid_hip
+PROTO_DIR = HERE.parent.parent                    # prototype_sts3215
+CAD_STEP_DIR = PROTO_DIR / "cad_step_test"        # base BREP ports + export tail
+sys.path.insert(0, str(CAD_STEP_DIR))
 sys.path.insert(0, str(PROTO_DIR))
-sys.path.insert(0, str(PROTO_DIR / "concepts" / "rigid_hip"))
+sys.path.insert(0, str(HERE))
 
-# Outputs live IN the concept directory (next to the mesh-pipeline print set
-# in concepts/rigid_hip/stl/): .step files directly in step/, the
+from step_common import StepPart, export_all, write_bundle  # noqa: E402
+
+# Outputs live IN the concept directory (next to the print set in
+# concepts/rigid_hip/stl/): .step files directly in step/, the
 # BREP-derived STLs in step/stl/, manifest + bundle alongside the .step files.
-STEP_OUT_DIR = PROTO_DIR / "concepts" / "rigid_hip" / "step"
+STEP_OUT_DIR = HERE / "step"
 
 import build_step_first_test as step  # noqa: E402
 import hexapod_prototype as hp  # noqa: E402
@@ -86,7 +98,7 @@ def _hex_prism(apothem: float, z0: float, z1: float,
 
 def make_hip_clamp_cap_rigid() -> object:
     """Stock clamp cap + yaw-axis pedestal + inner-race press boss + two
-    puller notches (rv.make_hip_cap_rigid)."""
+    puller notches."""
     cap = step.make_servo_clamp_cap()
     ped = _cyl_y(rv.PED_OD / 2.0, rv.PED_Y0, rv.PED_Y1, z=rv.AXIS_Z)
     boss = _cyl_y(rv.BOSS_OD / 2.0, rv.PED_Y1 - 1.0, rv.BOSS_Y1, z=rv.AXIS_Z)
@@ -106,8 +118,7 @@ def make_hip_clamp_cap_rigid() -> object:
 
 
 def make_chassis_top_rigid() -> object:
-    """Hex frame sheet + six bearing-pocket bosses + hatch opening
-    (rv.make_chassis_top_rigid)."""
+    """Hex frame sheet + six bearing-pocket bosses + hatch opening."""
     solids = [_hex_prism(rv.APOTHEM, rv.SHEET_Z0, rv.SHEET_Z1)]
     cuts = []
     for _i, edge, _R, _R3 in hp._leg_chassis_frames():
@@ -138,8 +149,7 @@ def make_chassis_top_rigid() -> object:
 
 
 def make_top_hatch_rigid() -> object:
-    """Removable hex service lid with registration lip and screw ears
-    (rv.make_top_hatch_rigid)."""
+    """Removable hex service lid with registration lip and screw ears."""
     lid = _hex_prism(rv.HATCH_APO, rv.SHEET_Z1, rv.SHEET_Z1 + rv.PLATE_T,
                      flats_at_rings=True)
     lip = step._diff(
@@ -166,8 +176,7 @@ def make_top_hatch_rigid() -> object:
 
 
 def make_corner_pillar() -> object:
-    """Plain elliptical rim column with Wago-bay foot plate and inboard tab
-    (rv.make_corner_pillar), modeled at az 0."""
+    """Plain elliptical rim column with Wago-bay foot plate and inboard tab, modeled at az 0."""
     top_z = rv.SHEET_Z0 - rv.PILLAR_TOP_GAP
 
     def _ecyl(r_rad: float, z0: float, z1: float) -> object:
@@ -205,7 +214,7 @@ def make_corner_pillar() -> object:
 
 
 def make_centre_wago_block() -> object:
-    """Central 4-bay Wago 221-415 splice block (rv.make_centre_wago_block)."""
+    """Central 4-bay Wago 221-415 splice block."""
     z0 = rv.PILLAR_BOT_Z
     zf = z0 + rv.WBLK_FLOOR_T
     top = zf + rv.WBLK_WALL_H
@@ -226,8 +235,7 @@ def make_centre_wago_block() -> object:
 
 
 def make_coxa_link_rigid() -> object:
-    """Production coxa re-assembled with the SHORTENED hub column
-    (rv.make_coxa_link_rigid): the hub sub-solid is truncated at
+    """Production coxa re-assembled with the SHORTENED hub column: the hub sub-solid is truncated at
     rv.HUB_TRIM_Z with the dust-lip skirt / platform disc deleted, the
     slab + cradle sub-solid drops rv.COL_DROP as one rigid body, the
     seat ring + Phi 38 brim are added, the horn-screw shafts are re-cut
@@ -295,8 +303,7 @@ def make_chassis_bottom_rigid() -> object:
     cut back to the trim cylinder so the tower outer profile is one
     vertical cylinder sheet-top -> rim), plus the Aug 25 rev-8
     ABOVE-SHEET WHITELIST cut: everything above the bare sheet top
-    outside the six tower cylinders goes, at every azimuth
-    (rv.make_chassis_bottom_rigid)."""
+    outside the six tower cylinders goes, at every azimuth."""
     cb = step.make_chassis_bottom()
     ear_r = hp.YAW_CAP_BOLT_PCD / 2.0
     cutters = []
@@ -399,89 +406,85 @@ def make_chassis_bottom_rigid() -> object:
 # --- specs, checks, main -----------------------------------------------------
 
 def rigid_hip_part_specs() -> list[StepPart]:
-    base = PROTO_DIR / "concepts" / "rigid_hip" / "stl"
+    # legacy_stl=None everywhere: the mesh-pipeline twins are RETIRED --
+    # this BREP is the only geometry source, there is nothing to diff
+    # against.  Part-level invariants live in _sanity_problems below;
+    # assembly-level checks live in make_rigid_hip_variant.py.
     return [
         StepPart(
             "hip_clamp_cap_rigid",
             make_hip_clamp_cap_rigid,
-            base / "hip_clamp_cap_rigid.stl",
+            None,
             "Stock clamp cap grown a yaw-axis pedestal and 6805 press boss.",
         ),
         StepPart(
             "chassis_top_rigid",
             make_chassis_top_rigid,
-            base / "chassis_top_rigid.stl",
+            None,
             "Top frame: hex sheet, six bearing pockets, service-hatch opening.",
         ),
         StepPart(
             "top_hatch_rigid",
             make_top_hatch_rigid,
-            base / "top_hatch_rigid.stl",
+            None,
             "Removable service lid with registration lip and screw ears.",
         ),
         StepPart(
             "corner_pillar",
             make_corner_pillar,
-            base / "corner_pillar.stl",
+            None,
             "Elliptical rim column tying the frame to the bottom sheet (6x).",
         ),
         StepPart(
             "centre_wago_block",
             make_centre_wago_block,
-            base / "centre_wago_block.stl",
+            None,
             "Central 4-bay Wago splice block under the hatch.",
         ),
         StepPart(
             "coxa_link_rigid",
             make_coxa_link_rigid,
-            base / "coxa_link_rigid.stl",
+            None,
             "Production coxa + hub seat ring + dust brim, envelope-rounded (6x).",
         ),
         StepPart(
             "chassis_bottom_rigid",
             make_chassis_bottom_rigid,
-            base / "chassis_bottom_rigid.stl",
+            None,
             "Production chassis bottom with tower-cylinder corners, the "
             "lowered deck-level bearing pocket and foot holes.",
         ),
     ]
 
 
-def _equivalence_problems(rows: list[dict]) -> list[str]:
-    """Fail loudly if a BREP part drifts from its mesh-pipeline twin.
+def _sanity_problems(rows: list[dict]) -> list[str]:
+    """Part-level gates that don't need the assembled robot.
 
-    Tessellation slop (192-gon cylinders etc.) keeps volumes within a
-    fraction of a percent; anything past 2 percent or 0.6 mm of bbox is a
-    porting error, not tessellation.
-
-    chassis_bottom_rigid additionally gets the rev-8 ABOVE-SHEET
-    WHITELIST census on the derived STL (the same
-    rv.chassis_whitelist_violations the mesh pipeline asserts): the
-    pre-rev-8 STEP part carried 12 stale tray-wall stubs the volume
-    gate was too loose to catch (+1.5 percent, under the 2 percent
-    gate) -- the whitelist census catches a single leftover wall."""
+    Every derived STL must HEAL into a closed volume with the exact
+    hp._heal_for_export pass the assembly driver applies before anything
+    reaches the print set (OpenCascade tessellation occasionally emits
+    float32-STL-grid slivers -- the coxa welds 2 non-manifold edges --
+    which that pass dissolves via manifold3d.simplify; hence manifold3d
+    in this exporter's uv --with set).  A mesh that STILL is not a
+    volume after healing has a genuine crack and would poison every
+    downstream boolean/probe.  chassis_bottom_rigid additionally gets
+    the rev-8 ABOVE-SHEET WHITELIST census
+    (rv.chassis_whitelist_violations): nothing may stand above the bare
+    sheet outside the six tower cylinders.  The full geometric suite
+    (fits, clearances, sweeps) runs in make_rigid_hip_variant.py on the
+    assembled meshes."""
     import trimesh
 
     problems = []
     for row in rows:
-        legacy = row["legacy_stl"]
-        if legacy is None:
-            problems.append(f"{row['name']}: variant mesh STL missing")
-            continue
-        dv = abs(row["brep_volume_mm3"] - legacy["volume_mm3"])
-        if dv / legacy["volume_mm3"] > 0.02:
+        raw = trimesh.load(STEP_OUT_DIR / row["stl"], process=True)
+        mesh = hp._heal_for_export(raw)
+        if not mesh.is_volume:
             problems.append(
-                f"{row['name']}: BREP volume {row['brep_volume_mm3']:.0f} mm3 "
-                f"vs mesh {legacy['volume_mm3']:.0f} mm3"
-            )
-        worst = max(abs(d) for d in row["bbox_size_delta_vs_legacy_mm"])
-        if worst > 0.6:
-            problems.append(
-                f"{row['name']}: bbox size delta {worst:.3f} mm vs mesh"
-            )
+                f"{row['name']}: derived STL does not heal into a closed "
+                "volume (genuine tessellation crack)")
         if row["name"] == "chassis_bottom_rigid":
-            derived = trimesh.load(STEP_OUT_DIR / row["stl"])
-            n_bad, worst_r = rv.chassis_whitelist_violations(derived)
+            n_bad, worst_r = rv.chassis_whitelist_violations(mesh)
             if n_bad:
                 problems.append(
                     f"{row['name']}: {n_bad} vertices above the sheet "
@@ -497,11 +500,12 @@ def main() -> None:
     exported = export_all(rigid_hip_part_specs(), out_dir=STEP_OUT_DIR,
                           step_dir=STEP_OUT_DIR,
                           stl_dir=STEP_OUT_DIR / "stl")
-    problems = _equivalence_problems(exported)
+    problems = _sanity_problems(exported)
     manifest = {
         "units": "mm",
         "source": (
-            "build123d/OpenCascade BREP, constants imported from "
+            "build123d/OpenCascade BREP (CANONICAL geometry source), "
+            "constants imported from "
             "concepts/rigid_hip/make_rigid_hip_variant.py"
         ),
         "exported_parts": exported,
@@ -518,11 +522,12 @@ def main() -> None:
     print(f"wrote {manifest_path.relative_to(PROTO_DIR)}")
     print(f"wrote {bundle.relative_to(PROTO_DIR)}")
     if problems:
-        print("rigid-hip STEP checks failed:")
+        print("rigid-hip STEP part checks failed:")
         for problem in problems:
             print(f"  - {problem}")
         raise SystemExit(1)
-    print("rigid-hip STEP sidecar complete; the mesh generator was not modified.")
+    print("rigid-hip BREP export complete; run make_rigid_hip_variant.py "
+          "for the assembly checks + scene.")
 
 
 if __name__ == "__main__":
