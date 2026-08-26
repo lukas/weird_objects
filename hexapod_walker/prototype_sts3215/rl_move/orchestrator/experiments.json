@@ -195977,7 +195977,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "anary/lower_a 1\nwandb:       canary/lower_b 1\nwandb: canary/rise_bridge_a 1\nwandb: canary/rise_bridge_b 1\nwandb: canary/rise_crouch_a 1\nwandb: canary/rise_crouch_b 0\nwandb:   canary/rise_flat_a 0\nwandb:   canary/rise_flat_b 1\nwandb:                 +110 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-stancemix-tuckclock1 at: https://wandb.ai/l2k2/hexapod-balance/runs/q0l7wu20\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260825_230920-q0l7wu20/logs\n"
       }
-    ]
+    ],
+    "verdict": "CANARY FAIL - MECHANISM \u2014 Porting the proven flat-start rise recipe (mesh-native scripted ref + train.bc_anchor_flat_time_indexed=1) into the full hold+rise+lower mix at a PINNED std (log-std-init=log-std-final=-4.0, no exploration, warm from stancemix_bcchain3_stdanneal.zip) does NOT reproduce the isolated recipe's fix. Flat-pinned pod probe (goal.rise_flat_frac=1.0/partial=0/rsi=0, DR-0, det+sto 6+6): seed0 det 1/6 valid_plant (5/6 over_current-terminated), sto 4/6 valid_plant (0 term); every one of 12 episodes pins cur_max_a=2.64A exactly -- the joint pair's own pre-registered PASS bar ('no 2.64A press-up pin signature') is violated in all 12. Seed-1 twin (-s1) is a total freeze: 12/12 term over_current, near-zero swing_count on every leg, growing height_err (7-23mm) -- the joint call's named FAIL signature verbatim. Standard mixed-start DR-0 gate is otherwise strong (hold 6/6+6/6 zero-term, lower 6/6+6/6 zero-term, rise/det 6/6 zero-term on non-flat draws) -- hold/lower transfer perfectly and non-flat rise mostly works; only FLAT starts pin, exactly like the predecessor stancemix-bcchain3-slowchain FAIL. Why: this pinned-std warm-start is the same lever slowchain used; the riseonly acq8m recipe that actually solved flat-start rise trained FROM SCRATCH with std annealing 0->-4 over the whole run -- exploration was the missing ingredient, not tracking capacity or reference alignment (both now proven fine in isolation). This confirms the run's own pre-registered Prediction-if-false verbatim. Next (registered by the canary's own FAIL route): re-open std, not budget -- respec launched with ONLY log-std-init flipped 0 (was -4.0), same mesh-ref+flat-clock+parent otherwise.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-stancemix-tuckclock1-s1",
@@ -196095,7 +196097,7 @@
       "train.bc_anchor_flat_time_indexed=1.0"
     ],
     "created": "2026-08-25T23:12:08+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -196129,7 +196131,7 @@
     "log": "/tmp/train_cw-standwalk-stance-mesh2-stancemix-tuckclock1-s1.log",
     "wandb_id": "ycgendqa",
     "verified": "2026-08-25T23:15:51+00:00",
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stancemix-tuckclock1-s1 since 2026-08-25T23:21:50",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-25T23:21:17+00:00",
@@ -196143,7 +196145,8 @@
         ]
       }
     ],
-    "checkup_note": "23:22 SUSPECT checkup = FALSE ALARM: run completed full 2M canary budget cleanly in 473s (done 2,000,000 steps, ckpt md5 68f21422 uploaded, W&B state=finished steps=2031616); checkup sampled the post-completion window. No action; triage owned by the concurrent finish-triggered cycle."
+    "checkup_note": "23:22 SUSPECT checkup = FALSE ALARM: run completed full 2M canary budget cleanly in 473s (done 2,000,000 steps, ckpt md5 68f21422 uploaded, W&B state=finished steps=2031616); checkup sampled the post-completion window. No action; triage owned by the concurrent finish-triggered cycle.",
+    "verdict": "CANARY FAIL - MECHANISM \u2014 Seed-1 twin of stancemix-tuckclock1 (joint pair, same recipe/pinned std, seed 1 only difference). Flat-pinned pod probe (goal.rise_flat_frac=1.0/partial=0/rsi=0, DR-0, det+sto 6+6) is a CLEAN total freeze: 12/12 episodes over_current-terminated, near-zero swing_count on every leg in the overwhelming majority (all six legs at 0 swings in 4/6 det + 4/6 sto), height_err GROWING not settling (7.0-22.9mm det, 8.9-20.1mm sto) rather than the seed-0 twin's partial tuck -- cur_max_a pinned at exactly 2.64A in all 12 episodes, the joint pair's own named 'press-up pin' FAIL signature verbatim, worse than seed 0's mixed picture. Standard mixed-start DR-0 gate: hold 6/6+6/6 zero-term (clean), lower 5/6+5/6 zero-term (one each det/sto miss ~17-20mm height_err, no term), rise/det 5/6 (1 bridge over_current term) + rise/sto 2/6 (3 term: flat x2 + bridge x1) -- flat/bridge deep starts are exactly where it pins, matching seed 0 and the predecessor slowchain FAIL pattern. Own-DR(0.2): rise collapses further (det 2/6, sto 2/6, term on flat/rsi/bridge) and lower shows two more misses -- DR hardens the same weakness. Joint call (with seed 0): CANARY FAIL - MECHANISM, both seeds show the flat-start freeze/pin the gate pre-registered as the FAIL route. Next: re-open std (log-std-init 0, was pinned -4.0), same mesh-ref+flat-clock recipe and parent otherwise -- stdreopen pair launched (registered by this canary's own FAIL route, not a budget increase)."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdheight-rung3-acq8m",
@@ -196257,7 +196260,7 @@
       "train.bc_anchor_hold_height_aware=1.0"
     ],
     "created": "2026-08-25T23:29:37+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -196310,7 +196313,8 @@
       }
     ],
     "checkup_note": "08-25 23:44 checkup SUSPECT = FALSE ALARM: 8M budget completed at ~23:37 (time_elapsed 396s @ ~20k fps, total_timesteps 8060928); checkup sampled the wrap-up window while the background eval thread drained. Verified live: log resumed, final ckpt ppo_goal_..._acq8m.zip saved 23:44, W&B nuw6ttej synced+closed cleanly. No kill/relaunch. Triage belongs to the finish-triggered cycle (joint 2-seed pair with -s1).",
-    "triage": "in-cycle cw-standwalk-stance-mesh2-holdheight-rung3-acq8m since 2026-08-25T23:47:19"
+    "triage": "done",
+    "verdict": "FAIL (pre-registered fail branch; scoped to seed 0 of the joint pair \u2014 joint bookkeeping lands with -s1's cycle). Plain result: the 8M acquisition continuation made the rung-3 stance WORSE, not more robust \u2014 extended optimization re-buys the leg-unload cheat, the hypothesis's own named strongest alternative. Evidence: DR-0 gate det 6/6 valid_plant zero terms (duty floor 0.91) BUT sto 2/6 hold_min_load terms with per-leg duty floors 0.75/0.76 (legs idx3/idx5) \u2014 the rung-3 TRIPWIRE (any per-leg duty <0.85 OR any DR-0 min-load term, EITHER seed) fired on both clauses; det Imax 0.79-1.12A drifts above the 1.06A band top; own-DR 0.2 = 2/12 terms (det ep3 duty 0.90 + sto ep5 duty 0.60) vs the 2M canary's 1/12 \u2014 the target residual is budget-invariant and slightly worse at 4x budget. Reward rose all run (quarters 79.8/316.9/545.0/709.3) while evals regressed vs the 2M canary (duty floor 0.98, zero DR-0 terms, Imax<=0.82) => per the 08-21 ruling this is the MISALIGNMENT branch, not undertraining: reward still pays for partial unloading the S-gate does not price. Rung-3 champion remains the 2M canary ckpt pair (hha1/-s1); this 8M ckpt is NOT promoted. Next per the pre-registered FAIL branch: the registered S-gate/min-load-pricing fallback FIRES NOW (either-seed tripwire) \u2014 that is reward/env code + semantics-bank rows, so DIG-IN flagged for the deep cycle; no more budget on this recipe. Frame strips level/planted, unloading sub-visual \u2014 video and metrics agree."
   },
   {
     "run": "cw-standwalk-stance-mesh2-holdheight-rung3-acq8m-s1",
@@ -196556,7 +196560,7 @@
       "train.bc_anchor_hold_height_aware=1.0"
     ],
     "created": "2026-08-25T23:35:26+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -196620,6 +196624,8 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Pre-registered fail branch, mirrors seed-0 exactly \u2014 JOINT CALL: rung-3 tripwire FIRES on both seeds. Plain result: the 8M acquisition continuation made seed-1's rung-3 height-command stance WORSE, not more robust. Evidence: DR-0 gate det 6/6 + sto 6/6 valid_plant with ZERO hold_min_load terminations (letter-clean) BUT breaches the tripwire on both named clauses \u2014 2/6 sto episodes duty_min 0.84 (<0.85 floor) and cur_max climbs to 1.08-1.72A, well above the rung-2/3 0.62-1.06A band; own-DR 0.2 = 4/12 hold_min_load terms (2 det + 2 sto, duty crashing to 0.17/0.37/0.62/0.76) vs the 2M canary's 1/12 \u2014 the residual got WORSE with 4x budget, not better. Video (hold_det_5, TERM hold_min_load) shows the same single-leg unload/lift signature named at rung 1/2. Reward rose all run (quarters 76.5/325.2/563.3/715.8) while eval/tripwire regressed => 08-21 MISALIGNMENT branch, identical shape to seed-0's own verdict (79.8/316.9/545.0/709.3 rising, tripwire fired). JOINT CALL: fires the registered S-gate/min-load-pricing fallback (either-seed tripwire condition, now met by BOTH seeds independently) \u2014 extended optimization on this recipe re-buys the leg-unload cheat rather than curing it. Rung-3 champion stays the 2M canary ckpt pair (hha1/-s1); neither 8M ckpt is promoted. Next lever is reward/env code (price the S-gate/min-load margin directly, not more budget) \u2014 DIG-IN already flagged by seed-0's cycle, this closes the joint bookkeeping only, no new dig-in needed. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_holdheight_rung3_acq8m_s1_{gate,owncfg}/, W&B ux23038c."
   }
 ]

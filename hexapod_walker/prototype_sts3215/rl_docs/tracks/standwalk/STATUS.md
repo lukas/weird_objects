@@ -1,6 +1,63 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-25 ~23:3x (**STAND_HEIGHT RUNG-3 JOINT CALL:
+Last updated: 2026-08-26 ~00:0x (**RUNG-3 ACQ8M JOINT CALL: FAIL,
+FALLBACK FIRES ON BOTH SEEDS — 8M budget is closed on this recipe;
+the rung-3 champion stays the 2M canary pair.** This cycle verdicted
+`-acq8m-s1` and closed the joint call seed-0's cycle deferred:
+seed-1 reproduces the SAME misalignment shape independently rather
+than being clean — DR-0 gate is letter-clean (det 6/6 + sto 6/6
+valid_plant, zero terminations) but still breaches the tripwire on
+BOTH named clauses: 2/6 sto episodes duty_min 0.84 (<0.85 floor) and
+cur_max climbs to 1.08–1.72 A (rung-2/3 band is 0.62–1.06 A, nearly
+2x the top); own-DR 0.2 is worse still — 4/12 hold_min_load
+terminations (2 det + 2 sto), duty crashing to 0.17/0.37/0.62/0.76
+on the failing episodes, vs the 2M canary's 1/12. Video
+(`hold_det_5`, own-DR) shows the same single-leg unload/lift
+signature named at rungs 1-2, ending `TERM hold_min_load`. Reward
+rose all run (quarters 76.5/325.2/563.3/715.8, nearly identical
+shape to seed-0's 79.8/316.9/545.0/709.3) while both evals
+regressed → 08-21 MISALIGNMENT branch on both seeds independently,
+not a lucky/unlucky single seed. **JOINT CALL: the tripwire's
+either-seed condition is now met TWICE over — the registered
+S-gate/min-load-pricing fallback FIRES.** Neither 8M ckpt is
+promoted; rung-3 stays on the 2M canary pair
+(`holdheight-rung3-hha1`/`-s1`). Next lever is reward/env code (price
+the S-gate/min-load margin directly so honest all-duty holds beat
+partial unloading even under 4x budget optimization pressure) — DIG-IN
+already flagged by seed-0's cycle, not duplicated here. Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_holdheight_rung3_acq8m_s1_
+{gate,owncfg}/`, W&B `ux23038c`.)
+
+Prior entry: 2026-08-26 ~00:0x (**ACQ8M CONTINUATION FAIL, seed 0 —
+THE RUNG-3 TRIPWIRE FIRED. The registered S-gate/min-load-pricing
+fallback is now LIVE, no longer holstered.**
+`cw-standwalk-stance-mesh2-holdheight-rung3-acq8m` (8M, warm from the
+rung-3 seed-0 canary ckpt) verdicted FAIL on its own pre-registered
+fail branch: extended optimization RE-BUYS the leg-unload cheat —
+DR-0 det 6/6 clean (duty floor 0.91) but sto 2/6 `hold_min_load`
+terms at per-leg duty floors 0.75/0.76 (legs idx3/idx5; tripwire hit
+on BOTH clauses: duty<0.85 AND DR-0 min-load terms, either-seed
+suffices); det Imax drifts to 1.07–1.12 A (above the 1.06 A band
+top); own-DR 0.2 = 2/12 terms vs the canary's 1/12 — the target
+residual is budget-invariant/worse at 4x budget. Reward rose all run
+(79.8/316.9/545.0/709.3) while evals regressed vs the 2M canary
+(duty floor 0.98, zero DR-0 terms, Imax ≤0.82) → 08-21 MISALIGNMENT
+branch: reward still pays for partial unloading the S-gate doesn't
+price. **Rung-3 champion remains the 2M canary ckpt pair
+(`holdheight-rung3-hha1`/`-s1`); the 8M ckpt is NOT promoted.**
+NEXT: (a) DIG-IN flagged for the fallback implementation —
+S-gate strengthening / min-load pricing is reward/env code + bank
+rows (`test_task_semantics.py` must rank honest all-duty holds above
+partial unloading UNDER the new pricing before any relaunch),
+warm-start candidate = the rung-3 canary ckpts, NOT this run's; (b)
+`-acq8m-s1` (finishing ~23:4x, benign wrap-up confirmed twice) gets
+its own scoped triage but the joint call is already decided — the
+tripwire is either-seed, so its cycle should verdict within scope
+and NOT fund more budget on this recipe. More-budget on rung-3 is
+CLOSED. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+holdheight_rung3_acq8m_{gate,owncfg}/`, W&B `nuw6ttej`.)
+
+Prior entry: 2026-08-25 ~23:3x (**STAND_HEIGHT RUNG-3 JOINT CALL:
 PASS — the height ladder's in-scope rungs (1–3) are COMPLETE. The
 stance follows the full hold/ramp/sine/pulse command mix over
 [-40,20] mm at 15 mm/s, cross-seed, tripwire NOT fired.** This cycle
