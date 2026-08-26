@@ -81,7 +81,28 @@ def main() -> int:
     build_dir = CACHE / args.build_id
     meta = json.loads((build_dir / "meta.json").read_text())
     version = meta.get("defaultVersion", "main")
-    scene = json.loads((build_dir / "scene.json").read_text())
+    scene_file = build_dir / "scene.json"
+    scene = json.loads(scene_file.read_text())
+
+    # Staleness guard (incident 2026-08-26: `buildviz register` serves the
+    # live buildDir but does NOT refresh this push-cache, so the mirror
+    # re-shipped a day-old snapshot).  If the registered buildDir has a
+    # newer scene.json than the cache, refuse to mirror the stale copy.
+    registry = BUILDVIZ_HOME / "registry.json"
+    if registry.exists():
+        for entry in json.loads(registry.read_text()).get("builds", []):
+            if entry.get("id") != args.build_id:
+                continue
+            live = Path(entry.get("buildDir", "")) / "scene.json"
+            if live.exists() and \
+                    live.stat().st_mtime > scene_file.stat().st_mtime + 1.0:
+                print(f"push_cloud_buildviz: cache for '{args.build_id}' is "
+                      f"STALE -- the registered buildDir has a newer "
+                      f"scene.json ({live}).\nRun `npx buildviz push "
+                      f"--build-id {args.build_id} --upload-assets --scene "
+                      f"{live}` first, then re-run this mirror.",
+                      file=sys.stderr)
+                return 1
 
     assets = []
     for mesh in scene.get("meshes", []):

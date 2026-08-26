@@ -10,14 +10,18 @@ servo — is a cantilever.  This variant closes the structure from the top:
   press boss that a **third 6805-2RS** presses onto.  The boss lands on
   solid flange-bar material, >9 mm clear of the cap's M3 counterbores.
   Knee caps stay stock.
-* **`chassis_top_rigid`** (print 1): a second 200 mm flat-to-flat, 4 mm
-  hex FRAME (same footprint/thickness as chassis_bottom's sheet).  Six
+* **`chassis_top_rigid`** (print 1): a second 200 mm flat-to-flat hex
+  FRAME, **6 mm thick — 50% thicker than chassis_bottom's 4 mm sheet**
+  (user, Aug 26 pm, after the pillar delete: with no rim columns the
+  plate alone carries the hip-moment couple, so it grows 4 → 6; the
+  underside stays pinned to the race-top plane at 74.05 and the extra
+  2 mm grows upward, deck face 78.05 → 80.05).  Six
   Φ44 full-height bosses pocket the bearings' outer races from below at
   Φ37.15, each race retained by a complete 360° Φ34 shoulder, and each
-  bearing sealed from above by a **1.6 mm integral dust roof** flush
+  bearing sealed from above by a **2.4 mm integral dust roof** flush
   with the deck (user, Aug 26: the whole ring top is one continuous
   surface; the roof is thinner than the sheet so the rotating boss tip
-  keeps a 2.4 mm air gap under it).  A large
+  keeps a 3.6 mm air gap under it).  A large
   hex chunk of the middle (128 mm across flats) is cut out for the
   service hatch; the 140 mm `chassis_top` is not used in this variant.
 * **`top_hatch_rigid`** (print 1): a removable 4 mm hex lid over the
@@ -467,7 +471,7 @@ build had.
 | hip axis | 49.65 | 44.65 | **39.65** |
 | hip cap face | 71.55 | 66.55 | **61.55** |
 | top-plate race seat | 77.05 | 72.05 | **67.05** |
-| top sheet | 84.05..88.05 | 79.05..83.05 | **74.05..78.05** |
+| top sheet | 84.05..88.05 (4 mm) | 79.05..83.05 (4 mm) | **74.05..80.05 (6 mm since Aug 26)** |
 
 The horn mount interface AT the horn is untouched: same bolt
 pattern, same tip depths, same engagement — the head-access shafts
@@ -482,7 +486,7 @@ inside the seat ring + brim envelope, and the slab-to-rim clearance.
 Everything above rides down with the cradle (14 mm total vs the
 production-coxa stack, 5 mm vs the M3×25 build): hip axis 53.65 →
 49.65 → 44.65 → **39.65**, hip cap face → **61.55**, top-plate race
-seat → **67.05**, sheet → **74.05..78.05**.
+seat → **67.05**, sheet → **74.05..80.05** (6 mm since Aug 26).
 The robot's top deck drops 14 mm vs the pre-shortening build
 — a shorter, stiffer sandwich (same members, less column length).
 
@@ -494,8 +498,8 @@ The robot's top deck drops 14 mm vs the pre-shortening build
 | 67.05 | pedestal top = inner-race seat |
 | 67.55 | plate ring bottom (0.5 clearance over the race seat) |
 | 74.05 | race top = Φ34 shoulder = sheet bottom = boss tip top |
-| 76.45 | dust-roof underside (2.4 mm air over the rotating tip) |
-| 78.05 | deck face = dust-roof top (flush, one continuous surface) |
+| 77.65 | dust-roof underside (3.6 mm air over the rotating tip) |
+| 80.05 | deck face = dust-roof top (flush; the 6 mm sheet grows UP from the pinned 74.05 underside) |
 
 (All five planes are 14 mm lower than the pre-shortening build — 4 mm
 from the rev-3 skirt/platform delete, 5 mm from the Aug-24 M3×25
@@ -517,7 +521,7 @@ the bearing rings are):
 * **Lid**: 4 mm hex (136 across flats) sitting ON the deck face with a
   1.5 mm registration lip dropping just inside the opening (0.3 mm/side
   clearance — straight drop-in verified at build time).
-* **Retention**: 6× M3×14 button-heads that pass through the lid AND
+* **Retention**: 6× M3×16 button-heads that pass through the lid AND
   the frame sheet into **brass heat-set inserts in Φ10 bosses under
   the frame** (user, Aug 26: the lid comes off "a lot", so no screw
   ever cycles a printed thread — steel-into-brass survives unlimited
@@ -536,9 +540,10 @@ the bearing rings are):
   drop-in clearance — probed), and takes its insert **from below**:
   screw tension then pulls the insert *against* the sheet
   (compression, the strong direction) instead of along its knurl.
-  Stack: lid 4 + sheet 4 + 0.3 air + 5.7 insert = **M3×14**, tip
-  flush with the boss bottom.  The Φ9 lid ears cover the hole where
-  the bare lid corner (78.52) falls short.
+  Stack: lid 4 + sheet 6 + 0.3 air + 5.7 insert = **M3×16**, tip
+  flush with the boss bottom (was M3×14 on the 4 mm sheet).  The Φ9
+  lid ears cover the hole where the bare lid corner (78.52) falls
+  short.
 * **Interior access** = remove 10 screws (6 perimeter + 4 standoff)
   and lift the lid — the frame, bearings and legs are untouched.  The
   disc-horn clamp screws under the rings still need the full
@@ -657,8 +662,8 @@ variation only moves parts that stay outboard/below the plate.
   deck-level tower ledges
 * **−6 `yaw_bearing_cap` prints and −18 M3×8 cap join screws** — the
   cap is deleted (see "One tower-seated bottom bearing")
-* 4× M3 standoff stacks, ~76 mm (bottom sheet top z≈2 → hatch underside
-  78.05; e.g. 40+36 F-F, or M3 threaded rod in printed sleeves) + M3
+* 4× M3 standoff stacks, ~78 mm (bottom sheet top z≈2 → hatch underside
+  80.05; e.g. 40+38 F-F, or M3 threaded rod in printed sleeves) + M3
   screws down through the hatch into the stack tops — **non-structural**
   in this variant (hatch/electronics anchors only)
 * **6× M3 brass heat-set inserts** (~5.7 mm long, e.g. Ruthex RX-M3
@@ -666,8 +671,8 @@ variation only moves parts that stay outboard/below the plate.
   bosses — printed Φ4.0 through-bores with melt-relief counterbores;
   install from BELOW with a soldering iron (~230 °C for PETG) with
   the frame flipped on the bench, flush with the boss bottom face
-* 6× M3×14 button-heads for the hatch perimeter (through lid + frame
-  into the frame-boss inserts; lid 4 + sheet 4 + 0.3 air + 5.7
+* 6× M3×16 button-heads for the hatch perimeter (through lid + frame
+  into the frame-boss inserts; lid 4 + sheet 6 + 0.3 air + 5.7
   engagement — the tip lands flush with the boss bottom)
 * **NO pillar hardware** (pillars deleted Aug 26): the 6 corner
   pillar prints, 18× M3×12 + nylocs, 6× M3×10 frame screws and 6 of
@@ -719,7 +724,7 @@ variation only moves parts that stay outboard/below the plate.
    are lead-in chamfered; descent path verified clear at build time),
    press until the shoulders touch the race tops.
 5. Drop `top_hatch_rigid` into the frame opening (lip registers), drive
-   the 6 perimeter M3×14s into the frame-boss inserts and the 4
+   the 6 perimeter M3×16s into the frame-boss inserts and the 4
    standoff screws.
 
 ## Disassembly & service — the cap is a captive bearing carrier

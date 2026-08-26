@@ -71,7 +71,8 @@
 # underside 33.25 -> 19.25 (1.5 over the rim), well floor
 # 41.25 -> 27.25, hip axis 53.65 -> 39.65, cap face 75.55 -> 61.55,
 # top-plate race seat 81.05 -> 67.05, top sheet
-# 88.05..92.05 -> 74.05..78.05.  The femur
+# 88.05..92.05 -> 74.05..80.05 (sheet underside pinned to the race
+# top; 6 mm thick since the Aug-26 thickening).  The femur
 # up-limit is unchanged (-47.5, re-swept): plate and femur pivot
 # dropped together.
 #
@@ -83,6 +84,12 @@
 # towers) plus the four central standoffs through the hatch.  The
 # hatch screws moved to rho 78 and thread into M3 heat-set inserts
 # in six phi 10 bosses under the frame sheet, installed from below.
+# With the pillars gone the plate alone carries the hip-moment
+# couple, so it thickened 50% (user, Aug 26 pm): 4 -> 6 mm, growing
+# UP from the pinned 74.05 underside (deck face 78.05 -> 80.05).
+# The dust roof scaled with it (1.6 -> 2.4) and the hatch screws
+# grew M3x14 -> M3x16; the hatch lid stays 4 mm (not in the bearing
+# load path).
 #
 # Chassis variant (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2: "the multiple curves
@@ -238,9 +245,11 @@ parts:
     label: "Full-size top chassis FRAME with bearing pockets (concept)"
     aliases: ["top plate", "second chassis", "bearing plate", "frame"]
     description: >-
-      A second 200 mm flat-to-flat, 4 mm hex sheet (chassis_bottom's
-      footprint) at world z 74.05..78.05 (14 mm lower since the coxa
-      column shortened).  Six phi 44 full-height
+      A second 200 mm flat-to-flat, 6 mm hex sheet (chassis_bottom's
+      footprint, 50% thicker than its 4 mm sheet since the Aug-26
+      pillar delete left the plate alone in the load path) at world
+      z 74.05..80.05 (underside pinned to the race-top plane; the
+      thickening grew upward).  Six phi 44 full-height
       bosses — one per yaw axis, half-bulging outboard exactly like the
       bottom towers — pocket the third bearings' outer races from BELOW
       at phi 37.15, each retained by a complete 360-deg phi 34
@@ -287,24 +296,25 @@ parts:
             code_name: RING_OD
             description: "= bearing OD + 2x YAW_TOWER_WALL, same wall as the bottom tower."
       dust_roof:
-        label: "1.6 mm integral dust roof over each bearing (x6)"
+        label: "2.4 mm integral dust roof over each bearing (x6)"
         kind: "boss"
         purpose: >-
           The phi 34 shoulder bore used to run through the sheet,
           leaving the bearing open to falling dirt (user, Aug 26).
-          The bore now stops 1.6 mm short of the deck, leaving a thin
+          The bore now stops 2.4 mm short of the deck, leaving a thin
           integral roof whose top is FLUSH with the deck face (the
           whole ring top is one continuous surface).  Thinner than
-          the 4 mm sheet on purpose: the rotating boss lead-in tip
-          stops at the sheet bottom plane, so 2.4 mm of air sits
+          the 6 mm sheet on purpose: the rotating boss lead-in tip
+          stops at the sheet bottom plane, so 3.6 mm of air sits
           between it and the roof underside (asserted >= 0.5 mm on
           every rebuild, plus solid/air probes over all six
-          bearings).  Printed deck-face down, the roof is bed
+          bearings).  Scaled 1.6 -> 2.4 with the Aug-26 sheet
+          thickening.  Printed deck-face down, the roof is bed
           layers -- no bridging.
         dimensions:
           roof_t:
             label: "Roof thickness"
-            value: 1.6
+            value: 2.4
             code_name: BR_ROOF_T
           roof_min_clearance:
             label: "Min rotating-vs-roof air gap"
@@ -372,14 +382,14 @@ parts:
       A 4 mm hex lid (136 across flats) over the frame opening, sitting
       ON the deck face with a 1.5 mm registration lip dropping just
       inside the opening (0.3 mm/side clearance; straight drop-in
-      verified at build time).  Held by 6x M3 x 14 button-heads that
-      pass through lid AND frame into brass HEAT-SET INSERTS in
-      phi 10 bosses under the frame sheet (user, Aug 26: the lid
+      verified at build time).  Held by 6x M3 x 16 button-heads that
+      pass through lid AND the 6 mm frame into brass HEAT-SET INSERTS
+      in phi 10 bosses under the frame sheet (user, Aug 26: the lid
       cycles on/off constantly, so no screw may cycle a printed
       thread -- inserts keep full screw clamp preload, i.e. the plate
       stiffness; the pillar tops that used to host them are deleted),
       plus the 4 chassis standoff screws (standoff stacks grow to
-      ~76 mm so they anchor the hatch; chassis-hang loads run
+      ~78 mm so they anchor the hatch; chassis-hang loads run
       standoffs -> hatch -> deck face -> frame in pure
       compression).  Carries the standoff pattern, the electronics-deck
       pattern and the phi 40 centre hole, so the electronics deck lifts

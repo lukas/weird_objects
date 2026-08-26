@@ -13,7 +13,8 @@ pair.  This variant closes the loop from the TOP:
     interference the lower hub boss already uses) that a third 6805-2RS
     presses onto.  Knee caps stay stock.
   * ``chassis_top_rigid`` -- a SECOND 200 mm flat-to-flat hex plate
-    (same footprint/thickness as chassis_bottom's sheet) whose six
+    (same footprint as chassis_bottom's sheet, 50% thicker at 6 mm
+    since the pillar delete left it alone in the load path) whose six
     Phi 44 bosses pocket the bearings' outer races at Phi 37.15
     (= ``YAW_TOWER_BORE_OD``, the bench-tuned firm finger-press fit),
     race retained by the Phi 34 shoulder (= ``YAW_TOWER_SHOULDER_OD``).
@@ -177,15 +178,26 @@ POCKET_LEADIN = 0.8                       # pocket-mouth lead-in (per side)
 # face -- the whole ring top is one flush surface ("all go up to the
 # same height") and dirt cannot reach the bearing from above.  The
 # roof is thinner than the sheet so the rotating parts keep an air gap
-# under it: tip top 74.05, roof underside 76.45 -> 2.4 mm running
+# under it: tip top 74.05, roof underside 77.65 -> 3.6 mm running
 # clearance (asserted >= BR_ROOF_MIN_CL in check_yaw_sweep).
-BR_ROOF_T = 1.6                           # roof thickness (prints flat on
-                                          # the bed: the plate prints deck
-                                          # face down, so the pocket is now
-                                          # a true blind bore, no bridging)
+BR_ROOF_T = 2.4                           # roof thickness, scaled with the
+                                          # 6 mm sheet (was 1.6 on the 4 mm
+                                          # sheet; prints flat on the bed:
+                                          # the plate prints deck face down,
+                                          # so the pocket is a true blind
+                                          # bore, no bridging)
 BR_ROOF_MIN_CL = 0.5                      # min rotating-vs-roof air gap
 
-PLATE_T = hp.CHASSIS_PLATE_T              # 4 -- same sheet as chassis_bottom
+PLATE_T = hp.CHASSIS_PLATE_T              # 4 -- bottom sheet + hatch lid
+# TOP PLATE 50% THICKER (user, Aug 26 pm, after the pillar delete: "make
+# it say 50% thicker now that the pillars are gone").  With no rim
+# pillars the top plate alone carries the hip-moment couple between the
+# six bearing towers, so the sheet goes 4 -> 6 mm.  The sheet UNDERSIDE
+# is pinned to the race-top/shoulder plane (74.05, that is where the
+# pockets seat), so the extra 2 mm grows UPWARD: deck face 78.05 ->
+# 80.05.  The hatch LID stays at PLATE_T = 4 (it is not in the bearing
+# load path; keeping it thin keeps the lid light and the screws short).
+TOP_PLATE_T = 1.5 * hp.CHASSIS_PLATE_T    # 6 -- top frame sheet only
 CENTRE_HOLE_D = 40.0                      # wiring / standoff-wrench access
 HOLE_D = hp.BRACKET_BOLT_HOLE             # 3.4 -- M3 clearance
 ACCESS_HOLE_D = 7.0                       # driver pass-through above the
@@ -236,8 +248,8 @@ HATCH_EAR_OD = 9.0                        # round lid ears around the screws:
 # bosses hanging under the frame sheet at the hatch-screw stations.
 # The insert installs from BELOW, so screw tension pulls it against
 # the sheet (compression -- the strong direction).  Screw stack: lid 4
-# + sheet 4 + 0.3 air + 5.7 insert = M3x14, tip flush at the boss
-# bottom.
+# + sheet 6 + 0.3 air + 5.7 insert = M3x16, tip flush at the boss
+# bottom.  (Was M3x14 on the 4 mm sheet.)
 INSERT_BORE_OD = 4.0                      # install bore for the M3 insert
 INSERT_LEN = 5.7                          # insert length (flush at the
                                           # boss BOTTOM face)
@@ -655,7 +667,7 @@ BR_BOT_W = CAP_FACE_W + PED_H             # 67.05 -- race bottom / seat
 BR_TOP_W = BR_BOT_W + BEARING_W           # 74.05 -- race top / shoulder
 RING_BOT_W = BR_BOT_W + RING_BOT_CL       # 67.55 -- ring bottom face
 SHEET_Z0 = BR_TOP_W                       # sheet bottom = race top plane
-SHEET_Z1 = SHEET_Z0 + PLATE_T             # 78.05 -- deck face
+SHEET_Z1 = SHEET_Z0 + TOP_PLATE_T         # 80.05 -- deck face (6 mm sheet)
 
 APOTHEM = hp.CHASSIS_FLAT_TO_FLAT / 2.0   # 100 -- yaw axes sit ON this line
 
@@ -1059,7 +1071,7 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
         "frame insert boss missing under a hatch screw"
     assert not frame.contains(np.asarray(p_air)).any(), \
         "frame insert boss pokes past the opening wall (lip collision)"
-    print(f"  hatch screws: 6x M3x14 into Phi {INSERT_BORE_OD:g} insert "
+    print(f"  hatch screws: 6x M3x16 into Phi {INSERT_BORE_OD:g} insert "
           f"bores in Phi {FRAME_BOSS_OD:g} under-frame bosses "
           f"(bore wall to opening {HATCH_SCREW_RHO - INSERT_BORE_OD / 2.0 - open_vertex_r:.2f} mm)")
     # A Phi 6.5 driver shaft dropped through the L0 hole down to the cap
