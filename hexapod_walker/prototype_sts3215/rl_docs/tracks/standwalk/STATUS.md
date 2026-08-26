@@ -2503,6 +2503,60 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**STAND_HEIGHT RUNG-5 (compose mode_seq rise->hold->lower WITH the
+height command), 08-26 ~06:0x — first canary pair BOTH CANARY PASS
+(caveated) — mechanism works, residual is seed-dependent lower-phase
+softening; funded an 8M continuation before calling rung-5 closed.**
+`cw-standwalk-stance-mesh2-standheight-rung5`/`-s1` (2M, warm from
+this cycle's freshly-promoted scratch8m mesh-stancemix champion,
+`goal.mode_seq_stance=1` + `goal.mode_seq_hold_height_cmd=1` +
+`hold_height_cmd_frac=1` + the height-aware BC anchor from rung-1)
+both show reward rising over the run through the now-familiar
+mid-training valley (seed0 2.4→peak~76@1M→trough −180@1.2M→144
+final; seed1 6.5→54→trough −216→66 final). The gate's own
+pre-registered custom probe (`--cfg-set goal.mode_seq_stance=1
+mode_seq_hold_height_cmd=1 hold_height_cmd_frac=1`, det+sto 6+6) shows
+REAL height tracking on both seeds (hold herr_end 0.8–3.4mm det /
+1.0–3.3mm sto seed0, 1.2–10.3mm seed1 — a moving [-40,20]mm@15mm/s
+target, not flat-ignored) and no majority over_current/fall on any
+mode. Rise mildly softened both seeds (4/6 det+4/6 sto success, 2
+term each). **Lower is where the two pre-registered seeds DISAGREE**
+(the gate's own PARTIAL trigger, mapped onto the ledger's binary
+canary vocabulary as a caveated PASS): seed0 keeps lower alive with
+ZERO terminations but drifts to a high herr on det (4/6 exceed the
+15mm success bar, 18–20.5mm; sto stays inside, 6/6 success up to
+13.1mm); seed1 has the OPPOSITE shape — lower/det tracks TIGHTLY
+(herr 0.3–2.0mm) but trips the over_current safety on ALL 6/6 det
+episodes right at/near the end (0/6 success by the herr rule; sto is
+clean 6/6). Both read as the campaign's long-documented current-
+margin fragility (cur_max pinned 2.4–2.64A near the safety ceiling)
+newly stacked onto the height-cmd+mode_seq composition — not a new
+mechanism defect, and video (contact sheets, both seeds) shows
+upright, all-six-planted stands throughout, no fall/tip/splay/
+press-pin. Secondary, likely-cosmetic finding: seed1's ISOLATED
+(non-composed, cold "plant" reset) hold-only gate/owncfg probe is far
+more fragile (4/6 and 3/6 hold_min_load terms) than seed0's (0–1)
+even though seed1's hold is clean INSIDE the composed seqprobe —
+probably an artifact of the isolated probe's own reset distribution,
+not the real stage-2 entry condition (rise always precedes hold in
+practice). Acting on the cheaper, no-new-code lever first: launched
+`cw-standwalk-stance-mesh2-standheight-rung5-acq8m`/`-acq8m-s1` (8M,
+`--init-from-source` off each seed's own 2M canary checkpoint,
+recipe unchanged) to see whether the still-rising Q4 reward trend
+closes the lower-phase residual before building a height-cmd-
+segment-specific `bc_anchor_coef` loosening (the gate's other named
+PARTIAL lever). On PASS (both seeds, lower clears its own
+established band with no majority term): treat rung-5 as cleared and
+open stage-2 design (rise→walk→lower composition). On FAIL at the
+same signature: budget is refuted for this residual, and the
+anchor-coef-during-height-cmd lever becomes the next arm (new
+default-off cfg + bank rows + unit tests, dig-in scope). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5{,_owncfg,
+_seqprobe}/`, `..._s1_{gate,owncfg,seqprobe}/`; W&B
+`7sg3akct`/`z103ioia`.
+
+Prior entry:
+
 **HOLD-HEIGHT (commandable stand height), 08-25 ~21:4x — rung-1
 canary pair `holdheight-rung1`/`-s1` BOTH CANARY FAIL-MECHANISM;
 height-AWARE BC-anchor fix built+tested and its own canary pair

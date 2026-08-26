@@ -199363,7 +199363,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip"
     ],
     "created": "2026-08-26T04:38:30+00:00",
-    "status": "FINISHED",
+    "status": "CANARY PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -199404,7 +199404,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "  canary/lower_a 1\nwandb:       canary/lower_b 1\nwandb: canary/rise_bridge_a 0\nwandb: canary/rise_bridge_b 0\nwandb: canary/rise_crouch_a 1\nwandb: canary/rise_crouch_b 0\nwandb:   canary/rise_flat_a 1\nwandb:   canary/rise_flat_b 1\nwandb:                 +112 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-standheight-rung5 at: https://wandb.ai/l2k2/hexapod-balance/runs/7sg3akct\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260826_043947-7sg3akct/logs\n"
       }
-    ]
+    ],
+    "verdict": "CANARY PASS (seed-disagreement on the lower-phase residual -- read this jointly with -s1 before treating STAND_HEIGHT rung-5 as cleared). Plain English: this is the FIRST canary testing whether the just-promoted mesh stancemix rise/hold/lower skill survives being (a) sequenced rise->hold->lower in one episode (mode_seq_stance) AND (b) given a moving height command during the hold segment ([-40,20]mm @15mm/s) at the same time -- and the answer is mostly yes, with a residual. Reward rises over the run on both seeds despite a shared mid-training valley (this seed: ep_rew_mean 2.4->peak~76@1M->trough -180@1.2M->recover to 144 final; -s1: 6.5->54->trough -216->66) -- matches the documented architecture-independent valley shape, not a stall. The gate's own pre-registered custom probe (--cfg-set goal.mode_seq_stance=1 mode_seq_hold_height_cmd=1 hold_height_cmd_frac=1, det+sto 6+6) shows REAL height tracking during hold on both seeds (herr_end 0.8-3.4mm det / 1.0-3.3mm sto here, tracking a moving target, not flat-ignored) and no majority over_current/fall on any mode (worst is exactly 6/12 on one seed's lower, at not over the pre-registered \"<=6/12\" bar). Rise mildly softened both seeds (4/6 det+4/6 sto success, 2 term each via over_current/hold_min_load). Lower is where this seed and -s1 DISAGREE: this seed (seed0) keeps lower alive with ZERO terminations but drifts high on herr for det (4/6 exceed the 15mm success bar, 18-20.5mm; sto stays inside, 6/6 success up to 13.1mm); -s1 has the OPPOSITE shape (lower/det tracks TIGHTLY, herr 0.3-2.0mm, but trips the over_current safety on ALL 6/6 det episodes right at/near the end; sto is clean 6/6). Both read as the campaign's long-documented current-margin fragility (cur_max pinned 2.4-2.64A near the safety ceiling on most rise/lower episodes) newly stacked onto the height-cmd+mode_seq composition -- not a new mechanism defect, and NOT a splay/press-pin collapse (video contact sheets: upright, all-six-planted stands throughout every reviewed strip, no visible fall/tip). A secondary, likely-cosmetic finding: the STANDARD isolated (non-composed) hold-only gate/owncfg probe is much more fragile on -s1 (4/6 and 3/6 hold_min_load terms from a cold \"plant\" reset) than on this seed (0-1 terms) even though -s1's hold is clean INSIDE the composed seqprobe -- probably an artifact of the isolated probe's own reset distribution, not the stage-2 pipeline's actual entry condition (rise always precedes hold there in practice). Net: the composition mechanism WORKS (tracks, doesn't collapse) but is not yet clean enough on both seeds to call rung-5 closed. Acting on the cheaper, no-new-code lever first: funding an 8M-budget continuation of BOTH seeds from their own 2M checkpoints (unchanged recipe) to see whether the still-rising Q4 reward trend closes the lower-phase residual before building a height-cmd-segment-specific bc_anchor-coef loosening. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5{,_owncfg,_seqprobe}/ and the -s1 siblings; W&B 7sg3akct/z103ioia.",
+    "triage": "done"
   },
   {
     "run": "cw-standwalk-stance-mesh2-standheight-rung5-s1",
@@ -199534,7 +199536,7 @@
       "rl_move/sim/policies/ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip"
     ],
     "created": "2026-08-26T04:43:39+00:00",
-    "status": "FINISHED",
+    "status": "CANARY PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -199580,6 +199582,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-standheight-rung5-s1 since 2026-08-26T04:58:11"
+    "triage": "done",
+    "verdict": "CANARY PASS (seed-disagreement on the lower-phase residual -- joint read with the seed-0 base run cw-standwalk-stance-mesh2-standheight-rung5, which carries the full shared analysis; same recipe, seed 1). Reward rises over the run despite the same mid-training valley both seeds share (ep_rew_mean 6.5->peak~54@1M->trough -216@1.4M->recover to 66 final). The pre-registered mode_seq_stance+hold_height_cmd seqprobe shows real height tracking during hold (herr_end 1.2-10.3mm det, tracking a moving [-40,20]mm/15mm-s target, not flat-ignored) and no majority over_current/fall on any mode. Rise mildly softened (4/6 det+4/6 sto success, matching the seed-0 twin). Lower is this seed's weak point and the reason the joint read is a caveated PASS, not a clean one: in the composed seqprobe, lower/det tracks the commanded height TIGHTLY (herr 0.3-2.0mm at the moment of termination) but trips the over_current safety on ALL 6/6 det episodes (0/6 success by the 15mm-error success rule, but purely a safety-margin trip, not a tracking or posture failure -- video shows upright, six-foot-planted stands throughout, no fall/tip); lower/sto is clean (6/6 success). The seed-0 twin shows the OPPOSITE lower failure shape (stays alive with zero terminations, drifts to a high herr instead) -- that cross-seed disagreement is the residual this canary flags, not a shared structural break. A second, likely-cosmetic divergence: this seed's ISOLATED (non-composed) cold-start hold/det probe is far more fragile than seed-0's (4/6 and 3/6 hold_min_load terminations vs 0-1) even though hold is clean inside the actual composed sequence -- probably an artifact of the isolated probe's plant-reset start state rather than the real stage-2 entry condition (rise always precedes hold there). Acting on the run's own pre-registered PARTIAL/residual branch: funding an 8M-budget continuation from this checkpoint (unchanged recipe) before building a new height-cmd-segment bc_anchor-coef lever, since Q4 reward is still improving at the 2M cutoff on both seeds. Evidence: logs/ckpt_eval/cw_standwalk_stance_mesh2_standheight_rung5_s1{,_owncfg,_seqprobe}/; W&B z103ioia."
   }
 ]
