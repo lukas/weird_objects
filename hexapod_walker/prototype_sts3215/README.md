@@ -14,13 +14,16 @@ start at the entry point for the one you're working on:
 
 | Path | What |
 |------|------|
-| `hexapod_prototype.py` | Parametric CAD source of truth |
+| `hexapod_prototype.py` | Parametric constants + trimesh twins (probes, MuJoCo, BuildViz) |
+| `cad_step_test/build_step_first_test.py` | Printable BREP builders (STEP-first geometry source) |
+| `build_step_prototype.py` / `step_pipeline.py` | Print-set exporter + equivalence gates / shared plumbing |
 | `design_spec.yaml` | Human-readable geometry contract |
-| `build_all.py` / `Makefile` | Regenerate STLs + common targets |
+| `build_all.py` / `Makefile` | Regenerate STEP + STLs + common targets |
 | `docs/` | BOM, shopping list, CAD workflow, BuildViz notes |
 | `scripts/` | CLI helpers (verify helpers, renders, print orientation, inspect) |
 | `tools/` | BuildViz / diagnostic utilities |
-| `stl_prototype/` | Slicer-ready printables |
+| `step_prototype/` | Per-printable `.step` CAD truth + BREP tessellations + manifest |
+| `stl_prototype/` | Slicer-ready printables (healed BREP tessellations) |
 | `stl_reference/` | Sim / viz meshes (not for printing) |
 | `firmware/` / `linux_control/` / `motor_setup/` | On-robot software |
 | `full_robot_viz/` | BuildViz scene + local `buildviz` npm dep |

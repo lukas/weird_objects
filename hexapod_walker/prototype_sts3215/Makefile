@@ -17,7 +17,7 @@ else
 MJ_PY  := uv run --active python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast help
+.PHONY: check-cad check-cad-fast check-strength validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -31,7 +31,8 @@ help:
 	@echo "                    Not wired into check-cad.  Example:  make check-strength MATERIAL=petg"
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
-	@echo "  build             Re-run build_all.py → stl_prototype/ + stl_reference/ (CURRENT design)."
+	@echo "  build             Re-run build_all.py → step_prototype/ (BREP STEP truth) + stl_prototype/ + stl_reference/."
+	@echo "  step-export       Run ONLY the STEP-first BREP exporter + print-set install (no visuals rebuild)."
 	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly (full suite, ~95-270 s)."
 	@echo "  verify-fast       Run _verify_prototype.py --fast (5 essential checks, ~5-15 s)."
 	@echo "  verify-changed    Run _verify_prototype.py --changed (only checks affected by git diff vs origin/main)."
@@ -91,6 +92,19 @@ render:
 
 build:
 	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly
+
+# STEP-first print set only: run the BREP exporter (uv-provisioned 3.12 --
+# build123d has no 3.14 wheels) + install the healed tessellations into
+# stl_prototype/.  `make build` includes this; use step-export when
+# iterating on a BREP builder without rebuilding the visuals.
+step-export:
+	cd $(CURDIR) && uv run --no-project --python 3.12 \
+		--with build123d --with trimesh --with numpy \
+		--with manifold3d --with rtree \
+		python build_step_prototype.py
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) uv run --active python -c \
+		"import sys; sys.path.insert(0, 'hexapod_walker/prototype_sts3215'); \
+		import step_pipeline; step_pipeline.install_printables()"
 
 verify-prototype:
 	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py
