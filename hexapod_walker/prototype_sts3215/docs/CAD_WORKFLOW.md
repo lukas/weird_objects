@@ -10,9 +10,12 @@ change before printing.
 
 | Layer                                  | File                          | What it is                                                              |
 |----------------------------------------|-------------------------------|-------------------------------------------------------------------------|
-| Parametric geometry                    | `hexapod_prototype.py`        | Python + `trimesh`.  All `make_*` functions; constants block at the top.|
-| Derived printable STLs                 | `stl_prototype/*.stl`         | Auto-generated from `hexapod_prototype.py` via `build_all.py`.          |
-| Reference / sim visuals (not print)    | `stl_reference/*_DO_NOT_PRINT.stl` | Servo / board / fused-link meshes for MuJoCo & BuildViz.          |
+| Parametric constants + probe/visual geometry | `hexapod_prototype.py`  | Python + `trimesh`.  All `make_*` functions; constants block at the top.|
+| Printable BREP geometry (STEP-first)   | `cad_step_test/build_step_first_test.py` | build123d/OpenCascade solids for every printable; imports every dimension from `hexapod_prototype.py` (no constant forks). |
+| Print-set exporter + equivalence gates | `build_step_prototype.py`     | Exports `step_prototype/*.step` + tessellations; PROVES each printable equivalent to its trimesh twin (volume / bbox / max surface deviation) before install.  Layout + subprocess plumbing in `step_pipeline.py`. |
+| STEP CAD exchange files                | `step_prototype/*.step`       | The editable BREP truth per printable (Onshape/CAD import ready).      |
+| Derived printable STLs                 | `stl_prototype/*.stl`         | Healed BREP tessellations installed by `build_all.py` (STEP-first since Aug 2026). |
+| Reference / sim visuals (not print)    | `stl_reference/*_DO_NOT_PRINT.stl` | Servo / board / fused-link meshes for MuJoCo & BuildViz (still trimesh). |
 | Human-readable design contract         | `design_spec.yaml`            | Local frames, bounding boxes, holes, channels, keep-out volumes.        |
 | Code-driven keep-out / clearance shapes| `keepout_volumes.py`          | Named `trimesh` factories tracking the parametric constants.            |
 | Deep validation                        | `_verify_prototype.py`        | The 34-check correctness suite (manifoldness, cradle openness, …).      |
@@ -22,6 +25,15 @@ The contract is: **constants in `hexapod_prototype.py` are the truth**.
 `design_spec.yaml` mirrors a curated subset of those constants and adds
 human-readable documentation.  The validator catches drift between the
 two.
+
+STEP-first (Aug 2026): the printables' shipping geometry is authored as
+build123d BREP solids and flows `BREP -> .step -> tessellated .stl`;
+`hexapod_prototype.py`'s trimesh `make_*` twins remain for constants,
+the verifier's probes, MuJoCo and BuildViz.  The exporter's equivalence
+gates plus the verifier's freshness check (manifest source hashes +
+BREP-vs-twin backstop) keep the two representations locked together —
+edit BOTH the trimesh twin and the BREP builder when changing a
+printable, then `make build`.
 
 ## One-liner: validate everything before you commit
 

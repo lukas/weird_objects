@@ -796,12 +796,29 @@ def check_export_manifold():
 # this bit us on coxa_yaw_hub + yaw_bearing_cap after the dual-bearing
 # rework -- the source was right, the .stl files on disk were stale.)
 #
-# This guard rebuilds EVERY part ``hexapod_prototype.main()`` exports by
-# walking the SAME ``hp.stl_export_groups()`` registry the exporter uses (so
-# the two can never drift), heals each mesh exactly the way ``_save`` does,
-# and compares its geometry signature -- triangle count, |volume|, and
-# axis-aligned bounds -- against the on-disk STL.  A missing or stale file
-# FAILS with a "run `make build`" pointer.
+# This guard walks the SAME ``hp.stl_export_groups()`` registry the exporter
+# uses (so the two can never drift) and compares each part's geometry
+# signature -- triangle count, |volume|, and axis-aligned bounds -- against
+# the on-disk STL.  A missing or stale file FAILS with a "run `make build`"
+# pointer.
+#
+# STEP-first print set (Aug 2026): the stl_prototype/ printables are now
+# installed from the BREP exporter's healed tessellations
+# (step_prototype/stl/ via step_pipeline.install_printables), NOT from the
+# trimesh factories, so for printables the freshness reference is the
+# healed BREP tessellation.  Three legs guard the whole chain:
+#   1. the exporter manifest's source hashes must match the CURRENT
+#      geometry sources (an edited builder with a stale step_prototype/
+#      fails loudly);
+#   2. the on-disk stl_prototype STL must match the healed BREP
+#      tessellation's signature (stale install);
+#   3. the BREP mesh must stay EQUIVALENT to its trimesh twin (loose vol /
+#      bounds backstop -- the exporter enforces the tight gates including
+#      max surface deviation; this re-checks it from the verifier side so
+#      the probe suite, which builds from the trimesh factories, provably
+#      tests the same geometry that prints).
+# The _DO_NOT_PRINT visuals still come from the trimesh factories and are
+# checked exactly as before.
 #
 # Why a tolerant signature and not an exact byte-compare: ``_save`` writes a
 # float32 binary STL, so a re-export round-trips vertices through 32-bit
@@ -812,6 +829,8 @@ def check_export_manifold():
 _FRESHNESS_VOL_RTOL = 1e-4       # relative |volume| tolerance (float32 export)
 _FRESHNESS_VOL_ATOL = 1e-3       # mm^3 floor so tiny parts aren't over-strict
 _FRESHNESS_BOUNDS_ATOL = 1e-2    # mm, per-corner axis-aligned bounds tolerance
+_EQUIV_VOL_RTOL_PCT = 1.0        # % |volume| BREP-vs-twin backstop
+_EQUIV_BOUNDS_ATOL = 0.5         # mm per-corner BREP-vs-twin backstop
 
 
 def _stl_signature(mesh):
@@ -824,10 +843,16 @@ def _stl_signature(mesh):
 
 def check_exported_stl_freshness():
     """Assert every exported STL matches what the CURRENT parametric source
-    would export -- i.e. nobody edited a ``make_*`` factory and forgot to
-    re-run ``build_all.py``.  Closes the gap that lets the rest of the suite
-    pass on stale on-disk geometry (it all builds from source and never reads
-    the files).
+    would export -- i.e. nobody edited a ``make_*`` factory (or a BREP
+    builder) and forgot to re-run ``build_all.py``.  Closes the gap that
+    lets the rest of the suite pass on stale on-disk geometry (it all
+    builds from source and never reads the files).
+
+    STEP-first print set (Aug 2026): printables are checked against the
+    healed BREP tessellation they are installed from, PLUS a loose
+    equivalence backstop vs the trimesh twin (see the block comment
+    above).  Visual meshes are still checked against their trimesh
+    factories.
 
     Files are resolved with ``hp.stl_dir_for`` -- printables live in
     ``stl_prototype/`` and the ``_DO_NOT_PRINT`` reference/visual meshes in
@@ -836,21 +861,43 @@ def check_exported_stl_freshness():
     them to ``stl_reference/``)."""
     print("\n[1b2] Exported-STL freshness (on-disk STL == parametric source; "
           "re-run `make build` if any are stale):")
+    import step_pipeline
+
     all_ok = True
+
+    # Leg 1: the BREP exporter's manifest must match the CURRENT geometry
+    # sources (hexapod_prototype.py, the BREP builders, the exporter).
+    m_ok, m_detail = step_pipeline.manifest_fresh()
+    all_ok &= _label("step_prototype manifest", m_ok, m_detail)
+
     for _section, builders in hp.stl_export_groups():
         for name, build in builders:
             base = name[:-4].replace(hp.NOPRINT_SUFFIX, "")
             path = os.path.join(hp.stl_dir_for(base), name)
+            printable = hp.stl_dir_for(base) == hp.STL_DIR
             if not os.path.isfile(path):
                 all_ok &= _label(name, False,
                                  "MISSING on disk -- run `make build`")
                 continue
             try:
-                fresh = hp._heal_for_export(build())
+                twin = hp._heal_for_export(build())
             except Exception as exc:  # a build failure is its own bug, but flag it
                 all_ok &= _label(name, False,
                                  f"rebuild raised {type(exc).__name__}: {exc}")
                 continue
+            if printable:
+                # Leg 2 reference: the healed BREP tessellation the print
+                # set was installed from.
+                try:
+                    fresh = step_pipeline.load_healed_brep(base)
+                except FileNotFoundError:
+                    all_ok &= _label(
+                        name, False,
+                        "no BREP tessellation in step_prototype/stl/ -- "
+                        "run `make build`")
+                    continue
+            else:
+                fresh = twin
             try:
                 disk = trimesh.load(path, process=False)
                 if isinstance(disk, trimesh.Scene):
@@ -869,9 +916,30 @@ def check_exported_stl_freshness():
             bounds_off = float(np.max(np.abs(b_src - b_disk)))
             bounds_ok = bounds_off <= _FRESHNESS_BOUNDS_ATOL
 
-            ok = faces_ok and vol_ok and bounds_ok
+            # Leg 3 (printables only): BREP-vs-twin equivalence backstop, so
+            # the probe suite (which builds from the trimesh factories)
+            # provably tests the geometry that actually prints.
+            equiv_ok = True
+            equiv_bits = []
+            if printable:
+                _f_t, v_twin, b_twin = _stl_signature(twin)
+                vol_pct = 100.0 * abs(v_src - v_twin) / v_twin
+                eq_bounds_off = float(np.max(np.abs(b_src - b_twin)))
+                if vol_pct > _EQUIV_VOL_RTOL_PCT:
+                    equiv_ok = False
+                    equiv_bits.append(
+                        f"BREP vs twin vol {vol_pct:.2f}% "
+                        f"(> {_EQUIV_VOL_RTOL_PCT}%)")
+                if eq_bounds_off > _EQUIV_BOUNDS_ATOL:
+                    equiv_ok = False
+                    equiv_bits.append(
+                        f"BREP vs twin bounds off {eq_bounds_off:.2f} mm "
+                        f"(> {_EQUIV_BOUNDS_ATOL})")
+
+            ok = faces_ok and vol_ok and bounds_ok and equiv_ok
             if ok:
-                detail = f"faces={f_disk}  vol={v_disk:,.1f} mm^3 (current)"
+                src_tag = "BREP" if printable else "current"
+                detail = f"faces={f_disk}  vol={v_disk:,.1f} mm^3 ({src_tag})"
             else:
                 bits = []
                 if not faces_ok:
@@ -880,6 +948,7 @@ def check_exported_stl_freshness():
                     bits.append(f"vol disk={v_disk:,.1f} src={v_src:,.1f} mm^3")
                 if not bounds_ok:
                     bits.append(f"bounds off {bounds_off:.2f} mm")
+                bits.extend(equiv_bits)
                 detail = "STALE -- run `make build`: " + "; ".join(bits)
             all_ok &= _label(name, ok, detail)
 
