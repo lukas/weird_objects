@@ -2968,6 +2968,45 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     teacher candidates but carry that residual into stage-2's own
     session-level eval.
 
+-0.5 ROOT-CAUSE + LEVER for the flat-in-composition rise residual
+    above (08-26, this cycle, code-read not guesswork — confirmed the
+    isolated `riseonly-bcchain3-meshref-tuckclock-acq8m{,_s1}` flat
+    PASS (12/12, 11/12) is NOT contract-bug-contaminated, its
+    flatprobe already reads `motor_contract=0.375`, so flat rise is
+    genuinely solved standalone and the composed-seqprobe regression
+    is a real composition effect, not stale evidence). Read
+    `goal_task.py::_sample_mode_seq_stance`/`_seq_segment_traj`: a
+    mode_seq segment's length is drawn `U(mode_seq_segment_s_min=6.0,
+    mode_seq_segment_s_max=8.0)`, but this run's OWN rise schedule
+    (`goal.rise_ramp_s=6.0` + the hardcoded 1 s pre-ramp hold) needs
+    >=7.0 s to even REACH the commanded height once — when rise draws
+    as the sequence's first segment (the eval's forced case) roughly
+    half the U(6,8) draws land under 7.0 s, cutting the ramp off
+    before a flat start (the only start_kind needing the FULL
+    physical belly->stand climb; bridge/rsi/crouch start partway up
+    against the same fixed 0->amp schedule) can finish, and the
+    still-low height rides into the next segment where
+    `hold_low_height` fires — a probabilistic, start_kind-conditional
+    timing truncation, not a skill or reward defect, and the exact
+    same class of segment-timing artifact this file's own lower-phase
+    entries already diagnosed (`min_tail` truncating a late `lower`).
+    **LEVER (launched this cycle, no code change — `goal.mode_seq_
+    segment_s_min/_max` are pre-existing shared cfg keys, already used
+    as launch-time overrides elsewhere — `distill_gru.py`,
+    `verify_modeseq_teachers.py`):** `cw-standwalk-stance-mesh2-
+    standheight-rung5-acq8m-segfix`/`-segfix-s1`, 2M continuation off
+    each seed's own acq8m checkpoint, identical recipe +
+    `goal.mode_seq_segment_s_min=9.0 goal.mode_seq_segment_s_max=11.0`
+    (safely clears the 7.0 s rise-schedule floor with margin; only
+    changes THIS launch's cfg, not any shared default). Gate: PASS if
+    the composed seqprobe's flat-start rise sub-count improves (fewer
+    `hold_low_height` terms on flat draws) with hold/lower staying at
+    the acq8m level (no new majority term) — confirms the
+    segment-timing mechanism and gives a promotable rung-5 recipe
+    variant; FAIL (unchanged/worse flat sub-count) refutes the timing
+    hypothesis and points back to a genuine skill-interference cause
+    (would need a matched multi-teacher/KL mechanism, dig-in scope).
+
 0. OPERATOR DIRECTIVE (08-25, fb_20260825T140238_d43b35 — binding
    priority): the raw-18 `joint_goal` **footlow2** curriculum
    (hold=.1,rise=.45,lower=.45 + per-mode anchors + rise-ref) is THE
