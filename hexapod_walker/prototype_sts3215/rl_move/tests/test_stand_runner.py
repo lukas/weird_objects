@@ -48,7 +48,7 @@ CFG = load_config(str(_ROOT / "rl_move" / "config.yaml"))
 # The specialist's trained goal overrides (ledger cw-stand-holdbc1-hard1).
 TRAINED_RISE_MM = (108.0, 114.0)
 TRAINED_RISE_RAMP_S = 6.0
-HZ = rl_policy.HZ
+TRAINING_HZ = 25.0
 
 
 def _live_meta() -> dict:
@@ -63,6 +63,7 @@ def test_live_stance_weights_are_the_specialist():
     meta = _live_meta()
     assert meta["source"].endswith("ppo_goal_cw_stand_holdbc1_hard1.zip")
     assert meta["obs_dim"] == 68 and meta["act_dim"] == 18
+    assert meta["training_hz"] == TRAINING_HZ
     prof = meta["profile"]["stand"]
     assert prof["hold_s"] == 5.0 and prof["ramp_s"] == TRAINED_RISE_RAMP_S
     assert (TRAINED_RISE_MM[0] <= prof["target_m"] * 1000.0
@@ -78,6 +79,7 @@ def test_stand_profile_matches_trained_goal_generator():
     from rl_move.sim.goal_task import GoalGenerator
 
     meta = _live_meta()
+    hz = rl_policy.policy_training_hz(SimpleNamespace(meta=meta))
     prof = rl_policy.policy_profile(
         SimpleNamespace(meta=meta), "stand")
     target = prof["target_m"]
@@ -91,8 +93,8 @@ def test_stand_profile_matches_trained_goal_generator():
         setattr(gen, a, 0.0)
     gen.p_rise = 1.0
     gen.force_rise_start = "flat"
-    dt = 1.0 / HZ
-    n = int(round(15.0 * HZ))
+    dt = 1.0 / hz
+    n = int(round(15.0 * hz))
     traj = gen.sample(np.random.default_rng(0), n, dt)
     assert traj.mode == "rise" and traj.start_at == "zero"
     runner = np.array([rl_policy._height_ref(prof, i * dt)
@@ -120,6 +122,27 @@ def test_legacy_fallback_without_meta_profile():
     prof = rl_policy.policy_profile(stub, "stand")
     assert prof["ramp_s"] == 6.0
     assert prof["target_m"] == rl_policy.RISE_TARGET_M
+
+
+def test_policy_training_hz_is_required():
+    assert rl_policy.policy_training_hz(
+        SimpleNamespace(meta={"training_hz": 100})) == 100.0
+    with pytest.raises(ValueError, match="missing meta.training_hz"):
+        rl_policy.policy_training_hz(SimpleNamespace(meta={"obs_dim": 68}))
+
+
+def test_timing_trip_policy_tolerates_jitter_then_fails():
+    hz = 100.0
+    dt = 1.0 / hz
+    grace = rl_policy._timing_late_grace(dt)
+    assert grace == pytest.approx(0.002)
+    assert rl_policy._timing_trip_reason(
+        "walk", 1, hz, grace * 0.5, 0) is None
+    assert "missed the 100 Hz deadline" in rl_policy._timing_trip_reason(
+        "walk", 2, hz, dt * rl_policy.TIMING_HARD_LAG_FRAC, 1)
+    assert "consecutive" in rl_policy._timing_trip_reason(
+        "walk", 3, hz, grace * 1.1,
+        rl_policy.TIMING_MAX_CONSECUTIVE_LATE)
 
 
 def test_runner_stand_obs_layout():

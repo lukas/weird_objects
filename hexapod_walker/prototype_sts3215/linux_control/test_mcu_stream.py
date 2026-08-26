@@ -136,11 +136,29 @@ def _mk_bus(reply: bytes) -> McuFeetechBus:
     bus._pos_cache_mono = 0.0
     bus._fb_cache = {}
     bus._fb_cache_mono = 0.0
+    bus._live_cache = None
+    bus._live_cache_t = 0.0
     bus._imu_calib = None
     bus._imu_mount = "normal"
     bus.has_stream = True
     bus.streaming = True
     return bus
+
+
+def _scan_reply(ids: list[int]) -> bytes:
+    return ("OK " + ",".join(str(sid) for sid in ids) + "\n").encode("ascii")
+
+
+def test_scan_empty_reply_does_not_poison_live_cache():
+    bus = _mk_bus(_scan_reply([2, 3, 4]) + b"OK \n" + _scan_reply([2, 3, 4]))
+
+    assert bus.scan(range(2, 20)) == [2, 3, 4]
+    bus._live_cache_t = -10.0
+
+    assert bus.scan(range(2, 20)) == []
+    assert bus._live_cache == [2, 3, 4]
+
+    assert bus.scan(range(2, 20)) == [2, 3, 4]
 
 
 def test_step_all_round_trip():

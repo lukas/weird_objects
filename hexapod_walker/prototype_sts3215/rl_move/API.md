@@ -89,10 +89,13 @@ effect at the NEXT episode start (never mid-move) and is refused while
 a job is running. Slot is inferred from obs dim (68 stance / 72 walk).
 
 Add a policy: `uv run python -m rl_move.sim.export_policy_np --policy <zip>
---out linux_control/policies/<name>.json --name "<display>" --notes
-"<operator notes>"` → scp into
+--out linux_control/policies/<name>.json --training-hz 25 --name
+"<display>" --notes "<operator notes>"` -> scp into
 `/home/arduino/hexapod_sts/linux_control/policies/` (no restart
-needed — the list endpoint reads the dir live).
+needed — the list endpoint reads the dir live).  `meta.training_hz`
+is required and is the control-loop rate the live runner uses for the
+policy. Use `--inner-hz` only for a faster robot-side servo stream
+between policy decisions; it does not change the learned cadence.
 
 **Roles + drive session (2026-08-11):** on top of the slots, a role
 registry (`~/.hexapod_rl_roles.json` on the board, `/api/rl/roles`)
@@ -102,11 +105,16 @@ keys are pressed — default "walk policy at zero command", or any obs
 roles. Unset roles fall back to the live slot files, so behavior
 without assignments is unchanged. The drive session
 (`/api/rl/drive/*`, RL tab "Drive — hold keys") is a persistent
-25 Hz walk loop steered by live browser heartbeats: held arrow keys
+policy-rate walk loop steered by live browser heartbeats: held arrow keys
 = walk that way, release = decel to the hold model, model switches
 re-anchor the episode frame (q_nom := present pose, prev_action 0).
-Watchdogs: heartbeat stale 0.6 s ⇒ zero command; 120 s silence ⇒
-session ends holding; 300 s hard cap; safety trips limp as always.
+Walk and hold policies must declare the same `training_hz`. Watchdogs:
+heartbeat stale 0.6 s => zero command; 120 s silence => session ends
+holding; 300 s hard cap; safety trips limp as always. Episode CSVs log
+per-tick runner timing (`service_ms`, `obs_ms`, `policy_ms`,
+`safety_ms`, `write_ms`, `read_ms`, `lag_ms`). A severe deadline miss,
+or several consecutive meaningful misses, is reported as a timing fault
+and the runner stops commanding motion.
 Every session logs `rl_drive_*.csv` like any episode.
 
 ## RL episode logging (2026-08-09, on-robot, automatic)

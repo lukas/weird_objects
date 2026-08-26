@@ -45,6 +45,8 @@
                                     (raw int16; temp = raw TEMP_OUT)
     STREAM <0|1>                  → OK STREAM <0|1>  (free-run mode below)
     STREAM                        → OK STREAM <0|1>  (query)
+    DBG                           → OK key=value ... (bridge counters)
+    DBG RESET                     → OK key=value ... (reset then report)
 
   Binary fast path (same UART):
     A5 5A 'W' n  {id u8, pos i16le, spd u16le, acc u8}×n  xor
@@ -143,6 +145,16 @@ static unsigned long fbStampMs = 0;
 // Full-state pass cadence. Positions/speed/IMU refresh every pass
 // (~150-250 Hz); current/load/volt/temp only need ~10 Hz.
 static const unsigned long FB_PERIOD_MS = 100;
+// During host-owned 100 Hz control, serve 'S' replies from the last fresh
+// cache, then refresh pos/speed/IMU in the idle gap before the next tick.
+// This keeps the read cadence near the control rate, with one-tick latency,
+// while taking servo/I2C waits out of the host round-trip.
+static const unsigned long HOST_S_REFRESH_DELAY_MS = 1;
+static const unsigned long HOST_S_CONTROL_IDLE_MS = 30;
+static const unsigned long HOST_S_MAX_CACHE_AGE_MS = 12;
+static bool hostSRefreshPending = false;
+static unsigned long hostSRefreshAtMs = 0;
+static unsigned long hostSLastMs = 0;
 
 static bool streaming_fb_fresh() {
   return streaming && fbStampMs != 0;
@@ -152,6 +164,7 @@ static bool streaming_fb_fresh() {
 static void streamFastPass();
 static void streamFullPass();
 static void streamImuPass();
+static void prepareSnapshotForHost();
 
 // The host-UART RX ring is SMALLER than one 113-byte 'W'/'S' frame
 // (measured 2026-08-19: a frame landing while the MCU is inside a 4-6 ms
@@ -167,13 +180,156 @@ static void execParked();       // run a parked frame (servo bus free)
 static char lineBuf[640];
 static uint16_t lineLen = 0;
 
+// ---- Bridge diagnostics: counters are read/reset by the DBG command. ----
+static uint32_t dbgHostBytesSeen = 0;
+static uint32_t dbgAsciiLinesCompleted = 0;
+static uint32_t dbgAsciiLinesParked = 0;
+static uint32_t dbgAsciiOkReplies = 0;
+static uint32_t dbgAsciiErrReplies = 0;
+static uint32_t dbgLineOverflow = 0;
+static uint32_t dbgUnknownAscii = 0;
+static uint32_t dbgBinFramesStarted = 0;
+static uint32_t dbgBinFramesCompleted = 0;
+static uint32_t dbgBinFramesParked = 0;
+static uint32_t dbgBinFramesExecuted = 0;
+static uint32_t dbgBinChecksumBad = 0;
+static uint32_t dbgBinBadN = 0;
+static uint32_t dbgBinBadCmd = 0;
+static uint32_t dbgBinReplyHeaders = 0;
+static uint32_t dbgDesyncResets = 0;
+static uint32_t dbgSyncWriteCalls = 0;
+static uint32_t dbgSyncWriteFailures = 0;
+static uint32_t dbgStreamFastPasses = 0;
+static uint32_t dbgStreamFullPasses = 0;
+static uint32_t dbgStreamImuPasses = 0;
+static uint32_t dbgStreamPosSlotFails = 0;
+static uint32_t dbgStreamFbSlotFails = 0;
+static uint32_t dbgHostSnapshotRequests = 0;
+static uint32_t dbgHostSnapshotCacheHits = 0;
+static uint32_t dbgHostSnapshotSyncRefreshes = 0;
+static uint32_t dbgHostSnapshotAsyncRefreshes = 0;
+static uint32_t dbgMaxFastPassUs = 0;
+static uint32_t dbgMaxFullPassUs = 0;
+static uint32_t dbgMaxImuPassUs = 0;
+static uint32_t dbgMaxBinExecUs = 0;
+static uint32_t dbgMaxParkedWaitUs = 0;
+static uint32_t dbgLastBinFrameStartUs = 0;
+static uint32_t dbgLastBinFrameCompleteUs = 0;
+static uint32_t dbgBinParkedAtUs = 0;
+static uint8_t dbgLastBinCmd = 0;
+static uint8_t dbgLastBinN = 0;
+
+static void dbgUpdateMax(uint32_t &dst, uint32_t val) {
+  if (val > dst) dst = val;
+}
+
+static void dbgResetCounters() {
+  dbgHostBytesSeen = 0;
+  dbgAsciiLinesCompleted = 0;
+  dbgAsciiLinesParked = 0;
+  dbgAsciiOkReplies = 0;
+  dbgAsciiErrReplies = 0;
+  dbgLineOverflow = 0;
+  dbgUnknownAscii = 0;
+  dbgBinFramesStarted = 0;
+  dbgBinFramesCompleted = 0;
+  dbgBinFramesParked = 0;
+  dbgBinFramesExecuted = 0;
+  dbgBinChecksumBad = 0;
+  dbgBinBadN = 0;
+  dbgBinBadCmd = 0;
+  dbgBinReplyHeaders = 0;
+  dbgDesyncResets = 0;
+  dbgSyncWriteCalls = 0;
+  dbgSyncWriteFailures = 0;
+  dbgStreamFastPasses = 0;
+  dbgStreamFullPasses = 0;
+  dbgStreamImuPasses = 0;
+  dbgStreamPosSlotFails = 0;
+  dbgStreamFbSlotFails = 0;
+  dbgHostSnapshotRequests = 0;
+  dbgHostSnapshotCacheHits = 0;
+  dbgHostSnapshotSyncRefreshes = 0;
+  dbgHostSnapshotAsyncRefreshes = 0;
+  dbgMaxFastPassUs = 0;
+  dbgMaxFullPassUs = 0;
+  dbgMaxImuPassUs = 0;
+  dbgMaxBinExecUs = 0;
+  dbgMaxParkedWaitUs = 0;
+  dbgLastBinFrameStartUs = 0;
+  dbgLastBinFrameCompleteUs = 0;
+  dbgBinParkedAtUs = 0;
+  dbgLastBinCmd = 0;
+  dbgLastBinN = 0;
+}
+
+static void dbgPrintKV(const __FlashStringHelper *key, uint32_t value) {
+  Serial1.print(' ');
+  Serial1.print(key);
+  Serial1.print('=');
+  Serial1.print(value);
+}
+
+static void dbgPrintKV8(const __FlashStringHelper *key, uint8_t value) {
+  dbgPrintKV(key, (uint32_t)value);
+}
+
+static void cmdDbg(bool reset) {
+  if (reset) dbgResetCounters();
+  Serial1.print(F("OK"));
+  dbgPrintKV(F("uptime_ms"), (uint32_t)millis());
+  dbgPrintKV8(F("streaming"), streaming ? 1 : 0);
+  dbgPrintKV(F("host_bytes_seen"), dbgHostBytesSeen);
+  dbgPrintKV(F("ascii_lines_completed"), dbgAsciiLinesCompleted);
+  dbgPrintKV(F("ascii_lines_parked"), dbgAsciiLinesParked);
+  dbgPrintKV(F("ascii_ok_replies"), dbgAsciiOkReplies);
+  dbgPrintKV(F("ascii_err_replies"), dbgAsciiErrReplies);
+  dbgPrintKV(F("line_overflow"), dbgLineOverflow);
+  dbgPrintKV(F("unknown_ascii"), dbgUnknownAscii);
+  dbgPrintKV(F("bin_frames_started"), dbgBinFramesStarted);
+  dbgPrintKV(F("bin_frames_completed"), dbgBinFramesCompleted);
+  dbgPrintKV(F("bin_frames_parked"), dbgBinFramesParked);
+  dbgPrintKV(F("bin_frames_executed"), dbgBinFramesExecuted);
+  dbgPrintKV(F("bin_checksum_bad"), dbgBinChecksumBad);
+  dbgPrintKV(F("bin_bad_n"), dbgBinBadN);
+  dbgPrintKV(F("bin_bad_cmd"), dbgBinBadCmd);
+  dbgPrintKV(F("bin_reply_headers"), dbgBinReplyHeaders);
+  dbgPrintKV(F("desync_resets"), dbgDesyncResets);
+  dbgPrintKV(F("syncwrite_calls"), dbgSyncWriteCalls);
+  dbgPrintKV(F("syncwrite_failures"), dbgSyncWriteFailures);
+  dbgPrintKV(F("stream_fast_passes"), dbgStreamFastPasses);
+  dbgPrintKV(F("stream_full_passes"), dbgStreamFullPasses);
+  dbgPrintKV(F("stream_imu_passes"), dbgStreamImuPasses);
+  dbgPrintKV(F("stream_pos_slot_fails"), dbgStreamPosSlotFails);
+  dbgPrintKV(F("stream_fb_slot_fails"), dbgStreamFbSlotFails);
+  dbgPrintKV(F("host_snapshot_requests"), dbgHostSnapshotRequests);
+  dbgPrintKV(F("host_snapshot_cache_hits"), dbgHostSnapshotCacheHits);
+  dbgPrintKV(F("host_snapshot_sync_refreshes"), dbgHostSnapshotSyncRefreshes);
+  dbgPrintKV(F("host_snapshot_async_refreshes"), dbgHostSnapshotAsyncRefreshes);
+  dbgPrintKV(F("max_fast_pass_us"), dbgMaxFastPassUs);
+  dbgPrintKV(F("max_full_pass_us"), dbgMaxFullPassUs);
+  dbgPrintKV(F("max_imu_pass_us"), dbgMaxImuPassUs);
+  dbgPrintKV(F("max_bin_exec_us"), dbgMaxBinExecUs);
+  dbgPrintKV(F("max_parked_wait_us"), dbgMaxParkedWaitUs);
+  dbgPrintKV8(F("last_bin_cmd"), dbgLastBinCmd);
+  dbgPrintKV8(F("last_bin_n"), dbgLastBinN);
+  Serial1.println();
+}
+
 static void hostPrint(const __FlashStringHelper *s) { Serial1.print(s); }
 static void hostPrint(const char *s) { Serial1.print(s); }
 static void hostPrint(int v) { Serial1.print(v); }
 static void hostPrintln() { Serial1.println(); }
 
-static void replyOk() { Serial1.println(F("OK")); }
-static void replyErr() { Serial1.println(F("ERR")); }
+static void replyOk() {
+  dbgAsciiOkReplies++;
+  Serial1.println(F("OK"));
+}
+
+static void replyErr() {
+  dbgAsciiErrReplies++;
+  Serial1.println(F("ERR"));
+}
 
 static bool mpuWriteReg(uint8_t reg, uint8_t val) {
   Wire.beginTransmission(MPU_ADDR);
@@ -470,7 +626,11 @@ static void cmdReadPos(long id) {
 
 static bool applySyncWrite(uint8_t n, uint8_t *ids, s16 *pos, u16 *spd,
                            u8 *acc) {
-  if (n == 0 || n > MAX_N) return false;
+  dbgSyncWriteCalls++;
+  if (n == 0 || n > MAX_N) {
+    dbgSyncWriteFailures++;
+    return false;
+  }
   sts.SyncWritePosEx(ids, n, pos, spd, acc);
   return true;
 }
@@ -534,6 +694,14 @@ static void handleLine(char *line) {
   }
   if (strcmp(line, "IMUR") == 0) {
     cmdImuRead();
+    return;
+  }
+  if (strcmp(line, "DBG") == 0) {
+    cmdDbg(false);
+    return;
+  }
+  if (strcmp(line, "DBG RESET") == 0) {
+    cmdDbg(true);
     return;
   }
   if (strncmp(line, "STREAM", 6) == 0) {
@@ -747,6 +915,7 @@ static void handleLine(char *line) {
     return;
   }
 
+  dbgUnknownAscii++;
   replyErr();
 }
 
@@ -769,6 +938,7 @@ static void binPutI16(uint8_t *p, int16_t v) {
 }
 
 static void sendBinHeader(uint8_t cmd, uint8_t n, uint8_t &x) {
+  dbgBinReplyHeaders++;
   Serial1.write((uint8_t)0xA5);
   Serial1.write((uint8_t)0x5A);
   Serial1.write(cmd);
@@ -835,6 +1005,8 @@ static void decodeFbPacket(const uint8_t *rx, int16_t &pos, int16_t &spd,
 
 // Fast pass: pos+speed for IDs 2..19 in one syncRead (~2-4 ms healthy).
 static void streamFastPass() {
+  uint32_t t0 = micros();
+  dbgStreamFastPasses++;
   bool prevDefer = deferHostExec;
   deferHostExec = true;
   uint8_t ids[MAX_N];
@@ -850,6 +1022,7 @@ static void streamFastPass() {
       spdCache[k] = stsSigned15(stsLe16(rx[2], rx[3]));
       posOk[k] = 1;
     } else {
+      dbgStreamPosSlotFails++;
       posOk[k] = 0;
     }
   }
@@ -857,11 +1030,14 @@ static void streamFastPass() {
   posSeq++;
   posStampMs = millis();
   deferHostExec = prevDefer;
+  dbgUpdateMax(dbgMaxFastPassUs, (uint32_t)(micros() - t0));
 }
 
 // Full pass: 15-byte state block; refreshes the low-rate caches AND the
 // fast caches (positions ride along for free).
 static void streamFullPass() {
+  uint32_t t0 = micros();
+  dbgStreamFullPasses++;
   bool prevDefer = deferHostExec;
   deferHostExec = true;
   uint8_t ids[MAX_N];
@@ -889,6 +1065,7 @@ static void streamFullPass() {
       fbCur[k] = cur;
       fbOk[k] = 1;
     } else {
+      dbgStreamFbSlotFails++;
       failed[nFailed++] = k;
     }
   }
@@ -918,6 +1095,7 @@ static void streamFullPass() {
       fbCur[k] = cur;
       fbOk[k] = 1;
     } else {
+      dbgStreamFbSlotFails++;
       posOk[k] = 0;
       fbOk[k] = 0;
     }
@@ -927,16 +1105,20 @@ static void streamFullPass() {
   posStampMs = millis();
   fbStampMs = posStampMs;
   deferHostExec = prevDefer;
+  dbgUpdateMax(dbgMaxFullPassUs, (uint32_t)(micros() - t0));
 }
 
 static void streamImuPassInner();
 
 static void streamImuPass() {
+  uint32_t t0 = micros();
+  dbgStreamImuPasses++;
   bool prevDefer = deferHostExec;
   deferHostExec = true;
   hostPump();
   streamImuPassInner();
   deferHostExec = prevDefer;
+  dbgUpdateMax(dbgMaxImuPassUs, (uint32_t)(micros() - t0));
 }
 
 static void streamImuPassInner() {
@@ -960,6 +1142,36 @@ static void streamImuPassInner() {
   imuCache[6] = be16(raw + 6);  // TEMP_OUT
   imuCacheValid = true;
   imuStampMs = millis();
+}
+
+static void refreshSnapshotNow() {
+  streamFastPass();
+  streamImuPass();
+}
+
+static bool snapshotCacheFreshEnough() {
+  if (!streaming || posStampMs == 0 || !imuCacheValid) return false;
+  unsigned long now = millis();
+  return (now - posStampMs <= HOST_S_MAX_CACHE_AGE_MS)
+      && (now - imuStampMs <= HOST_S_MAX_CACHE_AGE_MS);
+}
+
+static void scheduleHostSnapshotRefresh() {
+  unsigned long now = millis();
+  hostSLastMs = now;
+  hostSRefreshAtMs = now + HOST_S_REFRESH_DELAY_MS;
+  hostSRefreshPending = true;
+}
+
+static void prepareSnapshotForHost() {
+  dbgHostSnapshotRequests++;
+  if (snapshotCacheFreshEnough()) {
+    dbgHostSnapshotCacheHits++;
+  } else {
+    dbgHostSnapshotSyncRefreshes++;
+    refreshSnapshotNow();
+  }
+  if (streaming) scheduleHostSnapshotRefresh();
 }
 
 static uint16_t ageMs(unsigned long stamp, bool valid) {
@@ -1148,10 +1360,7 @@ static void cmdBulkPositions(uint8_t n, const uint8_t *ids) {
 static void handleBinaryFrame() {
   if (binCmd == 'S' && binN == 0) {
     // Snapshot-only query (no write).
-    if (!streaming) {
-      streamFastPass();
-      streamImuPass();
-    }
+    prepareSnapshotForHost();
     sendSnapshot();
     return;
   }
@@ -1182,10 +1391,7 @@ static void handleBinaryFrame() {
       replyErr();
       return;
     }
-    if (!streaming) {
-      streamFastPass();
-      streamImuPass();
-    }
+    prepareSnapshotForHost();
     sendSnapshot();
     return;
   }
@@ -1208,16 +1414,29 @@ static void handleBinaryFrame() {
   replyErr();
 }
 
+static void execBinaryFrame() {
+  uint32_t t0 = micros();
+  dbgBinFramesExecuted++;
+  dbgLastBinCmd = binCmd;
+  dbgLastBinN = binN;
+  handleBinaryFrame();
+  dbgUpdateMax(dbgMaxBinExecUs, (uint32_t)(micros() - t0));
+}
+
 static void feedHostByte(uint8_t b) {
   // Binary frames A5 5A — otherwise ASCII lines.
   if (binState == 0) {
     if (b == 0xA5) {
+      dbgBinFramesStarted++;
+      dbgLastBinFrameStartUs = micros();
       binState = 1;
       return;
     }
     if (b == '\n') {
+      dbgAsciiLinesCompleted++;
       lineBuf[lineLen] = '\0';
       if (deferHostExec) {
+        dbgAsciiLinesParked++;
         parkedKind = 2;  // run after the pass (lineBuf/lineLen persist)
         return;
       }
@@ -1229,6 +1448,7 @@ static void feedHostByte(uint8_t b) {
     if (lineLen + 1 < sizeof(lineBuf)) {
       lineBuf[lineLen++] = (char)b;
     } else {
+      dbgLineOverflow++;
       lineLen = 0;  // overflow — drop
     }
     return;
@@ -1255,6 +1475,7 @@ static void feedHostByte(uint8_t b) {
       // n==0 means "default IDs 2..19" — no id payload.
       binNeed = (binN > MAX_N) ? 0 : binN;
     } else {
+      dbgBinBadCmd++;
       binNeed = 0;
     }
     binState = 4;
@@ -1271,12 +1492,23 @@ static void feedHostByte(uint8_t b) {
                    ? (binN <= MAX_N && binGot == binNeed)
                    : (binN > 0 && binN <= MAX_N && binGot == binNeed);
     if (b == binXor && okN) {
+      dbgBinFramesCompleted++;
+      dbgLastBinFrameCompleteUs = micros();
+      dbgLastBinCmd = binCmd;
+      dbgLastBinN = binN;
       if (deferHostExec) {
+        dbgBinFramesParked++;
+        dbgBinParkedAtUs = dbgLastBinFrameCompleteUs;
         parkedKind = 1;  // binCmd/binN/binPayload persist until exec
       } else {
-        handleBinaryFrame();
+        execBinaryFrame();
       }
     } else {
+      if (b != binXor) {
+        dbgBinChecksumBad++;
+      } else if (!okN) {
+        dbgBinBadN++;
+      }
       replyErr();  // TX only — safe mid-pass
     }
     binState = 0;
@@ -1308,6 +1540,10 @@ static unsigned long lastHostMs = 0;
 // Linux refreshes the panel every ~2 s; this much silence after first
 // contact means the web service (or the SoC) died.
 static const unsigned long HOST_LOST_MS = 12000;
+// Once a binary host frame has started, the rest should arrive in ~1.2 ms
+// at 921600 baud. Do not start another servo stream pass while the parser is
+// mid-frame; if bytes really vanished, reset quickly and tell Linux.
+static const unsigned long HOST_BIN_DESYNC_MS = 10;
 // After this much silence, cut all servo torque so a dead brain can't
 // leave motors fighting/cooking (2026-08-06 incident). Well above the
 // ~15-20 s a normal `systemctl restart hexapod-web` gap takes.
@@ -1320,6 +1556,7 @@ static bool autoLimped = false;
 // 'W'/'S' frame.
 static void hostPump() {
   while (parkedKind == 0 && Serial1.available() > 0) {
+    dbgHostBytesSeen++;
     hostSeen = true;
     lastHostMs = millis();
     autoLimped = false;
@@ -1331,7 +1568,12 @@ static void execParked() {
   uint8_t kind = parkedKind;
   parkedKind = 0;
   if (kind == 1) {
-    handleBinaryFrame();
+    if (dbgBinParkedAtUs != 0) {
+      dbgUpdateMax(
+          dbgMaxParkedWaitUs, (uint32_t)(micros() - dbgBinParkedAtUs));
+      dbgBinParkedAtUs = 0;
+    }
+    execBinaryFrame();
   } else if (kind == 2) {
     handleLine(lineBuf);
     lineLen = 0;
@@ -1339,22 +1581,46 @@ static void execParked() {
 }
 
 void loop() {
+  unsigned long now = millis();
   // A frame parked during the synchronous (non-streaming) 'S' passes
   // must still run; parked work always precedes new ring bytes.
   if (parkedKind != 0) execParked();
   // Desync guard: a torn binary frame (host retry after timeout) must
   // not eat the next frame's header as payload.
-  if (binState != 0 && millis() - lastHostMs > 100) binState = 0;
+  if (binState != 0 && now - lastHostMs > HOST_BIN_DESYNC_MS) {
+    dbgDesyncResets++;
+    binState = 0;
+    replyErr();
+  }
   if (Serial1.available() > 0) {
     hostSeen = true;
     lastHostMs = millis();
     autoLimped = false;
     do {
+      dbgHostBytesSeen++;
       feedHostByte((uint8_t)Serial1.read());
     } while (Serial1.available() > 0);
     return;
   }
-  unsigned long now = millis();
+  // A frame is in progress but the next byte has not arrived yet. Spin here
+  // instead of entering a servo/I2C stream pass; otherwise the small hardware
+  // FIFO can overflow before hostPump() gets another chance to drain it.
+  if (binState != 0) return;
+  if (streaming && hostSRefreshPending
+      && (long)(now - hostSRefreshAtMs) >= 0) {
+    hostSRefreshPending = false;
+    refreshSnapshotNow();
+    dbgHostSnapshotAsyncRefreshes++;
+    if (parkedKind != 0) {
+      execParked();
+      return;
+    }
+    return;
+  }
+  if (streaming && hostSLastMs != 0
+      && (long)(now - hostSLastMs) < HOST_S_CONTROL_IDLE_MS) {
+    return;
+  }
   if (streaming) {
     // Free-running acquisition while the host line is idle. ONE pass per
     // loop() iteration keeps worst-case host-command latency to a single

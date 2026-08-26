@@ -14,9 +14,9 @@ rot-60 / mirror (they train all headings, no wedge). AMP walk files use
 obs 93 = obs 74 + yaw-rate command + 18 fault-health entries; hardware
 currently feeds an all-healthy fault vector.
 
-- policy loop runs at the selected policy's trained control_hz
-  (legacy/no-rate exports = 25 Hz); obs = build_obs(q, qd, tilt-rel-to-start, gyro,
-  prev_action(18), goal(9)) with q_nom = the pose read at arm time.
+- policy loop runs at the selected policy's declared meta["training_hz"];
+  obs = build_obs(q, qd, tilt-rel-to-start, gyro, prev_action(18), goal(9))
+  with q_nom = the pose read at arm time.
   The runner may stream interpolated servo targets faster between policy
   decisions, but the learned brain still sees exactly the trained
   cadence.
@@ -112,11 +112,10 @@ except Exception:                                          # pragma: no cover
 
 WEIGHTS_PATH = _HERE / "rl_policy_weights.json"        # stance (obs 68)
 WALK_WEIGHTS_PATH = _HERE / "rl_walk_weights.json"     # walk (obs 72)
-# New training uses rl_move/config.yaml control.hz, but playback adapts per
-# policy. Legacy exports without explicit rate metadata are 25 Hz brains;
-# explicit exports run at meta.control_hz / meta.policy_hz. control.inner_hz
-# is only the optional faster servo-stream layer between policy decisions.
-LEGACY_POLICY_HZ = 25.0
+# Backward-compatible module constants for offline helpers/tests. Hardware
+# episodes use each policy's required meta["training_hz"] below.
+DEFAULT_TRAINING_HZ = 25.0
+LEGACY_POLICY_HZ = DEFAULT_TRAINING_HZ
 try:
     _RUNNER_CFG = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
 except Exception:                                          # pragma: no cover
@@ -125,6 +124,19 @@ HZ = float(cfg_get(_RUNNER_CFG, "control", "hz",
                    default=LEGACY_POLICY_HZ) or LEGACY_POLICY_HZ)
 DT = 1.0 / HZ
 MAX_INNER_STEPS = 8
+
+# Timing trips are relative to each policy's declared tick budget. Tiny
+# scheduler slips are counted but tolerated; repeated or large misses are
+# treated as a controller fault and the runner stops commanding motion.
+TIMING_LATE_GRACE_MIN_S = 0.002
+TIMING_LATE_GRACE_FRAC = 0.10
+TIMING_HARD_LAG_FRAC = 0.50
+TIMING_MAX_CONSECUTIVE_LATE = 3
+
+_TIMING_KEYS = (
+    "service_s", "obs_s", "policy_s", "safety_s", "write_s", "read_s",
+    "lag_s",
+)
 
 
 def policy_control_hz_error(meta: dict, name: str = "policy") -> str | None:
@@ -231,21 +243,30 @@ class PolicyTiming:
         return abs(self.policy_hz - self.runner_config_hz) > 1e-6
 
 
-def _policy_control_hz(policy: "NumpyPolicy") -> tuple[float, bool]:
-    """Return (trained policy decision Hz, explicit_in_meta).
+def policy_training_hz(policy: "NumpyPolicy") -> float:
+    """The control rate this policy was trained at.
 
-    Legacy exports did not carry this key. Those are treated as 25 Hz
-    because every metadata-free policy deployed before the 100 Hz switch
-    was trained under the old contract.
+    This is a hard deployment contract: qd filters, action-delta costs,
+    phase clocks, and the observed plant dynamics are all tick-rate
+    conditioned. A 25 Hz policy should not silently run at 50/100 Hz.
     """
     meta = policy.meta or {}
-    for key in ("control_hz", "policy_hz"):
-        if key in meta:
-            return _positive_float(meta[key], HZ), True
-    control = meta.get("control")
-    if isinstance(control, dict) and "hz" in control:
-        return _positive_float(control["hz"], HZ), True
-    return LEGACY_POLICY_HZ, False
+    if "training_hz" not in meta:
+        src = meta.get("name") or meta.get("source") or "policy"
+        raise ValueError(f"{src}: missing meta.training_hz")
+    try:
+        hz = float(meta["training_hz"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("meta.training_hz must be numeric") from exc
+    if not math.isfinite(hz) or hz < 1.0 or hz > 200.0:
+        raise ValueError(
+            f"meta.training_hz must be finite and in [1, 200], got {hz!r}")
+    return hz
+
+
+def _policy_control_hz(policy: "NumpyPolicy") -> tuple[float, bool]:
+    """Return the required trained policy decision Hz."""
+    return policy_training_hz(policy), True
 
 
 def _policy_timing(policy: "NumpyPolicy") -> PolicyTiming:
@@ -265,6 +286,50 @@ def _check_policy_control_hz(policy: "NumpyPolicy", role: str) -> str | None:
     _ = role
     _policy_timing(policy)
     return None
+
+
+def _timing_late_grace(dt: float) -> float:
+    return max(TIMING_LATE_GRACE_MIN_S, dt * TIMING_LATE_GRACE_FRAC)
+
+
+def _timing_trip_reason(mode: str, tick: int, hz: float, late_s: float,
+                        consecutive_late: int) -> str | None:
+    dt = 1.0 / hz
+    grace = _timing_late_grace(dt)
+    if late_s <= grace:
+        return None
+    if late_s >= dt * TIMING_HARD_LAG_FRAC:
+        return (f"{mode} timing overrun: tick {tick} missed the "
+                f"{hz:g} Hz deadline by {late_s * 1000.0:.1f} ms")
+    if consecutive_late >= TIMING_MAX_CONSECUTIVE_LATE:
+        return (f"{mode} timing overrun: {consecutive_late} consecutive "
+                f"ticks missed the {hz:g} Hz deadline")
+    return None
+
+
+class _TimingStats:
+    def __init__(self):
+        self.count = 0
+        self.maxes = {k: 0.0 for k in _TIMING_KEYS}
+        self.totals = {k: 0.0 for k in _TIMING_KEYS}
+
+    def add(self, timing: dict) -> None:
+        self.count += 1
+        for k in _TIMING_KEYS:
+            v = float(timing.get(k) or 0.0)
+            self.totals[k] += v
+            self.maxes[k] = max(self.maxes[k], v)
+
+    def summary(self) -> dict:
+        if self.count <= 0:
+            return {"ticks": 0}
+        out = {"ticks": self.count}
+        for k in _TIMING_KEYS:
+            name = k[:-2] + "_ms"
+            out["mean_" + name] = round(
+                self.totals[k] * 1000.0 / self.count, 3)
+            out["max_" + name] = round(self.maxes[k] * 1000.0, 3)
+        return out
 
 
 def _policy_bus_profile(policy: "NumpyPolicy", cfg: dict) -> tuple[int, int]:
@@ -375,7 +440,7 @@ def _stream_target(bus, est: RobotStateEstimator,
                    abort_check, last_good_state=None,
                    stale_ticks: int = 0,
                    max_stale_ticks: int = 0
-                   ) -> tuple[object | None, float, int, str, int, int]:
+                   ) -> tuple[object | None, float, int, str, int, int, dict]:
     """Write interpolated servo targets up to q_to_robot.
 
     The caller still runs the policy once per selected policy tick. This
@@ -385,6 +450,10 @@ def _stream_target(bus, est: RobotStateEstimator,
     state_robot = last_good_state
     overruns = 0
     stale_samples = 0
+    stream_t0 = time.monotonic()
+    write_s = 0.0
+    read_s = 0.0
+    lag_s = 0.0
     stale_ticks = max(0, int(stale_ticks))
     max_stale_ticks = max(0, int(max_stale_ticks))
     q_from = np.asarray(q_from_robot, dtype=float)
@@ -394,9 +463,20 @@ def _stream_target(bus, est: RobotStateEstimator,
     can_step_all = callable(step_all)
     stream_firmware = bool(getattr(bus, "has_stream", False))
     last_diag: dict | None = None
+
+    def stream_timing() -> dict:
+        return {
+            "stream_s": time.monotonic() - stream_t0,
+            "write_s": write_s,
+            "read_s": read_s,
+            "lag_s": lag_s,
+        }
+
     for sub in range(1, steps + 1):
         if abort_check():
-            return state_robot, t_next, overruns, "aborted", stale_ticks, stale_samples
+            return (
+                state_robot, t_next, overruns, "aborted", stale_ticks,
+                stale_samples, stream_timing())
         alpha = sub / steps
         q_cmd = q_to if sub == steps else q_from + (q_to - q_from) * alpha
         est.set_commanded(q_cmd)
@@ -416,12 +496,14 @@ def _stream_target(bus, est: RobotStateEstimator,
         if can_step_all:
             step_all_attempted = True
             diag["transport"] = "step_all"
+            op_t = time.monotonic()
             try:
                 snap = step_all(q_cmd_deg, speed=write_speed,
                                 acc=write_acc)
             except Exception as e:
                 diag["transport_error"] = repr(e)
                 snap = None
+            write_s += time.monotonic() - op_t
             if snap is not None:
                 diag["snapshot_seq"] = snap.get("seq")
                 diag["pos_age_ms"] = snap.get("pos_age_ms")
@@ -442,23 +524,28 @@ def _stream_target(bus, est: RobotStateEstimator,
                 diag["fallback_suppressed"] = "stream_firmware"
         if not step_all_attempted:
             diag["transport"] = "legacy_write_read"
+            op_t = time.monotonic()
             bus.write_all(q_cmd_deg, speed=write_speed, acc=write_acc)
+            write_s += time.monotonic() - op_t
 
         t_next += inner_dt
         lag = time.monotonic() - t_next
         if lag > 0:
             overruns += 1
             diag["overrun_lag_ms"] = round(float(lag) * 1000.0, 3)
+            lag_s = max(lag_s, float(lag))
             t_next = time.monotonic()
         else:
             time.sleep(-lag)
 
         if state_robot is None and not step_all_attempted:
+            op_t = time.monotonic()
             try:
                 state_robot = est.update()
             except Exception as e:
                 diag["est_update_error"] = repr(e)
                 state_robot = None
+            read_s += time.monotonic() - op_t
         if state_robot is not None:
             timing = dict(getattr(state_robot, "timing", {}) or {})
             diag["state_source"] = timing.get("source")
@@ -501,12 +588,13 @@ def _stream_target(bus, est: RobotStateEstimator,
                 continue
             return (state_robot, t_next, overruns,
                     "feedback stale during stream", stale_ticks,
-                    stale_samples)
+                    stale_samples, stream_timing())
         if getattr(state_robot, "timing", None) is not None:
             state_robot.timing["stream_diag"] = _json_safe(last_diag or diag)
         last_good_state = state_robot
         stale_ticks = 0
-    return state_robot, t_next, overruns, "", stale_ticks, stale_samples
+    return (state_robot, t_next, overruns, "", stale_ticks, stale_samples,
+            stream_timing())
 
 
 
@@ -1008,9 +1096,9 @@ def _finish_debug(debug: _RunDebug | None, result: dict) -> dict:
 class _EpisodeLog:
     """Every RL episode leaves a full local trace in ``logs/``.
 
-    ``rl_<mode>_<stamp>.csv``  — one row per 25 Hz tick: attitude, gyro,
-    goal refs, measured q (18), commanded q (18), raw action (18), and
-    per-servo current when full feedback is available.
+    ``rl_<mode>_<stamp>.csv``  — one row per policy-rate tick: attitude,
+    gyro, goal refs, measured q (18), commanded q (18), raw action (18),
+    per-servo current when full feedback is available, and runner timing.
     ``rl_<mode>_<stamp>_summary.json`` — params + final result.
     Start/end also land in events.jsonl (kind ``rl_episode``).
     Pull with receive_robot_logs.py / scp for offline analysis.
@@ -1061,6 +1149,8 @@ class _EpisodeLog:
             + ["rot60_k", "mirror",
                "bus_ok", "imu_ok", "stale_feedback", "stale_ticks",
                "t_pos_ms", "t_imu_ms", "t_fb_ms", "t_total_ms",
+               "service_ms", "obs_ms", "policy_ms", "safety_ms",
+               "write_ms", "read_ms", "lag_ms",
                "q_cmd_err_max_deg", "q_cmd_err_joint", "action_abs_max"])
         try:
             from event_log import emit
@@ -1077,7 +1167,7 @@ class _EpisodeLog:
     def tick(self, t: float, state, action, q_cmd_rad, goal,
              vx_r: float, vy_r: float, max_cur: float,
              obs=None, phase: str = "run", rot60_k=None,
-             mirror_on=None) -> None:
+             mirror_on=None, runner_timing: dict | None = None) -> None:
         cur = (state.servo_current.tolist()
                if state.servo_current is not None else [None] * N_JOINTS)
         timing = dict(getattr(state, "timing", {}) or {})
@@ -1093,6 +1183,11 @@ class _EpisodeLog:
             q_err_max = ""
         act_abs = (round(float(np.max(np.abs(action))), 4)
                    if action is not None else "")
+        def r_ms(key: str):
+            if not runner_timing or runner_timing.get(key) is None:
+                return ""
+            return round(float(runner_timing[key]) * 1000.0, 3)
+
         self._w.writerow(
             [round(t, 3), phase,
              round(state.imu_roll * RAD2DEG, 2),
@@ -1118,6 +1213,13 @@ class _EpisodeLog:
                round(float(timing.get("t_imu") or 0.0) * 1000.0, 3),
                round(float(timing.get("t_fb") or 0.0) * 1000.0, 3),
                round(float(timing.get("t_total") or 0.0) * 1000.0, 3),
+               r_ms("service_s"),
+               r_ms("obs_s"),
+               r_ms("policy_s"),
+               r_ms("safety_s"),
+               r_ms("write_s"),
+               r_ms("read_s"),
+               r_ms("lag_s"),
                q_err_max, q_err_j, act_abs])
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
@@ -1588,14 +1690,14 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         prof = policy_profile(policy, mode)
         total_s = float(prof["total_s"]) + min(
             max(float(extra_hold_s or 0.0), 0.0), 15.0)
-    hz_err = policy_control_hz_error(policy.meta, Path(wpath).name)
-    if hz_err:
-        return {"ok": False, "error": hz_err}
+    try:
+        timing = _policy_timing(policy)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
     try:
         joint_frame = policy_joint_frame(policy, cfg)
     except ValueError as e:
         return {"ok": False, "error": str(e)}
-    timing = _policy_timing(policy)
     write_speed, write_acc = _policy_bus_profile(policy, cfg)
     inner_steps, inner_hz, inner_dt = _inner_stream_plan(
         policy, cfg, timing.policy_hz)
@@ -1606,6 +1708,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "joint_frame": joint_frame,
         "timing": {
             "policy_hz": timing.policy_hz,
+            "training_hz": timing.policy_hz,
             "trained_control_hz": timing.trained_control_hz,
             "runner_config_hz": timing.runner_config_hz,
             "adapted": timing.adapted,
@@ -1755,7 +1858,11 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     tilt_rel_max = 0.0
     t_end = 0.0
     t_next = time.monotonic()
+    timing_stats = _TimingStats()
+    consecutive_late = 0
+    progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": mode,
+                    "training_hz": timing.policy_hz,
                     "policy_joint_frame": joint_frame}
     last_good_stream_state = state_robot
     stale_stream_ticks = 0
@@ -1769,6 +1876,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "mode": mode, "total_s": round(total_s, 1),
         "hz": timing.policy_hz,
         "policy_hz": timing.policy_hz,
+        "training_hz": timing.policy_hz,
         "trained_control_hz": timing.trained_control_hz,
         "trained_control_hz_explicit": timing.trained_control_hz_explicit,
         "runner_config_hz": timing.runner_config_hz,
@@ -1801,6 +1909,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                           held_pose=True, ticks=i)
             break
         t = i * timing.policy_dt
+        tick_t0 = time.monotonic()
+        stage_t = tick_t0
         if mode == "walk":
             goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0,
                             height_ref=0.0, unload_leg=None)
@@ -1826,6 +1936,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                             unload_leg=None)
             obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                             tilt_ref=tilt_ref0)
+        obs_s = time.monotonic() - stage_t
+        stage_t = time.monotonic()
         chirality = None
         if selector is not None:
             # Chirality selection (turn=): integrate the heading from
@@ -1846,6 +1958,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             raw_act, _ = canon.predict(obs)
         else:
             raw_act = policy.act(obs)
+        policy_s = time.monotonic() - stage_t
+        stage_t = time.monotonic()
         action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
         if action is None:
             limp()
@@ -1855,6 +1969,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             break
         q_prop = _CENTER_RAD + action * _HALF_RAD
         q_safe, status = safety.filter(q_prop, state, action=action)
+        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
+        safety_s = time.monotonic() - stage_t
         if status.terminate:
             limp()
             debug.event("safety_trip", tick=i, t_s=t,
@@ -1868,10 +1984,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                           + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
-        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
         prev_stale_ticks = stale_stream_ticks
         (state_robot, t_next, extra_overruns, stream_err,
-         stale_stream_ticks, stale_added) = _stream_target(
+         stale_stream_ticks, stale_added, stream_timing) = _stream_target(
             bus, est, last_q_robot_cmd, q_robot_cmd,
             t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
             write_speed=write_speed, write_acc=write_acc,
@@ -1933,12 +2048,44 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
             abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
         t_end = t + timing.policy_dt
+        service_s = time.monotonic() - tick_t0
+        lag_s = float(stream_timing.get("lag_s") or 0.0)
+        late_s = max(lag_s, service_s - timing.policy_dt)
+        if late_s > _timing_late_grace(timing.policy_dt):
+            consecutive_late += 1
+        else:
+            consecutive_late = 0
+        runner_timing = {
+            "service_s": service_s,
+            "obs_s": obs_s,
+            "policy_s": policy_s,
+            "safety_s": safety_s,
+            "write_s": float(stream_timing.get("write_s") or 0.0),
+            "read_s": float(stream_timing.get("read_s") or 0.0),
+            "lag_s": lag_s,
+        }
+        timing_stats.add(runner_timing)
+        timing_error = _timing_trip_reason(
+            mode, i, timing.policy_hz, late_s, consecutive_late)
         elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
                   obs=obs,
                   rot60_k=(canon.k if canon is not None else None),
                   mirror_on=(None if chirality is None
-                             else chirality == "mirror"))
-        if i % 5 == 0:
+                             else chirality == "mirror"),
+                  runner_timing=runner_timing)
+        if timing_error:
+            limp()
+            result.update(ok=False, error=timing_error, limped=True,
+                          ticks=i, timing=timing_stats.summary())
+            on_progress({
+                "level": "error", "error": timing_error,
+                "msg": timing_error,
+                "t_s": round(t, 2), "overruns": overruns,
+                "timing_ms": {k[:-2]: round(v * 1000.0, 3)
+                              for k, v in runner_timing.items()},
+            })
+            break
+        if i % progress_every == 0:
             if mode == "walk":
                 phase = ("settle" if t < WALK_HOLD_S else
                          "decel" if t > total_s - WALK_RAMP_S else
@@ -1969,6 +2116,11 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                 "stale_stream_ticks": stale_stream_ticks,
                 "stale_stream_samples": stale_stream_samples,
                 "overruns": overruns,
+                "timing_ms": {
+                    "service": round(service_s * 1000.0, 3),
+                    "read": round(runner_timing["read_s"] * 1000.0, 3),
+                    "lag": round(lag_s * 1000.0, 3),
+                },
             })
     else:
         result["ticks"] = n_ticks
@@ -2032,6 +2184,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         last_stale_stream_at_s=(round(last_stale_at_s, 3)
                                 if last_stale_at_s is not None else None),
         max_stale_stream_ticks=DRIVE_STREAM_STALE_TICKS,
+        timing=timing_stats.summary(),
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         # Attitude bookkeeping, all relative to the episode tilt ref:
@@ -2066,8 +2219,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     """Blocking persistent drive session (MuJoCo-viewer-style driving).
 
     Same conventions as run_policy_move mode="walk" — plant-stance
-    start gate, 25 Hz, walk obs contract with meas := ref, rot-60
-    canonicalizer, 25 deg tilt trip — but the command is LIVE: the
+    start gate, policy-declared rate, walk obs contract with meas := ref,
+    rot-60 canonicalizer, 25 deg tilt trip — but the command is LIVE: the
     browser streams body-frame (vx, vy) heartbeats into ``cmd`` while
     arrow keys are held. Refs slew toward the target at the trained
     ramp rate (0 -> full band in WALK_RAMP_S), so a key press feels
@@ -2140,12 +2293,18 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         return {"ok": False,
                 "error": ("walk/hold policy joint_frame mismatch "
                           f"({joint_frame} vs {hold_joint_frame})")}
-    timing = _policy_timing(walk_policy)
+    try:
+        timing = _policy_timing(walk_policy)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
     if hold_policy is not None:
-        hold_timing = _policy_timing(hold_policy)
+        try:
+            hold_timing = _policy_timing(hold_policy)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
         if abs(hold_timing.policy_hz - timing.policy_hz) > 1e-6:
             return {"ok": False,
-                    "error": ("drive walk/hold policy_hz mismatch "
+                    "error": ("drive walk/hold training_hz mismatch "
                               f"({timing.policy_hz:g} vs "
                               f"{hold_timing.policy_hz:g}); select a "
                               "hold policy trained at the same cadence")}
@@ -2161,6 +2320,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         "joint_frame": joint_frame,
         "timing": {
             "policy_hz": timing.policy_hz,
+            "training_hz": timing.policy_hz,
             "trained_control_hz": timing.trained_control_hz,
             "runner_config_hz": timing.runner_config_hz,
             "adapted": timing.adapted,
@@ -2361,7 +2521,11 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     i = 0
     t_next = time.monotonic()
     last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
+    timing_stats = _TimingStats()
+    consecutive_late = 0
+    progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": "drive",
+                    "training_hz": timing.policy_hz,
                     "policy_joint_frame": joint_frame}
     last_good_stream_state = state_robot
     stale_stream_ticks = 0
@@ -2373,6 +2537,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
         "mode": "drive", "hz": timing.policy_hz,
         "policy_hz": timing.policy_hz,
+        "training_hz": timing.policy_hz,
         "trained_control_hz": timing.trained_control_hz,
         "trained_control_hz_explicit": timing.trained_control_hz_explicit,
         "runner_config_hz": timing.runner_config_hz,
@@ -2406,32 +2571,49 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         if state_robot is not None:
             last_q_robot_cmd = state_robot.joint_position.copy()
 
-    def sample_hold_tick() -> tuple[object | None, float, int, str]:
+    def sample_hold_tick() -> tuple[object | None, float, int, str, dict]:
         """Wait one policy tick and read state without writing targets."""
         nonlocal t_next
+        hold_t0 = time.monotonic()
+        read_s = 0.0
+        lag_s = 0.0
+
+        def hold_timing() -> dict:
+            return {
+                "stream_s": time.monotonic() - hold_t0,
+                "write_s": 0.0,
+                "read_s": read_s,
+                "lag_s": lag_s,
+            }
+
         if abort_check():
-            return state_robot, t_next, 0, "aborted"
+            return state_robot, t_next, 0, "aborted", hold_timing()
         t_next += timing.policy_dt
         lag = time.monotonic() - t_next
         overruns_tick = 0
         if lag > 0:
             overruns_tick = 1
+            lag_s = max(lag_s, float(lag))
             t_next = time.monotonic()
         else:
             time.sleep(-lag)
         sampled = None
         for attempt in range(4):
+            op_t = time.monotonic()
             sampled = est.update()
+            read_s += time.monotonic() - op_t
             if sampled is not None and sampled.bus_ok:
-                return sampled, t_next, overruns_tick, ""
+                return sampled, t_next, overruns_tick, "", hold_timing()
             if abort_check():
-                return state_robot, t_next, overruns_tick, "aborted"
+                return (state_robot, t_next, overruns_tick, "aborted",
+                        hold_timing())
             # Snapshot reads can miss a beat while the MCU is recovering
             # from a previous stream/glide. In joint-hold mode the servos
             # already have a safe target, so retry briefly instead of
             # converting one telemetry miss into an emergency limp.
             time.sleep(min(0.02, timing.policy_dt * 0.5))
-        return sampled, t_next, overruns_tick, "feedback lost during hold"
+        return (sampled, t_next, overruns_tick,
+                "feedback lost during hold", hold_timing())
 
     while True:
         if abort_check():
@@ -2439,6 +2621,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                           ticks=i)
             break
         t = i * timing.policy_dt
+        tick_t0 = time.monotonic()
+        stage_t = tick_t0
         vx_t, vy_t, wz_t, dh_t, hb_age, stop_req = cmd.get()
         if stop_req and stopping is None:
             stopping = "stopped"
@@ -2529,12 +2713,19 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         wz_r = wz_t if active == "walk" else 0.0
         obs = None
         action = None
-        if _drive_uses_learned_policy(active, hold_policy):
+        policy_s = 0.0
+        uses_policy = _drive_uses_learned_policy(active, hold_policy)
+        if uses_policy:
             if need_obs in WALK_OBS_DIMS:
                 obs = np.concatenate(
                     [base_obs, _walk_obs_tail(need_obs, vx_r, vy_r,
                                               phase, wz_r)]
                 ).astype(np.float32)
+            else:   # 68-obs stance hold at height_ref 0
+                obs = base_obs
+            obs_s = time.monotonic() - stage_t
+            stage_t = time.monotonic()
+            if need_obs in WALK_OBS_DIMS:
                 if active == "walk":
                     raw_act, _ = (canon.predict(obs) if canon is not None
                                   else (walk_policy.act(obs), None))
@@ -2542,8 +2733,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                     raw_act, _ = (hold_canon.predict(obs)
                                   if hold_canon is not None
                                   else (hold_policy.act(obs), None))
-            else:   # 68-obs stance hold at height_ref 0
-                obs = base_obs
+            else:
                 raw_act = hold_policy.act(obs)
             # Phase clock advance (obs-74/93 policies): after obs, gated on a
             # live command ref. obs-93 AMP policies may also advance on yaw.
@@ -2552,6 +2742,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                 phase = (phase + 2.0 * math.pi * phase_hz
                          * timing.policy_dt) \
                     % (2.0 * math.pi)
+            policy_s = time.monotonic() - stage_t
+            stage_t = time.monotonic()
             action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
             if action is None:
                 limp()
@@ -2569,8 +2761,12 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                 q_prop = last_q_policy_cmd + alpha * (
                     q_prop - last_q_policy_cmd)
         else:
+            obs_s = time.monotonic() - stage_t
+            stage_t = time.monotonic()
             q_prop = last_q_policy_cmd.copy()
         q_safe, status = safety.filter(q_prop, state, action=action)
+        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
+        safety_s = time.monotonic() - stage_t
         if status.terminate:
             limp()
             debug.event("safety_trip", tick=i, t_s=t, active=active,
@@ -2584,11 +2780,10 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                           + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
-        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
         prev_stale_ticks = stale_stream_ticks
-        if _drive_uses_learned_policy(active, hold_policy):
+        if uses_policy:
             (state_robot, t_next, extra_overruns, stream_err,
-             stale_stream_ticks, stale_added) = _stream_target(
+             stale_stream_ticks, stale_added, stream_timing) = _stream_target(
                 bus, est, last_q_robot_cmd, q_robot_cmd,
                 t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
                 write_speed=write_speed, write_acc=write_acc,
@@ -2599,19 +2794,34 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         else:
             est.set_commanded(q_robot_cmd)
             stream_err = ""
+            hold_write_s = 0.0
             if t - last_hold_refresh_t >= DRIVE_HOLD_REFRESH_S:
                 try:
+                    op_t = time.monotonic()
                     bus.write_all((q_robot_cmd * RAD2DEG).tolist(),
                                   speed=write_speed, acc=write_acc)
+                    hold_write_s += time.monotonic() - op_t
                     last_hold_refresh_t = t
                 except Exception as e:
                     stream_err = f"hold write failed: {e}"
             if stream_err:
                 extra_overruns = 0
                 stale_added = 0
+                stream_timing = {
+                    "stream_s": hold_write_s,
+                    "write_s": hold_write_s,
+                    "read_s": 0.0,
+                    "lag_s": 0.0,
+                }
             else:
-                state_robot, t_next, extra_overruns, stream_err = (
+                state_robot, t_next, extra_overruns, stream_err, stream_timing = (
                     sample_hold_tick())
+                stream_timing["write_s"] = (
+                    float(stream_timing.get("write_s") or 0.0)
+                    + hold_write_s)
+                stream_timing["stream_s"] = (
+                    float(stream_timing.get("stream_s") or 0.0)
+                    + hold_write_s)
                 stale_added = 0
         overruns += extra_overruns
         stale_stream_samples += stale_added
@@ -2683,6 +2893,25 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             tilt_rel_max,
             abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
             abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+        service_s = time.monotonic() - tick_t0
+        lag_s = float(stream_timing.get("lag_s") or 0.0)
+        late_s = max(lag_s, service_s - timing.policy_dt)
+        if late_s > _timing_late_grace(timing.policy_dt):
+            consecutive_late += 1
+        else:
+            consecutive_late = 0
+        runner_timing = {
+            "service_s": service_s,
+            "obs_s": obs_s,
+            "policy_s": policy_s,
+            "safety_s": safety_s,
+            "write_s": float(stream_timing.get("write_s") or 0.0),
+            "read_s": float(stream_timing.get("read_s") or 0.0),
+            "lag_s": lag_s,
+        }
+        timing_stats.add(runner_timing)
+        timing_error = _timing_trip_reason(
+            "drive", i, timing.policy_hz, late_s, consecutive_late)
         # Hold-68 obs would misalign the fixed walk-wide obs columns —
         # blank them for those ticks (walk replay parity is what the
         # offline contract needs).
@@ -2694,7 +2923,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                   obs=obs_for_log,
                   phase=("stopping" if stopping else display_active),
                   rot60_k=(canon.k if canon is not None
-                           and active == "walk" else None))
+                           and active == "walk" else None),
+                  runner_timing=runner_timing)
         snap = {
             "t_s": round(t, 1), "model": display_active,
             "vx_ref": round(vx_r, 3), "vy_ref": round(vy_r, 3),
@@ -2714,9 +2944,23 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             "stale_stream_samples": stale_stream_samples,
             "rot60_k": canon.k if canon is not None else None,
             "stopping": stopping, "overruns": overruns,
+            "timing_ms": {
+                "service": round(service_s * 1000.0, 3),
+                "read": round(runner_timing["read_s"] * 1000.0, 3),
+                "lag": round(lag_s * 1000.0, 3),
+            },
         }
         cmd.publish(snap)
-        if i % 5 == 0:
+        if timing_error:
+            limp()
+            result.update(ok=False, error=timing_error, limped=True,
+                          ticks=i, timing=timing_stats.summary())
+            err_snap = {"level": "error", "error": timing_error,
+                        "msg": timing_error, **snap}
+            cmd.publish(err_snap)
+            on_progress(err_snap)
+            break
+        if i % progress_every == 0:
             on_progress({
                 "msg": (f"drive {display_active} t={t:5.1f}s "
                         f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s "
@@ -2769,6 +3013,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         last_stale_stream_at_s=(round(last_stale_at_s, 3)
                                 if last_stale_at_s is not None else None),
         max_stale_stream_ticks=DRIVE_STREAM_STALE_TICKS,
+        timing=timing_stats.summary(),
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         tilt_rel_max_deg=round(tilt_rel_max, 1),

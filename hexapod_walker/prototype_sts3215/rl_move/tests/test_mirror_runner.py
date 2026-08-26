@@ -40,7 +40,8 @@ from rl_move.sim import mirror, rot60  # noqa: E402
 
 CFG = load_config(str(_ROOT / "rl_move" / "config.yaml"))
 WALK_VEL_SCALE = rl_policy.WALK_VEL_SCALE
-DT = rl_policy.DT
+WALK_POLICY = rl_policy.NumpyPolicy(rl_policy.WALK_WEIGHTS_PATH)
+DT = 1.0 / rl_policy.policy_training_hz(WALK_POLICY)
 
 
 def _state(rng):
@@ -67,7 +68,7 @@ def _walk_obs(rng, vx_r, vy_r, prev_action=None, state=None):
 
 
 def _policy():
-    return rl_policy.NumpyPolicy(rl_policy.WALK_WEIGHTS_PATH)
+    return WALK_POLICY
 
 
 def _manual_mirror_act(policy_like, obs):

@@ -55,6 +55,8 @@ MCU_PORT_DEFAULT = "/dev/ttyHS1"
 # Prefer firmware HOST_BAUD (921600); fall back if an older sketch is flashed.
 MCU_BAUD = 921_600
 MCU_BAUD_CANDIDATES = (921_600, 115_200)
+MCU_SERIAL_READ_TIMEOUT = float(os.environ.get(
+    "HEXAPOD_MCU_SERIAL_READ_TIMEOUT", "0.005"))
 HELLO_TOKEN = "HELLO feetech_bridge"
 COMM_SUCCESS = 0
 COMM_FAIL = 1
@@ -382,6 +384,12 @@ class McuFeetechBus:
         self._fb_cache_mono = 0.0
         self._pos_cache: dict[int, float] = {}
         self._pos_cache_mono = 0.0
+        self._bin_trace_events: list[dict] = []
+        self._bin_trace_seq = 0
+        self._bin_trace_slow_ms = float(
+            os.environ.get("HEXAPOD_BUS_TRACE_SLOW_MS", "30"))
+        self._bin_trace_keep = int(
+            os.environ.get("HEXAPOD_BUS_TRACE_KEEP", "64"))
         self._imu_calib: dict | None = None
         self.reload_imu_calib()
         self._imu_mount: str = "normal"
@@ -405,7 +413,8 @@ class McuFeetechBus:
                 except Exception:
                     pass
                 self._ser = serial.Serial(
-                    port, baud, timeout=0.8, write_timeout=1.0)
+                    port, baud, timeout=MCU_SERIAL_READ_TIMEOUT,
+                    write_timeout=1.0)
                 self.baud = baud
                 time.sleep(0.12)
                 self._ser.reset_input_buffer()
@@ -487,7 +496,7 @@ class McuFeetechBus:
         self._imu_mount = mount
         return mount
 
-    def _readline(self, timeout: float) -> str | None:
+    def _readline_bytes(self, timeout: float) -> bytes | None:
         deadline = time.monotonic() + timeout
         buf = bytearray()
         while time.monotonic() < deadline:
@@ -495,12 +504,18 @@ class McuFeetechBus:
             if not chunk:
                 continue
             if chunk == b"\n":
-                return buf.decode("ascii", errors="replace").strip()
+                return bytes(buf).strip()
             if chunk != b"\r":
                 buf.extend(chunk)
-                if len(buf) > 512:
+                if len(buf) > 2048:
                     buf.clear()
         return None
+
+    def _readline(self, timeout: float) -> str | None:
+        line = self._readline_bytes(timeout)
+        if line is None:
+            return None
+        return line.decode("ascii", errors="replace").strip()
 
     def _transact(self, cmd: str, *, timeout: float = 0.8) -> str | None:
         t0 = time.monotonic()
@@ -551,6 +566,27 @@ class McuFeetechBus:
             pass
         return reply
 
+    def debug_counters(self, *, reset: bool = False,
+                       timeout: float = 0.8) -> dict | None:
+        """Read MCU bridge DBG counters, optionally resetting them first."""
+        line = self._transact("DBG RESET" if reset else "DBG",
+                              timeout=timeout)
+        if not line or not line.startswith("OK"):
+            return None
+        out: dict[str, int | str] = {}
+        for part in line.split()[1:]:
+            if "=" not in part:
+                continue
+            key, val = part.split("=", 1)
+            try:
+                out[key] = int(val, 0)
+            except ValueError:
+                out[key] = val
+        cmd = out.get("last_bin_cmd")
+        if isinstance(cmd, int) and 32 <= cmd <= 126:
+            out["last_bin_cmd_chr"] = chr(cmd)
+        return out
+
     def ping(self, sid: int) -> bool:
         line = self._transact(f"PING {int(sid)}", timeout=0.4)
         return bool(line and line.startswith("OK"))
@@ -568,8 +604,11 @@ class McuFeetechBus:
                     part = part.strip()
                     if part.isdigit():
                         found.append(int(part))
-        self._live_cache = found
-        self._live_cache_t = now
+        # Do not cache an empty scan. A single transient empty reply after a
+        # dense motion stream must not poison the immediate retry path.
+        if found:
+            self._live_cache = found
+            self._live_cache_t = now
         return [s for s in found if s in id_range]
 
     def torque(self, sid: int, on: bool) -> None:
@@ -595,6 +634,52 @@ class McuFeetechBus:
                 time.sleep(0.0005)
         return bytes(buf) if len(buf) == n else None
 
+    def _record_bin_trace(self, trace: dict, *, ok: bool,
+                          reason: str | None = None) -> None:
+        """Keep a small ring of slow/failing binary transaction timings."""
+        elapsed_ms = float(trace.get("elapsed_ms") or 0.0)
+        slow_ms = float(getattr(self, "_bin_trace_slow_ms", 30.0))
+        if ok and elapsed_ms < slow_ms:
+            return
+        self._bin_trace_seq = int(getattr(self, "_bin_trace_seq", 0)) + 1
+        event = {
+            "seq": self._bin_trace_seq,
+            "ok": bool(ok),
+            **({"reason": reason} if reason else {}),
+            **trace,
+        }
+        events = getattr(self, "_bin_trace_events", None)
+        if events is None:
+            self._bin_trace_events = []
+            events = self._bin_trace_events
+        events.append(event)
+        keep = max(1, int(getattr(self, "_bin_trace_keep", 64)))
+        if len(events) > keep:
+            del events[:-keep]
+        try:
+            from event_log import emit
+            emit(
+                "bus_timing",
+                (
+                    f"{trace.get('cmd')}->{trace.get('want')} "
+                    f"{'ok' if ok else reason or 'fail'} "
+                    f"{elapsed_ms:.1f}ms"
+                ),
+                src="mcu",
+                level=("warn" if ok else "error"),
+                data=event,
+            )
+        except Exception:
+            pass
+
+    def drain_debug_events(self) -> list[dict]:
+        events = list(getattr(self, "_bin_trace_events", []))
+        self._bin_trace_events = []
+        return events
+
+    def debug_events(self) -> list[dict]:
+        return list(getattr(self, "_bin_trace_events", []))
+
     def _bin_txn(self, frame: bytes, want: int, rec_size: int,
                  head_len: int = 0, *, timeout: float = 1.2
                  ) -> tuple[int, bytes] | None:
@@ -603,41 +688,115 @@ class McuFeetechBus:
         ``payload`` is ``head_len`` fixed bytes + n × ``rec_size`` records
         (checksum verified, framing stripped).
         """
+        cmd = chr(frame[2]) if len(frame) > 2 and 32 <= frame[2] <= 126 else frame[2]
+        trace: dict = {
+            "cmd": cmd,
+            "want": chr(want) if 32 <= want <= 126 else want,
+            "n": int(frame[3]) if len(frame) > 3 else None,
+            "timeout_ms": round(float(timeout) * 1000.0, 3),
+        }
+        t_start = time.monotonic()
+        t_lock_req = t_start
+
+        def finish(result, *, ok: bool, reason: str | None = None):
+            trace["elapsed_ms"] = round((time.monotonic() - t_start) * 1000.0, 3)
+            self._record_bin_trace(trace, ok=ok, reason=reason)
+            return result
+
         with self._lock:
+            t_locked = time.monotonic()
+            trace["lock_wait_ms"] = round((t_locked - t_lock_req) * 1000.0, 3)
+            t0 = time.monotonic()
             self._ser.reset_input_buffer()
             self._ser.write(frame)
             self._ser.flush()
+            trace["write_flush_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             # Skip any ASCII chatter (HELLO) until A5 arrives.
             deadline = time.monotonic() + timeout
+            t0 = time.monotonic()
+            ascii_drains = 0
+            pre_a5 = bytearray()
+            pre_a5_lines: list[str] = []
             while time.monotonic() < deadline:
                 b = self._ser.read(1)
                 if not b:
                     continue
                 if b[0] == 0xA5:
                     break
+                if len(pre_a5) < 96:
+                    pre_a5.extend(b[:96 - len(pre_a5)])
                 # drain a possible ASCII line
                 if b[0] in (ord("H"), ord("O"), ord("E")):
-                    self._readline(0.05)
+                    ascii_drains += 1
+                    rest = self._readline_bytes(0.05)
+                    if rest is not None:
+                        raw_line = bytes([b[0]]) + rest
+                        pre_a5_lines.append(
+                            raw_line[:128].decode(
+                                "ascii", errors="backslashreplace"))
+                        if len(pre_a5) < 96:
+                            pre_a5.extend(raw_line[1:96 - len(pre_a5) + 1])
+                        if raw_line.startswith(b"ERR"):
+                            trace["first_byte_wait_ms"] = round(
+                                (time.monotonic() - t0) * 1000.0, 3)
+                            trace["ascii_drains"] = ascii_drains
+                            trace["pre_a5_hex"] = bytes(pre_a5).hex()
+                            trace["pre_a5_ascii"] = bytes(pre_a5).decode(
+                                "ascii", errors="backslashreplace")
+                            trace["pre_a5_lines"] = pre_a5_lines[:4]
+                            return finish(
+                                None, ok=False, reason="ascii_err")
             else:
-                return None
+                trace["first_byte_wait_ms"] = round(
+                    (time.monotonic() - t0) * 1000.0, 3)
+                trace["ascii_drains"] = ascii_drains
+                if pre_a5:
+                    trace["pre_a5_hex"] = bytes(pre_a5).hex()
+                    trace["pre_a5_ascii"] = bytes(pre_a5).decode(
+                        "ascii", errors="backslashreplace")
+                if pre_a5_lines:
+                    trace["pre_a5_lines"] = pre_a5_lines[:4]
+                return finish(None, ok=False, reason="no_a5")
+            trace["first_byte_wait_ms"] = round(
+                (time.monotonic() - t0) * 1000.0, 3)
+            trace["ascii_drains"] = ascii_drains
+            if pre_a5:
+                trace["pre_a5_hex"] = bytes(pre_a5).hex()
+                trace["pre_a5_ascii"] = bytes(pre_a5).decode(
+                    "ascii", errors="backslashreplace")
+            if pre_a5_lines:
+                trace["pre_a5_lines"] = pre_a5_lines[:4]
+            t0 = time.monotonic()
             hdr = self._read_exact(3, timeout)  # 5A cmd n
+            trace["hdr_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             if not hdr or hdr[0] != 0x5A or hdr[1] != want:
-                return None
+                trace["hdr"] = list(hdr or b"")
+                return finish(None, ok=False, reason="bad_header")
             rn = hdr[2]
+            trace["reply_n"] = int(rn)
             if rn > 18:
-                return None
+                return finish(None, ok=False, reason="reply_n_gt_18")
+            want_len = head_len + rn * rec_size
+            t0 = time.monotonic()
             payload = self._read_exact(head_len + rn * rec_size, timeout)
+            trace["payload_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
+            trace["payload_len"] = 0 if payload is None else len(payload)
+            trace["payload_want_len"] = int(want_len)
             if payload is None:
-                return None
+                return finish(None, ok=False, reason="payload_timeout")
+            t0 = time.monotonic()
             chk = self._read_exact(1, timeout)
+            trace["checksum_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             if chk is None:
-                return None
+                return finish(None, ok=False, reason="checksum_timeout")
             x = hdr[1] ^ rn
             for b in payload:
                 x ^= b
             if chk[0] != x:
-                return None
-            return rn, payload
+                trace["checksum_got"] = int(chk[0])
+                trace["checksum_want"] = int(x)
+                return finish(None, ok=False, reason="checksum_mismatch")
+            return finish((rn, payload), ok=True)
 
     def _bin_req(self, cmd: int, ids: list[int] | None, *,
                  timeout: float = 1.2) -> tuple[int, bytes] | None:

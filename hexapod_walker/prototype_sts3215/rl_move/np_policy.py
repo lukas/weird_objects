@@ -13,6 +13,7 @@ Artifact = the export_policy_np.py JSON:
 
     {"meta": {"name": "...", "notes": "...", "source": "...",
               "obs_dim": 68|72|74|93, "act_dim": 18,
+              "training_hz": 25.0,  # REQUIRED trained control rate
               "hidden": [h1, h2], "activation": "tanh",
               "control_hz": 100,       # optional trained policy rate
               "inner_hz": 100,         # optional robot stream override
@@ -25,9 +26,10 @@ Artifact = the export_policy_np.py JSON:
 
 Validation is strict enough to make an upload safe to run: obs_dim
 must fit a known slot (68 stance / 72 walk / 74 phase-walk / 93 AMP
-yaw+fault walk), act_dim 18, all six matrices present with a consistent
-shape chain, every value finite, and a smoke forward pass must return
-18 finite actions.
+yaw+fault walk), act_dim 18, training_hz must declare the trained
+control rate, all six matrices present with a consistent shape chain,
+every value finite, and a smoke forward pass must return 18 finite
+actions.
 
 CLI (mirrors dance_script.py):
     uv run python -m rl_move.np_policy validate policies/foo.json
@@ -37,6 +39,7 @@ CLI (mirrors dance_script.py):
 from __future__ import annotations
 
 import json
+import math
 import re
 import urllib.request
 from pathlib import Path
@@ -72,6 +75,18 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         errs.append(f"act_dim must be 18, got {act!r}")
     if meta.get("activation", "tanh") != "tanh":
         errs.append("activation must be tanh (export_policy_np contract)")
+    try:
+        training_hz = float(meta["training_hz"])
+    except KeyError:
+        errs.append("meta.training_hz is required")
+    except (TypeError, ValueError):
+        errs.append("meta.training_hz must be numeric")
+    else:
+        if (not math.isfinite(training_hz)
+                or training_hz < 1.0 or training_hz > 200.0):
+            errs.append("meta.training_hz must be finite and in [1, 200]")
+        else:
+            info["training_hz"] = training_hz
     if obs in (74, 93) and not meta.get("phase_hz"):
         errs.append(f"obs {obs} (phase clock) requires meta.phase_hz")
     for k in _MATS:
