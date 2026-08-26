@@ -1,6 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~00:0x (**RUNG-3 ACQ8M JOINT CALL: FAIL,
+Last updated: 2026-08-26 ~00:1x (**STANCEMIX-TUCKCLOCK1 JOINT CALL:
+FAIL — the proven flat-start rise recipe does NOT survive porting
+into the full hold+rise+lower mix at a PINNED std; both seeds still
+pin/freeze on flat starts exactly as the canary's own pre-registered
+FAIL route named. Next lever (re-open std) launched.** This cycle
+verdicted both `cw-standwalk-stance-mesh2-stancemix-tuckclock1` (seed
+0) and its `-s1` twin, running the flat-pinned pod probe manually
+(neither run had it prestaged — only the standard gate/own-DR were
+auto-started; launched `goal.rise_flat_frac=1.0/partial=0/rsi=0`
+det+sto 6+6 by hand on each pod) plus the standard DR-0/own-DR
+passes that were missing for seed 0 entirely (also launched by
+hand — the watcher's "just finished" trigger only covered `-s1`,
+seed 0 had finished earlier with no prestage). Flat probe: **seed 0**
+det 1/6 valid_plant (5/6 over_current-terminated, all pinned
+`cur_max_a=2.64A`), sto 4/6 valid_plant (0 term, but STILL pinned
+2.64A every one of the 6 episodes) — every one of 12 episodes hits
+the exact 2.64A ceiling the PASS bar requires ABSENT; **seed 1** is a
+clean total freeze: 12/12 (det+sto) over_current-terminated,
+near-zero `swing_count` on every leg in the large majority, height_err
+GROWING not settling (7.0–22.9mm det, 8.9–20.1mm sto), pinned 2.64A
+throughout — worse than seed 0's partial motion, and precisely the
+"tuckfloor/tuckexempt freeze" signature the joint gate's FAIL route
+names verbatim. Standard mixed-start DR-0 gate is otherwise strong on
+BOTH seeds (hold 6/6+6/6 zero-term, lower 6/6+6/6 (s0) / 5/6+5/6 (s1)
+zero-term, rise/det 6/6 (s0, non-flat draws) / 5/6 (s1, 1 bridge
+term) zero-term) — hold/lower transfer perfectly and most non-flat
+rise draws still succeed; it is specifically FLAT starts that pin,
+exactly the predecessor `stancemix-bcchain3-slowchain` FAIL shape.
+**Root cause:** this port warm-started from the already-converged
+`stancemix_bcchain3_stdanneal.zip` with std PINNED the entire run
+(`--log-std-init -4.0 --log-std-final -4.0`, i.e. zero exploration) —
+the isolated `riseonly...tuckclock`/`tuckclock-acq8m` recipe that
+actually solved flat-start rise trained FROM SCRATCH with std
+annealing 0→-4 over the whole run. This confirms the run's own
+pre-registered Prediction-if-false verbatim ("the flat clock needs
+exploration noise on a warm policy, next arm re-opens the std").
+**Refill (the canary's own registered FAIL route, not a new
+hypothesis):** launched `cw-standwalk-stance-mesh2-stancemix-tuckclock-
+stdreopen`/`-s1` (train-4/5, VERIFIED RUNNING, 2M canary pair) — exact
+tuckclock1 respec with ONLY `--log-std-init` flipped 0 (was -4.0,
+pinned); `--log-std-final -4.0` / anneal-frac 0.5 unchanged so std
+still re-anneals to exploitation by the end, mirroring the isolated
+recipe's own schedule. Gate: flat probe genuine non-freeze tuck both
+seeds (no 2.64A pin in the majority of episodes) + hold ≥5/6+5/6
+zero-term + lower ≥5/6 honest → fund an 8M mix acquisition pair
+(mirrors the isolated recipe's own 2M→8M arc); FAIL (still
+pins/freezes) → the next lever is budget (fund 8M on this exact
+recipe directly), not another config change — reopened std alone may
+not be enough at only 2M in a 3-way mix, matching how the isolated
+arm itself needed the full 8M to fully close (its own 2M canary was
+only a partial fix, 11/12 fell). Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_tuckclock1{,_s1}_{gate,owncfg,
+flatprobe}/`, W&B `q0l7wu20`/`ycgendqa`.)
+
+Prior entry: 2026-08-26 ~00:0x (**RUNG-3 ACQ8M JOINT CALL: FAIL,
 FALLBACK FIRES ON BOTH SEEDS — 8M budget is closed on this recipe;
 the rung-3 champion stays the 2M canary pair.** This cycle verdicted
 `-acq8m-s1` and closed the joint call seed-0's cycle deferred:
