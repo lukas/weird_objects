@@ -130,8 +130,10 @@ def make_chassis_top_rigid() -> object:
         cuts.append(_cyl_z(rv.POCKET_BORE / 2.0 + rv.POCKET_LEADIN,
                            rv.RING_BOT_W - 1.0,
                            rv.RING_BOT_W + rv.POCKET_LEADIN, x, y))
+        # Shoulder bore stops BR_ROOF_T short of the deck: the remaining
+        # disc is the integral dust roof over the bearing (user, Aug 26).
         cuts.append(_cyl_z(rv.SHOULDER_OD / 2.0, rv.SHEET_Z0 - 0.01,
-                           rv.SHEET_Z1 + 1.0, x, y))
+                           rv.SHEET_Z1 - rv.BR_ROOF_T, x, y))
     for x, y in rv._access_hole_xy():
         cuts.append(_cyl_z(rv.ACCESS_HOLE_D / 2.0, rv.SHEET_Z0 - 1.0,
                            rv.SHEET_Z1 + 1.0, x, y))
