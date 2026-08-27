@@ -3981,11 +3981,40 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     seed/init-trajectory sensitivity of the coef=3.0 dual-core recipe
     (or a `sched.*` x `mode_seq` segment-boundary interaction at the
     goal-sampling level, not the scheduler's value trace) rather than
-    a property of ramp-vs-instant exposure per se; compare this run's
-    own reward/canary trajectory shape against headings1-seed0's from
-    the same 0-1.2M window before assuming the mechanisms differ at
-    all. Evidence: verdict on `cw-standwalk-stance-mesh2-stage2-
-    dualbc1-anchor2-headings-curric1` (08-27 ~09:2x).
+    a property of ramp-vs-instant exposure per se. **Trajectory
+    comparison DONE this cycle (both cached `wandb_history.csv`,
+    `rollout/ep_rew_mean` at matched `global_step`): curric1 and
+    headings1-seed0's mixed-goal reward curves are NOT
+    distinguishable anywhere in the run** — near-identical Q1-Q3
+    climb (both ~9->78 by step ~720k), the SAME deep trough at
+    ~850k-1.1M (curric1 -103 to -257 vs headings1 -106 to -450 — if
+    anything headings1's trough is DEEPER), and the SAME partial
+    recovery to a near-identical FINAL value (curric1 -36.74 vs
+    headings1 -38.75 at step 2,031,616). The aggregate mixed-mode
+    reward (walk=0.30/rise=0.40/lower=0.15/hold=0.15) genuinely cannot
+    tell healthy-walk-headings1 apart from frozen-walk-curric1 —
+    rise/lower/hold dominate the scalar and mask a walk-only
+    collapse; this is itself a reusable finding (reinforces "video/
+    gate outrank reward" beyond the usual reason — here reward isn't
+    just noisy, it's actively blind to this exact failure mode) worth
+    a footnote in RESEARCH_RULES.md-adjacent guidance if this pattern
+    recurs. Net: no reward-curve signature separates the two runs, so
+    whatever differs is either genuine seed-level chaotic divergence
+    in the walk core's own PPO trajectory (not visible in any logged
+    scalar checked so far) or something in gait_valid/sacrificed_legs-
+    level state never surfaced in `rollout/*`. **Decision for the
+    joint close: if curric1-s1 ALSO shows the leg-sacrifice freeze,
+    treat the ramp mechanism itself as suspect (fund a matched-seed
+    instant-vs-ramp A/B, not just this one arm); if curric1-s1 is
+    HEALTHY like headings1's own seed1, treat this as seed-level noise
+    in an already-fragile coef=3.0 recipe (matches the campaign's
+    other seed-split reads, e.g. anchor5-stdmild1: seed0 catastrophe /
+    seed1 fine on an otherwise-identical arm) and do not fund a ramp-
+    vs-instant mechanism arm at all.** Evidence: verdict on
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2-headings-
+    curric1` (08-27 ~09:2x); `logs/experiments/cw-standwalk-stance-
+    mesh2-stage2-dualbc1-anchor2-{headings1,headings-curric1}/
+    wandb_history.csv` (reward-curve comparison, this cycle).
 -1.9 DIG-IN (08-27, this cycle's JOINT close on anchor6-logstdsplit/
     -s1): the per-core `log_std` split (Next -1.8, now BUILT and
     TESTED) does not save walk — cross-seed replicated total
