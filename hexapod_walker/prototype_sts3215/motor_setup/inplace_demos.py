@@ -315,6 +315,12 @@ def _live_robot_ids(bus: FeetechBus) -> set[int]:
         # servos on a healthy bus.  Zero live servos means nothing can
         # move either way, so one short retry is always safe — a truly
         # absent robot just takes 0.25 s longer to report.
+        for attr, value in (("_live_cache", None), ("_live_cache_t", 0.0)):
+            if hasattr(bus, attr):
+                try:
+                    setattr(bus, attr, value)
+                except Exception:
+                    pass
         time.sleep(0.25)
         ids = {sid for sid in bus.scan(range(2, 20))}
     return ids
@@ -1010,8 +1016,8 @@ LIVE_SPEED_MAX = 3.0
 # Live quad balance trim: this is intentionally a small reflex around the
 # existing gait, not a new gait planner. It uses the same sparse IMU read
 # already used by the tilt guard, so normal operation adds no bus traffic.
-QUAD_TRIM_MAX_PITCH_DEG = 5.0
-QUAD_TRIM_MAX_DX_M = 0.012
+QUAD_TRIM_MAX_PITCH_DEG = 3.0
+QUAD_TRIM_MAX_DX_M = 0.008
 QUAD_TRIM_DEADBAND_DEG = 1.0
 QUAD_TRIM_GUARD_ERROR_DEG = 15.0
 QUAD_TRIM_MIN_BASE_DEG = 6.0
@@ -1040,6 +1046,8 @@ QUAD_TRIM_RECOVER_EXIT_DEG = 5.0       # leave recovery (2 consecutive)
 QUAD_TRIM_RECOVER_MAX_PITCH_DEG = 7.0  # = quad_walk 2nd-line pitch clamp
 QUAD_TRIM_RECOVER_MAX_DX_M = 0.018     # = quad_walk 2nd-line dx clamp
 QUAD_TRIM_RECOVER_TIMEOUT_S = 8.0      # still tipped after this -> limp
+QUAD_REAR_PITCH_CHECK_DELAY_S = 0.8
+QUAD_REAR_PITCH_TOL_DEG = 11.0
 
 
 def _imu_roll_pitch_deg(imu: dict) -> tuple[float, float] | None:
@@ -1055,6 +1063,29 @@ def _imu_roll_pitch_deg(imu: dict) -> tuple[float, float] | None:
     roll = math.degrees(math.atan2(ay, az))
     pitch = math.degrees(math.atan2(-ax, math.hypot(ay, az)))
     return roll, pitch
+
+
+def _quad_rear_pitch_cmd_deg(imu: dict | None,
+                             target_deg: float | None) -> float | None:
+    """Return measured quad rear lean in the command pitch sign convention."""
+    if not imu:
+        return None
+    if imu.get("body_frame_calibrated") and imu.get("body_pitch_deg") is not None:
+        try:
+            return float(imu["body_pitch_deg"])
+        except (TypeError, ValueError):
+            return None
+    rp = _imu_roll_pitch_deg(imu)
+    if rp is None:
+        return None
+    _roll, pitch = rp
+    try:
+        target = float(target_deg) if target_deg is not None else pitch
+    except (TypeError, ValueError):
+        target = pitch
+    if abs(target) > 1.0:
+        return math.copysign(abs(pitch), target)
+    return pitch
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -1183,7 +1214,7 @@ class QuadPitchTrim:
     the command nudges less nose-up/forward.
 
     Three regimes by pitch error:
-      trim     |err| small: gentle nudges, capped at +/-5 deg / 12 mm.
+      trim     |err| small: gentle nudges, capped at +/-3 deg / 8 mm.
       recover  |err| past QUAD_TRIM_RECOVER_ERR_DEG sustained:
                brace-hold — the streamer finishes the current step at
                no more than 1x, freezes the gait clock at the next
@@ -1197,8 +1228,10 @@ class QuadPitchTrim:
 
     def __init__(self, *, expected_pitch_deg: float | None = None,
                  gait: str = "quad",
-                 calibration: dict | None = None):
+                 calibration: dict | None = None,
+                 body_frame_target_deg: float | None = None):
         self.expected_pitch_deg = expected_pitch_deg
+        self.body_frame_target_deg = body_frame_target_deg
         self.gait = gait
         self.enabled = True
         self.ready = False
@@ -1356,17 +1389,17 @@ class QuadPitchTrim:
             max_dx = QUAD_TRIM_RECOVER_MAX_DX_M
         else:
             cmd_sign = self._rear_up_cmd_sign()
-            desired_pitch = cmd_sign * (0.55 * eff + 0.04 * rate)
-            desired_dx = cmd_sign * (0.0012 * eff + 0.00004 * rate)
+            desired_pitch = cmd_sign * (0.30 * eff + 0.02 * rate)
+            desired_dx = cmd_sign * (0.0007 * eff + 0.00002 * rate)
             max_pitch = QUAD_TRIM_MAX_PITCH_DEG
             max_dx = QUAD_TRIM_MAX_DX_M
         desired_pitch = _clamp(desired_pitch, -max_pitch, max_pitch)
         desired_dx = _clamp(desired_dx, -max_dx, max_dx)
 
         self.pitch_trim_deg = _slew(
-            self.pitch_trim_deg, desired_pitch, 8.0 * dt)
+            self.pitch_trim_deg, desired_pitch, 5.0 * dt)
         self.body_dx_trim_m = _slew(
-            self.body_dx_trim_m, desired_dx, 0.030 * dt)
+            self.body_dx_trim_m, desired_dx, 0.016 * dt)
         # speed_scale keeps the normal slowdown formula in recovery too:
         # the streamer overrides pacing entirely (brace-hold) when the
         # pose fn exposes its stance schedule, and this is the sane
@@ -1413,9 +1446,10 @@ class QuadPitchTrim:
             return False
         if imu.get("body_frame_calibrated") and imu.get("body_pitch_deg") is not None:
             try:
-                target = None
+                target = self.body_frame_target_deg
                 if imu.get("body_pitch_target_deg") is not None:
-                    target = float(imu["body_pitch_target_deg"])
+                    target = (target if target is not None
+                              else float(imu["body_pitch_target_deg"]))
                 return self._update_body_pitch(
                     float(imu["body_pitch_deg"]), now,
                     target_pitch=target)
@@ -1602,7 +1636,10 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    max_speed: int = 3000, max_acc: int = 200,
                    tick_s: float = STREAM_TICK_S,
                    tilt_guard_deg: float | None = None,
-                   balance_trim: QuadPitchTrim | None = None) -> str:
+                   balance_trim: QuadPitchTrim | None = None,
+                   rear_pitch_target_deg: float | None = None,
+                   rear_pitch_check_after_s: float = 0.0,
+                   rear_pitch_tol_deg: float = QUAD_REAR_PITCH_TOL_DEG) -> str:
     """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
 
     Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
@@ -1643,8 +1680,11 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     all_stance_at = getattr(pose_fn, "all_stance_at", None)
     stall_prev: set = set()
     tilt_prev = False
+    rear_pitch_bad = 0
     read_imu = getattr(bus, "read_imu", None)
-    need_imu = ((tilt_guard_deg is not None or balance_trim is not None)
+    need_imu = ((tilt_guard_deg is not None
+                 or balance_trim is not None
+                 or rear_pitch_target_deg is not None)
                 and callable(read_imu))
     sweep_n = 0
     t = 0.0
@@ -1762,6 +1802,30 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                                 streamer, "last_written_goal", {}),
                             reason="balance_guard")
                         return balance_trim.abort_reason
+                if (rear_pitch_target_deg is not None
+                        and t >= rear_pitch_check_after_s):
+                    measured_pitch = _quad_rear_pitch_cmd_deg(
+                        imu, rear_pitch_target_deg)
+                    if measured_pitch is not None:
+                        pitch_err = measured_pitch - rear_pitch_target_deg
+                        if abs(pitch_err) > rear_pitch_tol_deg:
+                            rear_pitch_bad += 1
+                            if rear_pitch_bad >= 2:
+                                _emit_motion_cmd(
+                                    label, q, wrote, t_s=t, seconds=seconds,
+                                    wall_s=wall - t0, rate=rate,
+                                    tick_s=tick_s,
+                                    lookahead_s=lookahead_s,
+                                    tracker=tracker,
+                                    balance_trim=balance_trim,
+                                    imu=last_imu,
+                                    servo_goals=getattr(
+                                        streamer, "last_written_goal", {}),
+                                    reason="rear_pitch_guard")
+                                return (f"rear_pitch:{measured_pitch:+.1f}:"
+                                        f"{rear_pitch_target_deg:+.1f}")
+                        else:
+                            rear_pitch_bad = 0
                 if tilt_guard_deg is not None and imu and "az_g" in imu:
                     norm = math.sqrt(imu.get("ax_g", 0.0) ** 2
                                      + imu.get("ay_g", 0.0) ** 2
@@ -2925,10 +2989,11 @@ for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
 
 def _make_quad_fn(seconds: float, *, gait: str = "walk",
                   direction: float = 1.0, phase: str = "walk",
-                  trim_fn=None):
+                  trim_fn=None, base_deg: list[float] | None = None):
     from quad_walk import make_quad_walk_pose_fn
+    base = list(base_deg) if base_deg is not None else _stand_zero_pose()
     return make_quad_walk_pose_fn(
-        _stand_zero_pose(), seconds, gait=gait, direction=direction,
+        base, seconds, gait=gait, direction=direction,
         phase=phase, trim_fn=trim_fn)
 
 
@@ -2946,10 +3011,11 @@ def _make_quad_variant_fn(action: str, suffix: str):
              else "walk")
     direction = -1.0 if action in ("walk_back", "trot_back") else 1.0
 
-    def _fn(seconds: float, trim_fn=None):
+    def _fn(seconds: float, trim_fn=None,
+            base_deg: list[float] | None = None):
         return _make_quad_fn(
             seconds, gait=gait, direction=direction, phase=phase,
-            trim_fn=trim_fn)
+            trim_fn=trim_fn, base_deg=base_deg)
 
     _fn.duration_aware = True
     return _fn
@@ -3020,11 +3086,20 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     else:
         dur = float(seconds)
     dur = max(2.0, min(STREAM_SECONDS_MAX, dur))
+    rear_pitch_target_deg = None
+    rear_pitch_check_after_s = 0.0
     if quad:
         from quad_walk import ENTRY_TOTAL_S, MIN_SECONDS
         if name in QUAD_REAR_DEMOS:
             # Entry choreography needs room before the hold phase.
             dur = max(dur, ENTRY_TOTAL_S + 0.5)
+            from quad_walk import GAITS
+            gait_key = QUAD_DEMO_GAITS.get(name)
+            pitch = GAITS.get(gait_key or "", {}).get("pitch")
+            if pitch is not None:
+                rear_pitch_target_deg = math.degrees(float(pitch))
+                rear_pitch_check_after_s = (
+                    ENTRY_TOTAL_S + QUAD_REAR_PITCH_CHECK_DELAY_S)
         elif name in QUAD_DOWN_DEMOS:
             pass
         elif name not in QUAD_REQUIRES_REAR:
@@ -3052,15 +3127,24 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         pitch = gait_cfg.get("pitch")
         expected_pitch = (
             math.degrees(float(pitch)) if pitch is not None else None)
+        # The saved body-frame calibration supplies the IMU axis/sign; the
+        # active gait supplies the desired pitch. Otherwise a stale sweep
+        # target from a more aggressive rear-up makes mild hardware gaits
+        # keep leaning aft until a support hip hits the current guard.
         balance_trim = QuadPitchTrim(
-            expected_pitch_deg=expected_pitch, gait=gait_key or name)
+            expected_pitch_deg=expected_pitch, gait=gait_key or name,
+            body_frame_target_deg=expected_pitch)
 
     factory = STREAM_POSE_FACTORIES[name]
+    quad_base_deg = _read_pose(bus, live) if name in QUAD_REAR_DEMOS else None
     if getattr(factory, "duration_aware", False):
         if quad:
-            pose_fn = factory(
-                dur,
-                trim_fn=balance_trim.pose_trim if balance_trim else None)
+            kwargs = {
+                "trim_fn": balance_trim.pose_trim if balance_trim else None,
+            }
+            if quad_base_deg is not None:
+                kwargs["base_deg"] = quad_base_deg
+            pose_fn = factory(dur, **kwargs)
         else:
             pose_fn = factory(dur)
     else:
@@ -3083,9 +3167,23 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             tracker=tracker, log=log_cm, tick_s=tick_s,
             max_acc=QUAD_STREAM_ACC if quad else 200,
             tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None,
-            balance_trim=balance_trim)
+            balance_trim=balance_trim,
+            rear_pitch_target_deg=rear_pitch_target_deg,
+            rear_pitch_check_after_s=rear_pitch_check_after_s)
         if st == "aborted":
             return "aborted"
+        if st.startswith("rear_pitch:"):
+            bits = st.split(":")
+            measured = bits[1] if len(bits) > 1 else "?"
+            target = bits[2] if len(bits) > 2 else "?"
+            recovery = (_quad_recover_to_stand(
+                bus, live, check, tracker, status_cb=status_cb)
+                if quad else "holding here")
+            msg = (f"stopped: rear-up did not take (body pitch {measured} "
+                   f"deg, target {target} deg); {recovery}. Do not walk "
+                   "from that pose.")
+            print(f"  {msg}")
+            return msg
         if st.startswith("balance:"):
             bits = st.split(":")
             err = bits[1] if len(bits) > 1 else "?"

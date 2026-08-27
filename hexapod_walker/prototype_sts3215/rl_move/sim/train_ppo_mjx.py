@@ -988,6 +988,18 @@ def _validate_use_sde_scratch_only(use_sde: bool, init_from,
                          "exploration mode")
 
 
+def _validate_gru_dual_log_std_split(log_std_split: bool,
+                                     gru_dual: bool) -> None:
+    """--gru-dual-log-std-split (a second learnable log_std_b for core
+    B/stance) only makes sense on DualGruActorCriticPolicy — there is
+    no core B to give a std to otherwise. Pulled out of main() as a
+    pure function so it is unit-testable without mujoco/GPU (mirrors
+    _validate_use_sde_scratch_only above). No-op when off (default).
+    """
+    if log_std_split and not gru_dual:
+        raise SystemExit("--gru-dual-log-std-split requires --gru-dual")
+
+
 def _resolve_training_episode_seconds(training_episode_seconds,
                                        episode_seconds: float) -> float:
     """Normalizes --training-episode-seconds vs --episode-seconds.
@@ -1558,6 +1570,20 @@ def main(argv: list[str] | None = None) -> int:
                     help="fraction of --steps over which the log-std "
                          "anneal completes (only used when "
                          "--log-std-final is set); 1.0 = whole run.")
+    ap.add_argument("--log-std-anneal-core", type=str, default="all",
+                    choices=["all", "walk", "stance"],
+                    help="which log_std parameter(s) --log-std-final "
+                         "anneals. Default 'all' = every entry in "
+                         "policy._log_stds() (bit-identical to pre-08-27 "
+                         "behavior: the single shared log_std on a "
+                         "plain/dual policy, or all four experts on "
+                         "--gru-experts). 'walk'/'stance' target only "
+                         "one gated core's log_std and require a policy "
+                         "that actually separates them (currently: "
+                         "--gru-dual --gru-dual-log-std-split) via its "
+                         "_log_std_core(which) method; on any other "
+                         "policy this silently falls back to 'all' "
+                         "(there is no separate parameter to target).")
     ap.add_argument("--activation-fn", type=str, default="",
                     choices=["", "tanh", "relu", "elu"],
                     help="MLP activation for from-scratch/transplant "
@@ -1592,6 +1618,19 @@ def main(argv: list[str] | None = None) -> int:
                          "anchor1..3 closure: one shared trunk cannot "
                          "hold anchored stance and a displacing walk at "
                          "once. Implies --gru")
+    ap.add_argument("--gru-dual-log-std-split", action="store_true",
+                    help="DualGruActorCriticPolicy only: give core B "
+                         "(stance) its OWN learnable log_std_b, mixed "
+                         "per-tick with the same mode gate as the mean/"
+                         "value, instead of sharing core A's (walk) "
+                         "log_std. Default off = bit-exact single-"
+                         "log_std path. Born from the anchor4-stdanneal/"
+                         "anchor5-stdmild dose-bracket (08-27, standwalk "
+                         "STATUS.md): no single shared log_std value "
+                         "both protects walk's exploration and cools "
+                         "stance's stochastic-hold failure. Combine with "
+                         "--log-std-anneal-core stance to anneal only "
+                         "core B")
     ap.add_argument("--gru-experts", action="store_true",
                     help="mode-gated FOUR-expert GRU (gru_policy."
                          "ModeExpertsGruActorCriticPolicy): fully "
@@ -2381,6 +2420,8 @@ def main(argv: list[str] | None = None) -> int:
     extra_pk: dict = {}
     if args.gru_dual and args.gru_experts:
         raise SystemExit("--gru-dual and --gru-experts are exclusive")
+    _validate_gru_dual_log_std_split(args.gru_dual_log_std_split,
+                                     args.gru_dual)
     if args.gru_dual or args.gru_experts:
         args.gru = True
         if float(_parse_cfg_set(args.cfg_set).get(
@@ -2444,8 +2485,13 @@ def main(argv: list[str] | None = None) -> int:
             extra_pk.update(
                 experts_adapter_hidden=args.gru_experts_adapter,
                 experts_adapter_scale=args.gru_experts_adapter_scale)
+        if args.gru_dual_log_std_split:
+            extra_pk.update(log_std_split=True)
         cores_note = (" x4 isolated mode experts" if args.gru_experts
-                      else " x2 mode-gated cores" if args.gru_dual
+                      else (" x2 mode-gated cores"
+                            + (" (SPLIT log_std)"
+                               if args.gru_dual_log_std_split else ""))
+                      if args.gru_dual
                       else "")
         print(f"[mjx-train] GRU policy: hidden {args.gru_hidden_size}"
               f"{cores_note}, "
@@ -3886,22 +3932,46 @@ def main(argv: list[str] | None = None) -> int:
             2M steps with ZERO weight updates while reward 'rose'
             purely from shrinking action noise. At rollout start the
             collected actions, buffer log_probs and train() all share
-            one log_std, so ratios start at 1 as normal."""
+            one log_std, so ratios start at 1 as normal.
+
+            PER-CORE TARGETING (08-27, standwalk dose-bracket): with
+            --log-std-anneal-core {walk,stance} (default 'all'), only
+            anneal the named core's log_std — e.g. cool the stance
+            core toward -4.0 while the walk core's own log_std keeps
+            training normally under PPO's own gradient, untouched by
+            this callback. Falls back to the legacy all-params path
+            (bit-identical to pre-08-27 'all') on any policy that
+            doesn't implement _log_std_core (no separate parameter to
+            target) — printed once so a no-op request is never silent.
+            """
+
+            @staticmethod
+            def _targets(pol):
+                core = getattr(args, "log_std_anneal_core", "all")
+                if core != "all" and hasattr(pol, "_log_std_core"):
+                    t = pol._log_std_core(core)
+                    if t is not None:
+                        return list(t)
+                if hasattr(pol, "_log_stds"):
+                    return list(pol._log_stds())
+                if hasattr(pol, "log_std"):
+                    return [pol.log_std]
+                return []
 
             def __init__(self):
                 super().__init__()
+                self._warned_fallback = False
                 if args.warm_log_std_override is not None:
                     self._start = float(args.warm_log_std_override)
                 else:
                     import torch as _th
                     pol = model.policy
                     with _th.no_grad():
-                        if hasattr(pol, "_log_stds"):
+                        targets = self._targets(pol)
+                        if targets:
                             vals = [float(_ls.data.mean())
-                                    for _ls in pol._log_stds()]
+                                    for _ls in targets]
                             self._start = sum(vals) / len(vals)
-                        elif hasattr(pol, "log_std"):
-                            self._start = float(pol.log_std.data.mean())
                         else:
                             self._start = float(args.log_std_final)
                 self._final = float(args.log_std_final)
@@ -3918,12 +3988,17 @@ def main(argv: list[str] | None = None) -> int:
                 frac = min(1.0, self.num_timesteps / self._denom)
                 val = self._start + frac * (self._final - self._start)
                 pol = self.model.policy
+                core = getattr(args, "log_std_anneal_core", "all")
+                if (core != "all" and not self._warned_fallback
+                        and not hasattr(pol, "_log_std_core")):
+                    self._warned_fallback = True
+                    print(f"[log-std-anneal] --log-std-anneal-core "
+                          f"{core} requested but {type(pol).__name__} "
+                          "has no _log_std_core — falling back to "
+                          "annealing ALL log_std parameters")
                 with _th.no_grad():
-                    if hasattr(pol, "_log_stds"):
-                        for _ls in pol._log_stds():
-                            _ls.data.fill_(float(val))
-                    elif hasattr(pol, "log_std"):
-                        pol.log_std.data.fill_(float(val))
+                    for _ls in self._targets(pol):
+                        _ls.data.fill_(float(val))
                 if frac >= 1.0 and not self._finished:
                     self._finished = True
                     print("[log-std-anneal] complete @ "

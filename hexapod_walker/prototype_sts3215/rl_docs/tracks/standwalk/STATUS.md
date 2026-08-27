@@ -1,6 +1,74 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~03:1x (**JOINT DOSE-BRACKET GRID CLOSED,
+Last updated: 2026-08-27 ~03:4x (**OPERATOR PRIORITY 08-27 (MCP
+20260827T030823Z): ONE integrated policy + LONG MIXED-SESSION GATES —
+instrument BUILT, 4 candidate baselines RUNNING, direction-coverage
+pair QUEUED (kick cycle).** (1) NEW INSTRUMENT
+`rl_move/sim/eval_mixed_session.py` (commit `676b9a51`): 60 s/180 s
+env-native `goal.mode_seq=1.0` sessions (rise->hold(height cmds)->
+walk(stress_mix joystick commands)->lower chains, 8-12 s segments
+clearing the 7 s rise floor, the run's own start diet incl.
+flat/tipped), SINGLE policy, NO external re-anchor help (contrast
+`eval_modeseq`, the helped/wrapper protocol). Hard gate = zero
+terminations of any kind; soft axes (completion>=0.9, gait_valid>=0.9,
+slip<=2.9, dir_err<=40 deg, herr<=15 mm) always reported, gated with
+--strict. Aggregation unit-banked (`test_eval_mixed_session.py`, 6
+tests). `eval_checkpoint` now writes additive `seq_*` per-episode
+fields (plan, segments reached, terminating segment mode) for mode_seq
+episodes ONLY — non-sequence reports byte-identical. `ops.sh
+sessioncmd <run>` prints the run-own-cfg invocation. (2) BASELINES IN
+FLIGHT (detached, several hours): anchor2/anchor2-s1/anchor3/
+anchor3-s1, 60 s (DR-0 + own-DR 0.5, det+sto, n=6 x {rise,walk}
+first-segments) + 180 s (DR-0, n=3), with video, on train-8/9/10/11;
+verdicts land at `logs/ckpt_eval/<run>_mixedsession/
+session_verdict.json` ON THE POD (log `/tmp/mixedsession_<run>.log`,
+done marker 'verdict written' — kubectl cp the artifact dir back; do
+NOT relaunch). (3) SMOKE FINDING (anchor2, 2-episode 20 s probe):
+instrument already localizes — flat-start rise over_current (the
+catalogued RUNG-9 residual) and median walk direction error ~52 deg
+under stress_mix (the walk core trained fixed-forward, heading pinned
+0). (4) DIRECTION-COVERAGE PAIR VERIFIED RUNNING:
+`...-anchor2-headings1` (seed0, train-2) and `-headings1-s1` (seed1,
+train-0), 2M discovery continuations off anchor2/anchor2-s1's own
+checkpoints, single lever `goal.walk_heading_max_rad` 0 -> 0.7854
+(heading rides the existing vx_ref/vy_ref obs channels,
+layout-compatible); gate WALK-SURVIVES + DIRECTION-LEARNS (<=35 deg
+full bar) + STANCE-UNHARMED, joint 2-seed call. (Launch history for
+the audit trail: two REFUSED ledger entries were TRANSIENT — a
+dirty-code-marker while the concurrent split cycle's WIP was
+uncommitted, then a pod race against anchor6-logstdsplit; the
+resolved PARKED entries were removed from backlog_failed.json.)
+Duplicate-lever check: the per-core `log_std` split (the
+hold/sto lever, Next -1.8) is a CONCURRENT cycle's in-flight
+code+canary work — off-limits here; headings is orthogonal
+walk-command coverage and composes with whichever std mechanism wins.
+Prior banner below.)
+
+Update, 2026-08-27 ~04:1x (kick-cycle housekeeping): `anchor5-stdmild2`
+(this cycle's assigned "just finished" run) was already fully
+triaged and the joint dose-bracket call already closed by a concurrent
+cycle before this one reached it (see the "JOINT DOSE-BRACKET GRID
+CLOSED" banner below, commit `bae98ef7`) — verified, no re-triage
+needed. `-anchor2-headings1` was independently found already VERIFIED
+RUNNING (train-2) by the time this cycle's own re-queue attempt drained
+— the launcher correctly deduped the redundant queue item against the
+live W&B run, confirming the pod-race account above. Completed the
+per-core `log_std` split's standard 2-seed pair: launched
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6-logstdsplit-s1`
+(seed1, warm from `anchor2-s1`, train-3, VERIFIED RUNNING) alongside
+the already-running seed0 — same mechanism (separate learnable
+`log_std_b` for the stance core, `--log-std-anneal-core stance`), no
+new code. Fleet after this cycle: 4 standwalk GPU arms training
+(headings1 train-2, headings1-s1 train-0, logstdsplit train-1,
+logstdsplit-s1 train-3), 4 mixed-session baselines still computing on
+train-8..11 (not detected by `capacity.py`'s trainer-process scan —
+do NOT launch there), 4 genuinely free pods (train-4/5/6/7) with no
+further pre-registered ready arm; remaining Next items wait on the
+mixed-session verdicts landing or need dig-in-scope code (STAND_HEIGHT
+rung-4 height-aware anchor, the stage-2 stance-anchor-leak-into-walk
+root cause). Prior banner below.)
+
+Prior banner, 2026-08-27 ~03:1x (**JOINT DOSE-BRACKET GRID CLOSED,
 4/4 arms read: no single shared `log_std` value threads the needle —
 magnitude is dead as a lever, PER-CORE `log_std` SPLIT (Next -1.8) is
 now the funded next step.** Completes the picture across all three
@@ -3632,6 +3700,22 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
   hardening rung.
 
 ## Next
+
+-1.85 MIXED-SESSION BASELINE READOUT (08-27 kick cycle; owner = the
+    cycle that sees the four session verdicts land). Poll
+    `/tmp/mixedsession_<run>.log` on train-8/9/10/11 for 'verdict
+    written', then `kubectl cp` each
+    `logs/ckpt_eval/<run>_mixedsession/` back (anchor2, anchor2-s1,
+    anchor3, anchor3-s1). Compare candidates on the scorecard
+    (zero-terms, session_complete_frac, terms_by_segment_mode /
+    _start_kind, walk axes, height, current), WATCH the 60 s/180 s
+    session videos, name the best current single-model candidate +
+    write the operator's long-session report (08-27 priority note
+    deliverable). Fold the failure localization into the lever queue:
+    hold_min_load terms in hold segments = the per-core split's
+    target (-1.8); direction error = headings1's target; flat-rise
+    over_current = RUNG-9 ref mint. Do NOT relaunch these evals —
+    they are detached and running.
 
 -1.8 PER-CORE `log_std` SPLIT — DIG-IN FLAGGED (08-27, anchor4-stdanneal
     joint call). Code-read finding (`rl_move/sim/gru_policy.py`

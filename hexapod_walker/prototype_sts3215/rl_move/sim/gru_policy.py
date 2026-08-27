@@ -160,7 +160,7 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
     SDE) and n_lstm_layers=1 per core.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, log_std_split: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         if self.lstm_critic is None or self.shared_lstm:
             raise ValueError(
@@ -189,6 +189,33 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
         self.mlp_extractor_b = copy.deepcopy(self.mlp_extractor)
         self.action_net_b = copy.deepcopy(self.action_net)
         self.value_net_b = copy.deepcopy(self.value_net)
+        # PER-CORE log_std SPLIT (08-27, anchor4-stdanneal/anchor5-
+        # stdmild dose-bracket dig-in): default OFF / bit-exact — the
+        # mean and value are already mixed per-core via the mode gate
+        # (action_net/action_net_b, value_net/value_net_b above), but
+        # the exploration std used to be ONE shared nn.Parameter
+        # (self.log_std, inherited from the base class) applied
+        # identically to every tick regardless of which core is
+        # active. A full 2-dose x 2-seed magnitude bracket on that
+        # shared scalar (log_std_final -1.0/-2.0/-4.0, see standwalk
+        # STATUS.md 08-27) found NO shared value that both protects
+        # walk's still-fragile exploration and cools stance's
+        # stochastic-hold failure: -4.0 fixes hold but wrecks walk on
+        # every seed; -2.0/-1.0 leave hold untouched (one seed even
+        # regresses on walk at -1.0). ``log_std_split=True`` adds a
+        # second learnable ``log_std_b`` for core B (stance) and mixes
+        # it with the SAME per-tick gate used for the mean/value
+        # (``gate * log_std + (1-gate) * log_std_b``), so an anneal
+        # schedule can now target ONLY the stance core
+        # (train_ppo_mjx.py's ``--log-std-anneal-core stance``) while
+        # core A (walk) keeps its own independently-trained std.
+        # False (default) constructs nothing extra and
+        # ``_dist_from_mean`` takes the old single-``log_std`` path —
+        # bit-identical to pre-08-27 behavior.
+        self.log_std_split = bool(log_std_split)
+        if self.log_std_split:
+            self.log_std_b = nn.Parameter(
+                self.log_std.data.clone(), requires_grad=True)
         lr = self.optimizer.defaults["lr"]
         self.optimizer = self.optimizer_class(
             self.parameters(), lr=lr, **self.optimizer_kwargs)
@@ -228,9 +255,37 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
             self.mlp_extractor_b.forward_critic(out_b))
         return gate * v_a + (1.0 - gate) * v_b
 
-    def _dist_from_mean(self, mean_actions):
-        return self.action_dist.proba_distribution(
-            mean_actions, self.log_std)
+    def _dist_from_mean(self, mean_actions, gate=None):
+        if self.log_std_split:
+            # Same per-tick blend as the mean/value (gate==1 -> all
+            # core A/walk std, gate==0 -> all core B/stance std);
+            # gate is (..., 1), log_std is (action_dim,), broadcasts
+            # to (..., action_dim) same as the mean-mixing above.
+            log_std = gate * self.log_std + (1.0 - gate) * self.log_std_b
+        else:
+            log_std = self.log_std
+        return self.action_dist.proba_distribution(mean_actions, log_std)
+
+    def _log_stds(self):
+        """All learnable log_std parameters (reset/uniform-anneal
+        helper). One entry when log_std_split is off — bit-identical
+        in effect to the pre-split ``pol.log_std.data.fill_(val)``
+        path, just routed through this generic loop instead."""
+        return (self.log_std, self.log_std_b) if self.log_std_split \
+            else (self.log_std,)
+
+    def _log_std_core(self, which: str):
+        """log_std_split-only: the param(s) for ONE gated core, so an
+        anneal schedule can target just the stance side. Returns None
+        (caller falls back to ``_log_stds()``/legacy) when the split
+        is off — there is no separate stance parameter to target."""
+        if not self.log_std_split:
+            return None
+        if which == "walk":
+            return (self.log_std,)
+        if which == "stance":
+            return (self.log_std_b,)
+        return None
 
     # -- RecurrentPPO entry points ---------------------------------
 
@@ -247,7 +302,8 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
         va, vb, st_vf = self._dual_sequence(
             vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
         values = self._critic_value(va, vb, gate)
-        distribution = self._dist_from_mean(self._actor_mean(pa, pb, gate))
+        distribution = self._dist_from_mean(
+            self._actor_mean(pa, pb, gate), gate)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         actions = actions.reshape((-1, *self.action_space.shape))
@@ -261,7 +317,8 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
         gate = self._gate(obs)
         pa, pb, st = self._dual_sequence(
             features, lstm_states, episode_starts, self.lstm_actor)
-        return self._dist_from_mean(self._actor_mean(pa, pb, gate)), st
+        return self._dist_from_mean(
+            self._actor_mean(pa, pb, gate), gate), st
 
     def predict_values(self, obs, lstm_states, episode_starts):
         from stable_baselines3.common.policies import ActorCriticPolicy
@@ -283,7 +340,8 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
             pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
         va, vb, _ = self._dual_sequence(
             vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
-        distribution = self._dist_from_mean(self._actor_mean(pa, pb, gate))
+        distribution = self._dist_from_mean(
+            self._actor_mean(pa, pb, gate), gate)
         log_prob = distribution.log_prob(actions)
         values = self._critic_value(va, vb, gate)
         return values, log_prob, distribution.entropy()

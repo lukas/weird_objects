@@ -561,6 +561,133 @@ def test_dual_save_load_stateful_roundtrip(tmp_path):
     np.testing.assert_array_equal(rollout(model), rollout(loaded))
 
 
+# ---------------------------------------------------------------------------
+# 5b. PER-CORE log_std SPLIT (08-27, anchor4-stdanneal/anchor5-stdmild
+#     dose-bracket dig-in) — log_std_split=False must stay bit-exact;
+#     log_std_split=True must give core B its own learnable std, mixed
+#     by the SAME per-tick gate as the mean/value, with full gradient
+#     isolation matching the existing mean/value/GRU isolation.
+# ---------------------------------------------------------------------------
+
+def test_dual_log_std_split_default_off_bit_exact():
+    model = _dual_model()
+    pol = model.policy
+    assert pol.log_std_split is False
+    assert not hasattr(pol, "log_std_b")
+    assert pol._log_stds() == (pol.log_std,)
+    assert pol._log_std_core("walk") is None
+    assert pol._log_std_core("stance") is None
+    # _dist_from_mean must take the single-log_std path regardless of
+    # whatever gate value is passed (it's ignored when split is off).
+    mean = th.zeros(4, 2)
+    gate = th.tensor([[1.0], [0.0], [1.0], [0.0]])
+    d_gated = pol._dist_from_mean(mean, gate)
+    d_none = pol._dist_from_mean(mean, None)
+    assert th.allclose(d_gated.distribution.stddev, d_none.distribution.stddev)
+    assert th.allclose(d_gated.distribution.stddev[0], pol.log_std.exp())
+
+
+def _dual_split_model(hidden=8):
+    from sb3_contrib import RecurrentPPO
+    return RecurrentPPO(
+        DualGruActorCriticPolicy, _TinyDualEnv(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=hidden, net_arch=[16],
+                           log_std_split=True))
+
+
+def test_dual_log_std_split_construction_and_helpers():
+    pol = _dual_split_model().policy
+    assert pol.log_std_split is True
+    assert hasattr(pol, "log_std_b")
+    assert pol.log_std_b.requires_grad
+    assert pol.log_std_b.shape == pol.log_std.shape
+    # Cloned from log_std at init (same start point as the shared
+    # parameter it replaces — divergence only comes from training).
+    assert th.allclose(pol.log_std_b, pol.log_std)
+    assert pol._log_stds() == (pol.log_std, pol.log_std_b)
+    assert pol._log_std_core("walk") == (pol.log_std,)
+    assert pol._log_std_core("stance") == (pol.log_std_b,)
+
+
+def test_dual_log_std_split_routes_std_per_core():
+    """Mirrors test_dual_routing_selects_core for the STD instead of
+    the mean: poison each core's log_std with a distinct constant and
+    check the per-sample distribution std picks the right one."""
+    import math
+    model = _dual_split_model()
+    pol = model.policy
+    pol.set_training_mode(False)
+    with th.no_grad():
+        pol.log_std.data.fill_(math.log(0.05))
+        pol.log_std_b.data.fill_(math.log(0.5))
+    obs = th.as_tensor(np.stack([
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(3)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(0)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(1)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(4)]),
+    ]))
+    h = th.zeros(2, 4, 8)
+    starts = th.ones(4)
+    with th.no_grad():
+        dist, _ = pol.get_distribution(obs, (h, th.zeros_like(h)), starts)
+        std = dist.distribution.stddev
+    exp = th.tensor([[0.05, 0.05], [0.5, 0.5], [0.5, 0.5], [0.05, 0.05]])
+    assert th.allclose(std, exp, atol=1e-6), (
+        f"per-core log_std routing broken: {std} vs {exp} (rows: "
+        f"walk->log_std, hold->log_std_b, rise->log_std_b, turn->log_std)")
+
+
+@pytest.mark.parametrize("loco", [True, False])
+def test_dual_log_std_split_gradient_isolation(loco):
+    """The std parameters must obey the SAME isolation the mean/value
+    heads already have: a batch gated entirely to one family trains
+    only that family's log_std."""
+    from sb3_contrib.common.recurrent.type_aliases import RNNStates
+
+    model = _dual_split_model()
+    pol = model.policy
+    slot = 3 if loco else 0
+    obs = th.as_tensor(np.stack([np.concatenate([
+        np.random.default_rng(i).uniform(-1, 1, 3).astype(np.float32),
+        _onehot_tail(slot)]) for i in range(8)]))
+    actions = th.zeros(8, 2)
+    h = th.zeros(2, 8, 8)
+    states = RNNStates((h, th.zeros_like(h)), (h.clone(), th.zeros_like(h)))
+    starts = th.ones(8)
+
+    pol.log_std.grad = None
+    pol.log_std_b.grad = None
+    values, log_prob, entropy = pol.evaluate_actions(
+        obs, actions, states, starts)
+    (values.sum() + log_prob.sum()).backward()
+
+    hot, cold = (pol.log_std, pol.log_std_b) if loco \
+        else (pol.log_std_b, pol.log_std)
+    assert hot.grad is not None and float(hot.grad.abs().sum()) > 0.0, \
+        "active core's log_std received no gradient"
+    assert cold.grad is None or float(cold.grad.abs().sum()) == 0.0, \
+        "gradient leaked into the gated-out core's log_std"
+
+
+def test_dual_log_std_split_save_load_roundtrip(tmp_path):
+    from sb3_contrib import RecurrentPPO
+
+    model = _dual_split_model()
+    with th.no_grad():
+        model.policy.log_std_b.data.fill_(-2.0)
+    model.learn(64)
+    zip_path = tmp_path / "dual_split.zip"
+    model.save(zip_path)
+    loaded = load_checkpoint_auto(zip_path)
+    assert isinstance(loaded, RecurrentPPO)
+    assert isinstance(loaded.policy, DualGruActorCriticPolicy)
+    assert loaded.policy.log_std_split is True
+    assert th.allclose(loaded.policy.log_std_b, model.policy.log_std_b)
+    assert not th.allclose(loaded.policy.log_std_b, loaded.policy.log_std), \
+        "log_std_b should have diverged from log_std after training"
+
+
 def test_dual_bptt_forward_matches_entry_points():
     """distill_gru's whole-episode path must agree with the production
     get_distribution path from zero states (same math, two routes)."""

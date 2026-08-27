@@ -396,6 +396,27 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     }
     if info0.get("reset_start_jitter"):
         ep["reset_start_jitter"] = info0["reset_start_jitter"]
+    # Composed-session fields (08-27, eval_mixed_session instrument):
+    # written ONLY when this episode actually ran a goal.mode_seq /
+    # goal.mode_seq_stance sequence (sim_env._reset_begin clears
+    # _seq_plan to None every episode before the sampler repopulates
+    # it, so a non-sequence episode can never leak a prior plan).
+    # Purely additive keys — non-sequence reports are byte-identical
+    # and existing consumers ignore unknown keys.
+    seq_plan = getattr(env, "_seq_plan", None)
+    if seq_plan:
+        n_ticks = len(contact_hist)
+        ep["seq_plan"] = [{"mode": str(p["mode"]),
+                           "t_s": round(int(p["tick"]) * env.dt, 2)}
+                          for p in seq_plan]
+        reached = [p for p in seq_plan if int(p["tick"]) < n_ticks]
+        ep["seq_n_segments_planned"] = len(seq_plan)
+        ep["seq_n_segments_reached"] = len(reached)
+        ep["seq_end_seg_mode"] = (str(reached[-1]["mode"]) if reached
+                                  else str(seq_plan[0]["mode"]))
+        ep["seq_end_t_s"] = round(n_ticks * env.dt, 2)
+        ep["seq_completed"] = bool((not term)
+                                   and len(reached) == len(seq_plan))
     # Roll transient statistics (bench_report parity, 08-11 finding 6:
     # "the sim eval side should report the identical statistic so
     # hardware and sim numbers are directly comparable"). peak = max

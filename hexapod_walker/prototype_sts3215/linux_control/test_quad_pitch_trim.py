@@ -12,7 +12,7 @@ for _p in (_ROOT / "motor_setup", _HERE):
         sys.path.insert(0, str(_p))
 
 from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
-from inplace_demos import QuadPitchTrim  # noqa: E402
+from inplace_demos import QuadPitchTrim, _quad_rear_pitch_cmd_deg  # noqa: E402
 import quad_walk as QW  # noqa: E402
 from quad_walk import make_quad_walk_pose_fn  # noqa: E402
 
@@ -184,6 +184,44 @@ def test_body_frame_trim_targets_measured_rear_lean() -> None:
     assert abs(data["pitch_trim_deg"]) < 0.5
 
 
+def test_body_frame_target_override_uses_gait_pitch() -> None:
+    body_frame = imu_body_frame_from_roll_pitch(
+        0.0, 26.0, expected_pitch_deg=-26.0, samples=10)
+    assert body_frame["ok"]
+    calib = {
+        "gyro_bias_dps": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "accel_bias_g": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "body_frame": body_frame,
+    }
+    trim = QuadPitchTrim(
+        expected_pitch_deg=-16.0, gait="walk_safe",
+        body_frame_target_deg=-16.0)
+    trim.update(apply_imu_calib(_imu_pitch(16.0), calib), 0.0)
+    data = trim.event_data()
+    assert data["body_frame_mode"]
+    assert abs(data["target_pitch_deg"] + 16.0) < 0.5
+    assert abs(data["err_deg"]) < 0.5
+
+
+def test_rear_pitch_check_uses_body_frame_pitch_directly() -> None:
+    measured = _quad_rear_pitch_cmd_deg(
+        {"body_frame_calibrated": True, "body_pitch_deg": +3.2},
+        -17.5)
+    assert measured == +3.2
+
+
+def test_rear_pitch_check_maps_raw_rear_lean_to_command_sign() -> None:
+    # Without a calibrated body frame, raw accel pitch is only a fallback.
+    # A positive physical rear lean still corresponds to the negative quad
+    # command convention used by the gait generator.
+    measured = _quad_rear_pitch_cmd_deg(_imu_pitch(+17.0), -17.5)
+    assert measured is not None
+    assert measured < -16.5
+    flat = _quad_rear_pitch_cmd_deg(_imu_pitch(+3.0), -17.5)
+    assert flat is not None
+    assert abs(flat - -17.5) > 11.0
+
+
 def test_negative_command_quad_trim_pushes_more_negative_for_forward_tip() -> None:
     trim = QuadPitchTrim(expected_pitch_deg=-30.0, gait="walk")
     imu = {"body_frame_calibrated": True, "body_pitch_target_deg": -20.0}
@@ -276,12 +314,23 @@ def test_pose_factory_accepts_trim() -> None:
     assert all(isinstance(x, float) for x in pose)
 
 
+def test_split_walk_settles_before_first_step() -> None:
+    base = [0.0, 16.1, 43.5] * 6
+    q = QW.QuadRearWalk(base, 30.0, gait="walk_safe")
+    assert q.walk_settle_s > 0.5
+
+    hold = q.reared_pose()
+    early = q.walk_only_pose_at(0.5 * q.walk_settle_s)
+    assert q.walk_all_stance_at(0.5 * q.walk_settle_s)
+    assert max(abs(a - b) for a, b in zip(hold, early)) < 1e-9
+
+
 def test_hardware_quad_rear_presets_load_rear_support_pair() -> None:
-    # 08-22 live API probe: L0/L5 loaded + L2/L3 tucked is the direction that
-    # visually tipped the real robot back. The previous L0/L5 tuck direction
-    # tipped it forward.
-    assert QW.FRONT_LEGS == (2, 3)
-    assert QW.REAR_SUPPORT_LEGS == (0, 5)
+    # 08-23 physical review: L0/L5 are the visible front pair in the air.
+    # The 08-22 rotated mapping tucked L2/L3 and overloaded L4 on hardware.
+    assert QW.FRONT_LEGS == (0, 5)
+    assert QW.SUPPORT_LEGS == (1, 2, 3, 4)
+    assert QW.REAR_SUPPORT_LEGS == (2, 3)
     base = [0.0, 16.1, 43.5] * 6
     hardware_gaits = (
         "rear_safe", "walk_safe", "rear", "walk", "rear_pitch",
@@ -296,13 +345,31 @@ def test_hardware_quad_rear_presets_load_rear_support_pair() -> None:
         front_hips = tuple(pose[3 * leg + 1] for leg in QW.FRONT_LEGS)
         front_knees = tuple(pose[3 * leg + 2] for leg in QW.FRONT_LEGS)
         mid_hips = (pose[3 * 1 + 1], pose[3 * 4 + 1])
-        assert q.rear_press - q.body_z >= 0.030, gait
-        assert min(rear_hips) >= 18.0, (gait, rear_hips)
-        assert 60.0 <= min(rear_knees) <= max(rear_knees) <= 72.0, (
+        assert q.rear_press == 0.0, gait
+        assert q.body_z == 0.0, gait
+        assert max(rear_hips) <= -14.0, (gait, rear_hips)
+        assert 33.0 <= min(rear_knees) <= max(rear_knees) <= 55.0, (
             gait, rear_knees)
         assert max(front_hips) <= -60.0, (gait, front_hips)
         assert min(front_knees) >= 110.0, (gait, front_knees)
-        assert max(mid_hips) <= 29.8, (gait, mid_hips)
+        assert max(mid_hips) <= 29.0, (gait, mid_hips)
+
+
+def test_quad_rear_entry_uses_front_prop_before_tuck() -> None:
+    base = [0.0, 16.084, 43.55] * 6
+    q = QW.QuadRearWalk(base, 30.0, gait="rear_safe")
+    e1, e1b, e2, _e3 = QW.ENTRY_S
+    prop_pose = q.pose_at(e1 + e1b + e2 - 1e-4)
+    fronts = [prop_pose[3 * leg: 3 * leg + 3] for leg in QW.FRONT_LEGS]
+    front_hips = [p[1] for p in fronts]
+    front_knees = [p[2] for p in fronts]
+    assert max(front_hips) < 29.5
+    assert min(front_hips) > 25.0
+    assert max(front_knees) < 50.0
+
+    reared = q.reared_pose()
+    end = q.pose_at(QW.ENTRY_TOTAL_S)
+    assert max(abs(a - b) for a, b in zip(reared, end)) < 1e-9
 
 
 def _main() -> int:
