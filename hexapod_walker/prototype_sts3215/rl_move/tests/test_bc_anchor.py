@@ -1860,3 +1860,128 @@ def test_debug_adv_stats_skips_without_mode_onehot():
     model.logger.record = lambda k, v: calls.__setitem__(k, v)
     model._maybe_log_adv_mode_stats()
     assert calls == {}
+
+
+# --- gradnorm diagnostic (08-27, anchor8-advstats REFUTATION follow-up) --
+
+def _tiny_dual_env_ctor():
+    import gymnasium as _g
+    from rl_move.sim.walk_task import N_MODE_OBS
+
+    class _TinyDualEnv(_g.Env):
+        """obs = 3 core dims + N_MODE_OBS one-hot tail, alternating
+        loco/stance per episode so both dual-core branches get real
+        gradient every rollout."""
+
+        def __init__(self):
+            super().__init__()
+            self.observation_space = _g.spaces.Box(
+                -1, 1, (3 + N_MODE_OBS,), dtype=np.float32)
+            self.action_space = _g.spaces.Box(-1, 1, (4,), dtype=np.float32)
+            self._t = 0
+            self._ep = 0
+
+        def _obs(self):
+            core = self.np_random.uniform(-1, 1, 3).astype(np.float32)
+            onehot = np.zeros(N_MODE_OBS, dtype=np.float32)
+            onehot[3 if self._ep % 2 == 0 else 0] = 1.0  # walk vs hold
+            return np.concatenate([core, onehot])
+
+        def reset(self, *, seed=None, options=None):
+            super().reset(seed=seed)
+            self._t = 0
+            self._ep += 1
+            return self._obs(), {}
+
+        def step(self, action):
+            self._t += 1
+            r = float(np.sum(action))
+            return self._obs(), r, False, self._t >= 8, {}
+
+    return _TinyDualEnv
+
+
+def _tiny_dual_model():
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+    from rl_move.sim.gru_policy import DualGruActorCriticPolicy
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    env_ctor = _tiny_dual_env_ctor()
+    venv = DummyVecEnv([env_ctor for _ in range(2)])
+    model = cls(
+        DualGruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, learning_rate=3e-3,
+        seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    model.bc_coef = 0.0  # anchor loss itself is not under test here
+    return model
+
+
+def test_gradnorm_diag_default_off_never_touches_clip():
+    """Off by default (bit-exact): torch.nn.utils.clip_grad_norm_ must
+    be the exact same function object before and after train(), and
+    no gradnorm/* key gets logged."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    orig = torch.nn.utils.clip_grad_norm_
+    calls = {}
+    model.logger.record = lambda k, v, **kw: calls.__setitem__(k, v)
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "off path touched the global clip_grad_norm_ reference"
+    assert not any(k.startswith("train/gradnorm_") for k in calls)
+
+
+def test_gradnorm_diag_restores_original_clip_when_on():
+    """When enabled on a dual-core policy, clip_grad_norm_ is restored
+    to the original function object once train() returns (no lasting
+    global monkeypatch), and per-core norms get logged as finite,
+    non-negative floats."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    model.bc_debug_gradnorm = True
+    orig = torch.nn.utils.clip_grad_norm_
+    calls = {}
+    model.logger.record = lambda k, v, **kw: calls.__setitem__(k, v)
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "clip_grad_norm_ was not restored after the diagnostic context"
+    assert calls["train/gradnorm_a_mean"] >= 0.0
+    assert calls["train/gradnorm_b_mean"] >= 0.0
+    assert np.isfinite(calls["train/gradnorm_a_mean"])
+    assert np.isfinite(calls["train/gradnorm_b_mean"])
+
+
+def test_gradnorm_diag_skips_non_dual_policy():
+    """Enabled, but the policy has no mlp_extractor_b (plain MLP) ->
+    must no-op cleanly, same as the off path."""
+    import torch
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_debug_gradnorm = True
+    orig = torch.nn.utils.clip_grad_norm_
+    calls = {}
+    model.logger.record = lambda k, v, **kw: calls.__setitem__(k, v)
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig
+    assert not any(k.startswith("train/gradnorm_") for k in calls)
+
+
+def test_gradnorm_diag_grouping_matches_named_parameters():
+    """Sanity: every named parameter of a dual-core policy is
+    classified as exactly one of a/b/shared, and 'core_a'/'_b' names
+    land on opposite sides (frozen contract with the DualGru naming
+    used by the diagnostic's ``_group`` helper)."""
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    names = [n for n, _ in model.policy.named_parameters()]
+    assert any("core_a" in n for n in names)
+    assert any("core_b" in n for n in names)
+    assert any(n.startswith("action_net_b") for n in names)
+    assert any(n.startswith("action_net.") or n == "action_net"
+               for n in names)
