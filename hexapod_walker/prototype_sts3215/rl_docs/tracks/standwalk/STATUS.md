@@ -1,5 +1,55 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~20:0x (triage cycle: **anchor14-walkretaincoef1-
+rescue (seed0, own scope) CANARY PASS — the RESCUE-recipe half of the
+coef-split wave; on this already-clean seed, coef=1.0 recovers most
+of anchor11-walkretain's walk-quality tax; joint RESCUE-PASS/PARTIAL/
+FAIL call still pends -s1 (the actual catastrophe target, off-limits
+this cycle)**). Manually copy-synced both passes
+(`resume_orphaned_eval.py`; the automated prestage hit the same
+wrapper-timeout gap the 08-27 note already flags — no new infra work
+needed). Wiring check first: `train/bc_anchor_loss_walk`/`fill_walk`
+nonzero every rollout. DR-0 gate det walk: `gait_valid` 6/6,
+`sacrificed_legs=[]` on ALL 6 episodes, `progress_ratio` 0.178-0.181
+(med 0.18), `slip/m` 6.07-6.80 (med ~6.2) — vs the untouched parent
+`anchor6b-logstdsplit-fix`'s own clean DR-0 band (prog med 0.23, slip
+med 6.57, gv 6/6) and vs `anchor11-walkretain`'s coef=3.0-shared cost
+on this SAME seed (prog 0.08, slip ~13.5): prog recovers 0.08->0.18
+(67% of the cost span) and slip is essentially FULLY recovered
+(13.5->6.29, matching/beating the parent). This clears the run's own
+pre-registered seed0 clause exactly ("prog_ratio >=0.18, i.e. most of
+anchor11-walkretain's cost recovered"). Own-DR(0.5) is stronger still
+(prog 0.25, slip 5.14, gv 6/6). Video (contact sheet + `walk_det`
+frame strip) shows a genuine six-leg alternating-tripod gait, upright,
+no drag/sacrifice. Non-walk modes unchanged from this recipe's known
+residual (rise 4/6, lower 6/6 det, hold 4/6 — not new damage).
+**Cross-recipe flag for the audit**: the concurrently-verdicted
+CONTROL pair at the identical coef=1.0 (`anchor13-walkretaincoef1-
+base{,-s1}`, on the much healthier `anchor2` lineage, ceiling prog
+0.38) landed at det walk prog *also* ~0.18 (seed0 0.13->0.18, only
+~20% of ITS OWN cost span recovered; seed1 inverted/worse) — two
+different lineages under the same coef=1.0 dose converge on
+approximately the SAME absolute prog_ratio despite very different
+starting ceilings (0.23 vs 0.38). Reads more like an anchor-imposed
+absolute ceiling on this metric than a clean proportional dose
+response — flagging so my seed0 clearing its own bar is NOT read as
+"coef=1.0 is a clean fix in general," only as lineage/seed-specific
+evidence. **Do not declare the joint RESCUE-PASS/PARTIAL/FAIL or fund
+a 2x-seed acquisition wave yet** — the decisive half is
+`anchor14-walkretaincoef1-rescue-s1` (the real seed1 0/6-gait_valid
+catastrophe target), still off-limits to this cycle; per this arm's
+own gate text, PASS here requires `-s1` to also clear >=5/6 gait_valid
+with zero sacrificed legs (matching `anchor11-walkretain-s1`'s already
+-closed rescue shape, 0/6->6/6 gv, prog 0.01->0.16) — if `-s1` still
+shows the anchor4-class collapse, the joint call is FAIL alongside
+anchor13's control despite this clean seed0 read. Checked all other
+tracks: joystick/amp/cpg DONE-or-maintenance, walkcurr
+`[operator]`-blocked, standwalk backlog empty/12 free GPU pods with no
+independent Next item legal before the `-s1` read lands (same
+sequential gate the 19:5x banner below names) — genuinely idle
+pending this exact number, nothing else launchable. No code change,
+no new launch this cycle. CYCLE_WORKED. Prior banner below.
+
 Update, 2026-08-27 ~19:5x (checkup+triage cycle: **anchor13-
 walkretaincoef1-base{,-s1} JOINT CANARY FAIL - MECHANISM — the
 per-mode dose split (walk coef 3.0->1.0) does NOT recover the healthy
