@@ -1,5 +1,38 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~07:0x (kick-cycle housekeeping, no verdict yet):
+this cycle's assigned run `anchor2-headings-curric1-s1` (seed1) hit
+W&B `finished` (2031616 steps) exactly at prestage time — its own
+gate/owncfg passes were already auto-started by the watcher. Its
+joint-call companion `anchor2-headings-curric1` (seed0, listed as
+"still training" when this cycle started) also flipped to `finished`
+mid-cycle with no prestage triggered yet (checkup only saw "budget
+reached; wrap-up window") — manually started its missing `pod_eval.py`
+pass so both halves of the joint pair land together, plus a
+`resume_orphaned_eval.py` safety net on the seed1 pass given the
+known stale-watcher-timeout gap (Next -1.86: the long-lived
+`watch_loop.py` process is still running pre-7500s-fix in-memory code).
+Both passes are 100Hz/30s-episode/video-every-1 4-mode joint panels
+(~1h35-1h50m each per the established measurement) — not done within
+this cycle's window; leaving the joint verdict for the cycle that
+sees the SYNCED markers land (do NOT relaunch). Noted in passing: the
+per-core `log_std` split's dig-in cycle found+fixed a real wiring bug
+(the split was never actually built into the checkpoint;
+CANARY FAIL - INFRASTRUCTURE, corrected) and relaunched
+`anchor6b-logstdsplit-fix{,-s1}` on train-1/train-3 — train-1 now
+carries BOTH that fresh training job AND this cycle's eval processes
+concurrently (mechanical: `capacity.py`'s trainer scan doesn't see
+bare `eval_checkpoint` processes, so the launcher picked train-1 as
+"free"); flagging in case throughput on either job looks anomalous,
+but not intervening (both are legitimately owned elsewhere / already
+in flight). Full track sweep this cycle (joystick/amp/cpg DONE or
+operator-blocked per their own STATUS files, walkcurr blocked on the
+registered `[operator]` no-BC-teacher ruling) confirms standwalk is
+the only open track and its own Next queue has nothing else launchable
+beyond what's already running or dig-in-scoped — 12 free GPU slots,
+empty backlog, no non-duplicate runnable arm found. Prior banner
+below.)
+
 Last updated: 2026-08-27 ~06:5x (**DIG-IN CORRECTION — the
 anchor6-logstdsplit "split FAIL / exploration-noise theory refuted"
 call below is RETRACTED: the split was NEVER IN THE POLICY.** Both
