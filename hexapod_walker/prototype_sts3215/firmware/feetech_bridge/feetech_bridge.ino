@@ -5,7 +5,8 @@
     Serial  (USART1, D0/D1) @ 1 Mbps  → FE-URT UART header (TX–TX, RX–RX, GND)
     Serial1 (LPUART1)       @ 921600  → Linux /dev/ttyHS1 (stop arduino-router)
     Wire    (I2C2)          SDA/SCL   → GY-521 MPU-6050 (header D20/D21, 3V3)
-    ST7789 TFT (bitbang SPI): SCL D13, SDA D11, RST D8, DC D7, CS D10
+    ST7789 TFT (bitbang SPI): SCL D13, SDA D11, RST D8, DC D9, CS D10,
+      BLK D7
       (TFT "SDA" is MOSI bitbang — not the I²C SDA pin)
 
   Autonomy (no host required):

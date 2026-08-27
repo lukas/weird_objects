@@ -5,7 +5,7 @@
   Edges: activity (top-left), live (top-right), amps (bottom-left),
   volts/load (bottom-right). Glyph-diff only (no full wipe).
 
-  Pins: SCL D13, SDA D11, RST D8, DC D7, CS D10, VCC/BL 3.3V
+  Pins: SCL D13, SDA D11, RST D8, DC D9, CS D10, BLK D7, VCC 3.3V
 */
 
 #ifndef ST7789_TFT_H
@@ -26,8 +26,9 @@
 namespace tft {
 
 static const int PIN_CS = 10;
-static const int PIN_DC = 7;
+static const int PIN_BLK = 7;
 static const int PIN_RST = 8;
+static const int PIN_DC = 9;
 static const int PIN_SCK = 13;
 static const int PIN_MOSI = 11;
 
@@ -541,11 +542,13 @@ static void init(bool force = false) {
   jobMode = false;
 
   pinMode(PIN_CS, OUTPUT);
+  pinMode(PIN_BLK, OUTPUT);
   pinMode(PIN_DC, OUTPUT);
   pinMode(PIN_RST, OUTPUT);
   pinMode(PIN_SCK, OUTPUT);
   pinMode(PIN_MOSI, OUTPUT);
   digitalWrite(PIN_CS, HIGH);
+  digitalWrite(PIN_BLK, HIGH);
   digitalWrite(PIN_DC, HIGH);
   digitalWrite(PIN_SCK, LOW);
   digitalWrite(PIN_MOSI, LOW);
