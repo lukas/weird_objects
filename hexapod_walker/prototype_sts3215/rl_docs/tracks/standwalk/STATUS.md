@@ -33,7 +33,15 @@ anchor2/anchor2-s1's own checkpoints, single lever
 `goal.walk_heading_max_rad` 0 -> 0.7854 (heading rides the existing
 vx_ref/vy_ref obs channels, layout-compatible); gate WALK-SURVIVES +
 DIRECTION-LEARNS (<=35 deg full bar) + STANCE-UNHARMED, joint 2-seed
-call. Duplicate-lever check: the per-core `log_std` split (the
+call. LAUNCH STATE: two drain attempts REFUSED on a TRANSIENT
+dirty-code-marker (the concurrent split cycle's uncommitted WIP makes
+every snapshot --sync stamp `<sha>-dirty`; not a design problem —
+refused_reason recorded in both ledger entries). A bounded detached
+retry watcher (`/tmp/retry_headings_pair.sh`, log same name `.log`,
+4 h cap) re-queues + drains the pair the moment `git status` is clean
+of rl_move code WIP; if it expires, any cycle can re-run the two
+respec commands recorded in the REFUSED ledger entries.
+Duplicate-lever check: the per-core `log_std` split (the
 hold/sto lever, Next -1.8) is a CONCURRENT cycle's in-flight
 code+canary work — off-limits here; headings is orthogonal
 walk-command coverage and composes with whichever std mechanism wins.
