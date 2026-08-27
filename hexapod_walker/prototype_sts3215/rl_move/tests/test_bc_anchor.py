@@ -1792,3 +1792,71 @@ def test_hold_height_aware_chain_tracks_height_with_feet_planted():
     assert worst_clear_mm < 25.0, (
         f"a foot came {worst_clear_mm:.0f}mm off the ground during the "
         f"height-aware anchored hold — not the honest feet-planted class")
+
+
+def test_debug_adv_stats_default_off_no_op():
+    """train.bc_anchor_debug_adv_stats defaults to False (unset ->
+    getattr False): the diagnostic must not log anything and must not
+    touch rollout_buffer, even if one happens to be set."""
+    model = _tiny_model()
+    model.learn(total_timesteps=32)  # populates self.logger
+    calls = {}
+    model.logger.record = lambda k, v: calls.__setitem__(k, v)
+    model._maybe_log_adv_mode_stats()
+    assert calls == {}
+
+
+def test_debug_adv_stats_splits_loco_and_stance():
+    """When enabled, the diagnostic must correctly separate ticks by
+    the obs-tail mode one-hot (loco = trailing 3 slots: walk/turn/quad)
+    and log per-group raw advantage mean/std/share — read-only, no
+    training side effect."""
+    from types import SimpleNamespace
+    from rl_move.sim.walk_task import N_MODE_OBS
+
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_debug_adv_stats = True
+
+    n = 6
+    obs = np.zeros((n, 2 + N_MODE_OBS), dtype=np.float32)
+    stance_onehot = np.zeros(N_MODE_OBS, dtype=np.float32)
+    stance_onehot[0] = 1.0  # "hold"
+    loco_onehot = np.zeros(N_MODE_OBS, dtype=np.float32)
+    loco_onehot[3] = 1.0  # "walk"
+    for i in range(4):
+        obs[i, -N_MODE_OBS:] = stance_onehot
+    for i in range(4, 6):
+        obs[i, -N_MODE_OBS:] = loco_onehot
+    adv = np.array([1.0, 2.0, 3.0, 4.0, 10.0, 20.0], dtype=np.float32)
+    model.rollout_buffer = SimpleNamespace(advantages=adv, observations=obs)
+
+    calls = {}
+    model.logger.record = lambda k, v: calls.__setitem__(k, v)
+    model._maybe_log_adv_mode_stats()
+
+    assert calls["train/adv_stance_mean"] == pytest.approx(2.5)
+    assert calls["train/adv_loco_mean"] == pytest.approx(15.0)
+    assert calls["train/adv_loco_share"] == pytest.approx(2 / 6)
+    assert calls["train/adv_stance_share"] == pytest.approx(4 / 6)
+    # raw (unnormalized) stance variance dwarfing loco's is exactly the
+    # hypothesis this diagnostic exists to surface, not asserted here
+    # (synthetic numbers), but the std keys must exist and be finite.
+    assert calls["train/adv_loco_std"] >= 0.0
+    assert calls["train/adv_stance_std"] >= 0.0
+
+
+def test_debug_adv_stats_skips_without_mode_onehot():
+    """No obs.mode_onehot tail (obs narrower than N_MODE_OBS) -> the
+    diagnostic must skip cleanly (no crash, nothing logged), not guess."""
+    from types import SimpleNamespace
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_debug_adv_stats = True
+    obs = np.zeros((4, 3), dtype=np.float32)  # narrower than N_MODE_OBS=6
+    adv = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+    model.rollout_buffer = SimpleNamespace(advantages=adv, observations=obs)
+    calls = {}
+    model.logger.record = lambda k, v: calls.__setitem__(k, v)
+    model._maybe_log_adv_mode_stats()
+    assert calls == {}

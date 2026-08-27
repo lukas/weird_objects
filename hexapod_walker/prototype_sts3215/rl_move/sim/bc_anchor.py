@@ -193,6 +193,33 @@ Knobs (set via attach_bc_anchor / cfg):
                                collapse (anchor1: walk destroyed
                                2 seeds, 2 different pathologies).
 
+  train.bc_anchor_debug_adv_stats (default 0, bit-exact when off)
+                               READ-ONLY diagnostic (08-27,
+                               anchor7-detachtrunk dig-in): after
+                               super().train() has already consumed
+                               and applied the rollout buffer, logs
+                               train/adv_{loco,stance}_{mean,std,share}
+                               — the RAW (pre sb3-contrib
+                               per-minibatch normalization) advantage
+                               moments split by the obs-tail mode
+                               one-hot (requires obs.mode_onehot=1).
+                               Tests whether the dual-core catastrophe
+                               that survives both the log_std-split and
+                               bc_anchor_detach_trunk fixes is actually
+                               a THIRD, still-untested mechanism: sb3-
+                               contrib's global per-minibatch advantage
+                               normalization mixes loco/stance ticks
+                               (this stack has no VecNormalize/reward
+                               scaling, and goal.mode_seq composes
+                               modes inside one episode, so minibatches
+                               are cross-mode by construction) — if
+                               stance's raw advantage variance dwarfs
+                               walk's, the shared normalizer could be
+                               shrinking walk's own PPO gradient toward
+                               zero independent of any weight-sharing
+                               path. Changes no gradient/weight/RNG
+                               draw; see _maybe_log_adv_mode_stats.
+
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
 the ring train/bc_anchor_loss_{rise,hold,lower,walk} +
@@ -338,6 +365,80 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 parts.append(rng.integers(0, n, size=rem))
             return np.concatenate(parts)
 
+        def _maybe_log_adv_mode_stats(self) -> None:
+            """DIAGNOSTIC ONLY, default off, zero effect on training
+            (08-27, anchor7-detachtrunk joint-close dig-in): reads
+            already-computed rollout-buffer advantages/observations
+            AFTER super().train() has fully consumed and updated the
+            policy from them, and logs the RAW (pre sb3-contrib
+            normalization) per-mode-family advantage mean/std/share.
+
+            Motivation: sb3-contrib's RecurrentPPO.train() normalizes
+            advantages with ONE global (mean, std) per minibatch
+            (`advantages[mask].mean()/.std()`, ppo_recurrent.py) —
+            there is no VecNormalize/reward-scaling anywhere in this
+            stack (grep-confirmed). Every dual-core standwalk recipe
+            trains with `goal.mode_seq` composing hold/rise/lower/walk
+            INSIDE one episode, so a single env's own rollout chunk
+            already interleaves multiple mode families in time before
+            any cross-env mixing — meaning the shared normalization
+            constant is structurally cross-mode on essentially every
+            minibatch, independent of any trunk/log_std sharing (both
+            already tested and refuted as the sole cause: anchor6/6b
+            log_std-split and anchor7 detach_trunk both left the
+            anchor4-class walk degradation only partially changed).
+            If the stance family's raw advantage variance dominates
+            the walk family's (very plausible: rise/hold/lower carry
+            large terminal penalties up to `term_cost_max`, walk's
+            reward is a bounded per-tick kernel), the shared normalizer
+            would shrink walk's own gradient signal toward zero for
+            free, independent of any weight-sharing path — a
+            previously untested root-cause candidate for the same
+            "reward trough, partial recovery, degenerate frozen/
+            leg-sacrifice gait" shape every log_std/trunk arm has hit.
+
+            This method only ever READS `self.rollout_buffer.advantages`
+            / `.observations` (already fully consumed/mutated in place
+            by the base class's own `.get()` inside `super().train()`
+            — see sb3_contrib's RecurrentRolloutBuffer.get(), which
+            flattens tensors to (n_envs*n_steps, ...) on first call)
+            and calls `self.logger.record(...)`; it changes no
+            gradient, no weight, no RNG draw. Gated behind
+            `train.bc_anchor_debug_adv_stats` (default 0 = skipped
+            entirely, bit-exact)."""
+            if not getattr(self, "bc_debug_adv_stats", False):
+                return
+            buf = getattr(self, "rollout_buffer", None)
+            adv = getattr(buf, "advantages", None) if buf is not None \
+                else None
+            obs = getattr(buf, "observations", None) if buf is not None \
+                else None
+            if adv is None or obs is None:
+                return
+            try:
+                from rl_move.sim.walk_task import (
+                    MODE_ONEHOT_ORDER, N_MODE_OBS)
+            except Exception:
+                return
+            adv = np.asarray(adv).reshape(-1)
+            obs = np.asarray(obs).reshape(adv.shape[0], -1)
+            if obs.shape[-1] < N_MODE_OBS:
+                return  # obs.mode_onehot not enabled on this run
+            onehot = obs[:, -N_MODE_OBS:]
+            n_loco = 3  # trailing slots (walk, turn, quad); see
+            # gru_policy._N_LOCO_SLOTS / walk_task.MODE_ONEHOT_ORDER
+            loco_mask = onehot[:, -n_loco:].sum(axis=-1) > 0.5
+            stance_mask = ~loco_mask
+            for name, mask in (("loco", loco_mask), ("stance", stance_mask)):
+                m = adv[mask]
+                if m.size == 0:
+                    continue
+                self.logger.record(f"train/adv_{name}_mean", float(m.mean()))
+                self.logger.record(f"train/adv_{name}_std", float(m.std()))
+                self.logger.record(
+                    f"train/adv_{name}_share", float(mask.mean()))
+            del MODE_ONEHOT_ORDER  # imported for the module-shape check only
+
         def _bc_policy_mean(self, th_obs, th_h=None):
             """pi mean at the anchor obs. MLP: stateless. Recurrent
             (GRU): one fused cell step FROM the stored rollout hidden
@@ -396,6 +497,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
 
         def train(self) -> None:
             super().train()
+            self._maybe_log_adv_mode_stats()
             coef = float(getattr(self, "bc_coef", 0.0))
             n = int(getattr(self, "_bc_n", 0))
             if coef <= 0.0 or n == 0:
@@ -580,6 +682,8 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_detach_trunk", default=0.0)) > 0.0
     model.bc_isolate_update = float(cfg_get(
         cfg, "train", "bc_anchor_isolate_update", default=0.0)) > 0.0
+    model.bc_debug_adv_stats = float(cfg_get(
+        cfg, "train", "bc_anchor_debug_adv_stats", default=0.0)) > 0.0
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))
     model.bc_batch_size = int(float(cfg_get(
