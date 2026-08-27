@@ -306,6 +306,46 @@ Knobs (set via attach_bc_anchor / cfg):
                                the pre-08-27 single global clip. See
                                _percore_clip_ctx.
 
+  train.bc_anchor_walk_coef   (default -1 = UNSET, bit-exact-off:
+                               structurally the pre-08-27 single-coef
+                               path, not just numerically equal at
+                               matched values) decouples the walk-tick
+                               anchor's loss weight from bc_anchor_coef
+                               (the stance modes' dose). MECHANISM
+                               (08-27, anchor12-walkretain-base
+                               follow-up (b), pre-registered in
+                               STATUS.md -2.35(b)): anchor12 put the
+                               SAME bc_anchor_coef the stance modes use
+                               (3.0) onto a walk-clean parent
+                               (anchor2) and measured the anchor
+                               ITSELF costing a healthy gait -- DR-0
+                               gate, seed0: prog_ratio 0.38->0.13,
+                               slip/m 3.63->8.27, sto lower
+                               5/6->1/6 -- while the walk teacher
+                               stotight45-seed13's own training used
+                               coef=1.0, a 3x lighter dose, for exactly
+                               this mode. When set (>=0), each aux
+                               minibatch is split by its recorded
+                               ``bc_mode`` (3 == walk) into a
+                               walk group and a stance group (rise/
+                               hold/lower/getup/recover), each group's
+                               MSE (+ its own share of the optional
+                               foot-z term, same split) scaled by ITS
+                               OWN coefficient (bc_anchor_coef for
+                               stance, bc_anchor_walk_coef for walk)
+                               before summing and stepping — so a
+                               lighter walk dose no longer has to ride
+                               the stance modes' coefficient. A group
+                               with zero rows in a given minibatch
+                               contributes exactly 0 (no phantom
+                               gradient). Leaving the knob at its -1
+                               sentinel takes the ORIGINAL branch
+                               (single blended MSE, single coef,
+                               unchanged control flow) — off is a
+                               different code path, not a value that
+                               happens to match. See attach_bc_anchor
+                               and BCAnchorPPO.train().
+
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
 the ring train/bc_anchor_loss_{rise,hold,lower,walk} +
@@ -768,23 +808,63 @@ def make_bc_anchor_ppo_class(base_cls=None):
                         if recurrent else None)
                 mean = self._bc_policy_mean(th_obs, th_h)
                 joint_mse = F.mse_loss(mean, th_act)
-                loss = joint_mse
-                # FOOT-HEIGHT anchor term (08-12 park audit): the
-                # joint-space MSE above cannot see a mm-scale parked
-                # foot (see _bc_foot_z); when enabled, additionally
-                # supervise the commanded FK foot heights toward the
-                # target's. fz_coef == 0 (default) skips the branch
-                # entirely — legacy update sequence bit-exact.
                 fz_coef = float(getattr(self, "bc_foot_z_coef", 0.0))
-                if fz_coef > 0.0:
-                    scale = float(getattr(
-                        self, "bc_foot_z_mm", 10.0)) * 1e-3
-                    dz = (_bc_foot_z(mean) - _bc_foot_z(th_act)) / scale
-                    fz_loss = dz.pow(2).mean()
-                    loss = joint_mse + fz_coef * fz_loss
-                    last_fz = float(fz_loss.detach().cpu())
-                self.policy.optimizer.zero_grad()
-                (coef * loss).backward()
+                walk_coef = float(getattr(self, "bc_walk_coef", -1.0))
+                if walk_coef < 0.0:
+                    # LEGACY PATH (bc_anchor_walk_coef unset — default,
+                    # bit-exact): one blended MSE across every mode in
+                    # the minibatch, scaled by the single bc_coef.
+                    # FOOT-HEIGHT anchor term (08-12 park audit): the
+                    # joint-space MSE above cannot see a mm-scale
+                    # parked foot (see _bc_foot_z); when enabled,
+                    # additionally supervise the commanded FK foot
+                    # heights toward the target's. fz_coef == 0
+                    # (default) skips the branch entirely — legacy
+                    # update sequence bit-exact.
+                    loss = joint_mse
+                    if fz_coef > 0.0:
+                        scale = float(getattr(
+                            self, "bc_foot_z_mm", 10.0)) * 1e-3
+                        dz = (_bc_foot_z(mean) - _bc_foot_z(th_act)) / scale
+                        fz_loss = dz.pow(2).mean()
+                        loss = joint_mse + fz_coef * fz_loss
+                        last_fz = float(fz_loss.detach().cpu())
+                    self.policy.optimizer.zero_grad()
+                    (coef * loss).backward()
+                else:
+                    # PER-MODE ANCHOR COEFFICIENT (08-27, anchor12
+                    # follow-up (b) — see the module docstring entry
+                    # for train.bc_anchor_walk_coef). Split this
+                    # minibatch by its recorded bc_mode (3 == walk)
+                    # and weight each group's own MSE (+ its own
+                    # foot-z share) by its own coefficient. A group
+                    # with zero rows this minibatch contributes an
+                    # inert zero, not a phantom gradient.
+                    mode_np = self._bc_mode[idx]
+                    walk_mask = torch.as_tensor(mode_np == 3, device=dev)
+                    stance_mask = ~walk_mask
+                    zero = mean.new_zeros(())
+                    loss_stance = (
+                        F.mse_loss(mean[stance_mask], th_act[stance_mask])
+                        if bool(stance_mask.any()) else zero)
+                    loss_walk = (
+                        F.mse_loss(mean[walk_mask], th_act[walk_mask])
+                        if bool(walk_mask.any()) else zero)
+                    if fz_coef > 0.0:
+                        scale = float(getattr(
+                            self, "bc_foot_z_mm", 10.0)) * 1e-3
+                        dz2 = ((_bc_foot_z(mean) - _bc_foot_z(th_act))
+                               / scale).pow(2)
+                        fz_stance = (dz2[stance_mask].mean()
+                                     if bool(stance_mask.any()) else zero)
+                        fz_walk = (dz2[walk_mask].mean()
+                                   if bool(walk_mask.any()) else zero)
+                        loss_stance = loss_stance + fz_coef * fz_stance
+                        loss_walk = loss_walk + fz_coef * fz_walk
+                        last_fz = float(
+                            (fz_stance + fz_walk).detach().cpu())
+                    self.policy.optimizer.zero_grad()
+                    (coef * loss_stance + walk_coef * loss_walk).backward()
                 if getattr(self, "bc_isolate_update", False):
                     # UPDATE isolation (08-26 stage-2 dig-in): a param
                     # the aux loss did not reach can still carry a
@@ -948,3 +1028,11 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_foot_z", default=0.0))
     model.bc_foot_z_mm = float(cfg_get(
         cfg, "train", "bc_anchor_foot_z_mm", default=10.0))
+    model.bc_walk_coef = float(cfg_get(
+        cfg, "train", "bc_anchor_walk_coef", default=-1.0))
+    if model.bc_walk_coef >= 0.0 and float(cfg_get(
+            cfg, "train", "bc_anchor_walk", default=1.0)) <= 0.0:
+        raise SystemExit(
+            "train.bc_anchor_walk_coef set but train.bc_anchor_walk<=0 "
+            "— no walk-tick pairs would ever enter the ring, so the "
+            "per-mode split would silently never fire on the walk side")

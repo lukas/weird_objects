@@ -2078,3 +2078,132 @@ def test_percore_clip_actually_decouples_the_two_cores():
     assert a_norm_after > a_norm_before * 0.9, (
         "core A's gradient was rescaled by core B's clip factor -- "
         "the two cores are not actually decoupled")
+
+
+def test_walk_coef_default_is_unset_sentinel():
+    """attach_bc_anchor with no train.bc_anchor_walk_coef key must
+    leave the model at the -1 sentinel (legacy blended-loss branch),
+    same as every existing cfg dict in this file that predates the
+    knob."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(model, coef=1.0, cfg={}, task="joint_walk")
+    assert model.bc_walk_coef == -1.0
+
+
+def test_walk_coef_refuses_when_walk_pairs_are_disabled():
+    """Setting the split coefficient while train.bc_anchor_walk<=0
+    (no walk-tick pairs ever pushed) is the silent-no-op trap this
+    file always fails loud on."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(
+            model, coef=1.0,
+            cfg={"train": {"bc_anchor_walk_coef": 2.0,
+                            "bc_anchor_walk": 0.0}},
+            task="joint_walk")
+
+
+def _push_mode_block(model, rng, n, tgt_value, mode):
+    obs = rng.uniform(-1, 1, (n, 12)).astype(np.float32)
+    tgt = np.full((n, 18), tgt_value, dtype=np.float32)
+    for o, t in zip(obs, tgt):
+        model._bc_push(o, t, mode=mode)
+    return obs, tgt
+
+
+def _mse(model, obs, tgt):
+    import torch
+    with torch.no_grad():
+        m = model.policy.get_distribution(
+            torch.as_tensor(obs)).distribution.mean.numpy()
+    return float(np.mean((m - tgt) ** 2))
+
+
+def test_walk_coef_default_off_matches_legacy_single_coef_update():
+    """The behavioral pin for bit-exact-off: two models seeded/pushed
+    identically, one at the -1 default sentinel and one with the
+    knob explicitly set to -1, must land at IDENTICAL parameters
+    after train() -- both took the same (legacy) branch."""
+    import torch
+    models = []
+    for explicit in (False, True):
+        m = _tiny_model(coef=2.0)
+        m.learn(total_timesteps=32)
+        if explicit:
+            m.bc_walk_coef = -1.0
+        rng = np.random.default_rng(9)
+        _push_mode_block(m, rng, 30, 0.3, mode=0)
+        _push_mode_block(m, rng, 30, -0.3, mode=3)
+        m.train()
+        models.append(m)
+    for p1, p2 in zip(models[0].policy.parameters(),
+                       models[1].policy.parameters()):
+        assert torch.equal(p1, p2), (
+            "explicit -1.0 sentinel diverged from the unset default -- "
+            "the two must be the exact same code path")
+
+
+def test_walk_coef_zero_freezes_walk_side_while_stance_trains():
+    """The mechanism's whole point (anchor12 follow-up (b)): with
+    bc_anchor_walk_coef=0, walk-tagged pairs must not be pulled toward
+    their target (their loss carries a hard-zero coefficient) while
+    stance-tagged pairs still train under the unrelated bc_coef."""
+    model = _tiny_model(coef=3.0)
+    model.learn(total_timesteps=32)
+    model.bc_walk_coef = 0.0
+    rng = np.random.default_rng(11)
+    stance_obs, stance_tgt = _push_mode_block(model, rng, 40, 0.4, mode=0)
+    walk_obs, walk_tgt = _push_mode_block(model, rng, 40, -0.4, mode=3)
+    stance_before = _mse(model, stance_obs, stance_tgt)
+    walk_before = _mse(model, walk_obs, walk_tgt)
+    for _ in range(6):
+        model.train()
+    stance_after = _mse(model, stance_obs, stance_tgt)
+    walk_after = _mse(model, walk_obs, walk_tgt)
+    assert stance_after < stance_before * 0.5, (
+        "stance side did not train under its own (nonzero) coef")
+    assert walk_after > walk_before * 0.8, (
+        "walk side moved toward its target despite walk_coef=0 -- the "
+        "per-mode split is leaking gradient into the zero-coef group")
+
+
+def test_walk_coef_positive_trains_the_walk_side_too():
+    """With both coefficients positive, both groups train -- the split
+    doesn't just gate walk to zero, it actually applies its own dose.
+    Comparative (vs the walk_coef=0 twin from the previous test's own
+    setup, same seed/pushes) rather than an absolute convergence bar --
+    a small MLP fitting two obs-dependent target regions from scratch
+    converges slowly, but a positive walk dose must measurably beat a
+    zero one on the exact same data."""
+    walk_finals = {}
+    for coef_val in (0.0, 3.0):
+        model = _tiny_model(coef=3.0)
+        model.learn(total_timesteps=32)
+        model.bc_walk_coef = coef_val
+        rng = np.random.default_rng(12)
+        _push_mode_block(model, rng, 40, 0.4, mode=0)
+        walk_obs, walk_tgt = _push_mode_block(model, rng, 40, -0.4, mode=3)
+        for _ in range(20):
+            model.train()
+        walk_finals[coef_val] = _mse(model, walk_obs, walk_tgt)
+    assert walk_finals[3.0] < walk_finals[0.0] * 0.9, (
+        f"a positive walk dose ({walk_finals[3.0]:.4f}) did not beat the "
+        f"zero-dose twin ({walk_finals[0.0]:.4f}) on identical data")
+
+
+def test_walk_coef_split_logs_the_same_joint_bc_anchor_loss_key():
+    """The aggregate train/bc_anchor_loss key must keep populating in
+    the split branch too (same joint_mse computed before branching) --
+    downstream dashboards/tests reading it must not silently go dark
+    just because the split path is on."""
+    model = _tiny_model(coef=1.0)
+    model.learn(total_timesteps=32)
+    model.bc_walk_coef = 1.0
+    rng = np.random.default_rng(13)
+    _push_mode_block(model, rng, 20, 0.2, mode=0)
+    _push_mode_block(model, rng, 20, -0.2, mode=3)
+    model.train()
+    assert "train/bc_anchor_loss" in model.logger.name_to_value
+    assert model.logger.name_to_value["train/bc_anchor_loss"] > 0.0

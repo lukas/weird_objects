@@ -1,6 +1,42 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~15:2x (triage cycle: **anchor10-percoreclip
+Update, 2026-08-27 ~16:1x (triage cycle: **anchor10-percoreclip-s1
+CANARY PASS (own scope) - JOINT DIVERGENCE — corrects the previous
+banner's premature closure; per-core grad-clip decoupling actually
+DOES rescue walk on this seed**). The immediately-prior banner
+(seed0, below) closed "the full architecture-sharing candidate list"
+while explicitly flagging the seed1 joint call as still pending
+("still training on train-5") — that pending read is now in, and it
+does NOT confirm the seed0 basin. This run's own DR-0 gate: det walk
+`gait_valid` 6/6 (ZERO sacrificed legs), `progress_ratio` 0.38, slip/m
+2.75 — a genuinely healthy six-leg gait, matching anchor2's own
+"clean crawl" band, not the 0/6 negative-progress freeze seed0 showed
+on the byte-identical recipe. Own-DR(0.5) det matches (6/6, prog 0.39,
+slip 3.03); sto softens to 5/6 with one sacrificed leg — normal
+DR/stochastic wear, not a new catastrophe. WIRING CHECK FIRST passed:
+`train/gradnorm_{a,b}_mean` both nonzero across all 30 paired
+rollouts (the percore-clip dual-core branch genuinely ran, not a
+silent fallback). **Correction to record**: grad-clip-per-core is NOT
+simply REFUTED like log_std/trunk/advantage-norm — it is the first
+architecture-sharing candidate where one seed shows a genuine full
+rescue (not just anchor7-detachtrunk's milder partial-drag shape) —
+but the joint call is still DIVERGENT because the other seed (seed0)
+shows the identical 0/6 total-freeze basin on the same recipe. Net
+effect on the track's own conclusion is unchanged (every candidate
+still has >=1 seed contradicting it as a *reliable* fix, which is the
+bar the gate text actually needed to justify moving on) — but "every
+one leaves walk in the same 0/6 total-freeze basin" in the prior
+banner is factually wrong and should be read as corrected here. No
+new launch this cycle: the track has already moved to the operator's
+walk-retention wave (anchor11/12, running concurrently); this is
+closing background evidence for the record, not a blocker. Verdict:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip-s1`.
+Evidence: `/tmp/eval_cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor10-percoreclip-s1{,_owncfg}.log`, `logs/experiments/cw-
+standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip-s1/
+wandb_history.csv`. CYCLE_WORKED. Prior banner below.
+
+Previous entry, 2026-08-27 ~15:2x (triage cycle: **anchor10-percoreclip
 (seed0) CANARY FAIL - MECHANISM — per-core grad-clip decoupling does
 NOT rescue walk; the LAST proposed architecture-sharing/optimizer-
 coupling mechanism on this recipe family is now closed**). Own-seed
@@ -4458,9 +4494,18 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     reads conflict.
     **UPDATE (08-27 ~15:2x): anchor10-percoreclip (seed0) is now
     read (top banner) -- CANARY FAIL - MECHANISM, 0/6 gait_valid
-    every walk variant, same anchor4-class signature. Architecture-
-    side per-core-clip is closed; read anchor11/12 on their own
-    merits, not as a fork against percoreclip.**
+    every walk variant, same anchor4-class signature.**
+    **CORRECTION (08-27 ~16:1x): the seed1 twin's own read
+    (`anchor10-percoreclip-s1`, top banner) is the OPPOSITE -- 6/6
+    det gait_valid, prog_ratio 0.38, slip/m 2.75, zero sacrificed
+    legs, a genuine rescue, not a milder partial. So per-core-clip is
+    NOT cleanly "closed" the way seed0 alone suggested -- it's
+    JOINT DIVERGENT (one seed rescued, one still in the 0/6 basin),
+    same class of seed-inconsistency as every other architecture-
+    sharing candidate. Practical read is unchanged (still not a
+    reliable fix -> still read anchor11/12 on their own merits, not
+    as a fork against percoreclip), but do not cite this arm as a
+    flat REFUTED.**
 -2.35 PRE-REGISTERED follow-ups to -2.4 (fund per its branches, in
     this order):
     (a) per-mode-group objective/advantage normalization inside
