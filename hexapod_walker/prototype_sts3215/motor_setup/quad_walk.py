@@ -1,6 +1,6 @@
 """quad_walk — tip back and walk on FOUR legs (rear-quad animal walk).
 
-The robot rears up nose-high like a begging dog (front pair tucked in
+The robot rears up nose-high like a begging dog (fronts L0/L5 tucked in
 the air), then walks on the four rear legs with a lateral-sequence
 animal walk: footfalls LH, LF, RH, RF at quarter-cycle offsets (the
 slow-walk order every quadruped uses), duty 0.8, body advancing at
@@ -30,13 +30,13 @@ from __future__ import annotations
 
 import math
 
-# Hardware orientation note (08-22): direct /api/pose probe on the real robot
-# proved the earlier L0/L5-front assumption was inverted. Loading L0/L5 and
-# tucking L2/L3 tips the body back; tucking L0/L5 tips it forward.
-FRONT_LEGS = (2, 3)
-SUPPORT_LEGS = (0, 1, 4, 5)
+# Hardware orientation note (08-23): physical review wins over the later
+# body-frame probe interpretation. L0/L5 are the front pair in the air;
+# the four walking support legs are L1/L2/L3/L4.
+FRONT_LEGS = (0, 5)
+SUPPORT_LEGS = (1, 2, 3, 4)
 MID_SUPPORT_LEGS = (1, 4)
-REAR_SUPPORT_LEGS = (0, 5)
+REAR_SUPPORT_LEGS = (2, 3)
 
 # Tucked front "claw" (yaw, hip, knee deg) — quadruped_feasibility
 # FRONT_POSES["tuck"], static sweep GO (c57).  Knee was 137.5 but the
@@ -44,26 +44,33 @@ REAR_SUPPORT_LEGS = (0, 5)
 # present pinned at 119.9, 2.2 A grind for the whole run) — stay under.
 TUCK_DEG = (0.0, -68.0, 118.0)
 
-# Conservative hardware bring-up defaults (08-22 video/logs): the old
-# rear-up raised the wrong end of the body. MuJoCo still reported four
-# contacts, but the real robot fell forward. First bias is now loading the
-# real rear support pair (L0/L5); only then ask for a mild nose-up pitch.
-PITCH_RAD = math.radians(-18.0)   # rot_y convention: NEGATIVE = rear-up
+# Conservative hardware bring-up defaults (08-23 video/logs): with the
+# physical L0/L5-front convention, body_z + rear_press drove L1/L4 hips into
+# the +30 deg ceiling while the body stayed nearly level. The rear-up hold
+# stays unpressed. The walk is intentionally between the tiny shuffle and the
+# too-large hardware trial: enough stride to travel, slower and less splayed so
+# servo compliance does not turn each step into a pitch pump.
+PITCH_RAD = math.radians(-17.0)   # rot_y convention: NEGATIVE = rear-up
 BODY_DX_M = -0.040                # body shift aft in the reared stance
-BODY_Z_M = 0.020                  # extra body clearance while reared
-REAR_PRESS_M = 0.065              # rear pair reaches this much lower
+BODY_Z_M = 0.0                    # no chassis lift during rear-up
+REAR_PRESS_M = 0.0                # no extra rear foot press in this convention
 MID_SPLAY_RAD = 0.0               # splay cost real hip margin on hardware
-STRIDE_M = 0.008
-LIFT_M = 0.008
-PERIOD_S = 10.0                   # s per full 4-step cycle
-DUTY = 0.96                       # stance fraction (one leg up at a time)
-SWAY_M = 0.0
+STRIDE_M = 0.040
+LIFT_M = 0.020
+PERIOD_S = 6.0                    # s per full 4-step cycle
+DUTY = 0.82                       # stance fraction (one leg up at a time)
+WALK_BODY_DX_M = -0.044
+WALK_PITCH_RAD = math.radians(-17.5)
+WALK_BODY_Z_M = BODY_Z_M
+WALK_REAR_PRESS_M = REAR_PRESS_M
+WALK_SPLAY_RAD = 0.0
+SWAY_M = 0.004
 SWAY_PHASE_RAD = math.radians(125.0)
-WALK_PHASE = {0: 0.0, 1: 0.25, 5: 0.5, 4: 0.75}   # LH LF RH RF
-# Diagonal trot pairs in the SAME (7c745a01) leg convention: LF+RH lead,
-# RF+LH at half cycle. The pre-rotation literal {1,3,4,2} dicts crashed
-# _walk_feet with KeyError: 0 once SUPPORT_LEGS became (0, 1, 4, 5).
-TROT_PHASE = {1: 0.0, 5: 0.0, 4: 0.5, 0: 0.5}  # LF RH RF LH
+WALK_SETTLE_S = 1.4
+WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
+# Diagonal trot pairs in the same physical convention: LF+RH lead,
+# RF+LH at half cycle.
+TROT_PHASE = {1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5}  # LF RH RF LH
 
 # Gait presets. Keys: stride/lift/body_z m, period s, duty (stance
 # fraction), sway m + phase rad, phase = per-leg footfall offsets
@@ -105,152 +112,156 @@ GAITS: dict[str, dict] = {
     # control, not a timid pose.
     "rear_safe": dict(stride=0.0, lift=0.0, lift_front=0.0,
                       period=4.0, duty=0.75,
-                      body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
                       body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                      splay=MID_SPLAY_RAD,
+                      splay=WALK_SPLAY_RAD,
                       sway=0.0, sway_phase=SWAY_PHASE_RAD,
                       phase=WALK_PHASE, speed_cap=0.50),
-    "walk_safe": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.012,
+    "walk_safe": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
                       period=PERIOD_S, duty=DUTY,
-                      body_dx=BODY_DX_M, pitch=PITCH_RAD,
-                      body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                      splay=MID_SPLAY_RAD,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=WALK_BODY_Z_M, rear_press=WALK_REAR_PRESS_M,
+                      splay=WALK_SPLAY_RAD,
                       sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
-                      phase=WALK_PHASE, speed_cap=0.45),
-    "trot_safe": dict(stride=0.004, lift=0.006, lift_front=0.010,
-                      period=10.5, duty=0.96,
-                      body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                      phase=WALK_PHASE, walk_settle_s=WALK_SETTLE_S,
+                      speed_cap=0.65),
+    "trot_safe": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
+                      period=PERIOD_S, duty=DUTY,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
                       body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                      splay=MID_SPLAY_RAD,
+                      splay=WALK_SPLAY_RAD,
                       sway=0.0, sway_phase=math.radians(180.0),
-                      roll=math.radians(0.5),
+                      roll=math.radians(3.0),
                       roll_phase=math.radians(270.0),
                       phase=TROT_PHASE,
-                      speed_cap=0.30),
+                      walk_settle_s=WALK_SETTLE_S,
+                      speed_cap=0.70),
 
     # Default/cool: dynamic enough to video and learn from, but less
     # extreme than the old -70 mm aft-shift that scraped the real frame.
     "rear": dict(stride=0.0, lift=0.0, lift_front=0.0,
                  period=4.0, duty=0.75,
-                 body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                 body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
                  body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                 splay=0.0,
+                 splay=WALK_SPLAY_RAD,
                  sway=0.0, sway_phase=SWAY_PHASE_RAD,
-                 phase=WALK_PHASE, speed_cap=0.55),
-    "walk": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.012,
+                 phase=WALK_PHASE, speed_cap=0.50),
+    "walk": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
                  period=PERIOD_S, duty=DUTY,
-                 body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                 body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                 body_z=WALK_BODY_Z_M, rear_press=WALK_REAR_PRESS_M,
+                 splay=WALK_SPLAY_RAD,
+                 sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
+                 phase=WALK_PHASE, walk_settle_s=WALK_SETTLE_S,
+                 speed_cap=0.65),
+    "trot": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
+                 period=PERIOD_S, duty=DUTY,
+                 body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
                  body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                 splay=0.0,
-                 sway=0.0, sway_phase=SWAY_PHASE_RAD,
-                 phase=WALK_PHASE, speed_cap=0.45),
-    "trot": dict(stride=0.004, lift=0.006, lift_front=0.010,
-                 period=10.5, duty=0.96,
-                 body_dx=BODY_DX_M, pitch=PITCH_RAD,
-                 body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                 splay=0.0,
+                 splay=WALK_SPLAY_RAD,
                  sway=0.0, sway_phase=math.radians(180.0),
-                 roll=math.radians(1.0), roll_phase=math.radians(270.0),
+                 roll=math.radians(3.0), roll_phase=math.radians(270.0),
                  phase=TROT_PHASE,
-                 speed_cap=0.35),
+                 walk_settle_s=WALK_SETTLE_S,
+                 speed_cap=0.70),
 
     # Isolate one change at a time for camera-based diagnosis.
     "rear_pitch": dict(stride=0.0, lift=0.0, lift_front=0.0,
                        period=4.0, duty=0.75,
-                       body_dx=-0.035, pitch=math.radians(-16.0),
-                       body_z=0.016, rear_press=0.060,
-                       splay=0.0,
+                       body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                       body_z=0.0, rear_press=0.0,
+                       splay=WALK_SPLAY_RAD,
                        sway=0.0, sway_phase=SWAY_PHASE_RAD,
                        phase=WALK_PHASE, speed_cap=0.45),
-    "walk_pitch": dict(stride=0.006, lift=0.008, lift_front=0.012,
-                       period=10.0, duty=0.96,
-                       body_dx=BODY_DX_M, pitch=PITCH_RAD,
+    "walk_pitch": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
+                       period=PERIOD_S, duty=DUTY,
+                       body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                       body_z=WALK_BODY_Z_M, rear_press=WALK_REAR_PRESS_M,
+                       splay=WALK_SPLAY_RAD,
+                       sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
+                       phase=WALK_PHASE, speed_cap=0.65),
+    "trot_pitch": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
+                       period=PERIOD_S, duty=DUTY,
+                       body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
                        body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                       splay=0.0,
-                       sway=0.0, sway_phase=SWAY_PHASE_RAD,
-                       phase=WALK_PHASE, speed_cap=0.40),
-    "trot_pitch": dict(stride=0.004, lift=0.006, lift_front=0.010,
-                       period=10.5, duty=0.96,
-                       body_dx=BODY_DX_M, pitch=PITCH_RAD,
-                       body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
-                       splay=0.0,
+                       splay=WALK_SPLAY_RAD,
                        sway=0.0, sway_phase=math.radians(180.0),
-                       roll=math.radians(0.5),
+                       roll=math.radians(3.0),
                        roll_phase=math.radians(270.0),
                        phase=TROT_PHASE,
-                       speed_cap=0.30),
+                       speed_cap=0.60),
     "rear_aft": dict(stride=0.0, lift=0.0, lift_front=0.0,
                      period=4.0, duty=0.75,
-                     body_dx=-0.050, pitch=math.radians(-18.0),
-                     body_z=0.018, rear_press=0.060,
-                     splay=0.0,
+                     body_dx=-0.050, pitch=math.radians(-20.0),
+                     body_z=0.0, rear_press=0.0,
+                     splay=WALK_SPLAY_RAD,
                      sway=0.0, sway_phase=SWAY_PHASE_RAD,
                      phase=WALK_PHASE, speed_cap=0.45),
-    "walk_aft": dict(stride=0.006, lift=0.008, lift_front=0.012,
-                     period=10.0, duty=0.96,
-                     body_dx=-0.050, pitch=math.radians(-18.0),
-                     body_z=0.018, rear_press=0.060,
-                     splay=0.0,
-                     sway=0.0, sway_phase=SWAY_PHASE_RAD,
-                     phase=WALK_PHASE, speed_cap=0.40),
-    "trot_aft": dict(stride=0.004, lift=0.006, lift_front=0.010,
-                     period=10.5, duty=0.96,
-                     body_dx=-0.050, pitch=math.radians(-16.0),
-                     body_z=0.016, rear_press=0.055,
-                     splay=0.0,
+    "walk_aft": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
+                     period=PERIOD_S, duty=DUTY,
+                     body_dx=-0.050, pitch=math.radians(-20.0),
+                     body_z=WALK_BODY_Z_M, rear_press=WALK_REAR_PRESS_M,
+                     splay=WALK_SPLAY_RAD,
+                     sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
+                     phase=WALK_PHASE, speed_cap=0.65),
+    "trot_aft": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.034,
+                     period=PERIOD_S, duty=DUTY,
+                     body_dx=-0.050, pitch=math.radians(-20.0),
+                     body_z=0.0, rear_press=0.0,
+                     splay=WALK_SPLAY_RAD,
                      sway=0.0, sway_phase=math.radians(180.0),
-                     roll=math.radians(0.5),
+                     roll=math.radians(3.0),
                      roll_phase=math.radians(270.0),
                      phase=TROT_PHASE,
-                     speed_cap=0.30),
+                     speed_cap=0.60),
     "rear_high": dict(stride=0.0, lift=0.0, lift_front=0.0,
                       period=4.0, duty=0.75,
-                      body_dx=-0.025, pitch=math.radians(-16.0),
-                      body_z=0.030, rear_press=0.065,
-                      splay=0.0,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=0.0, rear_press=0.0,
+                      splay=WALK_SPLAY_RAD,
                       sway=0.0, sway_phase=SWAY_PHASE_RAD,
                       phase=WALK_PHASE, speed_cap=0.45),
-    "walk_high": dict(stride=0.006, lift=0.008, lift_front=0.012,
-                      period=10.0, duty=0.96,
-                      body_dx=-0.025, pitch=math.radians(-16.0),
-                      body_z=0.030, rear_press=0.065,
-                      splay=0.0,
-                      sway=0.0, sway_phase=SWAY_PHASE_RAD,
-                      phase=WALK_PHASE, speed_cap=0.35),
-    "trot_high": dict(stride=0.004, lift=0.006, lift_front=0.010,
-                      period=10.5, duty=0.96,
-                      body_dx=-0.025, pitch=math.radians(-14.0),
-                      body_z=0.028, rear_press=0.060,
-                      splay=0.0,
+    "walk_high": dict(stride=STRIDE_M, lift=0.026, lift_front=0.040,
+                      period=PERIOD_S, duty=DUTY,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=0.0, rear_press=0.0,
+                      splay=WALK_SPLAY_RAD,
+                      sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.65),
+    "trot_high": dict(stride=STRIDE_M, lift=0.026, lift_front=0.040,
+                      period=PERIOD_S, duty=DUTY,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=0.0, rear_press=0.0,
+                      splay=WALK_SPLAY_RAD,
                       sway=0.0, sway_phase=math.radians(180.0),
-                      roll=math.radians(0.5),
+                      roll=math.radians(3.0),
                       roll_phase=math.radians(270.0),
                       phase=TROT_PHASE,
-                      speed_cap=0.30),
+                      speed_cap=0.60),
     "rear_step": dict(stride=0.0, lift=0.0, lift_front=0.0,
                       period=4.0, duty=0.75,
-                      body_dx=-0.035, pitch=math.radians(-16.0),
-                      body_z=0.024, rear_press=0.070,
-                      splay=0.0,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=0.0, rear_press=0.0,
+                      splay=WALK_SPLAY_RAD,
                       sway=0.0, sway_phase=SWAY_PHASE_RAD,
                       phase=WALK_PHASE, speed_cap=0.45),
-    "walk_step": dict(stride=0.006, lift=0.012, lift_front=0.018,
-                      period=10.0, duty=0.96,
-                      body_dx=-0.035, pitch=math.radians(-16.0),
-                      body_z=0.024, rear_press=0.070,
-                      splay=0.0,
-                      sway=0.0, sway_phase=SWAY_PHASE_RAD,
-                      phase=WALK_PHASE, speed_cap=0.35),
-    "trot_step": dict(stride=0.004, lift=0.010, lift_front=0.014,
-                      period=10.5, duty=0.96,
-                      body_dx=-0.035, pitch=math.radians(-14.0),
-                      body_z=0.022, rear_press=0.065,
-                      splay=0.0,
+    "walk_step": dict(stride=STRIDE_M, lift=0.030, lift_front=0.046,
+                      period=PERIOD_S, duty=DUTY,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=0.0, rear_press=0.0,
+                      splay=WALK_SPLAY_RAD,
+                      sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.65),
+    "trot_step": dict(stride=STRIDE_M, lift=0.030, lift_front=0.046,
+                      period=PERIOD_S, duty=DUTY,
+                      body_dx=WALK_BODY_DX_M, pitch=WALK_PITCH_RAD,
+                      body_z=0.0, rear_press=0.0,
+                      splay=WALK_SPLAY_RAD,
                       sway=0.0, sway_phase=math.radians(180.0),
-                      roll=math.radians(0.5),
+                      roll=math.radians(3.0),
                       roll_phase=math.radians(270.0),
                       phase=TROT_PHASE,
-                      speed_cap=0.30),
+                      speed_cap=0.60),
 
     # Aggressive remains available for sim and careful rear/hold tests.
     "walk_aggressive": dict(stride=0.050, lift=0.022, lift_front=0.034,
@@ -280,10 +291,15 @@ GAITS: dict[str, dict] = {
                             phase=WALK_PHASE, speed_cap=0.8),
 }
 
-# entry: shift back · step mids out to the splayed stance (one at a
-# time, 5 feet down — scrubbing 25 deg of loaded mid yaw was the v1
-# blemish) · tuck fronts · rear up
+# entry: step each support foot into the rear-up footprint (one at a time,
+# five feet down) · use the planted front pair as a short prop · tuck fronts
+# while finishing the rear-up. The support-foot step avoids the old all-feet
+# body-shift scrub; the prop phase avoids asking an already-tucked front pair
+# to magically create body pitch on a real mat.
 ENTRY_S = (2.0, 1.2, 2.0, 2.5)
+ENTRY_STEP_LEGS = (2, 3, 1, 4)
+FRONT_PROP_PITCH_FRAC = 0.45
+FRONT_PROP_PITCH_MAX_RAD = math.radians(8.0)
 # exit: regather · re-step mids to plant footprint (still reared —
 # that's where the rear margin is) · pitch level (body stays aft) ·
 # untuck fronts onto their plant offsets · shift forward
@@ -331,6 +347,7 @@ class QuadRearWalk:
         self.sway_phase = g["sway_phase"]
         self.phase = dict(g["phase"])
         self.splay = float(g.get("splay", MID_SPLAY_RAD))
+        self.walk_settle_s = max(0.0, float(g.get("walk_settle_s", 0.0)))
         self.trim_fn = trim_fn
         # Counter-roll (rad, about x, once per cycle): diagonal 2-foot
         # support has no roll stiffness, so the body droops toward the
@@ -488,6 +505,66 @@ class QuadRearWalk:
                 out[leg] = (fx, fy, fz - amount)
         return out
 
+    def _entry_target_feet(self, press: float | None = None
+                           ) -> dict[int, tuple[float, float, float]]:
+        """Support-foot layout that matches ``body_dx`` aft without scrub.
+
+        The servo only sees joint angles. A body at ``body_dx`` with feet at
+        the plant anchors is kinematically equivalent to a body at x=0 with
+        those support feet shifted forward by ``-body_dx``. During entry we
+        build that relative shape by stepping feet, then switch to the normal
+        body_dx formulation for the hold/walk.
+        """
+        feet = {
+            leg: (self.anchors[leg][0] - self.body_dx,
+                  self.anchors[leg][1],
+                  self.anchors[leg][2])
+            for leg in SUPPORT_LEGS
+        }
+        amount = self.rear_press if press is None else press
+        return self._press_rear_feet(feet, amount)
+
+    def _entry_equiv_feet(self, u: float, press: float | None = None
+                          ) -> dict[int, tuple[float, float, float]]:
+        """Blend coordinate bookkeeping while preserving support reach."""
+        u = min(1.0, max(0.0, float(u)))
+        start = self._entry_target_feet(press)
+        end = self._support_feet(press)
+        return {
+            leg: (
+                start[leg][0] + u * (end[leg][0] - start[leg][0]),
+                start[leg][1] + u * (end[leg][1] - start[leg][1]),
+                start[leg][2] + u * (end[leg][2] - start[leg][2]),
+            )
+            for leg in SUPPORT_LEGS
+        }
+
+    def _entry_step_feet(self, prog: float, press: float = 0.0
+                         ) -> dict[int, tuple[float, float, float]]:
+        prog = min(1.0, max(0.0, float(prog)))
+        target = self._entry_target_feet(press)
+        feet = {}
+        nlegs = max(1, len(ENTRY_STEP_LEGS))
+        step_lift = max(LIFT_M, self.lift, self.lift_front)
+        for leg in SUPPORT_LEGS:
+            sx, sy, sz = self.plant_anchors[leg]
+            tx, ty, tz = target[leg]
+            try:
+                idx = ENTRY_STEP_LEGS.index(leg)
+            except ValueError:
+                raw = prog * nlegs
+            else:
+                raw = prog * nlegs - idx
+            u_raw = min(1.0, max(0.0, raw))
+            u = _smooth(u_raw)
+            lift = step_lift * math.sin(math.pi * u_raw)
+            feet[leg] = (
+                sx + u * (tx - sx),
+                sy + u * (ty - sy),
+                sz + u * (tz - sz) + lift,
+            )
+        return feet
+
     def _walk_feet(self, tw: float, *, freeze_swing: bool = False,
                    rear_press: float | None = None
                    ) -> dict[int, tuple[float, float, float]]:
@@ -523,6 +600,16 @@ class QuadRearWalk:
         press = self.rear_press if rear_press is None else rear_press
         return self._press_rear_feet(feet, press)
 
+    def _has_walk_motion(self) -> bool:
+        return (abs(self.stride) > 1e-9 or abs(self.lift) > 1e-9
+                or abs(self.lift_front) > 1e-9)
+
+    def _walk_clock(self, t: float) -> float:
+        t = max(0.0, float(t))
+        if not self._has_walk_motion():
+            return t
+        return max(0.0, t - self.walk_settle_s)
+
     def walk_all_stance_at(self, tw: float) -> bool:
         """True when no support foot is in its swing window at walk-clock
         ``tw`` — the only safe moment to freeze the gait (balance
@@ -530,6 +617,9 @@ class QuadRearWalk:
         air on tripod support, which measurably deepens a tip."""
         if self.stride == 0.0 and self.lift == 0.0 and self.lift_front == 0.0:
             return True         # hold gaits: all four always planted
+        if float(tw) < self.walk_settle_s:
+            return True
+        tw = self._walk_clock(tw)
         p = (tw / self.period) % 1.0
         return all(((p - ph) % 1.0) >= (1.0 - self.duty)
                    for ph in self.phase.values())
@@ -551,6 +641,20 @@ class QuadRearWalk:
         for leg in FRONT_LEGS:
             tuckq[3 * leg: 3 * leg + 3] = TUCK_DEG
         return tuckq
+
+    def _front_prop_pitch(self) -> float:
+        p = FRONT_PROP_PITCH_FRAC * self.pitch
+        return max(-FRONT_PROP_PITCH_MAX_RAD,
+                   min(FRONT_PROP_PITCH_MAX_RAD, p))
+
+    def _front_planted_pose(self, bx: float, pitch: float,
+                            bz: float = 0.0) -> list[float]:
+        frontq = list(self.base)
+        for leg in FRONT_LEGS:
+            wx, wy, wz = self.plant_anchors[leg]
+            frontq[3 * leg: 3 * leg + 3] = self._leg_deg(
+                leg, wx, wy, wz, bx, 0.0, pitch, bz=bz)
+        return frontq
 
     def _support_feet(self, press: float | None = None
                       ) -> dict[int, tuple[float, float, float]]:
@@ -583,6 +687,9 @@ class QuadRearWalk:
     def walk_only_pose_at(self, t: float) -> list[float]:
         """Walk while already reared; no entry or automatic exit."""
         tw = max(0.0, float(t))
+        if self._has_walk_motion() and tw < self.walk_settle_s:
+            return self.reared_pose()
+        tw = self._walk_clock(tw)
         bx, by = self._walk_body(tw)
         bx, pitch = self._trim_body_pitch(bx, self.pitch)
         return self._solve(bx, by, pitch, self._walk_feet(tw),
@@ -600,71 +707,55 @@ class QuadRearWalk:
         tuckq = list(self.base)
         for leg in FRONT_LEGS:
             tuckq[3 * leg: 3 * leg + 3] = TUCK_DEG
-        plant_feet = {leg: tuple(self.anchors[leg])
-                      for leg in SUPPORT_LEGS}
 
         e1, e1b, e2, e3 = ENTRY_S
-        plant_home = {leg: tuple(self.plant_anchors[leg])
-                      for leg in SUPPORT_LEGS}
-        if t < e1:                       # entry 1: shift back, 6 planted
-            u = _smooth(t / e1)
-            bx = u * self.body_dx
-            bz = 0.35 * u * self.body_z
-            pose = self._solve(bx, 0.0, 0.0, plant_home, self.base, bz=bz)
+        if t < e1:                       # entry 1: rear supports step forward
+            prog = 0.5 * (t / e1)
+            feet = self._entry_step_feet(
+                prog, press=0.20 * prog * self.rear_press)
+            pose = self._solve(0.0, 0.0, 0.0, feet, self.base)
             for leg in FRONT_LEGS:       # fronts still planted
-                wx, wy, wz = self.anchors[leg]
+                wx, wy, wz = self.plant_anchors[leg]
                 pose[3 * leg: 3 * leg + 3] = self._leg_deg(
-                    leg, wx, wy, wz, bx, 0.0, 0.0, bz=bz)
+                    leg, wx, wy, wz, 0.0, 0.0, 0.0)
             return pose
-        if t < e1 + e1b:                 # entry 1b: mids step out to splay
-            prog = (t - e1) / e1b        # (L1 then L4; 5 feet stay down)
-            bz = 0.35 * self.body_z
-            feet = self._press_rear_feet(
-                dict(plant_home), (0.35 + 0.20 * prog) * self.rear_press)
-            # Hardware presets now use zero splay. In that case this phase
-            # should NOT lift a middle support foot just to put it back in
-            # the same place; the old no-op lift was where the nose-forward
-            # current spike appeared.
-            if abs(self.splay) > math.radians(0.25):
-                for j, leg in enumerate(MID_SUPPORT_LEGS):
-                    u = _smooth(min(1.0, max(0.0, 2.0 * prog - j)))
-                    px, py, pz = self.plant_anchors[leg]
-                    sx, sy, sz = self.anchors[leg]
-                    lift = LIFT_M * math.sin(math.pi * min(
-                        1.0, max(0.0, 2.0 * prog - j)))
-                    feet[leg] = (px + u * (sx - px), py + u * (sy - py),
-                                 pz + lift)
-            pose = self._solve(self.body_dx, 0.0, 0.0, feet, self.base, bz=bz)
+        if t < e1 + e1b:                 # entry 1b: mids finish into footprint
+            prog = 0.5 + 0.5 * ((t - e1) / e1b)
+            feet = self._entry_step_feet(
+                prog, press=(0.20 + 0.20 * prog) * self.rear_press)
+            pose = self._solve(0.0, 0.0, 0.0, feet, self.base)
             for leg in FRONT_LEGS:
-                wx, wy, wz = self.anchors[leg]
+                wx, wy, wz = self.plant_anchors[leg]
                 pose[3 * leg: 3 * leg + 3] = self._leg_deg(
-                    leg, wx, wy, wz, self.body_dx, 0.0, 0.0, bz=bz)
+                    leg, wx, wy, wz, 0.0, 0.0, 0.0)
             return pose
-        if t < e1 + e1b + e2:            # entry 2: tuck the fronts
+        if t < e1 + e1b + e2:            # entry 2: planted-front prop pitch
             u = _smooth((t - e1 - e1b) / e2)
-            fq = [a + u * (b - a) for a, b in zip(self.base, tuckq)]
-            return self._solve(self.body_dx, 0.0, 0.0,
-                               self._press_rear_feet(
-                                   plant_feet,
-                                   (0.55 + 0.20 * u) * self.rear_press),
-                               fq,
-                               bz=0.35 * self.body_z)
+            bx = u * self.body_dx
+            pitch = u * self._front_prop_pitch()
+            return self._solve(bx, 0.0, pitch,
+                               self._entry_equiv_feet(
+                                   u, (0.40 + 0.35 * u) * self.rear_press),
+                               self._front_planted_pose(bx, pitch),
+                               bz=0.0)
         if t < ENTRY_TOTAL_S:            # entry 3: rear up
             u = _smooth((t - e1 - e1b - e2) / e3)
-            bz = (0.35 + 0.65 * u) * self.body_z
+            prop_pitch = self._front_prop_pitch()
+            pitch = prop_pitch + u * (self.pitch - prop_pitch)
+            front0 = self._front_planted_pose(self.body_dx, prop_pitch)
+            fq = [a + u * (b - a) for a, b in zip(front0, tuckq)]
             feet = self._support_feet(
                 press=(0.75 + 0.25 * u) * self.rear_press)
-            return self._solve(self.body_dx, 0.0, u * self.pitch,
-                               feet, tuckq, bz=bz)
+            return self._solve(self.body_dx, 0.0, pitch,
+                               feet, fq, bz=u * self.body_z)
 
-        tw_end = self.t_exit - ENTRY_TOTAL_S    # walk window length
+        # Active walk-clock at the exit boundary. Split/full walk phases may
+        # spend their first moment holding the reared pose so the body can
+        # settle before any support foot lifts.
+        tw_end = self._walk_clock(self.t_exit - ENTRY_TOTAL_S)
         if t < self.t_exit:              # ---- the animal walk ----
             tw = t - ENTRY_TOTAL_S
-            bx, by = self._walk_body(tw)
-            bx, pitch = self._trim_body_pitch(bx, self.pitch)
-            return self._solve(bx, by, pitch, self._walk_feet(tw),
-                               tuckq, roll=self._walk_roll(tw),
-                               bz=self.body_z)
+            return self.walk_only_pose_at(tw)
 
         return self._exit_pose_at(t - self.t_exit, tw_end)
 

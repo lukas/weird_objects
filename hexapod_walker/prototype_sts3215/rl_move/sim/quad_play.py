@@ -134,6 +134,7 @@ class Player:
         self.h = self.model.opt.timestep
         self.sub = max(1, int(round(1.0 / CTRL_HZ / self.h)))
         self.speed = 1.0
+        self.direction = 1.0
         self.gait_name = "walk"
         self.reset()
 
@@ -145,7 +146,8 @@ class Player:
         self.profile = ServoProfile(self.params, self.q_plant,
                                     vel_scale=self.VEL_SCALE)
         self.gait = QW.QuadRearWalk(list(self.robot_plant_deg), 1e6,
-                                    gait=self.gait_name)
+                                    gait=self.gait_name,
+                                    direction=self.direction)
         self.state = self.PLANT
         self.t = 0.0            # entry clock
         self.tw = 0.0           # walk clock
@@ -216,7 +218,8 @@ class Player:
     def cmd_rear(self, then_walk: bool = False) -> None:
         if self.state == self.PLANT:
             self.gait = QW.QuadRearWalk(list(self.robot_plant_deg), 1e6,
-                                        gait=self.gait_name)
+                                        gait=self.gait_name,
+                                        direction=self.direction)
             self.t, self.tw = 0.0, 0.0
             self.state = self.ENTRY
             self.walk_queued = then_walk
@@ -239,7 +242,8 @@ class Player:
         tw = self.tw
         secs = QW.ENTRY_TOTAL_S + tw + QW.EXIT_TOTAL_S
         self.exit_fn = QW.QuadRearWalk(list(self.robot_plant_deg), secs,
-                                       gait=self.gait_name).pose_at
+                                       gait=self.gait_name,
+                                       direction=self.direction).pose_at
         self.tx = QW.ENTRY_TOTAL_S + tw
         self.exit_fn_end = secs
         self.state = self.EXIT
@@ -253,12 +257,15 @@ class Player:
 
 
 def run_headless(gaits: list[str], seconds: float, *,
+                 direction: float = 1.0,
                  plant_hip: float | None = None,
                  plant_knee: float | None = None) -> int:
+    min_walk_progress_mm = 25.0
     failures = 0
     for gait in gaits:
         pl = Player()
         pl.gait_name = gait
+        pl.direction = -1.0 if float(direction) < 0.0 else 1.0
         apply_plant_override(pl, hip_deg=plant_hip, knee_deg=plant_knee)
         pl.reset()
         rear_only = gait.startswith("rear")
@@ -285,8 +292,13 @@ def run_headless(gaits: list[str], seconds: float, *,
         support_min = 99
         support_final: set[str] = set()
         contact_samples = 0
+        walk_x0: float | None = None
         for _ in range(n):
+            prev_state = pl.state
             pl.step()
+            if (not rear_only and walk_x0 is None
+                    and prev_state == pl.ENTRY and pl.state == pl.WALK):
+                walk_x0 = float(pl.data.qpos[0])
             uz = up_z(pl.data, pl.chassis)
             max_tilt = max(max_tilt, math.degrees(math.acos(
                 max(-1.0, min(1.0, uz)))))
@@ -299,17 +311,35 @@ def run_headless(gaits: list[str], seconds: float, *,
                 bad_contacts.update(bad)
                 contact_samples += 1
         dist_mm = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
+        walk_dist_mm = None
+        if not rear_only:
+            if walk_x0 is None:
+                walk_x0 = pl.x0
+            walk_dist_mm = 1000.0 * (float(pl.data.qpos[0]) - walk_x0)
         expected_min = 4 if rear_only else 2
         support_ok = contact_samples > 0 and support_min >= expected_min
-        failed = fell or bool(front_hits) or bool(bad_contacts) or not support_ok
+        progress_ok = (
+            True if rear_only
+            else walk_dist_mm is not None
+            and pl.direction * walk_dist_mm >= min_walk_progress_mm
+        )
+        failed = (
+            fell or bool(front_hits) or bool(bad_contacts)
+            or not support_ok or not progress_ok
+        )
         failures += int(failed)
         contact_note = (
             f"support={support_min if contact_samples else 0}"
             f"/{','.join(sorted(support_final)) or '-'}"
             f" front={','.join(sorted(front_hits)) or '-'}"
             f" scrape={','.join(sorted(bad_contacts)) or '-'}")
+        progress_note = (
+            "" if rear_only else
+            f" walk={walk_dist_mm:+7.1f} mm "
+            f"progress={int(progress_ok)} ")
         print(
             f"{gait:16s} dist={dist_mm:+7.1f} mm "
+            f"{progress_note}"
             f"max_tilt={max_tilt:5.1f} deg "
             f"peak_cur={pl.peak_cur:4.1f} A "
             f"fell={int(fell)} bad={int(failed)} "
@@ -334,6 +364,8 @@ def main() -> None:
                         "rear_aggressive,walk_aggressive,trot_aggressive"),
                     help="comma-separated gait list for --headless")
     ap.add_argument("--seconds", type=float, default=35.0)
+    ap.add_argument("--direction", type=float, default=1.0,
+                    help="walk direction for --headless; negative = backward")
     ap.add_argument("--plant-hip", type=float, default=None,
                     help="override stand hip degrees for --headless")
     ap.add_argument("--plant-knee", type=float, default=None,
@@ -343,6 +375,7 @@ def main() -> None:
         gaits = [s.strip() for s in args.gaits.split(",") if s.strip()]
         raise SystemExit(run_headless(
             gaits, args.seconds,
+            direction=args.direction,
             plant_hip=args.plant_hip, plant_knee=args.plant_knee))
 
     import cv2  # noqa: PLC0415

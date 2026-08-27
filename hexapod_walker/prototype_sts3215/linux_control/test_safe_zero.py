@@ -181,15 +181,15 @@ def test_ik_transition_steps_instead_of_sliding_grounded_feet():
 
 
 def test_low_drag_descent_from_plant_stand():
-    # Under the absolute-knee convention the old low-drag descent planner is
-    # intentionally bypassed until retuned.  A measured stand should still
-    # return to zero by lifting/straightening without violating limits.
+    # Absolute-knee low-drag descent lowers at constant foot radius, then
+    # skims the feet only after the belly is carrying the robot.
     present = _pose(hip=19.0, knee=28.0)
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
-    assert "descent" not in p
+    assert p["descent"]["loaded_slide_mm"] == 0.0
+    assert p["descent"]["legacy_slide_mm"] > 10.0
     labels = [s["label"] for s in p["stages"]]
-    assert any("straighten" in l for l in labels), labels
+    assert any("lower body" in l for l in labels), labels
     assert p["stages"][0]["drag_ok"]
 
 
@@ -220,10 +220,10 @@ def test_wide_stance_descends_without_slide():
     present = _pose(hip=10.0, knee=25.0)
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
-    assert "descent" not in p
+    assert p["descent"]["loaded_slide_mm"] == 0.0
 
 
-def test_belly_start_keeps_legacy_plan():
+def test_belly_start_uses_clearance_checked_non_drag_plan():
     present = _pose(hip=-10.0, knee=20.0)  # feet near the belly plane
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
