@@ -1,6 +1,42 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~00:4x (**ANCHOR4-STDANNEAL JOINT CALL CLOSED,
+Last updated: 2026-08-27 ~02:5x (**anchor5-stdmild2 (dose -2.0, seed0)
+CANARY FAIL - MECHANISM, hold-helps branch: the milder anneal target
+protects walk but does nothing for hold.** First read of the 2-dose x
+2-seed magnitude bracket launched off anchor4-stdanneal's split
+result. `--log-std-final -2.0` (std 0.135, vs anchor4's -4.0/std
+0.018): WALK-SURVIVES holds on this seed — det gait_valid 5/6 DR-0 /
+6/6 own-DR(0.5), prog_ratio med 0.26/0.29 (matches anchor2/3's healthy
+0.29-0.43 band), no anchor4-class 3+-leg-sacrifice catastrophe; video
+(full contact sheets, not just endpoint frames — an early 3-frame skim
+misread this as a static freeze before the fuller strip showed the
+foot-contact overlay actually changing and the checkerboard floor
+shifting under the robot) confirms real if slow forward translation
+(0.64-0.69m/30s). But **HOLD-HELPS FAILS outright**: hold/sto stays
+6/6 `hold_min_load` termination at BOTH DR-0 and own-DR — bit-for-bit
+the anchor2/3 unchanged baseline, the gate's own pre-registered
+"zero improvement" FAIL clause — and hold/det, clean (0/6) in
+anchor2/3, picked up NEW terms (2/6 DR-0, 4/6 own-DR), a mild
+regression rather than neutral. Reading: std=0.135 sits in a dead
+zone — different enough from anchor4's -4.0 to leave walk's
+exploration alone, but not different enough from the recipe's
+untouched natural std to move whatever exploration-noise-linked
+mechanism lets hold settle into its low-height/min-load failure.
+**Awaiting the rest of the grid** (`stdmild1` -1.0 seed0/seed1,
+`stdmild2-s1` -2.0 seed1) before the joint dose-response call — if
+none of the three doses (-1.0/-2.0/-4.0) both protects walk AND helps
+hold, the magnitude axis is closed and the already-flagged per-core
+`log_std` split (`DualGruActorCriticPolicy` shares one `log_std`
+across both gated cores) becomes the only remaining lever. Own eval
+prestage timed out at the watcher's fixed 3300s wrapper budget (100Hz/
+30s-episode/video-every-1 pushes total wall time past that for a
+48+-episode joint panel — an infra scaling gap worth a future fix, not
+a mechanism finding); gate+owncfg reports were pulled and read
+manually this cycle. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_anchor5_stdmild2_{gate,
+owncfg}/report.json`, W&B `qggsdmzc`. Prior banner below.)
+
+Previous entry, 2026-08-27 ~00:4x (**ANCHOR4-STDANNEAL JOINT CALL CLOSED,
 CANARY FAIL - MECHANISM cross-seed — the shared-log_std anneal fixes
 hold but destroys walk; root-caused by CODE READ (not guesswork) to
 DualGruActorCriticPolicy's single log_std shared across both gated
