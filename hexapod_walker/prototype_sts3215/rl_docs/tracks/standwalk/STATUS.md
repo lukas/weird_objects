@@ -1,5 +1,71 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~19:5x (checkup+triage cycle: **anchor13-
+walkretaincoef1-base{,-s1} JOINT CANARY FAIL - MECHANISM — the
+per-mode dose split (walk coef 3.0->1.0) does NOT recover the healthy
+walk; dose-response is INVERTED across seeds, so the walk anchor's
+PRESENCE, not magnitude, is the cost driver**). Wiring check passed
+both seeds (train/bc_anchor_loss_walk ~0.003, fill_walk ~41k). DR-0
+gate walk/det, matched controls (same seed/init, only lever = walk
+anchor dose): seed0 anchor2 0.38/3.53 -> anchor12(coef3) 0.13/8.23 ->
+anchor13(coef1) 0.18/5.49 (recovers only ~20% of the prog gap, below
+the arm's own PARTIAL bar); seed1 anchor2-s1 0.32/4.07 ->
+anchor12-s1(coef3) 0.16/6.47 -> anchor13-s1(coef1) **0.02/43.07** —
+WORSE at the lighter dose, near-in-place stepping (video: upright
+six-leg creep, no falls/flag legs; gait_valid 6/6 trivially). Stance
+modes stayed in anchor2's band on both seeds. Pre-registered joint
+FAIL branch fires: NO more dose points (0.3 explicitly dead); next is
+the **reward/task-level audit of the walk objective** named by
+anchor9-s1's REFUTED branch (every architecture-sharing/optimizer-
+coupling candidate — log_std split, trunk detach, advantage-norm,
+grad-clip per-core — now tested with >=1 seed contradicting each).
+NEXT (for the cycle holding the anchor14 read): anchor14-
+walkretaincoef1-rescue{,-s1} FINISHED ~17:49 (full 2.03M; the 17:42
+checkup SUSPECT on rescue-s1 was the recurring stall FALSE ALARM, 4th
+confirmed hit, zero intervention — RUN_INTERPRETATION_RULES.md
+updated); their read answers the rescue half (does coef1.0 still
+rescue seed1's anchor4-class catastrophe?) and should combine with
+this JOINT FAIL + anchor10-percoreclip's seed divergence (s0 FAIL /
+s1 PASS 0.38/2.75) into ONE route decision: (a) audit-first — walk
+objective vs anchor interference at the reward/task level
+(SPECIFICATION work, test_task_semantics bank before any mechanism
+arm); (b) if anchor14 shows cheap rescue, consider anchor-as-
+rescue-only (on for catastrophe recovery, off for healthy walks) as a
+scheduling answer inside the same audit. No standwalk GPU arm is
+fundable before that audit per the pre-registered FAIL branches. No
+launches this cycle. Prior banner below.
+
+Update, 2026-08-27 ~17:5x (triage cycle: **anchor11-walkretain-s1 +
+anchor12-walkretain-base-s1 JOINT CLOSE — completes the prior banner's
+pending joint calls; infra: the -s1 prestage had silently orphaned
+(remote eval done, never copied back) exactly as its own
+`resume_orphaned_eval.py` note predicted, fixed with the same tool.**
+`anchor12-walkretain-base-s1` (control, matched to anchor2-s1): JOINT
+CLOSE CANARY FAIL - MECHANISM, cross-seed-confirms anchor12 seed0's
+tax (det prog 0.32->0.16 -50%, slip 4.07->6.47 +59%, gait_valid held
+6/6, no anchor4-class freeze) — the coef=3.0 dose taxes a healthy
+walk on both seeds, no divergence. `anchor11-walkretain-s1` — the
+ACTUAL anchor6b-logstdsplit-fix-s1 catastrophe target (parent: walk
+det DR-0 gait_valid 0/6, sac legs up to 5, prog_ratio 0.01, near-static
+freeze) — JOINT CLOSE **CANARY PASS - MECHANISM (PARTIAL)**: with the
+walk-retention anchor, gait_valid 6/6, ZERO sacrificed legs, prog_ratio
+0.16, slip/m 6.69 (video-confirmed clean six-leg cycling, no crouch) —
+a genuine rescue from total collapse, but landing below the arm's own
+0.2 prog_ratio PASS bar, same tax shape as the control. Net: the
+in-loss walk-retention mechanism DOES reverse the anchor4-class
+leg-sacrifice catastrophe on its designated seed, but the SHARED
+coef=3.0 dose costs speed on every seed regardless of starting
+condition — exactly the two-sided evidence -2.35(b) predicted and
+already funded. No new lever opened: this closes the anchor11/12 wave
+cleanly; the answer sits with the already-launched/finishing
+`anchor13/14-walkretaincoef1{,-s1}` per-mode-coefficient wave (results
+pending SYNCED marker, left untouched this cycle per non-ownership).
+No other standwalk arm fundable without those results; other tracks
+confirmed DONE/blocked (joystick/amp/cpg maintenance-only, walkcurr
+`[operator]`-blocked). 10 free GPU slots, empty backlog — no
+independent Next item exists to fill them; genuinely idle pending the
+coef-split read. CYCLE_WORKED. Prior banner below.
+
 Update, 2026-08-27 ~17:1x (triage cycle: **anchor11-walkretain +
 anchor12-walkretain-base (seed0 halves) verdicted — anchor12's
 control CANARY FAIL - MECHANISM confirms the operator's walk-
@@ -4542,6 +4608,12 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     catastrophe: the dose window that protects a healthy walk is
     narrower than what's needed to overpower the freeze — fund a
     middle dose (~2.0) on the rescue recipe only.
+    **UPDATE (08-27 ~17:5x): anchor11/12-walkretain{,-s1} JOINT CLOSE
+    complete (top banner) — the -s1 halves confirm the shared-coef
+    tax cross-seed AND confirm the mechanism genuinely rescues
+    seed1's real catastrophe (0/6->6/6 gait_valid) at reduced speed.
+    Both branches above stay live pending anchor13/14's own read;
+    no change to this item's decision rule.**
 -2.4 LAUNCHED (08-27 ~14:1x, operator design correction 20260827T135505Z
     — reward/loss-level walk-retention guardrail, supersedes the
     "no arm until anchor10 lands" sequential gating): 4-arm wave
