@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~21:2x (idle-kick cycle: **JOINT RESCUE-PASS closed
+Update, 2026-08-27 ~22:4x (idle-kick cycle: **NO VERDICT — the
+anchor14-walkretaincoef1-rescue-acq8m/-s1-acq8m 8M harness evals
+(gate+owncfg+session, launched 21:59 by the prior cycle) are still
+genuinely mid-flight, confirmed via on-pod `ps` (both progressing
+cleanly, ~20-22/48 episodes/pass at last check) — left for the
+SYNCED-marker cycle, do NOT re-podeval.** INFRA FIX landed instead:
+this cycle's own first `ops.sh review` read ("no harness report yet")
+was mistaken for "not started" and `pod_eval.py` was re-invoked for
+both runs — it silently launched a SECOND `eval_checkpoint` tree on
+EACH of train-1/train-3, racing the already-running original for CPU
+and for the same output-dir episode files (caught within ~10 min via
+`ps`, both duplicates killed; no `report.json` corruption, a handful
+of mid-transition video frames may be affected, immaterial to the
+gate numbers). Root cause: `pod_eval.py`'s only idempotency check was
+"does the CONTROLLER-side artifact dir already exist" — a pass still
+running on the pod (the normal state for any per-mode-video panel,
+routinely 1-2h+) was invisible to it. Fixed for every future run, not
+just this one: new `pod_eval.remote_eval_running()` greps the pod's
+own process table for a live eval already targeting the same
+`--out`/`--out-dir` before launching each of the gate/owncfg/session/
+joygate passes, and skips with a clear message instead of duplicating
+— smoke-verified against this exact live run (all 3 passes correctly
+reported RUNNING, zero new pod processes spawned). 4 new unit tests
+(`rl_move/tests/test_pod_eval_dupe_guard.py`, mocked subprocess I/O,
+no real pod needed), full pod_eval test module green (18/18),
+snapshotted (`exp/podeval-dupe-guard`). All other tracks re-swept
+fresh: joystick/amp/cpg DONE-or-maintenance-only, walkcurr
+`[operator]`-blocked, standwalk backlog empty/12 free GPU pods with
+no independent Next item legal before this exact acq8m read lands —
+genuinely idle on that one number, nothing else launchable this
+cycle. CYCLE_WORKED (real infra fix + tests + snapshot). Prior banner
+below.
+
+Prior banner, 2026-08-27 ~21:2x (idle-kick cycle: **JOINT RESCUE-PASS closed
 — `anchor14-walkretaincoef1-rescue{,-s1}` — the per-mode walk-anchor
 dose (coef=1.0) genuinely rescues seed1's real anchor4-class
 catastrophe (0/6 → 6/6 gait_valid, sacrificed_legs=[] both DR) while
