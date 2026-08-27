@@ -1,5 +1,54 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~10:3x (kick-cycle housekeeping on
+`anchor7-detachtrunk{,-s1}` — **WIRING CHECK FIRST clause satisfied
+both seeds; mechanism read (WALK-SURVIVES joint call) still computing,
+no verdict yet.**) Confirmed the gate's precondition two ways rather
+than trusting the launch note alone: (1) the code-level mechanism
+itself is unit-test-green (`test_detach_trunk_stops_gradient_into_
+recurrent_core`, `test_dual_bc_anchor_mean_and_detach` — both PASS,
+re-ran this cycle) — with `bc_detach_trunk=True` the anchor loss
+provably reaches zero gradient on the shared GRU/feature-extractor
+params and nonzero gradient on the actor head only, so the mechanism
+is not a no-op by construction; (2) both runs' cached W&B `config.
+cfg_set` (pulled fresh from `logs/experiments/<run>/wandb_summary.
+json`, not just the launch args) contain `train.bc_anchor_detach_
+trunk=1` alongside the unchanged `--gru-dual-log-std-split`/
+`--log-std-anneal-core stance` lineage — the flag was genuinely parsed
+and threaded into this exact run, not lost in a respec. This satisfies
+WIRING CHECK FIRST on both seeds without needing a per-checkpoint
+grad-norm dump (no such diagnostic is logged during training; the
+unit test + confirmed cfg is the practical equivalent). **Eval status**:
+both prestage passes (gate + own-DR, 4-mode x det+sto joint panel,
+`control.hz=100`/30s episodes/video-every-1 — the same long-panel
+shape as anchor6b, ~1.6-2h projected) are healthy and progressing
+normally on their own pods (`ps` shows the `eval_checkpoint` workers
+at 700+% CPU, new episode videos landing every ~2 min, 5/6 `walk_det`
+already rendered on train-1 as of this write) — this time via a
+FRESH `pod_eval.py` subprocess (started 10:16, reads on-disk code),
+so the previously-diagnosed stale-in-memory-`watch_loop.py` 3300s-
+timeout gap (Next -1.86) does not apply: `eval_timeout_scale` gives
+this panel an 8x-scaled ~6h wrapper budget, comfortably longer than
+the projected wall clock. No manual `resume_orphaned_eval.py` safety
+net launched this cycle (not needed). **Reward-quarter peek** (cached
+`wandb_history.csv`, suggestive only, not a substitute for the eval):
+seed0 `detachtrunk` `[38.3, 22.7, -316.7, -58.9]` is slightly DEEPER/
+worse in Q3-Q4 than its own already-clean-passing baseline `fix`
+`[38.4, 15.2, -263.8, -40.7]`, while seed1 `detachtrunk-s1` `[39.8,
+3.1, -348.8, -99.3]` is slightly SHALLOWER/better than its own
+catastrophic baseline `fix-s1` `[40.0, -7.4, -444.6, -121.7]` — a
+small, ambiguous, opposite-direction shift on each seed relative to
+its own parent, consistent with either seed noise or a mild real
+effect in the predicted direction on seed1 only; the actual
+gait_valid/sacrificed-legs/video read decides, not this reward shape.
+Full track sweep reconfirmed: 12/12 GPU pods free, `backlog.json`
+empty, no other standwalk Next item or other-track item is launchable
+(joystick/amp/cpg DONE-or-maintenance-only, walkcurr `[operator]`-
+blocked pending the BC-kickstart ruling, `OPERATOR_QUESTIONS.md`
+q_20260824T0233Z) — correctly no launch this cycle. Leaving both
+verdicts for the cycle that reads the `SYNCED` marker; do not re-podeval.
+Prior banner below.
+
 Update, 2026-08-27 ~09:5x (**BOTH joint calls from the concurrent
 07:4x/09:2x banners now CLOSED this cycle** — the missing gate.json
 for `anchor6b-logstdsplit-fix{,-s1}` and `anchor2-headings-curric1-s1`
@@ -4005,7 +4054,7 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--2.0 DIG-IN, funded next (08-27 ~09:5x, JOINT CLOSE on
+-2.0 DIG-IN, LAUNCHED this cycle (08-27 ~09:5x, JOINT CLOSE on
     anchor6b-logstdsplit-fix{,-s1} — see top banner): with the
     per-core `log_std` split now checkpoint-verified WIRED and STILL
     not saving walk on one of two seeds (anchor4-class catastrophe,
@@ -4022,7 +4071,19 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     annealed, or dosed) on this coef=3.0 dual-core recipe until a
     trunk-level candidate is named and tested. Evidence: verdicts on
     `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-
-    fix{,-s1}` (08-27 ~09:5x).
+    fix{,-s1}` (08-27 ~09:5x). **LAUNCHED this cycle**: the lever
+    already exists in code (`train.bc_anchor_detach_trunk`, built
+    08-12 for the joystick track's `cw-arch-gru-anchor2` — no_grads
+    the GRU/feature-extractor path so the anchor loss only updates
+    the actor head, never the shared trunk) and that same arch-track
+    run already showed the matching signature (walk anchor OFF, walk
+    still froze — proof of trunk bleed from OTHER modes' anchor
+    pairs, not the walk term itself). Respec'd on top of the exact
+    anchor6b-logstdsplit-fix{,-s1} recipe (log_std split kept, only
+    `train.bc_anchor_detach_trunk=1` added) as
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor7-detachtrunk{,
+    -s1}`, VERIFIED RUNNING on hexapod-mjx-train-{1,3}. Full
+    PASS/PARTIAL/FAIL rule in the gate text.
 -1.95 CLOSED (08-27 ~09:5x, JOINT CLOSE on anchor2-headings-curric1
     {,-s1} — see top banner): seed1 is HEALTHY (det gait_valid 6/6, 0
     sacrificed legs) with the same fragile-direction weakness already
