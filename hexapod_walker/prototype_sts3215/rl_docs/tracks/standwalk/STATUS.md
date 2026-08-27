@@ -1,5 +1,82 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~12:2x (idle-kick/dig-in cycle: **anchor7-detachtrunk{,-s1}
+JOINT CLOSE (Next -2.0) — CANARY FAIL - MECHANISM, both seeds, but
+genuinely informative; NEW diagnostic BUILT+TESTED+LAUNCHED (Next
+-2.1)**). Resumed the two long-pending gate/owncfg passes via
+`resume_orphaned_eval.py` (both had finished computing remotely ~11:48/
+~11:56 but never synced back — the known Next -1.86 wrapper-timeout
+gap, now-fixed code hadn't yet been picked up by these two in-flight
+runs) and read the full `report.json` for both seeds' DR-0 gate + own-DR
+owncfg passes. **Result: detach_trunk does NOT deliver the pre-registered
+FULL PASS (neither seed reaches det gait_valid>=5/6 at DR-0) and does
+not match the anticipated PARTIAL shape either.** Instead it moves BOTH
+seeds toward a similar, MILDER failure basin from opposite directions:
+seed0 (`detachtrunk`) REGRESSES from its own `fix` parent's CLEAN walk
+(6/6 gait_valid, sac=[], prog 0.22-0.24) to a 0/6-gait_valid 2-3-leg
+persistent drag (sac=[3,4] every det episode, prog 0.13-0.14) — a real
+regression, not noise; seed1 (`detachtrunk-s1`) is RESCUED from its own
+`fix-s1` parent's TOTAL freeze (0/6 gv, sac 3-5 legs, prog 0.004-0.009,
+essentially static) to a milder 1-leg drag (sac=[0] or [1], prog
+0.10-0.11) and, at own-DR(0.5), reaches gait_valid 5/6 (mostly clean).
+Hold is roughly unchanged both seeds vs their `fix`/`fix-s1` parents.
+**Why this matters**: if trunk-gradient bleed from the BC anchor loss
+were the SOLE cause of the anchor4-class catastrophe, isolating the
+trunk from that gradient should never hurt an already-clean seed —it
+did (seed0) — so trunk-bleed is refuted as a *sufficient*, safe-in-
+isolation explanation, joining the already-refuted exploration-noise
+theory (anchor6b). Verdicts: `cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor7-detachtrunk{,-s1}` (both FAIL). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor7_
+detachtrunk{,_s1}_{gate,owncfg}/report.json` + contact sheets, vs
+`..._anchor6b_logstdsplit_fix{,_s1}_gate/report.json` for the parent
+comparison.
+
+**NEW CANDIDATE MECHANISM, reasoned from the architecture + sb3-contrib
+source (not yet behaviorally confirmed) — a THIRD, previously-untested
+root cause distinct from log_std and trunk-sharing:** the dual-core
+policy (`gru_policy.DualGruActorCriticPolicy`) already gives walk
+(core A) and stance (core B) fully separate GRUs + actor/critic heads
+— `bc_anchor_detach_trunk=1` additionally proved the anchor loss can't
+even touch the shared upstream `extract_features`/either GRU core
+anymore, and the catastrophe still isn't fixed. That points away from
+any *shared-weight* explanation and toward sb3-contrib's own
+`RecurrentPPO.train()`: it normalizes advantages with ONE global
+`(mean, std)` per minibatch (`advantages[mask].mean()/.std()`,
+`ppo_recurrent.py`) — this stack has NO VecNormalize/reward-scaling
+anywhere (grep-confirmed) — and every dual-core recipe trains with
+`goal.mode_seq` composing hold/rise/lower/walk INSIDE one episode, so a
+single env's own rollout chunk already interleaves multiple mode
+families in time before any cross-env mixing. That makes the shared
+advantage-normalization constant structurally cross-mode on
+essentially every minibatch, independent of any trunk/log_std sharing.
+If stance's raw advantage variance (plausible: rise/hold/lower carry
+large terminal penalties up to `reward.term_cost_max`) dwarfs walk's
+bounded per-tick kernel reward, the shared normalizer would shrink
+walk's own PPO gradient toward zero FOR FREE — no shared weights
+needed at all. **BUILT + TESTED this cycle**: a strictly READ-ONLY
+diagnostic, `train.bc_anchor_debug_adv_stats` (default 0, bit-exact —
+3 new unit tests in `test_bc_anchor.py`: default-off no-op, correct
+loco/stance split on synthetic data, clean skip when
+`obs.mode_onehot` isn't present), that logs the RAW pre-normalization
+per-mode-family advantage `mean/std/share`
+(`train/adv_{loco,stance}_{mean,std,share}`) from `self.rollout_buffer`
+AFTER `super().train()` has already consumed it — changes no
+gradient/weight/RNG draw. Snapshotted
+(`exp/pre-anchor8-advstats-diagnostic`). **LAUNCHED**:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-advstats{,-s1}` —
+the EXACT `anchor6b-logstdsplit-fix{,-s1}` recipe (same seeds, same
+`init-from anchor2{,_s1}`, no detach_trunk) with ONLY the diagnostic
+flag added, so this cycle's diagnostic read lands on the
+ALREADY-KNOWN clean-walk (seed0) / total-catastrophe (seed1) pair —
+seed0 VERIFIED RUNNING on train-1, seed1 launch in flight. Decision
+rule pre-registered in the gate text: if `train/adv_stance_std` is
+persistently several-x `train/adv_loco_std` on both seeds, the
+hypothesis is SUPPORTED (design a per-mode-group advantage
+normalization mechanism next); if the two stay comparable, it's
+REFUTED and the next candidate is critic/value-function coupling.
+Prior banner below.
+
 Update, 2026-08-27 ~11:4x (idle-kick cycle: **Next -1.85 MIXED-SESSION
 BASELINE READOUT CLOSED** — the four detached long-session evals
 queued by the 08-27 op-priority note (`anchor2`, `anchor2-s1`,
@@ -4119,7 +4196,48 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--2.0 DIG-IN, LAUNCHED this cycle (08-27 ~09:5x, JOINT CLOSE on
+-2.1 DIG-IN, LAUNCHED this cycle (08-27 ~12:2x, JOINT CLOSE on
+    anchor7-detachtrunk{,-s1} — see top banner): detach_trunk refutes
+    itself as a sufficient/safe fix (regresses a clean seed, only
+    partially rescues a catastrophic one, both land in a similar
+    milder 1-3-leg-drag basin). Since the dual-core architecture
+    already gives walk/stance fully separate GRUs+heads and
+    detach_trunk additionally proved the anchor loss can't reach
+    EITHER core or the shared feature extractor anymore, the residual
+    catastrophe cannot be a shared-WEIGHT story. New candidate,
+    reasoned from `sb3_contrib.ppo_recurrent.RecurrentPPO.train()`'s
+    own source: advantage normalization is ONE global (mean,std) per
+    minibatch, this stack has no VecNormalize/reward-scaling anywhere,
+    and `goal.mode_seq` composes modes INSIDE one episode — so the
+    normalizer is structurally cross-mode on ~every minibatch, a
+    purely-statistical corruption path needing no shared parameters.
+    **BUILT+TESTED+LAUNCHED**: read-only diagnostic
+    `train.bc_anchor_debug_adv_stats` (default 0, bit-exact, 3 new
+    tests) logging `train/adv_{loco,stance}_{mean,std,share}`;
+    launched on the EXACT `anchor6b-logstdsplit-fix{,-s1}` recipe
+    (known clean-walk / known-catastrophe pair) with only the flag
+    added, as `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-
+    advstats{,-s1}`. **Do not fund another log_std/trunk-detach
+    variant until this diagnostic's read is in.** Decision rule: if
+    `train/adv_stance_std` is persistently several-x
+    `train/adv_loco_std` on both seeds -> SUPPORTED, build a per-mode-
+    group advantage-normalization mechanism arm next (requires a full
+    override of `RecurrentPPO.train()`'s minibatch loop — bigger,
+    higher-blast-radius change, needs careful bit-exact-when-off
+    testing before it ever trains anything). If the two stay
+    comparable -> REFUTED, escalate to the critic/value-function
+    coupling candidate instead (dump per-mode value-loss contribution,
+    not just advantage stats). Evidence: verdicts on
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor7-detachtrunk{,
+    -s1}` (08-27 ~12:2x); code `rl_move/sim/bc_anchor.py`
+    `_maybe_log_adv_mode_stats`; snapshot
+    `exp/pre-anchor8-advstats-diagnostic`.
+-2.0 CLOSED (08-27 ~12:2x, JOINT CLOSE on anchor7-detachtrunk{,-s1} —
+    see top banner and -2.1 above): the trunk-bleed hypothesis this
+    item funded is REFUTED as a sufficient/safe-in-isolation
+    explanation. Original text preserved for the reasoning trail:
+
+-2.0-orig DIG-IN, LAUNCHED this cycle (08-27 ~09:5x, JOINT CLOSE on
     anchor6b-logstdsplit-fix{,-s1} — see top banner): with the
     per-core `log_std` split now checkpoint-verified WIRED and STILL
     not saving walk on one of two seeds (anchor4-class catastrophe,
