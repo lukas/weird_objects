@@ -84,11 +84,21 @@ Reference: `~/buildviz/README.md` ("How to run BuildViz") and
 
 `hexapod-prototype` (prototype_v1, animated gait), `prototype_sts3215`
 (full robot; motion baked into its single scene.json — the separate
-`prototype_sts3215_motion` build id was retired),
-`prototype_ak40` (AK40 QDD hexapod, Design B, joints + stance poses; FLAT
-build id — register with `--build-id prototype_ak40`, never `--project` +
-`--build`, which creates a two-segment id the `?build=` viewer param can't
-resolve; regenerate via `make -C hexapod_walker/prototype_ak40 view-buildviz`),
+`prototype_sts3215_motion` build id was retired). The `prototype_sts3215`
+hub PROJECT also groups sibling builds:
+`prototype_sts3215/cnc-chorn-overhead` (CNC C-clamp legs-over-head
+concept, `concepts/cnc_chorn_overhead`; the old standalone
+`cnc_chorn_overhead` project id was retired 2026-08-27 — deleted locally,
+but a stale copy lingers on the cloud hub, which has no delete endpoint),
+`prototype_sts3215/chassis-reinforcement-test`, and
+`prototype_sts3215/tibia-yoke-reinforcement-test`. Two-segment
+`--project` + `--build` ids resolve fine in the current viewer on both
+hubs — via `?project=<p>&build=<b>` and even the legacy `?build=<p>/<b>`
+form (verified 2026-08-27; the old ak40-era "two-segment ids don't
+resolve" gotcha is fixed, though `prototype_ak40` itself remains a FLAT
+id registered with `--build-id prototype_ak40` — regenerate via
+`make -C hexapod_walker/prototype_ak40 view-buildviz`).
+`sts3215-rigid-hip` (rigid-hip concept variant, flat id),
 `prototype_v1/chassis`, `prototype_v1/leg`, `prototype_v1/leg/coxa`,
 `rideable_v1`, `robot-cat`, plus older collision/demo builds. List them live
 with `npx buildviz hub status` or open `http://127.0.0.1:5183/`.
