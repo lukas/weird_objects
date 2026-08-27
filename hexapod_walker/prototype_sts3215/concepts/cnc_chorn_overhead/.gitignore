@@ -1,0 +1,6 @@
+# STEP-first pipeline outputs (regenerate with build_cnc_chorn_step.py,
+# which make_cnc_chorn_variant.py runs for you)
+/step/
+# raster probe cache (_probe_envelope.py)
+/_envelope_map.npz
+__pycache__/
