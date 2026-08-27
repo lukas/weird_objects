@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: CANARY FAIL - MECHANISM
+**status**: CANARY FAIL - INFRASTRUCTURE
 
 **created**: 2026-08-27T04:07:37+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. JOINT call with seed-0 (anchor6-logstdsplit) -- same clauses: FULL PASS = WALK-SURVIVES (det gait_valid >=5/6, prog_ratio >=~0.2, no leg-sacrifice freeze) AND HOLD-HELPS-FULL (hold/sto DR-0 term <=2/6) on BOTH seeds. PARTIAL if hold improves less than anchor4-stdanneal's own result but beats the anchor2/3 6/6 baseline while walk survives. FAIL if walk still shows the catastrophe or hold shows zero improvement on this seed.
 
-**verdict**: CANARY FAIL - MECHANISM (seed1 twin, CROSS-SEED REPLICATION of anchor6-logstdsplit's seed0 read below). Result: WALK-SURVIVES clause fails just as hard as seed0, in fact worse -- walk/det gait_valid 0/6 at DR-0 with 4-5-LEG sacrifice every episode ([0,2,3,5] or [0,2,3,4,5], prog_ratio pinned at -0.02, i.e. zero net motion), walk/sto also 0/6 gait_valid with the same sacrifice pattern and 2/6 raw terminations. Same class of failure as seed0 (total leg-sacrifice freeze under the per-core log_std split), just a different specific leg subset -- this is the cross-seed replication the gate's JOINT call needed. Why/what's next: see anchor6-logstdsplit's own verdict (same cycle) for the full mechanism reasoning -- both seeds confirm the per-core split does NOT rescue walk from the anchor4-class catastrophe, closing the exploration-noise-starvation theory as walk's failure cause on BOTH seeds. JOINT CALL: CLOSED, FAIL -- do not fund a third log_std configuration (shared or split) on this coef=3.0 dual-core recipe; DIG-IN owns the next step (verify log_std_b wiring, then investigate shared critic/trunk).
+**verdict**: CANARY FAIL - INFRASTRUCTURE (CORRECTED by dig-in; seed1 twin — supersedes the earlier 'cross-seed replication closes the exploration-noise theory' read): INVALID as a test of the per-core log_std split for the same wiring bug as seed0. This checkpoint's saved policy_kwargs are {'lstm_hidden_size': 256} (no log_std_split), no log_std_b tensor exists, and the single shared log_std sits at exactly -4.0 — the plain --init-from warm start rebuilt the policy from the parent's own policy_kwargs (dropping --gru-dual-log-std-split) and the 'stance-only' anneal silently cooled the one SHARED log_std both cores sample from. What both seeds actually replicated is anchor4-stdanneal (shared -4.0 anneal: hold improves, walk collapses); the split itself was never tested on either seed and the exploration-noise-starvation theory remains OPEN, not refuted. Full forensics + code fixes (commit 4fe10154: enable_log_std_split retrofit on warm starts, fail-closed --log-std-anneal-core) in the seed0 verdict. Next: fixed-code relaunch pair anchor6b-logstdsplit-fix{,-s1} answers the original question.
 
