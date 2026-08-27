@@ -1,5 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~21:2x (idle-kick cycle: **JOINT RESCUE-PASS closed
+— `anchor14-walkretaincoef1-rescue{,-s1}` — the per-mode walk-anchor
+dose (coef=1.0) genuinely rescues seed1's real anchor4-class
+catastrophe (0/6 → 6/6 gait_valid, sacrificed_legs=[] both DR) while
+seed0 stays in its own recovered band (prog_ratio 0.178–0.181, meeting
+its own ≥0.18 bar) — the dose window this wave was hunting for
+exists. Funded the pre-registered 2-seed 8M acquisition wave.**) The
+prior cycle's infra fix (harness eval had never actually been
+launched) had already put the eval genuinely in flight; this cycle
+found `report.json` complete on-pod for both DR-0 gate and own-DR(0.5)
+passes, copy-synced them to the controller (manual `kubectl cp` — the
+automated prestage had not run for this manually-launched eval),
+and read the full report. Seed1's own numbers: DR-0 gate det walk
+`gait_valid` 6/6, `sacrificed_legs=[]` on ALL 6 episodes (clears the
+gate's own `>=5/6-zero-sac` bar cleanly), `progress_ratio` 0.10 (med),
+`slip/m` 10.13 (med); own-DR(0.5) det walk `gait_valid` 6/6, `sac=[]`,
+`progress_ratio` 0.16 (med), `slip/m` 6.81 (med) — matches/slightly
+beats `anchor11-walkretain-s1`'s own already-closed rescue shape
+(0/6→6/6 gv, prog 0.16) at a LIGHTER, per-mode-decoupled dose.
+Stochastic passes stay `gait_valid` (6/6, `sac=[]`) but low-progress/
+high-slip (prog 0.02–0.03, slip ~28–30) — expected at a 2M
+mechanism-health canary, not part of the gate bar. Video (contact
+sheets + `walk_det`/`walk_startjitter` frame strips, both DR-0 and
+own-DR) confirms a genuine alternating six-leg gait, upright, no drag
+or persistent leg lift. **Why this matters**: refutes "the anchor's
+mere presence is the cost" as the whole story — once decoupled
+per-mode, DOSE matters: coef=1.0 both prevents (seed0) and reverses
+(seed1) the catastrophe without paying `anchor11`/`anchor12`'s full
+quality tax. Cross-recipe flag (carried from seed0's own verdict, not
+contradicted here): `anchor13`'s control-recipe pair under the
+identical coef=1.0 landed at a similar absolute `prog_ratio` despite a
+healthier starting ceiling (0.23 vs 0.38) — worth the reward/task-
+level audit eventually, but this run IS the catastrophe-prone lineage
+that control pair wasn't, so the rescue read stands on its own gate.
+**LAUNCHED (respec, `--init-from-source`, `--phase acquisition`, both
+VERIFIED RUNNING):** `anchor14-walkretaincoef1-rescue-acq8m` (seed 0,
+train-1) + `-rescue-s1-acq8m` (seed 1, train-3), 8M continuation of
+the exact coef=1.0 recipe from each seed's own 2M checkpoint — per
+the 08-21 ruling (both seeds' reward quarters still show the
+anchor4-class trough-then-partial-Q4-recovery shape, not flat) this
+is continue-and-see: does `progress_ratio` keep climbing past the
+0.10–0.18 canary band with `slip/m` falling, or plateau/relapse under
+more budget? Gate (paired, both seeds): PASS if `gait_valid` stays
+`>=5/6` zero-sac on both AND `progress_ratio` improves over the 2M
+snapshot; PARTIAL if `gait_valid` holds but `progress_ratio` is flat;
+FAIL if the catastrophe relapses on either seed. Checked all other
+tracks fresh: joystick/amp/cpg DONE-or-maintenance-only, walkcurr
+`[operator]`-blocked, no other standwalk arm fundable (10 free GPU
+pods remain after this launch, backlog empty, no independent Next
+item). CYCLE_WORKED. Prior banner below.
+
 Update, 2026-08-27 ~20:2x (idle-kick cycle: **INFRA FIX, no verdict —
 `anchor14-walkretaincoef1-rescue-s1`'s harness eval had never actually
 been launched**, despite two prior cycles' notes describing it as
