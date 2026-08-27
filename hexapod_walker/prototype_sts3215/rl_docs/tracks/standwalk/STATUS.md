@@ -1,6 +1,55 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~12:2x (idle-kick/dig-in cycle: **anchor7-detachtrunk{,-s1}
+Update, 2026-08-27 ~12:5x (dig-in cycle: **anchor8-advstats (seed0)
+CANARY FAIL - MECHANISM — advantage-normalization-scope hypothesis
+REFUTED, INVERTED not just unsupported; gradnorm diagnostic
+BUILT+TESTED+LAUNCHED (Next -2.2)**). Read the finished
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-advstats` (seed0)
+W&B history for `train/adv_{loco,stance}_std`. First had to solve a
+real read-pitfall: the cached CSV looked like the diagnostic never
+fired (mean/share columns all-empty on the rows where std was
+populated) — root cause is this stack's wandb-tensorboard sync giving
+EVERY `train/*` scalar, including stock PPO metrics like `approx_kl`/
+`loss`, its own separate implicit `_step` (confirmed this is pre-
+existing/universal, not something this cycle's diagnostic broke), so
+the six new keys must be paired by call-order, not by matching `_step`
+values. Once paired correctly: wiring genuinely worked (nonzero share
+every rollout, ~0.27 loco / ~0.73 stance), but the result is the
+OPPOSITE of the predicted direction — `adv_loco_std` is often 2-7x
+LARGER than `adv_stance_std`, especially during the exact reward-
+trough window (rollout idx 6-13 of 30, matching the run's own reward
+quarters [38.4, 21.0, -287.6, -49.9]) — never the reverse. Seed1's
+own already-finished data (read for context, not verdicted here —
+belongs to whichever cycle owns `anchor8-advstats-s1`) shows the
+identical inverted pattern. sb3-contrib's shared global advantage
+normalizer is REFUTED as the walk-starvation mechanism, joining
+log_std-sharing (anchor6/6b) and trunk-gradient-bleed (anchor7).
+Escalated to the fallback named in anchor8's own pre-registered
+hypothesis text: PPO's global `clip_grad_norm_` over ALL params
+together — a code read confirms the dual-core policy already has
+fully separate GRUs/heads/critics per core (only a parameterless
+`FlattenExtractor` is shared), so one global clip factor could still
+couple the two cores with zero shared weights. Built+tested a new
+read-only diagnostic (`train.bc_anchor_debug_gradnorm`, default off/
+bit-exact, 5 new tests) that transiently monkeypatches
+`torch.nn.utils.clip_grad_norm_` to log pre-clip per-core grad L2
+norms; launched on the byte-identical anchor8-advstats recipe (same
+seed, same `init-from`, only the diagnostic flag swapped) as
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm{,-s1}`,
+VERIFIED RUNNING (train-1/train-3). Snapshot
+`exp/pre-anchor9-gradnorm-diagnostic`. Checked all other tracks for
+runnable work with the 10 remaining free GPU slots: amp/cpg are
+gate-GREEN (maintenance/[operator]-only), walkcurr is operator-
+blocked (do-not-launch per its own STATUS), joystick's DONE gate is
+already met and its only active hardening thread self-closed pending
+a genuinely new mechanism (deferred to this track). No parallel
+standwalk arm is legal either — every Next item on this track gates
+the next one sequentially by explicit pre-registration ("do not fund
+X until this diagnostic's read is in"), so 2 launches is the full
+correct batch this cycle, not underuse of capacity. Prior banner
+below.
+
+Previous entry, 2026-08-27 ~12:2x (idle-kick/dig-in cycle: **anchor7-detachtrunk{,-s1}
 JOINT CLOSE (Next -2.0) — CANARY FAIL - MECHANISM, both seeds, but
 genuinely informative; NEW diagnostic BUILT+TESTED+LAUNCHED (Next
 -2.1)**). Resumed the two long-pending gate/owncfg passes via
@@ -4196,7 +4245,58 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--2.1 DIG-IN, LAUNCHED this cycle (08-27 ~12:2x, JOINT CLOSE on
+-2.2 DIG-IN, LAUNCHED this cycle (08-27 ~12:5x): anchor8-advstats
+    (seed0) VERDICTED CANARY FAIL - MECHANISM — the advantage-
+    normalization-scope hypothesis (-2.1 below) is REFUTED, and not
+    merely unsupported: `train/adv_loco_std` is often SEVERAL-X
+    `train/adv_stance_std` (up to ~7x during the exact reward-trough
+    window, rollout idx 6-13 of 30), the OPPOSITE of the predicted
+    direction. Seed1's own already-computed data (read this cycle,
+    not verdicted here — belongs to whichever cycle owns
+    `anchor8-advstats-s1`) shows the identical inverted pattern (loco
+    std up to ~6x stance std at the trough), so the refutation looks
+    seed-independent. Wiring pitfall worth recording: this stack's
+    wandb-tensorboard sync gives every `train/*` scalar — including
+    stock PPO ones like `approx_kl`/`loss`, not just the new
+    diagnostic keys — its OWN separate `_step`, so the raw CSV looks
+    empty/misaligned if you match rows by `_step`; pair by call-order
+    within the run instead. Per the pre-registered decision rule,
+    escalated to the fallback named in anchor8's own hypothesis text:
+    PPO's global `clip_grad_norm_(self.policy.parameters(),
+    max_grad_norm)` clips ALL params together each minibatch — a code
+    read confirms the dual-core policy already has fully separate
+    `core_a`/`core_b` GRUs, `action_net`/`_b`, `value_net`/`_b` (only
+    a parameterless `FlattenExtractor` is shared), so a single global
+    clip factor could still starve one core even with zero shared
+    weights. **BUILT+TESTED+LAUNCHED**: read-only diagnostic
+    `train.bc_anchor_debug_gradnorm` (default 0, bit-exact — 5 new
+    tests in `test_bc_anchor.py`: default-off no-op incl. exact
+    `clip_grad_norm_` function-object restoration, correct a/b/shared
+    param grouping, clean skip on non-dual policies) that transiently
+    monkeypatches `torch.nn.utils.clip_grad_norm_` during
+    `super().train()` to log the PRE-CLIP per-core grad L2 norm
+    (`train/gradnorm_{a,b,shared}_mean`) before delegating unchanged
+    to the real clip. Launched on the IDENTICAL anchor8-advstats
+    recipe (same seed, same `init-from anchor2{,_s1}`, only the
+    diagnostic flag swapped) as `cw-standwalk-stance-mesh2-stage2-
+    dualbc1-anchor9-gradnorm{,-s1}`, VERIFIED RUNNING on
+    hexapod-mjx-train-{1,3}. Decision rule: if `gradnorm_a_mean` is
+    persistently several-x `gradnorm_b_mean` (or vice versa),
+    especially during the trough, SUPPORTED — build a per-core
+    gradient clip next (default off, bit-exact). If comparable
+    throughout, REFUTED — every proposed shared-computation coupling
+    mechanism (log_std, trunk-gradient, advantage-normalization,
+    grad-norm-clip) will have been tested and refuted; escalate to a
+    reward/task-level audit of the walk objective under this exact
+    recipe, not another architecture-sharing arm. Snapshot
+    `exp/pre-anchor9-gradnorm-diagnostic`; code
+    `rl_move/sim/bc_anchor.py` `_gradnorm_diag_ctx`.
+-2.1 CLOSED (08-27 ~12:5x, see -2.2 above): the advantage-
+    normalization-scope hypothesis this item funded is REFUTED
+    (inverted direction). Original text preserved for the reasoning
+    trail:
+
+-2.1-orig DIG-IN, LAUNCHED this cycle (08-27 ~12:2x, JOINT CLOSE on
     anchor7-detachtrunk{,-s1} — see top banner): detach_trunk refutes
     itself as a sufficient/safe fix (regresses a clean seed, only
     partially rescues a catastrophic one, both land in a similar
