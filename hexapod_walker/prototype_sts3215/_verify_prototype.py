@@ -2300,9 +2300,10 @@ def check_servo_clearance():
     }
     # The clamp cap that CLAMPS each servo into its sandwich cradle (hip/knee;
     # yaw uses the saddle, no cap).  Its centre tongue is INTENTIONALLY a
-    # press fit -- it reaches CLAMP_TONGUE_INTERF = 1 mm PAST the seated body
+    # press fit -- it reaches CLAMP_TONGUE_INTERF = 0.5 mm PAST the seated body
     # +Y face so the 2 cap bolts trap the body with zero slop (user request,
-    # Jun 2026).  This is a designed interference, not a collision, so the
+    # Jun 2026; 1.0 -> 0.5 Aug 26 2026 -- the cap top bowed around the screws).
+    # This is a designed interference, not a collision, so the
     # servo-vs-its-own-cap pair gets a dedicated press-fit budget.
     CLAMP_CAP = {
         "hip_servo":  "hip_clamp_cap",
@@ -2310,11 +2311,13 @@ def check_servo_clearance():
     }
     CRADLE_TOLERANCE = 600.0    # mm^3 -- tab plane resting on the rim
     OUTPUT_TOLERANCE = 1500.0   # mm^3 -- horn passage / gear stack
-    # Intended 1 mm tongue press onto the body +Y face: true boolean overlap is
-    # ~1530 mm^3 (45 x 34 x 1 contact), but the pitch-1.5 voxel sampler reads up
-    # to ~4250 mm^3 depending on grid alignment with the joint's pose.  Budget
-    # 6000 covers the voxel reading with margin while still failing loudly on a
-    # gross bury (a tongue/flange sinking several mm into the body is >> 10000).
+    # Intended 0.5 mm tongue press onto the body +Y face: true boolean overlap
+    # is ~770 mm^3 (45 x 34 x 0.5 contact), but the pitch-1.5 voxel sampler
+    # over-reads sub-pitch overlaps by up to a few thousand mm^3 depending on
+    # grid alignment with the joint's pose (at the old 1 mm press it read up to
+    # ~4250 vs ~1530 true).  Budget 6000 covers the voxel reading with margin
+    # while still failing loudly on a gross bury (a tongue/flange sinking
+    # several mm into the body is >> 10000).
     CLAMP_PRESS_TOLERANCE = 6000.0
     # Servo body next to a thin printed flange registers ~100-250 mm^3 of
     # voxel-sampling noise even when the surfaces are physically apart.
