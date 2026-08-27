@@ -1,5 +1,58 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~17:1x (triage cycle: **anchor11-walkretain +
+anchor12-walkretain-base (seed0 halves) verdicted — anchor12's
+control CANARY FAIL - MECHANISM confirms the operator's walk-
+retention anchor, at the stance dose (coef=3.0), taxes an already-
+healthy walk; `train.bc_anchor_walk_coef` per-mode split BUILT+
+TESTED and a 4-arm dose-decoupling wave LAUNCHED**). Both seed0 runs
+triaged this cycle (their -s1 twins were still training under this
+cycle's non-ownership list; both finished DURING the cycle and are
+left for whoever reads their SYNCED marker next — do not re-triage
+here). `anchor12-walkretain-base` (control: anchor2's walk-clean
+recipe + `bc_anchor_walk=1/coef=3.0/phase_lock=1/knee_abs=1`) DR-0
+gate vs anchor2's own DR-0 gate, same seed0: det walk `prog_ratio`
+0.38->0.13 (-66%), `slip/m` 3.63->8.27 (+128%); sto `lower` 5/6->1/6
+(collapsed); `gait_valid` held 6/6 both runs (no anchor4-class
+freeze — sto walk actually went from 5/6-sacrificed to 6/6-clean).
+Video (contact sheets + walk_det strips, both runs) shows normal
+six-leg cycling in both, no visible catastrophe — agrees with the
+metrics' own story (a real quality tax, not a freeze). Per this
+arm's own pre-registered text ("FAIL if walk prog/slip/gait_valid
+regress beyond eval noise on **either** seed") this is decidable on
+seed0 alone: **CANARY FAIL - MECHANISM**, confirming -2.35(b)'s
+trigger ("fund per-mode anchor coefficient if the anchor12 control
+shows the anchor pulling a healthy walk off its gait"). `anchor11-
+walkretain` (rescue recipe: anchor6b-logstdsplit-fix, seed0 — which
+was ALREADY clean before the anchor, not the catastrophe seed) shows
+the identical direction/magnitude of cost (prog 0.23->0.08, slip
+6.56->13.64) — own scope, CANARY FAIL - MECHANISM, joint rescue call
+still pending seed1 (the actual 0/6-collapse target). Built+unit-
+tested (9 new tests, all green, `test_bc_anchor.py`) the prescribed
+follow-up: `train.bc_anchor_walk_coef` (default -1 = unset, bit-
+exact-off via a structurally separate branch, not a matched value) —
+splits each aux minibatch by its recorded `bc_mode` into a walk group
+and a stance group, each group's MSE (+ its own foot-z share) scaled
+by its OWN coefficient, so the walk teacher's own dose (1.0) no
+longer has to ride the stance modes' 3.0. **LAUNCHED (respec, single
+lever `bc_anchor_walk_coef=1.0`, 2M canaries, all 4 VERIFIED
+RUNNING):** `anchor13-walkretaincoef1-base{,-s1}` on anchor12-
+walkretain-base{,-s1}'s exact init (anchor2's checkpoint) — does the
+lighter dose remove the cost anchor12 measured on a healthy walk?;
+`anchor14-walkretaincoef1-rescue{,-s1}` on anchor11-walkretain{,-s1}'s
+exact init (anchor6b-logstdsplit-fix's checkpoint) — does the lighter
+dose still rescue seed1's real catastrophe without seed0's cost? Full
+PASS/PARTIAL/FAIL branches + wiring-check-first
+(`train/bc_anchor_loss_walk`/`fill_walk` nonzero) in each ledger gate
+text. Also manually completed pod_eval.py's copy-back for both seed0
+runs via `resume_orphaned_eval.py` (the watcher's own prestage hit its
+3300s wrapper timeout at 15:31 — `orchestrator.log`; the underlying
+eval processes had already finished cleanly on their pods 90+ min
+into a video-heavy multi-mode DR-0+own-DR pass, matching anchor2's own
+precedent ~100min gate + ~106min owncfg on the same harness). No new
+infra fix needed here — the existing resume tool already covers this
+exact failure shape. CYCLE_WORKED. Prior banner below.
+
 Update, 2026-08-27 ~16:1x (triage cycle: **anchor10-percoreclip-s1
 CANARY PASS (own scope) - JOINT DIVERGENCE — corrects the previous
 banner's premature closure; per-core grad-clip decoupling actually
@@ -4476,6 +4529,19 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
+-2.45 LAUNCHED (08-27 ~17:1x, triggered by -2.4's own anchor12 control
+    FAIL — see top banner): `train.bc_anchor_walk_coef` per-mode-
+    coefficient split (-2.35(b) below), 4-arm dose wave
+    `anchor13-walkretaincoef1-base{,-s1}` (control recipe, dose 1.0
+    vs anchor12's shared 3.0) + `anchor14-walkretaincoef1-rescue{,-s1}`
+    (rescue recipe). Read PASS/PARTIAL/FAIL per each run's own ledger
+    gate text. If FAIL on both (anchor's mere presence taxes walk
+    regardless of dose): escalate to -2.35(a) (per-mode objective
+    normalization) or the reward/task-level audit, not another dose
+    point. If the control clears but the rescue still shows seed1's
+    catastrophe: the dose window that protects a healthy walk is
+    narrower than what's needed to overpower the freeze — fund a
+    middle dose (~2.0) on the rescue recipe only.
 -2.4 LAUNCHED (08-27 ~14:1x, operator design correction 20260827T135505Z
     — reward/loss-level walk-retention guardrail, supersedes the
     "no arm until anchor10 lands" sequential gating): 4-arm wave
@@ -4518,7 +4584,10 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     (b) per-mode anchor coefficient (walk dose decoupled from
         stance's coef=3.0; teacher's own walk dose was 1.0) — fund if
         the anchor12 control shows the anchor pulling a healthy walk
-        off its gait;
+        off its gait. **TRIGGERED + LAUNCHED (08-27 ~17:1x): anchor12
+        FAILED exactly this way (own-seed, decidable per its own
+        "either seed" bar). `train.bc_anchor_walk_coef` built+tested,
+        see -2.45 above for the 4-arm dose wave.**;
     (c) frozen-teacher-policy KL/BC anchor (anchor walk ticks to the
         dualbc1 init policy's own mean action instead of the scripted
         gait; needs new code: teacher forward pass + own hidden state
