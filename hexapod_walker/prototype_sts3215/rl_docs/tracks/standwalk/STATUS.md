@@ -1,6 +1,58 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~13:3x (triage cycle: **anchor9-gradnorm-s1
+Update, 2026-08-27 ~13:5x (triage cycle: **anchor9-gradnorm (seed0)
+CANARY FAIL - MECHANISM verdicted — own-seed SUPPORTED, joint
+DIVERGENT with the concurrently-verdicted -s1 read; `train.
+bc_anchor_percore_clip` mechanism BUILT+TESTED+LAUNCHED as
+anchor10-percoreclip{,-s1}; infra fix landed: checkup false-DEAD
+tail-window gap**). Read this run's own `train/gradnorm_{a,b}_mean`
+history (30 paired rollouts, WIRING CHECK FIRST confirmed nonzero
+both keys): core B (stance) raw pre-clip grad L2 norm is >=3x core A
+(walk) in 23/30 rollouts, median b/a=4.2x overall and 3.5x isolated
+to the reward-trough window (idx 6-13), max 16x — matches this arm's
+own pre-registered SUPPORT bar on this seed alone. The concurrently-
+running cycle had already read seed1 (`anchor9-gradnorm-s1`,
+f580f822) and found the OPPOSITE shape at the trough (median b/a=0.73,
+core A often larger) — so the JOINT call across both seeds is
+DIVERGENCE, joining log_std/trunk/advantage-norm in having at least
+one seed disagree; recorded that caveat directly on this run's
+verdict rather than re-opening their already-closed -s1 entry.
+Regardless, built + unit-tested (8 new tests incl. a synthetic-grad
+behavioral proof) `train.bc_anchor_percore_clip` (default 0,
+bit-exact off): replaces sb3-contrib's ONE global `clip_grad_norm_`
+call inside `RecurrentPPO.train()` with THREE independent per-group
+clips (core a / core b / shared) at the same max_norm, via a new
+shared `_dual_core_param_groups` helper (also used to refactor
+`_gradnorm_diag_ctx` in place — byte-identical grouping, gradnorm
+tests stay green). Launched `cw-standwalk-stance-mesh2-stage2-
+dualbc1-anchor10-percoreclip{,-s1}` on the byte-identical anchor9-
+gradnorm recipe (same seeds/init-from) with only the mechanism flag
+added, explicitly as a direct WALK-SURVIVES behavioral test — the
+gate text tells the next reader NOT to treat either pass or fail as
+proof/disproof of grad-clip-coupling specifically, given the seed-
+divergent diagnostic evidence; a fail routes straight to the
+reward/task-level audit anchor9's own gate text names, same as if
+every architecture-sharing candidate is now exhausted. Both seed0
+(train-4) and seed1 (train-5) already finished training (fast MJX
+canary, ~15 min/2M steps) — seed0 status FINISHED, seed1 VERIFIED
+RUNNING as of this write, left for the SYNCED-marker cycle to
+triage. **Infra fix landed en route**: `cmd_checkup`'s "process
+missing -> check log tail for a completion marker" fallback used a
+`tail -c 2000` window that a fast MJX canary's own W&B postamble
+(artifact-upload lines + full Run history/summary key dump) can
+overrun — measured 2107 bytes after the `[mjx-train] done` marker on
+anchor10-percoreclip's own log (107 bytes past the old window),
+producing a false DEAD checkup read on a cleanly finished run.
+Widened to `tail -c 8000` with a regression test fixturing the exact
+overrun shape; re-running checkup after the fix correctly reads
+FINISHED. Full track sweep: backlog empty, all 12 GPU pods free
+(besides the two just-launched), joystick/amp/cpg DONE-or-
+maintenance, walkcurr `[operator]`-blocked — no other standwalk arm
+is legal until anchor10-percoreclip's own read lands (same sequential
+gating every recent banner has noted). CYCLE_WORKED. Prior banner
+below.
+
+Previous entry, 2026-08-27 ~13:3x (triage cycle: **anchor9-gradnorm-s1
 CANARY FAIL - MECHANISM - JOINT DIVERGENCE — seed1's own gradnorm
 read does NOT replicate seed0's basis for launching anchor10-
 percoreclip**). Read the finished `...anchor9-gradnorm-s1` W&B
