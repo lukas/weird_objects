@@ -1,5 +1,50 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~15:2x (triage cycle: **anchor10-percoreclip
+(seed0) CANARY FAIL - MECHANISM — per-core grad-clip decoupling does
+NOT rescue walk; the LAST proposed architecture-sharing/optimizer-
+coupling mechanism on this recipe family is now closed**). Own-seed
+scope (joint call awaits `anchor10-percoreclip-s1`, still training on
+train-5 as of this write — belongs to whoever reads its SYNCED
+marker). WIRING CHECK FIRST confirmed two ways before reading any
+behavior: `cfg_set` has `train.bc_anchor_percore_clip=1`, and the
+checkpoint zip's own `policy.pth` tensors include `mlp_extractor_b`/
+`core_b`/`action_net_b` — the dual-core branch genuinely loaded, not
+a silent single-core fallback (the exact wiring-miss class that bit
+anchor6-logstdsplit). Then the full DR-0 gate panel (4 modes x
+det+sto + a startjitter pair, `logs/ckpt_eval/cw_standwalk_stance_
+mesh2_stage2_dualbc1_anchor10_percoreclip_gate/report.json`): walk/det
+0/6 `gait_valid`, sacrificed legs consistently `[3]` (some episodes
+`+[2]`/`+[4]`), `progress_ratio` NEGATIVE (-0.02 to -0.04 — net
+backward drift, not stalled-forward), slip/m 45-46; walk/sto 0/6
+`gait_valid`, same sacrificed set, slip/m 23-29; `walk_startjitter`
+det+sto also 0/6 both. Own-DR(0.5) panel is the same or worse (sto
+loses a 4th leg, `[0,2,3,4]`). Video/contact-sheet: static splayed
+crouch, no six-leg cycling, visually identical to every prior
+anchor4/5/6/6b/7/8/9 catastrophe — not the milder partial-drag shape
+anchor7's rescued seed showed. Per this gate's own pre-registered
+rule this is squarely the 0/6-same-signature REFUTED branch. Non-walk
+modes keep roughly their existing log_std-anneal protection (rise
+4-5/6, lower 3-6/6, hold 3-4/6 across det/sto/both DR levels) — the
+damage stays walk-specific, as in every prior arm. This closes the
+full architecture-sharing candidate list for this recipe (log_std
+anchor4-6b, trunk-detach anchor7, advantage-norm-scope anchor8,
+grad-clip-per-core anchor9/10): every one built, wiring-checked, and
+behaviorally tested, and every one leaves walk in the same 0/6
+total-freeze basin. **This lands AFTER the operator design
+correction below (anchor11/12-walkretain, launched ~14:1x) — no
+conflict, same direction**: that wave's in-loss walk-retention anchor
+is exactly the reward/task-level mechanism this gate's own text (and
+anchor9's) named as the required next step once every architecture-
+sharing candidate failed; anchor10's fail is one more confirmation
+the operator's diagnosis (evals-only protection was never going to be
+enough) was right, not a new open question. No new launch this cycle
+— the correct next-step mechanism is already running as anchor11/12.
+Verdict: `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-
+percoreclip`. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stage2_dualbc1_anchor10_percoreclip_{gate,owncfg}/report.json` +
+contact_sheet.png. Prior banner below.
+
 Update, 2026-08-27 ~14:1x (operator-kick cycle: **OPERATOR DESIGN
 CORRECTION EXECUTED (MCP note 20260827T135505Z, Lukas via Codex) —
 walk-retention guardrail moved INTO the training loss; 4-arm
@@ -4411,6 +4456,11 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     mechanisms rescue walk, prefer the loss-level retention term for
     the lineage (operator-preferred class) and A/B them only if the
     reads conflict.
+    **UPDATE (08-27 ~15:2x): anchor10-percoreclip (seed0) is now
+    read (top banner) -- CANARY FAIL - MECHANISM, 0/6 gait_valid
+    every walk variant, same anchor4-class signature. Architecture-
+    side per-core-clip is closed; read anchor11/12 on their own
+    merits, not as a fork against percoreclip.**
 -2.35 PRE-REGISTERED follow-ups to -2.4 (fund per its branches, in
     this order):
     (a) per-mode-group objective/advantage normalization inside
