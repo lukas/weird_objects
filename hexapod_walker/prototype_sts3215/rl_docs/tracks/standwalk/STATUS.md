@@ -1,6 +1,44 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~06:2x (**TWO JOINT CALLS CLOSED THIS CYCLE:
+Last updated: 2026-08-27 ~06:5x (**DIG-IN CORRECTION — the
+anchor6-logstdsplit "split FAIL / exploration-noise theory refuted"
+call below is RETRACTED: the split was NEVER IN THE POLICY.** Both
+seeds' checkpoints have NO `log_std_b` tensor (saved policy_kwargs =
+`{'lstm_hidden_size': 256}`, shared `log_std` pinned at exactly -4.0).
+Root cause, two stacked defects: (1) a plain `--init-from` warm start
+goes through `RecurrentPPO.load`, which rebuilds the policy from the
+CHECKPOINT's own saved policy_kwargs — the CLI `extra_pk`
+(`log_std_split=True`) only applies to from-scratch builds — so
+`--gru-dual-log-std-split` was a silent no-op; (2)
+`--log-std-anneal-core stance` then got `_log_std_core('stance')==None`
+and the anneal callback SILENTLY fell back to annealing ALL log_stds =
+the one shared parameter (the documented "never silent" warning was
+dead code: it tested `hasattr` instead of the None return). W&B proof:
+`log_std_anneal/value` starts at -1.49 (the shared warm-start value)
+and ends -4.0; final `train/std` 0.018316 = exp(-4.000) is walk's own
+sampling std. So the anchor6 pair merely REPLICATED anchor4-stdanneal
+(shared -4.0 anneal: hold improves, walk freezes); the
+exploration-noise-starvation theory is UNTESTED and remains the
+leading hypothesis — the shared-critic/trunk investigation is
+POSTPONED until a genuinely-wired split run fails. Both runs
+re-verdicted CANARY FAIL - INFRASTRUCTURE. FIXES (commit `4fe10154`,
+tag `exp/...anchor6b-logstdsplit-fix`): (a)
+`DualGruActorCriticPolicy.enable_log_std_split()` retrofit, wired into
+the plain `--init-from` path with `model.policy_kwargs` patched so the
+run's own checkpoints reload with the split; (b) `_LogStdAnnealCb` now
+REFUSES (SystemExit) a specific `--log-std-anneal-core` the policy
+cannot target — fail-closed; (c) `test_dual_log_std_split_retrofit`,
+33/33 gru_policy tests green. RELAUNCHED the identical 2-seed pair on
+the fixed code: `anchor6b-logstdsplit-fix` (train-1) /
+`-fix-s1` (train-3), VERIFIED RUNNING, retrofit log line confirmed on
+both pods + anneal completing on `log_std_b` only. Their gate adds a
+WIRING CHECK FIRST clause (retrofit line in train log + `log_std_b`
+present and != `log_std` in the finished checkpoint) before any
+interpretation. The headings1 partial call and the infra
+prestage-timeout finding below are unaffected. Prior banner below —
+read its item (1) as RETRACTED.)
+
+Prior banner, 2026-08-27 ~06:2x (**TWO JOINT CALLS CLOSED THIS CYCLE:
 per-core log_std split is a clean cross-seed FAIL (walk still
 collapses); the heading-cone opener is a fragile/non-promotable
 partial. Real infra finding: the prestage timeout is too short for
