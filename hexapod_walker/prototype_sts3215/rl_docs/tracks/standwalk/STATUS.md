@@ -1,6 +1,75 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-26 ~22:2x (**stancemix-bcchain3-stdanneal-cont1
+Last updated: 2026-08-27 ~00:4x (**ANCHOR4-STDANNEAL JOINT CALL CLOSED,
+CANARY FAIL - MECHANISM cross-seed — the shared-log_std anneal fixes
+hold but destroys walk; root-caused by CODE READ (not guesswork) to
+DualGruActorCriticPolicy's single log_std shared across both gated
+cores; milder-dose bracket launched to test whether magnitude (not
+presence) is the lever.** `cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor4-stdanneal`/`-s1` (the isolate_update=1 leak-fixed, coef=3.0
+dual-core recipe + `--log-std-anneal-frac 0.5 --log-std-final -4.0`,
+same schedule that solved the isolated hold rung and the full-mix)
+both reproduce the SAME split outcome: hold/sto DR-0 termination drops
+from anchor2/anchor3's unchanged 6/6 baseline to 2/6 (seed0) / 0/6
+(seed1, fully isolated — the best hold read of the whole dual-core
+lineage) — the STDANNEAL-WORKS clause is genuinely met. But walk
+collapses into an anchor1-class leg-sacrifice freeze on EVERY cell,
+both seeds: DR-0 det gait_valid 0/6 both seeds (seed0 sac=[3,4,5]
+repeated, seed1 sac=[5] repeated), DR-0 sto 0-1/6, own-DR 0/6 both
+modes both seeds, jitter panel 0/6 nearly everywhere; slip 20-38/m
+(vs anchor2/3's healthy 3-5/m), prog ~0.00 (vs 0.3-0.4). Video
+(`walk_det_0..5` both runs) shows a static splayed stance with
+multiple legs held rigid in the air, zero translation across the full
+30s strip — cross-seed video-confirmed, not a fluke. Reward both
+seeds: trough-then-incomplete-recovery (seed0 quarters [38.4, 2.5,
+-78.4, -62.3], seed1 [39.9, -3.9, -154.6, -138.6]) — still deeply
+negative at Q4, not an 08-21 still-rising case. **The gate's own
+OR-structured FAIL branch ("walk regresses toward anchor1's
+catastrophe") fires on both seeds even though STDANNEAL-WORKS's hold
+clause is independently satisfied — a genuine trade-off, not a split
+or ambiguous read: CANARY FAIL - MECHANISM, joint, both runs.**
+**ROOT CAUSE (code-read this cycle, `rl_move/sim/gru_policy.py` +
+`train_ppo_mjx.py`'s `_LogStdAnnealCb`):** the gate's own guessed next
+lever ("per-mode value heads") is MOOT — `DualGruActorCriticPolicy`
+already has fully separate `value_net`/`value_net_b` per core, mixed
+by the same mode-gate as the mean action. The actual shared component
+is **`log_std`**: `DualGruActorCriticPolicy` has no `_log_stds()`
+method (that per-expert-log_std pattern exists only on a different
+4-expert class), so the anneal callback falls through to the generic
+`pol.log_std.data.fill_(val)` branch — ONE log_std parameter, shared
+by BOTH gated cores, every rollout. Annealing it toward -4.0 (std
+0.018) strips exploration noise from walk's ticks too, even though
+walk's own core was still a fragile weak-crawl (prog 0.3-0.4, far from
+converged, per anchor2/3) that needed noise to keep exploring — once
+noise vanishes, PPO settles into a nearby degenerate optimum where
+freezing near the walk reward's own height/posture/anchor gates scores
+higher than the marginal partial-credit crawl. **Refill (batch, 4
+launches, all VERIFIED RUNNING, one dose-bracket question):**
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor5-stdmild2`/`-s1`
+(`--log-std-final -2.0`, std 0.135) and `-anchor5-stdmild1`/`-s1`
+(`--log-std-final -1.0`, std 0.368) — single lever vs anchor4-stdanneal
+(anneal MAGNITUDE only, no code change), 2 doses x 2 seeds, testing
+whether a softer target preserves walk's exploration while still
+cooling the stochastic-hold failure. `anchor5-stdmild2` and
+`-stdmild1` (seed0 of both doses) already finished their 2M budget
+mid-cycle (extremely fast dual-core canaries, ~10-15 min wall clock);
+`-s1` twins still training as of this write. Per this campaign's own
+established convention (see `anchor4-stdanneal`'s own launch note),
+their triage is left for the next finish-triggered cycle rather than
+extending this one further — do NOT re-launch/podeval these four
+names, just poll for finish. **DIG-IN flagged regardless of the
+dose-bracket read**: the harder, more general fix — splitting
+`log_std` per dual-core (gated the same way the mean/value already
+are) so a stance-only anneal can never touch the walk core's own
+noise — is real policy/training code (new param, distribution mixing,
+checkpoint save/load parity, anneal-callback per-core targeting, unit
+tests) that deserves a deep cycle's full toolkit rather than a rushed
+end-of-cycle patch, independent of whether the dose bracket finds a
+safe magnitude. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_anchor4_stdanneal{,_s1}_
+{gate,owncfg}/`, W&B `u0r0mgov`/`v9qsbd20`. Prior banner below.)
+
+Previous entry, 2026-08-26 ~22:2x (**stancemix-bcchain3-stdanneal-cont1
 FAIL, closes the stale-ref full-mix sub-lineage for good; batch-
 completed the anchor4-stdanneal seed pair.** `cont1` (+8M budget,
 16M total, on `stancemix-bcchain3-stdanneal`) hits its own
@@ -2932,7 +3001,24 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**anchor3/-anchor3-s1 TRAINING DONE (2.03M/2M both, W&B finished ~19:50)
+**ANCHOR4-STDANNEAL JOINT CALL CLOSED (08-27 ~00:4x): CANARY FAIL -
+MECHANISM cross-seed — std-anneal fixes hold, wrecks walk; root cause
++ refill in the Last-updated banner at the top of this file, not
+duplicated here.** One-line summary: the dual-core policy shares ONE
+`log_std` across both gated cores (code-read confirmed, value heads
+are already separate), so annealing it toward -4.0 starves walk's
+still-fragile core of exploration noise and it collapses into an
+anchor1-class leg-sacrifice freeze on both seeds, even though hold's
+stochastic termination genuinely improves (6/6 -> 0-2/6). Milder-dose
+bracket (4 arms, `anchor5-stdmild2{,-s1}` at -2.0, `anchor5-stdmild1{,
+-s1}` at -1.0) launched and VERIFIED RUNNING; two of the four (both
+seed-0s) already finished their 2M budget mid-cycle — left for the
+next finish-triggered cycle per this campaign's established
+convention. DIG-IN flagged for the harder per-core `log_std` split
+regardless of the dose-bracket outcome (real policy/checkpoint code,
+deep-cycle scope). SKILLS.md not updated (no PASS this cycle).
+
+Previous entry, 08-26 ~21:0x (**anchor3/-anchor3-s1 TRAINING DONE (2.03M/2M both, W&B finished ~19:50)
 but eval copy-back INFRA-STALLED, not stuck — fixed with new detached
 tooling, no verdict yet (08-26 ~21:0x idle-kick).** Both W&B runs
 finished cleanly. The automatic prestage eval (`pod_eval.py`, launched
@@ -3429,6 +3515,38 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
   hardening rung.
 
 ## Next
+
+-1.8 PER-CORE `log_std` SPLIT — DIG-IN FLAGGED (08-27, anchor4-stdanneal
+    joint call). Code-read finding (`rl_move/sim/gru_policy.py`
+    `DualGruActorCriticPolicy`): the mean AND value are already mixed
+    per-core via the mode gate (`action_net`/`action_net_b`,
+    `value_net`/`value_net_b`) — the earlier gate text's guessed lever
+    ("per-mode value heads") is moot, already true. `log_std` is NOT
+    split: `_dist_from_mean` uses the single inherited `self.log_std`
+    for both cores, and `train_ppo_mjx.py`'s `_LogStdAnnealCb` writes
+    it with `pol.log_std.data.fill_(val)` (the generic branch, since
+    `DualGruActorCriticPolicy` has no `_log_stds()`) — one anneal
+    schedule, applied identically to walk ticks and stance ticks
+    every rollout. This is confirmed to be exactly what wrecked walk
+    in `anchor4-stdanneal`/`-s1` (see Last-updated banner): annealing
+    the shared std toward -4.0 strips exploration noise from walk's
+    still-fragile core along with stance's. REAL FIX (not yet built):
+    add a second learnable `log_std_b` parameter, mix it into the
+    distribution the same way the mean/value already are
+    (`gate * log_std + (1-gate) * log_std_b`, shape (..., action_dim)
+    instead of the current (action_dim,) broadcast — check
+    `DiagGaussianDistribution.proba_distribution` accepts a per-sample
+    tensor), extend `_LogStdAnnealCb` with a per-core target (only
+    anneal the stance core's `log_std_b`, leave the walk core's
+    `log_std` alone), verify checkpoint save/load round-trips both
+    parameters, and add tests mirroring `test_dual_anchor_*`'s
+    default-off/bit-exact + mechanism pattern. A milder-dose bracket
+    (same-cycle refill, `anchor5-stdmild2/-stdmild1` + seed twins,
+    `--log-std-final -2.0`/-1.0, no code) is a cheaper first probe of
+    whether MAGNITUDE alone fixes it before this harder code lands —
+    read that first; if even -1.0 (barely below the un-annealed
+    parents' own std) still wrecks walk, this per-core split becomes
+    the only remaining lever and should be funded immediately.
 
 -1.7 ANCHOR-LEAK DIG-IN RESOLVED; REPAIRED PAIR RUNNING (08-26
     ~18:0x). The -1.6 dig-in landed: stance→walk interference is a
