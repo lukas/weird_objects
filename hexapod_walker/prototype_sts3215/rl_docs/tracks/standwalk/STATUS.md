@@ -1,6 +1,36 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~02:5x (**anchor5-stdmild2 (dose -2.0, seed0)
+Last updated: 2026-08-27 ~03:1x (**anchor5-stdmild2-s1 (dose -2.0,
+seed1) CANARY FAIL - MECHANISM — CROSS-SEED REPLICATION of the seed0
+read below; the -2.0 dose is now closed on both seeds.** Same split:
+WALK-SURVIVES met (DR-0 det gait_valid 6/6, 0 terms, slip 4.21/m vs
+anchor2-s1's 4.07; own-DR 6/6 det + 6/6 sto, v 0.066-0.072 vs ref
+0.080; strips show all six legs cycling), but HOLD-HELPS zero
+improvement — hold/sto 6/6 `hold_min_load` at BOTH DR-0 and own-DR,
+bit-identical to the anchor2/3 baseline (video: body level, h_err
++1mm, feet unload under action noise at t~3s — unload, not a fall).
+Seed1 three-point dose-response is now complete and windowless: std
+0.225 (anchor2-s1) walk-ok/hold 6/6 fail; std 0.135 (this run)
+walk-ok/hold 6/6 fail; std 0.018 (anchor4-s1) hold 0/6 FIXED but walk
+destroyed. Caution: walk/sto gained 2/6 over_current terms w/
+sacrificed legs [1,2,5]/[0,2] (baseline 0/6) while sto slip halved
+(23.9->10.4) — even -2.0 nudges stochastic walk toward anchor4's
+leg-sacrifice direction. Per the pre-registered FULL-PASS text
+(HOLD-HELPS partial on BOTH seeds) the -2.0 dose is dead for
+promotion. Remaining before the magnitude axis is formally closed:
+the `stdmild1` -1.0 pair (both finished, awaiting their own cycles) —
+note -1.0 = std 0.368 is ABOVE the un-annealed recipe's own end-state
+std (~0.225), i.e. a noise increase; if (as expected) it doesn't help
+hold, the per-core `log_std` split (Next -1.8) is the only remaining
+lever and should be funded immediately. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_anchor5_stdmild2_s1_{gate,
+owncfg}/report.json`, W&B `4qaiutn8`. Watcher copy-back note: the
+prestage websocket broke mid-panel (close 1006) and wrote a spurious
+early SYNCED marker; artifacts were pulled manually from train-0 —
+same infra scaling gap as seed0's 3300s wrapper timeout. Prior banner
+below.)
+
+Previous entry, 2026-08-27 ~02:5x (**anchor5-stdmild2 (dose -2.0, seed0)
 CANARY FAIL - MECHANISM, hold-helps branch: the milder anneal target
 protects walk but does nothing for hold.** First read of the 2-dose x
 2-seed magnitude bracket launched off anchor4-stdanneal's split

@@ -204714,7 +204714,7 @@
       "-2.0"
     ],
     "created": "2026-08-27T00:43:25+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -204768,7 +204768,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor5-stdmild2-s1 since 2026-08-27T01:06:13"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (hold clause; walk survives). The milder noise-anneal dose (-2.0) kept the robot walking but did nothing at all for the shaky-stand problem it was meant to fix, completing a clean three-point dose-response on this seed that says noise MAGNITUDE is not the knob. Evidence (DR-0 gate + own-DR 0.5, seed1, annealed std=0.135): walk/det 6/6 gait_valid, 0 terms, slip 4.21/m, v 0.066-0.072 vs ref 0.080 -- statistically identical to the un-annealed anchor2-s1 baseline (6/6, slip 4.07); own-DR walk 6/6 det + 6/6 sto gait_valid, 0 terms. WALK-SURVIVES clause: MET on this seed (no anchor4-class freeze; videos show all six legs cycling). HOLD-HELPS clause: ZERO improvement -- hold/sto 6/6 hold_min_load terms at BOTH DR-0 and own-DR, exactly the anchor2/3 baseline (video: body level, h_err +1mm, feet unload under action noise at t~3s; a noise-driven unload, not a fall). Dose-response on seed1 is now: std 0.225 walk-ok/hold-fail(6/6), std 0.135 walk-ok/hold-fail(6/6), std 0.018 hold-ok(0/6)/walk-destroyed -- no shared-log_std window exists on this seed. Per the pre-registered gate, FULL PASS requires HOLD-HELPS at least partial on BOTH seeds, so the -2.0 dose is dead for promotion regardless of the seed-0 twin (other cycle). Caution flag: walk/sto picked up 2/6 over_current terms with sacrificed legs [1,2,5]/[0,2] (baseline 0/6) while sto slip halved (23.9 -> 10.4) -- even -2.0 already nudges stochastic walk toward anchor4's leg-sacrifice direction. What's next: this strengthens the already-flagged per-core log_std split (STATUS Next -1.8: separate learnable log_std_b for the stance core, anneal only that) as the real fix; final joint call on the bracket belongs to the cycles holding stdmild2 seed-0 and the stdmild1 pair. Big picture: stance-hold wants near-zero action noise, walk still needs real exploration noise -- one shared scalar cannot serve both gated cores."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor5-stdmild1",
@@ -204969,7 +204970,7 @@
       "-1.0"
     ],
     "created": "2026-08-27T00:47:38+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -205015,7 +205016,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor5-stdmild1-cw since 2026-08-27T01:11:20"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (walk-survives branch, own-scope, seed0). Even the mildest tested anneal (-1.0, std=0.368, barely below the un-annealed dual-core parents' own trained std) wrecks walk on this seed -- the gate's own walk-catastrophe FAIL branch fires. Evidence (own report.json, DR-0 + own-DR(0.5), det+sto, video-watched): walk/det gait_valid 0/6 in EVERY cell (DR-0 det/sto, own-DR det/sto, startjitter det/sto) -- a consistent 2-leg sacrifice ([4,5], the two rear legs) on essentially every episode, slip/m 11-31 (vs anchor2/3's healthy 3-5), prog_ratio only 0.00-0.10 (well under the ~0.2 bar). Contact sheet (walk_det_0) confirms visually: two rear legs held rigid/splayed the entire strip while the other four make small adjustments -- the same signature class as anchor1/anchor4's leg-sacrifice freeze, just a different leg subset. hold/sto stays 6/6 hold_min_load term at both DR (zero improvement, same as its own seed1 twin and stdmild2) -- so even where this dose doesn't wreck walk (see -s1) it still doesn't help hold. This is the DECISIVE read for the whole magnitude-bracket question: this seed satisfies the track's own pre-registered escalation condition verbatim (STATUS.md -1.8: 'if even -1.0 still wrecks walk, this per-core split becomes the only remaining lever and should be funded immediately'). Cross-seed context: stdmild1-s1 (seed1, same -1.0 dose) does NOT show this catastrophe (gait_valid 6/6, prog 0.29) but also shows zero hold improvement -- so across the whole grid tested so far (-1.0, -2.0 x 2 seeds; -4.0 x 2 seeds already closed), no dose both reliably protects walk AND helps hold. Next: per the pre-registered rule this closes the anneal-MAGNITUDE lever for a SHARED log_std; funding the per-core log_std split (DualGruActorCriticPolicy currently shares one log_std across both gated cores) is now warranted regardless of stdmild2-s1's still-pending read."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor5-stdmild1-s1",
@@ -205216,7 +205218,7 @@
       "-1.0"
     ],
     "created": "2026-08-27T00:51:53+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -205272,6 +205274,7 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor5-stdmild1-cw since 2026-08-27T01:11:21"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (hold-helps branch, own-scope, seed1). Same -1.0 dose as its seed0 twin but this seed does NOT show the walk catastrophe -- gait_valid 6/6 DR-0 det, 6/6 own-DR det, 5/6 own-DR sto, prog_ratio med 0.29-0.30 (healthy anchor2/3 band), video-consistent with real cycling. But hold/sto stays 6/6 hold_min_load term at BOTH DR-0 and own-DR -- bit-for-bit the unchanged anchor2/3 baseline, zero improvement -- and hold/det picked up new terms (2/6 DR-0, 3/6 own-DR) vs anchor2/3's clean 0/6. So on this seed, walk survives but hold gets no help at all, matching stdmild2's own signature at a different dose. Combined with its seed0 twin (walk WRECKED, same zero hold-help) and stdmild2/-s1 (-2.0 dose: walk survives both seeds, hold still unhelped), the joint dose-bracket call across all four is now readable: no tested dose on the SHARED log_std (-1.0, -2.0, or the already-closed -4.0) both reliably protects walk across seeds AND meaningfully helps hold. -1.0 already fails cross-seed reliability (this pair) even before considering hold; -2.0 is seed-safe but hold-inert; -4.0 is hold-effective but walk-fatal both seeds. Per the track's own pre-registered rule this closes the anneal-MAGNITUDE lever on a single shared log_std; the per-core log_std split (DualGruActorCriticPolicy currently shares one log_std across both gated dual-cores) is now the pre-registered next lever -- see STATUS.md Next -1.8 for the design."
   }
 ]
