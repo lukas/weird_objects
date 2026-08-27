@@ -2850,3 +2850,36 @@ assume-and-go calls, recorded here per the standing prompt:
 status: informational — no operator input needed; flagging the
 reasoning for review since it reinterprets "build a new mode" as
 "extend hold," in case that reading is wrong.
+
+## 2026-08-27 ~02:5x — recurring stale-watcher timeout on 100Hz/30s/video-every-1 joint-panel evals (infra, no operator input needed)
+The 08-26 ~21:0x entry (standwalk STATUS.md `anchor3`/`-anchor3-s1`)
+diagnosed `watch_loop.py`'s long-running in-memory process holding a
+STALE `pod_eval.py` subprocess-wrapper timeout (3300s) shorter than
+the on-disk value (7500s) because the daemon (`ps` shows it running
+since Aug 22, before whatever commit last touched that constant) is
+never restarted when the orchestrator's own code changes. It just
+recurred verbatim on `cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor5-stdmild2`: orchestrator.log shows
+`TimeoutExpired(['bash','-c','python3 .../pod_eval.py ...'], 3300)` at
+01:51:04 while the actual remote `eval_checkpoint` processes on
+`hexapod-mjx-train-1` were healthy and kept computing for another ~57
+minutes (100Hz/30s-episode/`video-every 1` across a 4-mode x
+det+sto x 6 + jitter-panel joint gate is simply a long eval — not a
+hang). I finished this one manually (kubectl cp of both report.json
+files once each pod-side eval actually finished, ~02:36-02:48) rather
+than using the already-built `resume_orphaned_eval.py` (forgot it was
+available; noting for my own and future cycles' benefit — that script
+is the right tool next time, no manual kubectl-poll-loop needed).
+**Not acted on**: restarting the shared `watch_loop.py` daemon
+(pid 3772222, running since Aug22) would pick up the correct 7500s
+(or whatever it is now) constant fleet-wide, but it is a single
+process whose daemon threads/subprocess trees are currently also
+carrying live prestage/checkup work for OTHER concurrently-running
+cycles' runs — killing and restarting it mid-cycle risks orphaning or
+duplicating THEIR in-flight kubectl exec work, a bigger hazard than
+the (already-workaround-able) timeout gap. Recommend a restart during
+a natural lull (no runs mid-prestage) rather than a triage cycle doing
+it opportunistically. status: informational, no operator input
+needed — flagging so the restart happens deliberately instead of by
+accident, and so future cycles remember `resume_orphaned_eval.py`
+exists before hand-rolling a kubectl poll loop.
