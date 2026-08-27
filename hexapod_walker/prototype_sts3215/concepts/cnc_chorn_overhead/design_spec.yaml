@@ -1,0 +1,141 @@
+# Design spec — sts3215-cnc-chorn-overhead (CONCEPT BUILD, not production).
+#
+# User, Aug 2026: "make a version of this [rigid_hip] with metal CNCed
+# C clamps ... a little bigger so this hexapod can put its legs over
+# its head."  The C-clamp (repo term "C-horn", cad_step_test/
+# build_chorn_step.py + docs/CHORN_VARIANT.md) is the C-shaped bracket
+# clamping the servo output disc + opposite idler disc at the hip/knee,
+# replacing the printed clevis/yoke.  This concept CNCs a custom 6061
+# clamp (the experiment assumed a bought one), grows the reach
+# 29.5 -> 42.0 mm (axis -> web inner face), and shapes the whole plan
+# profile from a measured plate-contact raster so the femur sweeps to
+# -107.5 deg SAFE (first contact -115.0 at yaw 0/+-20/+-35; rigid_hip
+# was -47.5, production -80).  Geometry truth: build_cnc_chorn_step.py
+# (constants from make_cnc_chorn_variant.py).  Verified by
+# make_cnc_chorn_variant.py (all rigid_hip checks re-run green + this
+# concept's own suite + the overhead sweep).
+
+concept: cnc_chorn_overhead
+base: rigid_hip            # chassis/plate/hatch/coxa/caps all inherited
+build_id: cnc_chorn_overhead
+
+workspace:
+  femur_up_safe_deg: -107.5      # first grid contact -115.0 + 7.5 margin
+  femur_up_rigid_hip_deg: -47.5
+  femur_up_production_deg: -80.0
+  femur_down_deg: 30.0           # unchanged
+  first_contact_by_yaw:          # all -115.0
+    "-35": {deg: -115.0, part: chorn_clamp_cnc}
+    "-20": {deg: -115.0, part: knee_clamp_cap_ovh}
+    "0":   {deg: -115.0, part: knee_clamp_cap_ovh}
+    "+20": {deg: -115.0, part: knee_clamp_cap_ovh}
+    "+35": {deg: -115.0, part: chorn_clamp_cnc}
+  next_walls: {web_bevel_deg: -117.5, own_stack_deg: -130.0}
+  tibia_spin_checked_deg: [-50, 40]
+  hip_spin_checked_deg: [-120, 35]
+
+parts:
+  chorn_clamp_cnc:
+    material: 6061-T6
+    process: cnc_3axis
+    qty_per_robot: 12            # same part at hip and knee
+    mass_g: 37.7
+    blade_t_mm: 3.0
+    web_t_mm: 3.8
+    reach_axis_to_web_inner_mm: 42.0   # chorn experiment: 29.5
+    reach_axis_to_datum_a_mm: 45.8
+    pad_od_mm: 19.0
+    pad_span_mm: 38.04           # NOMINAL disc-face span -- see fits
+    z_span_mm: 52.54             # production printed yoke: 56.3
+    corridor:                    # swan-neck blade->web load path
+      notch_floor_y_mm: [-19.4, -18.8]
+      bottom_y_mm: -24.0
+      pinch_section_mm: [4.5, 3.0]   # per blade, x2 blades
+    internal_radii_mm: {notch_walls: 2.0, plan_fillets: 3.0, gussets: 2.5}
+    datums:
+      A: web outer face (x=58.3 link plane, mates the printed wall)
+      B: pad faces (disc span 38.04)
+      C: horn centre bore
+    threads: 2x M3-6H tapped (web upper row)
+    csk: 2x phi 3.4 + 90deg csk, web inner face (lower row)
+  femur_ovh_body:   {material: PETG, mass_g: 43.6, replaces: femur_link}
+  tibia_ovh_socket: {material: PETG, mass_g: 14.0, replaces: tibia_knee_yoke,
+                     tube_shorter_mm: 16.6}
+  tibia_tube_ovh:
+    description: production CF tibia tube shortened 16.6 mm -- the new
+      socket mouth sits outboard so the tube tip lands 0.3 off the
+      metal web (stiffer + lighter than production).
+  knee_clamp_cap_ovh:
+    material: PETG
+    mass_g: 25.1
+    replaces: knee_clamp_cap
+    retention: M3x25 SHCS up-screw from cradle underside into phi4x6
+      heat-set insert (boss/riser/strap under the tongue line; the
+      overhead wedge removed the old side-screw boss)
+    crown_shave: roof y>=18 + two corner wedges for well-local x<=-19.5
+      (was the -112.5 plate contact)
+  # --- inherited UNCHANGED from rigid_hip (purpose recorded there --
+  # see concepts/rigid_hip/design_spec.yaml for the full entries) ---
+  chassis_bottom:
+    description: inherited rigid_hip chassis_bottom_rigid, unchanged.
+  chassis_top_rigid:
+    description: inherited rigid_hip 6 mm top plate with dust roofs,
+      unchanged -- its rim is what the overhead sweep maps against.
+  top_hatch_rigid:
+    description: inherited rigid_hip hatch on under-frame insert
+      bosses, unchanged -- the knee cap's crown maps against it.
+  centre_wago_block:
+    description: inherited rigid_hip centre splice block, unchanged.
+  wago5:
+    description: COTS Wago 221-415 levers in the centre block,
+      unchanged.
+  coxa_link:
+    description: inherited rigid_hip shortened coxa, unchanged.
+  hip_clamp_cap_rigid:
+    description: inherited rigid_hip hip cap (captive bearing
+      carrier), unchanged.
+  yaw_bearing_upper:
+    description: COTS 6805-2RS, tower-seated per rigid_hip, unchanged.
+  bearing_6805:
+    description: COTS 6805-2RS (third/top bearing per rigid_hip),
+      unchanged.
+  yaw_servo_retainer:
+    description: production yaw servo retainer, unchanged.
+  servo_body:
+    description: COTS STS3215 servo (yaw/hip/knee), unchanged.
+  foot_boot:
+    description: production printed foot boot, unchanged.
+
+mass:
+  per_leg_delta_g: 23.9          # 158.1 vs rigid_hip 134.2
+  robot_delta_g: 143.6
+  aluminum_total_g: 452.4
+  height_delta_mm: 0.0
+
+fasteners_per_joint:
+  - 2x M3x10 SHCS, printed wall -> tapped web (upper row, heads in the
+    open servo well)
+  - 2x M3x12 CSK, web inner face -> T-slot nyloc in the print (lower
+    row, under the cradle floor)
+  - 8x M3 disc bolts (4 per disc face, Ø14 PCD, into the discs'
+    factory-tapped holes; verify grip length -- blade+pad stack
+    7.0/7.5 mm)
+
+needs_bench_tuning:              # PETG values do NOT transfer to metal
+  - name: pad_span
+    nominal_mm: 38.04
+    note: production PETG yoke preloaded YOKE_SEAT_INTERF per side;
+      the rigid aluminum clamp is cut to the NOMINAL span so it must
+      NOT preload the horn.  Quote +-0.05; expect a shim/bench pass.
+  - name: disc_collar_recess
+    nominal_clearance_mm: 0.5
+    note: was a PETG drop-in fit; 0.5 radial clearance in metal is a
+      starting point only.
+  - name: cap_insert_press
+    note: phi4x6 heat-set stays in PETG (unchanged bench-tuned value);
+      NO heat-set inserts in aluminum anywhere -- tapped M3-6H instead.
+
+checks: make_cnc_chorn_variant.py     # rigid_hip suite re-run + parts /
+#   clamp-joint spins / web joint / knee cap / down-swing + knee range /
+#   masses / overhead femur sweep; scene.json + preview.png + 
+#   sweep_report.json are its outputs
