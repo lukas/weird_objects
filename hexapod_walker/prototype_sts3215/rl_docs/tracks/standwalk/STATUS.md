@@ -1,6 +1,70 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~03:4x (**OPERATOR PRIORITY 08-27 (MCP
+Last updated: 2026-08-27 ~06:2x (**TWO JOINT CALLS CLOSED THIS CYCLE:
+per-core log_std split is a clean cross-seed FAIL (walk still
+collapses); the heading-cone opener is a fragile/non-promotable
+partial. Real infra finding: the prestage timeout is too short for
+these video-heavy 100 Hz passes.** (1) **anchor6-logstdsplit/-s1
+(Next -1.8's funded lever) JOINT FAIL, cross-seed replicated**: giving
+the stance core its own `log_std_b` (leaving the walk core's own
+`log_std` untouched) DOES partially help hold (sto term 6/6 baseline
+-> 2-3/6) but walk STILL collapses into a TOTAL leg-sacrifice freeze
+on both seeds (det gait_valid 0/6, 4-5 legs sacrificed every episode,
+prog_ratio pinned ~0, video-confirmed static freeze) — the SAME
+anchor4-stdanneal-class catastrophe the split was built to prevent.
+This refutes the shared-exploration-noise-starvation theory of the
+walk failure outright (walk's own log_std was never touched here and
+it broke anyway): the real cause is something else that correlates
+with annealing under this coef=3.0 dual-core recipe (candidate: a
+shared critic/trunk upstream of the per-mode heads). **DIG-IN
+flagged**: (a) sanity-check the log_std_b wiring itself before fully
+trusting the refutation (dump log_std vs log_std_b tensors + confirm
+which gates walk-mode sampling), (b) if wiring is clean, the next
+target is the shared critic/trunk, not log_std magnitude at all — do
+not fund a further shared-or-split log_std dose arm on this recipe.
+(2) **anchor2-headings1/-s1 (direction-coverage pair) JOINT CLOSED,
+not promotable**: WALK-SURVIVES passes cleanly on both seeds (6/6
+gait_valid both DR, real progress, no sacrifice). DIRECTION-LEARNS is
+at best a fragile, DR-0-only, deterministic-only partial on seed0
+(dir_err median ~36-37deg at DR-0 det, a real ~15deg drop off the
+~52deg no-heading baseline and close to the 35deg full bar — but it
+washes back out to ~50deg under own-DR and never improves in
+stochastic mode) and a FLAT MISS on seed1 (55-82deg in every read,
+no better than baseline). Neither seed clears the gate's own 'both
+learn+survive -> promote' bar, but walk never collapses either — a
+pure non-learning/DR-fragile miss, not a catastrophe. Next lever per
+the gate's own fallback: a graded `walk_cmd_stage`-style heading
+curriculum, not a longer-budget continuation of the bare static-cone
+opener. (3) **INFRA FINDING**: `pod_eval.py`'s orchestrator-level
+wrapper timeout (3300s) is shorter than these runs' actual eval
+wall-clock (~1h35-1h50m per gate+owncfg pair, confirmed by direct
+video-count polling) — `video-every 1` on a 4-mode x 6-episode x
+det+sto x (walk+rise+lower+hold+walk_startjitter) panel at 100 Hz
+mesh renders 60 clips per pass and is simply slower than the wrapper
+budget assumes. The orchestrator's own prestage subprocess died with
+`TimeoutExpired` on all 4 of this cycle's runs (both anchor6-
+logstdsplit{,-s1} and anchor2-headings1{,-s1}), logging "(cycle will
+do it manually)" — the underlying `eval_checkpoint.py` processes kept
+running successfully on their pods despite the client-side kubectl
+exec connection dying (a kubectl/container quirk, not a crash), so no
+compute was lost, only the automatic copy-back. This cycle did the
+`kubectl cp` + SYNCED-marker fallback by hand for all 4 runs (all 4
+report.json + videos now on the controller). **Follow-up (unfunded,
+cheap):** either raise `pod_eval.py`'s orchestrator wrapper timeout
+(or PASS_TIMEOUT_S) for standwalk-track mode_seq/joint_walk panels at
+control.hz=100, or default `--video-every` higher than 1 for the
+routine gate/owncfg passes (video every episode is far more than
+triage needs) — whichever lands first, unblocks future cycles from
+repeating this manual-copy dance. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_{anchor6_logstdsplit,
+anchor6_logstdsplit_s1,anchor2_headings1,anchor2_headings1_s1}_{gate,
+owncfg}/`, W&B `uhbf737q`/`oek1m6qy`/`2t05s1ng`/`ryzjxw2m`. Mixed-
+session baselines (Next -1.85) still mid-flight on train-8..11 (dr0
+pass done on all 4 per this cycle's poll, own-DR/180s passes still
+running) — leave for the cycle that sees 'verdict written' land.
+Prior banner below.)
+
+Prior banner, 2026-08-27 ~03:4x (**OPERATOR PRIORITY 08-27 (MCP
 20260827T030823Z): ONE integrated policy + LONG MIXED-SESSION GATES —
 instrument BUILT, 4 candidate baselines RUNNING, direction-coverage
 pair QUEUED (kick cycle).** (1) NEW INSTRUMENT
@@ -3700,6 +3764,51 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
   hardening rung.
 
 ## Next
+
+-1.9 DIG-IN (08-27, this cycle's JOINT close on anchor6-logstdsplit/
+    -s1): the per-core `log_std` split (Next -1.8, now BUILT and
+    TESTED) does not save walk — cross-seed replicated total
+    leg-sacrifice freeze despite walk's own `log_std` never being
+    annealed. Before designing a third mechanism: (a) sanity-check the
+    `--gru-dual-log-std-split`/`--log-std-anneal-core stance` wiring
+    itself (dump `log_std` vs `log_std_b` from the saved checkpoint,
+    confirm which tensor actually gates walk-mode action sampling
+    during rollout — rule out an implementation bug before trusting
+    the refutation of the exploration-noise theory); (b) if wiring is
+    clean, the next root-cause target is the SHARED CRITIC/TRUNK
+    upstream of the per-mode heads (or the anchor loss magnitude
+    itself), not `log_std` at all — do not fund a further shared- or
+    split-`log_std` dose arm on the coef=3.0 dual-core recipe until
+    this lands. Evidence: verdicts on `cw-standwalk-stance-mesh2-
+    stage2-dualbc1-anchor6-logstdsplit{,-s1}` (08-27 ~06:2x).
+-1.85 DIRECTION-COVERAGE FOLLOW-UP (08-27, this cycle's JOINT close on
+    anchor2-headings1/-s1): the bare static +/-45deg heading-cone
+    opener is NOT promotable — walk survives cleanly on both seeds but
+    direction-learning is at best a fragile, DR-0-only partial on one
+    seed (washes out under own-DR, never improves stochastic) and a
+    flat miss on the other. A longer-budget continuation of the same
+    recipe is not the prescribed lever (the DR-fragility pattern reads
+    like partial memorization of a DR-0-only heading cue, not
+    undertraining). Next arm: a graded `walk_cmd_stage`-style heading
+    curriculum (small angles first, widening only after a certified
+    pass) rather than opening the full cone at once — pre-register a
+    2-seed canary before funding. Evidence: verdicts on `cw-standwalk-
+    stance-mesh2-stage2-dualbc1-anchor2-headings1{,-s1}` (08-27
+    ~06:2x).
+-1.86 INFRA (08-27, unfunded, cheap): `pod_eval.py`'s orchestrator
+    wrapper timeout (3300s) is shorter than a full gate+owncfg
+    video-every-1 pass at control.hz=100 actually takes (~1h35-1h50m
+    measured this cycle, 60 rendered clips/pass) — the prestage dies
+    with `TimeoutExpired` and logs "(cycle will do it manually)" while
+    the underlying eval keeps computing fine on the pod (a kubectl
+    quirk: killing the client-side `kubectl exec` doesn't kill the
+    remote process). No compute is lost, but every standwalk stage-2
+    triage cycle currently has to notice this and do the `kubectl cp`
+    + SYNCED-marker copy-back by hand. Fix either the wrapper timeout
+    (raise it for standwalk/joint_walk panels) or the default
+    `--video-every` for routine gate/owncfg passes (every-episode
+    video is far more than triage needs) — whichever is cheaper to
+    land first.
 
 -1.85 MIXED-SESSION BASELINE READOUT (08-27 kick cycle; owner = the
     cycle that sees the four session verdicts land). Poll
