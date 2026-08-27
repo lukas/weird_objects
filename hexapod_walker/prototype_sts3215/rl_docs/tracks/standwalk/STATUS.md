@@ -1,5 +1,81 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~07:4x (kick-cycle housekeeping on
+`anchor6b-logstdsplit-fix{,-s1}` — **WIRING CHECK FIRST clause
+CONFIRMED PASS on both seeds; mechanism read still pending, no
+verdict yet, long panel in flight.**) Read both finished checkpoints'
+`policy.pth` tensors directly (not just the train-log line): both
+carry a genuine `log_std_b` at ~-4.0 (std 0.0183, matches the W&B
+`log_std_anneal/{std,value}` trace ending exactly there) that is
+DISTINCT from `log_std` at ~-1.49 (std ~0.225 — essentially
+UNTOUCHED across the whole 2M run, `train/std` 0.22508->0.22523 fix /
+0.22510->0.22510-ish s1) — unlike the invalid anchor6 pair, this time
+the per-core split is genuinely wired and walk's own std was never
+annealed. Both pods' train logs also show the expected retrofit line.
+This satisfies the gate's own WIRING-CHECK-FIRST precondition on both
+seeds — the FULL PASS/PARTIAL/FAIL mechanism call now hinges on the
+actual joint panel (WALK-SURVIVES + HOLD-HELPS), which is still
+computing: this panel is unusually long (4-mode x det+sto x 6-episode
++ jitter, control.hz=100, video-every-1) — ~20 min just for the 6
+`walk_det` episodes on the gate pass alone, both gate+owncfg running
+in parallel per pod; projecting ~2.5-3h wall clock total, longer than
+the ~1h35-1h50m measured on the smaller anchor2/3/4/5-class panels.
+Early `walk_det` peek (frame strips, first 5/6 episodes synced) shows
+real body translation across the checkerboard floor and a nonzero
+end-of-episode v (0.070 vs vref 0.080 on one episode) — NOT an
+obvious static freeze on a first look, but per-episode
+gait_valid/prog_ratio/leg-sacrifice counts need the finished
+report.json, not a video skim (the anchor5-stdmild2 banner's own
+"3-frame misread" caution applies here too — do not trust this peek
+over the full report). Reward quarters for both seeds show the SAME
+trough-then-partial-recovery shape as anchor4-stdanneal's
+walk-catastrophe class (fix: `[38.4, 15.2, -263.8, -40.7]`, fix-s1:
+`[40.0, -7.4, -444.6, -121.7]`, both still deeply negative at Q4) —
+suggestive of the same catastrophe but NOT dispositive without the
+eval; flagging so the next cycle reads the reward shape alongside the
+video rather than off either alone. **Safety net**: given the known
+stale-watcher 3300s-wrapper-vs-actual-duration infra gap (Next
+-1.86), launched `resume_orphaned_eval.py` (nohup, `--timeout-s
+7200`) for both runs' gate+owncfg passes so the copy-back lands even
+if the live `pod_eval.py` wrapper gets killed early by the stale
+in-memory constant — do NOT relaunch or re-podeval these two; poll
+`/tmp/eval_cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-
+logstdsplit-fix{,-s1}{,_owncfg}.log` for `SYNCED` before verdicting.
+Independently reconfirmed this cycle's own full track sweep
+(joystick/amp/cpg DONE or operator-blocked, walkcurr blocked): no
+other standwalk Next item is launchable without either this pair's
+read or the mixed-session baseline readout another cycle owns — 12
+free GPU pods, correctly no launch this cycle. Prior banner below.)
+
+Prior banner, 2026-08-27 ~07:2x (**headings1 SEED-0 VERDICTED: DIRECTION
+PARTIAL, walk+stance unharmed — joint 2-seed cone call still open
+(s1's verdict belongs to its own cycle).** `-anchor2-headings1`
+(2M discovery, single lever heading 0→0.7854) = PARTIAL: DR-0 det
+walk gait_valid 6/6, 0 terms, prog 0.44 (parent 0.38), slip 2.49 vs
+3.53; DIRECTION vs a NEW matched-parent control run this cycle
+(anchor2 evaluated under the SAME heading-0.7854 eval — artifact
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor2_headingctl_gate`
+on train-2): dir_err_mean med 36.0° vs 47.1° (−11°), p90 63.6° vs
+128.9° (halved), wrong-way 9% vs 17%, slip 2.49 vs 11.89 — the
+heading-blind parent SKIDS under heading commands; headings1 walks
+the course. Full bar (≤35°) missed by 1°; reward still rising at the
+2M end → an 08-21 continuation is live IF the joint call promotes
+the cone. CALIBRATION NOTE for the joint call: the honest
+same-protocol det baseline is 47.1°, not the ~52° stress_mix smoke
+number; sto-pass direction (74–81° on BOTH policies) is
+noise-dominated and should not gate. Seed1's gate report (peeked
+mechanically, left unverdicted for its own cycle) shows NO direction
+drop (54.9° det) with walk surviving → expect a seed-split ruling,
+neither "both learn → promote" nor a walk collapse. STANCE-UNHARMED:
+hold/det 1 term vs parent 2, hold/sto 6/6 hold_min_load = known
+baseline, rise/lower unchanged; walk/sto near-stationary prog 0.04
+bit-identical to parent DR-0 sto — inherited, not a headings
+regression. Also: the 04:18 watcher SUSPECT on train-3
+(then-logstdsplit-s1, stall @4096) was a JIT-warmup false alarm —
+verified 1M steps @11.4k fps, canaries green — no action taken;
+that lineage was later superseded by the anchor6b wiring-fix
+relaunch (see below). Prior banner below.)
+
 Update, 2026-08-27 ~07:0x (kick-cycle housekeeping, no verdict yet):
 this cycle's assigned run `anchor2-headings-curric1-s1` (seed1) hit
 W&B `finished` (2031616 steps) exactly at prestage time — its own
