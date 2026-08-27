@@ -266,6 +266,45 @@ Knobs (set via attach_bc_anchor / cfg):
                                immediately when off or when the policy
                                isn't dual-core (no ``mlp_extractor_b``).
                                See _gradnorm_diag_ctx.
+                               MEASURED (08-27, anchor9-gradnorm seed0,
+                               2M steps): SUPPORTED, persistently, not
+                               just during the trough — core B's
+                               (stance) raw grad norm is >=3x core A's
+                               (walk) in 23/30 logged rollouts, median
+                               ratio 4.2x overall and 3.5x isolated to
+                               the reward-trough window (idx 6-13), max
+                               16x; never comparable, let alone
+                               inverted. Escalates to the fallback
+                               named in this arm's own gate text: design
+                               a per-core gradient clip (see
+                               bc_anchor_percore_clip below).
+
+  train.bc_anchor_percore_clip (default 0, bit-exact when off)
+                               MECHANISM (08-27, anchor9-gradnorm
+                               SUPPORT follow-up): replaces
+                               sb3-contrib's ONE global
+                               ``clip_grad_norm_(self.policy.
+                               parameters(), max_grad_norm)`` call
+                               inside ``super().train()`` with THREE
+                               independent clips (core a / core b /
+                               shared) at the SAME max_norm, so core
+                               B's measured several-x-larger raw
+                               gradient can no longer force a single
+                               shared rescale factor onto core A's
+                               unrelated, already-small gradient for
+                               free. Same param groups as
+                               _gradnorm_diag_ctx (frozen a/b/shared
+                               contract, factored into
+                               _dual_core_param_groups so both stay in
+                               sync). Composable with
+                               bc_anchor_debug_gradnorm (nested context
+                               managers; the diagnostic still reads
+                               PRE-any-clip grad norms either way, so
+                               enabling both on the same run keeps the
+                               measurement meaningful). Off (default)
+                               or non-dual policy: no-op, byte-for-byte
+                               the pre-08-27 single global clip. See
+                               _percore_clip_ctx.
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
@@ -335,6 +374,35 @@ def _lazy_sb3():
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
     return PPO, BaseCallback
+
+
+def _dual_core_param_groups(policy):
+    """Classify every named parameter of a dual-core policy
+    (gru_policy.DualGruActorCriticPolicy) as core 'a' (locomotion/
+    walk), 'b' (stance), or 'shared' (the parameterless
+    FlattenExtractor plus anything else not name-matched). FROZEN
+    CONTRACT (08-27): both _gradnorm_diag_ctx (measurement) and
+    _percore_clip_ctx (mechanism) call this SAME helper so the groups
+    a measurement was taken over are byte-identical to the groups a
+    clip acts on — do not fork this logic per-caller."""
+    def _group(name: str) -> str:
+        if (name == "log_std_b" or "core_b" in name
+                or name.startswith(("mlp_extractor_b",
+                                     "action_net_b",
+                                     "value_net_b"))):
+            return "b"
+        if (name == "log_std" or "core_a" in name
+                or name.startswith(("mlp_extractor.",
+                                     "action_net.",
+                                     "value_net."))
+                or name in ("mlp_extractor", "action_net",
+                            "value_net")):
+            return "a"
+        return "shared"
+
+    names = [n for n, _ in policy.named_parameters()]
+    groups = [_group(n) for n in names]
+    return names, groups
 
 
 def make_bc_anchor_ppo_class(base_cls=None):
@@ -512,23 +580,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             if not hasattr(policy, "mlp_extractor_b"):
                 return _noop()
 
-            def _group(name: str) -> str:
-                if (name == "log_std_b" or "core_b" in name
-                        or name.startswith(("mlp_extractor_b",
-                                             "action_net_b",
-                                             "value_net_b"))):
-                    return "b"
-                if (name == "log_std" or "core_a" in name
-                        or name.startswith(("mlp_extractor.",
-                                             "action_net.",
-                                             "value_net."))
-                        or name in ("mlp_extractor", "action_net",
-                                    "value_net")):
-                    return "a"
-                return "shared"
-
-            names = [n for n, _ in policy.named_parameters()]
-            groups = [_group(n) for n in names]
+            names, groups = _dual_core_param_groups(policy)
             samples: list[tuple[float, float, float]] = []
             self_ = self
 
@@ -564,6 +616,74 @@ def make_bc_anchor_ppo_class(base_cls=None):
                             self_.logger.record(
                                 "train/gradnorm_shared_mean",
                                 float(arr[:, 2].mean()))
+
+            return _patched()
+
+        def _percore_clip_ctx(self):
+            """MECHANISM (default 0, bit-exact when off) — 08-27,
+            anchor9-gradnorm SUPPORT follow-up. anchor9-gradnorm
+            MEASURED (2M-step canary): core B's (stance) raw PPO
+            gradient norm is persistently several-x core A's (walk) —
+            median ~4.2x across 30 logged rollouts, ~3.5x even
+            isolated to the reward-trough window, up to 16x — never
+            comparable, let alone inverted (see
+            train.bc_anchor_debug_gradnorm docstring above for the
+            exact numbers). sb3-contrib's RecurrentPPO.train() still
+            funnels EVERY parameter of both fully-separate cores
+            through ONE ``clip_grad_norm_`` call per minibatch; when
+            core B's raw norm dominates, the resulting single scale
+            factor rescales core A's already-small gradient by the
+            SAME factor for free, even though core A's weights never
+            touch core B's loss at all. Enabled by
+            ``train.bc_anchor_percore_clip``, this context manager
+            replaces that one global clip with THREE independent
+            clips — one per group from ``_dual_core_param_groups``
+            (a / b / shared) — each at the SAME max_norm, so a large
+            stance-core gradient can no longer force an unrelated
+            walk-core rescale. Off (default) or on a non-dual policy:
+            returns a no-op context, byte-for-byte the pre-08-27
+            single global clip (same contract as
+            _gradnorm_diag_ctx's own no-op path — the two compose:
+            nesting either order is safe because the diagnostic always
+            measures grad norms itself, from ``p.grad``, BEFORE
+            delegating to whatever clip implementation is currently
+            installed)."""
+            import contextlib
+
+            @contextlib.contextmanager
+            def _noop():
+                yield
+
+            if not getattr(self, "bc_percore_clip", False):
+                return _noop()
+            policy = self.policy
+            if not hasattr(policy, "mlp_extractor_b"):
+                return _noop()
+
+            names, groups = _dual_core_param_groups(policy)
+
+            @contextlib.contextmanager
+            def _patched():
+                import torch
+
+                orig_clip = torch.nn.utils.clip_grad_norm_
+
+                def _clip(parameters, max_norm, *a, **kw):
+                    params = list(parameters)
+                    buckets: dict[str, list] = {
+                        "a": [], "b": [], "shared": []}
+                    for n, g, p in zip(names, groups, params):
+                        buckets[g].append(p)
+                    norms = [orig_clip(plist, max_norm, *a, **kw)
+                             for plist in buckets.values() if plist]
+                    return max(norms) if norms else orig_clip(
+                        params, max_norm, *a, **kw)
+
+                torch.nn.utils.clip_grad_norm_ = _clip
+                try:
+                    yield
+                finally:
+                    torch.nn.utils.clip_grad_norm_ = orig_clip
 
             return _patched()
 
@@ -624,8 +744,9 @@ def make_bc_anchor_ppo_class(base_cls=None):
             return pol.action_net(pol.mlp_extractor.forward_actor(latent))
 
         def train(self) -> None:
-            with self._gradnorm_diag_ctx():
-                super().train()
+            with self._percore_clip_ctx():
+                with self._gradnorm_diag_ctx():
+                    super().train()
             self._maybe_log_adv_mode_stats()
             coef = float(getattr(self, "bc_coef", 0.0))
             n = int(getattr(self, "_bc_n", 0))
@@ -815,6 +936,8 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_debug_adv_stats", default=0.0)) > 0.0
     model.bc_debug_gradnorm = float(cfg_get(
         cfg, "train", "bc_anchor_debug_gradnorm", default=0.0)) > 0.0
+    model.bc_percore_clip = float(cfg_get(
+        cfg, "train", "bc_anchor_percore_clip", default=0.0)) > 0.0
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))
     model.bc_batch_size = int(float(cfg_get(

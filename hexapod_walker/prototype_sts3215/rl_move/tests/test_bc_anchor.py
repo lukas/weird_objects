@@ -1985,3 +1985,96 @@ def test_gradnorm_diag_grouping_matches_named_parameters():
     assert any(n.startswith("action_net_b") for n in names)
     assert any(n.startswith("action_net.") or n == "action_net"
                for n in names)
+
+
+# --- per-core grad clip mechanism (08-27, anchor9-gradnorm SUPPORT --
+# follow-up: gradnorm_a persistently several-x gradnorm_b was
+# MEASURED, not just unsupported, so the pre-registered next arm
+# (decouple the shared clip_grad_norm_ call) is built here) ---------
+
+def test_percore_clip_default_off_never_touches_clip():
+    """Off by default (bit-exact): torch.nn.utils.clip_grad_norm_ must
+    be the exact same function object before and after train(), and
+    the update sequence is untouched."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    orig = torch.nn.utils.clip_grad_norm_
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "off path touched the global clip_grad_norm_ reference"
+
+
+def test_percore_clip_restores_original_when_on():
+    """Enabled on a dual-core policy: clip_grad_norm_ is restored to
+    the original function object once train() returns (no lasting
+    global monkeypatch)."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    model.bc_percore_clip = True
+    orig = torch.nn.utils.clip_grad_norm_
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "clip_grad_norm_ was not restored after the percore-clip context"
+
+
+def test_percore_clip_skips_non_dual_policy():
+    """Enabled, but the policy has no mlp_extractor_b (plain MLP) ->
+    must no-op cleanly, same as the off path."""
+    import torch
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_percore_clip = True
+    orig = torch.nn.utils.clip_grad_norm_
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig
+
+
+def test_percore_clip_actually_decouples_the_two_cores():
+    """The behavioral crux: with a huge core-B (stance) gradient and a
+    tiny core-A (walk) gradient, a single global clip would rescale
+    BOTH by the same (small) factor derived from B's dominant norm;
+    per-core clipping must leave A essentially untouched while still
+    reining in B. Verified by monkeypatching the grads directly after
+    a real backward pass, then invoking the exact same clip_grad_norm_
+    call sb3-contrib makes inside train()."""
+    import torch
+    from rl_move.sim.bc_anchor import _dual_core_param_groups
+
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    model.bc_percore_clip = True
+    policy = model.policy
+    names, groups = _dual_core_param_groups(policy)
+    params = dict(policy.named_parameters())
+    max_norm = 1.0
+    # Craft grads: every core-a param gets a tiny grad, every core-b
+    # param gets a huge one (shared/other params get none).
+    for n, g in zip(names, groups):
+        p = params[n]
+        if g == "a":
+            p.grad = torch.full_like(p, 1e-4)
+        elif g == "b":
+            p.grad = torch.full_like(p, 50.0)
+        else:
+            p.grad = None
+    with model._percore_clip_ctx():
+        torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm)
+    a_norm_after = sum(
+        float(params[n].grad.detach().pow(2).sum())
+        for n, g in zip(names, groups) if g == "a") ** 0.5
+    b_norm_after = sum(
+        float(params[n].grad.detach().pow(2).sum())
+        for n, g in zip(names, groups) if g == "b") ** 0.5
+    # Core B was clipped down to (approximately) max_norm.
+    assert b_norm_after <= max_norm * 1.01
+    # Core A's tiny grad was NOT globally rescaled down by B's huge
+    # norm -- it stays close to its own (already-sub-max_norm) value,
+    # not crushed by the ratio max_norm/total_norm a single global
+    # clip would have applied.
+    a_norm_before = sum(
+        float(1e-4 ** 2) for n, g in zip(names, groups) if g == "a") ** 0.5
+    assert a_norm_after > a_norm_before * 0.9, (
+        "core A's gradient was rescaled by core B's clip factor -- "
+        "the two cores are not actually decoupled")
