@@ -179,10 +179,18 @@ If `view-build` errors out saying STLs are missing, run
 
 ## How to validate / regenerate
 
-The STLs under `stl_prototype/` are derived artifacts — the source of
-truth is `hexapod_prototype.py` (geometry) plus `design_spec.yaml`
-(human-readable contract). After any parametric edit, run the
-validate → render → report pipeline from the repo root:
+The STLs under `stl_prototype/` are derived artifacts.  STEP-first
+(Aug 2026): each printable's shipping geometry is a build123d BREP solid
+(`cad_step_test/build_step_first_test.py`, constants imported from
+`hexapod_prototype.py`), exported by `build_step_prototype.py` as
+`step_prototype/*.step` + tessellations and installed into
+`stl_prototype/` after equivalence gates against the trimesh twin
+(volume / bbox / max surface deviation — see `docs/CAD_WORKFLOW.md`).
+`hexapod_prototype.py` (constants + twins) plus `design_spec.yaml`
+(human-readable contract) remain the parametric truth; when editing a
+printable, change BOTH the trimesh twin and the BREP builder. After any
+parametric edit, run the validate → render → report pipeline from the
+repo root:
 
 ```bash
 make -C hexapod_walker/prototype check-cad        # full validate + render + report
@@ -343,10 +351,17 @@ Run the one-command prototype builder to generate every print/export bundle:
 ./run.sh hexapod_walker/prototype/build_all.py
 ```
 
-For only the individual slicer-ready part STLs, run
-`./run.sh hexapod_walker/prototype/hexapod_prototype.py`. All dimensions are
-in millimetres. All individual STLs are sized to fit a 220 × 220 mm
-3D-printer bed (Ender 3 / Bambu A1 mini class).
+The printables land in `stl_prototype/` as healed BREP tessellations
+(STEP-first, Aug 2026): `build_all.py` runs the BREP exporter
+`build_step_prototype.py` (which also writes the per-part `.step` CAD
+files into `step_prototype/` and enforces the twin-equivalence gates)
+and installs its output.  Running
+`./run.sh hexapod_walker/prototype/hexapod_prototype.py` alone only
+regenerates the trimesh twins + `stl_reference/` visuals — the verifier
+will flag the print set as stale until `make build` re-installs the BREP
+tessellations.  All dimensions are in millimetres. All individual STLs
+are sized to fit a 220 × 220 mm 3D-printer bed (Ender 3 / Bambu A1 mini
+class).
 
 ### 3.1 Body parts (one of each)
 
