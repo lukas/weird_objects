@@ -1,6 +1,24 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~10:3x (kick-cycle housekeeping on
+Update, 2026-08-27 ~11:2x (idle-kick cycle: `anchor7-detachtrunk{,-s1}`
+eval STILL COMPUTING, no verdict — confirmed via `ps` on train-1/
+train-3, all 4 `eval_checkpoint` workers alive and CPU-hot since
+10:16, ~1h in of the ~1h35-1h50m projection; per the 10:3x banner's own
+instruction, left unread, no re-podeval. Full fleet sweep confirmed the
+triage queue holds nothing else (`ops.sh triage 72`: every run in the
+last 3 days verdicted except these two) and every other track is
+DONE/blocked exactly as the 10:3x/09:5x banners already established
+(joystick/amp/cpg DONE-or-maintenance, walkcurr `[operator]`-blocked on
+the BC-kickstart ruling, q_20260824T0233Z) — did not re-derive that
+from scratch, just spot-checked each track's own STATUS banner dates
+against now. Drained the one AGENT-DOABLE item actually sitting in the
+queue instead of a pure no-op: **Next -1.86 (the pod-eval wrapper-
+timeout INFRA gap) is FIXED** — see its own entry below for the full
+change. This is a real code landing (tested, snapshotted,
+`exp/watchloop-prestage-timeout-scale-fix`), not a re-verify — touching
+`CYCLE_WORKED`.
+
+Previous entry, 2026-08-27 ~10:3x (kick-cycle housekeeping on
 `anchor7-detachtrunk{,-s1}` — **WIRING CHECK FIRST clause satisfied
 both seeds; mechanism read (WALK-SURVIVES joint call) still computing,
 no verdict yet.**) Confirmed the gate's precondition two ways rather
@@ -4184,20 +4202,34 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     2-seed canary before funding. Evidence: verdicts on `cw-standwalk-
     stance-mesh2-stage2-dualbc1-anchor2-headings1{,-s1}` (08-27
     ~06:2x).
--1.86 INFRA (08-27, unfunded, cheap): `pod_eval.py`'s orchestrator
-    wrapper timeout (3300s) is shorter than a full gate+owncfg
-    video-every-1 pass at control.hz=100 actually takes (~1h35-1h50m
-    measured this cycle, 60 rendered clips/pass) — the prestage dies
-    with `TimeoutExpired` and logs "(cycle will do it manually)" while
-    the underlying eval keeps computing fine on the pod (a kubectl
-    quirk: killing the client-side `kubectl exec` doesn't kill the
-    remote process). No compute is lost, but every standwalk stage-2
-    triage cycle currently has to notice this and do the `kubectl cp`
-    + SYNCED-marker copy-back by hand. Fix either the wrapper timeout
-    (raise it for standwalk/joint_walk panels) or the default
-    `--video-every` for routine gate/owncfg passes (every-episode
-    video is far more than triage needs) — whichever is cheaper to
-    land first.
+-1.86 INFRA — FIXED 08-27 (idle-kick cycle, drained as agent-doable
+    CODE work): `pod_eval.py`'s own internal per-pass wait already
+    self-scales (`eval_timeout_scale`, landed earlier this campaign),
+    but `watch_loop.py`'s OUTER subprocess wrapper around the whole
+    `pod_eval.py` call stayed a flat 7500s — shorter than a full
+    gate+owncfg video-every-1 joint panel at control.hz=100 plus its
+    joygate rider legitimately takes (~1h35-1h50m measured, occasionally
+    another hour on top) — so the WRAPPER killed a still-healthy pod
+    eval before it finished, losing that pass's copy-back even though
+    the remote process kept computing fine (a kubectl quirk: killing
+    the client-side call doesn't kill the remote process). Every
+    standwalk stage-2 triage cycle since has had to notice this by hand
+    and re-sync via `kubectl cp` / `resume_orphaned_eval.py`. Fix:
+    `watch_loop._prestage_wrapper_timeout(run)` reads the run's own
+    `control.hz`/`--episode-seconds` straight from the ledger and
+    reuses `pod_eval.eval_timeout_scale` (+ its own `PASS_TIMEOUT_S`/
+    `JOYGATE_TIMEOUT_S` constants) so the wrapper's budget scales in
+    lockstep with the internal one instead of drifting out of sync —
+    floor stays the old flat 7500s for legacy/unreadable runs (never
+    shrinks). 4 new unit tests (`test_watch_loop_prestage_timeout.py`,
+    all green) + the existing `test_pod_eval_timeout.py` (5/5, still
+    green, untouched). Snapshotted `exp/watchloop-prestage-timeout-
+    scale-fix`. NOTE: this only takes effect once the long-lived
+    `watch_loop.py` PROCESS itself restarts (it runs the code that was
+    loaded at its own start, same class of staleness as the earlier
+    3300->7500 bump) — until then, keep using the manual `pod_eval.py`/
+    `resume_orphaned_eval.py` workaround for in-flight passes; this
+    fix is for every future run once the watcher next restarts.
 
 -1.85 MIXED-SESSION BASELINE READOUT (08-27 kick cycle; owner = the
     cycle that sees the four session verdicts land). Poll
