@@ -2,21 +2,17 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAIL
+**status**: REFUSED
 
-**created**: 2026-08-23T22:24:03+00:00
+**created**: 2026-08-23T22:25:53+00:00
 
 **pod**: hexapod-mjx-train-2
 
 **steps**: 2000000
 
-**parent**: cw-walkcurr-pf-fwd6-rscale50
+**hypothesis**: Plain English: dose sibling of the fwd6-rnd02 arm (running/finished on train-1) -- if a small RND novelty bonus (rnd-coef 0.02, same order as the recipe's own charges) is too weak to disturb the static-crouch local optimum, a 5x stronger bonus should show it moving even if 0.02 didn't. Same exact fwd6-rscale50 diet (crush-fixed reward scale, fixed-forward-only rung-1 task), single lever vs rnd02: --rnd-coef 0.1. Pure exploration mechanism (like --use-sde/--gru), touches no walk charge the WALKCURR_PF bank prices -- no bank re-proof required. Prediction-if-true: env/walk_freeprog_score crosses 0, det gait_valid panel shows six legs cycling with real forward travel within 2M, rnd/intrinsic_mean visibly declining as the predictor catches up to the visited-state distribution. Prediction-if-false (still frozen, clip_fraction healthy, rnd/intrinsic_mean flat/low from early on): RND-at-any-reasonable-dose is refuted on the rung-1 diet -- read jointly with the rung-0 sub-goal twin (cw-walkcurr-pf-rung0-swing3-rnd1, another cycle's arm) before reaching for the track's last-resort item (d), a brief BC kickstart. Strongest alternative: 0.1 overshoots into pure novelty-chasing (policy flails for state coverage, ep_rew_mean/task reward regresses even if legs move) -- readable on video (chaotic non-gaited flail vs rhythmic stepping) and by comparing det gait_valid/direction_err against rnd02.
 
-**wandb_id**: mavw1x9t
+**gate**: Rung-1 gate (same as every fwd6 arm): C-env det fixed-forward panel from eval_checkpoint -- prog_ratio > 0 and gait_valid on >=4/6 det episodes with visible forward travel on video (not just leg-cycling in place), env/walk_freeprog_score leaves [-0.10,-0.05] and trends toward/past 0 by 2M, clip_fraction stays healthy (>0.02, no collapse). PASS = rung-1 lands, move to rung 2 (small heading set). FAIL jointly with rnd02 (both frozen, clip_fraction healthy, low rnd/intrinsic_mean) = RND-on-rung-1 refuted at these doses -- read jointly with the rung-0+RND arm before a BC-kickstart escalation.
 
-**hypothesis**: Dose sibling of cw-walkcurr-pf-fwd6-rnd02: same RND-on-rscale50 mechanism, --rnd-coef 0.10 (5x) instead of 0.02, to bracket whether the intrinsic bonus needs to be a much bigger fraction of the crouch's own charge-avoidance income before it can disturb the static local optimum. If rnd02 already unfreezes, this checks whether more dose helps further or overshoots into flailing (the rung-0 swing9 dose-response precedent: MORE bonus was not strictly better there). If rnd02 freezes flat, this is the discriminating read: unfreezes -> RND works but needed more dose (adopt rnd10, keep searching the floor); also freezes -> RND-as-a-class is refuted at bank-legal reward scales here, next is BC-kickstart (track-rule-brushing last resort) or a much bigger dose/budget probe.
-
-**gate**: Same rung-1 gate as rnd02: prog_ratio>0 + gait_valid>=4/6 det with visible forward travel, walk_freeprog_score crosses 0, clip_fraction stays healthy. Read jointly with rnd02.
-
-**verdict**: FAIL, jointly with rnd02 (fired the pre-registered joint gate). Result: RND-coef=0.10 (5x rnd02) also does NOT unfreeze rung-1 -- same static splayed crouch. Evidence: gate 0/6 det + 0/6 sto (all 6 legs sacrificed every episode), prog med -0.00, fwd 0.01m, slip 6.73-9.46; contact sheet identical frozen pose across all 12 frames. W&B: env/walk_freeprog_score rose -0.101->-0.0054 (closer to 0 than rnd02 but still never crossed), clip_fraction stayed healthy the whole run (0.012-0.072, never collapsed), std 0.368->0.375 -- but env/walk_speed DECAYED 0.10->0.0058 m/s (same direction as rnd02, worse endpoint), direction_err flat ~88-92deg (chance) the whole run, rnd/intrinsic_mean decayed 0.037->0.0057 -- essentially IDENTICAL trajectory to rnd02 despite 5x the coefficient (raw reward_rnd_intrinsic ~0.06/step at coef 0.1, already comparable to the recipe's other small charges, yet no qualitative change vs 0.02). ep_rew_mean quarters roughly flat-then-down (54.7/62.6/62.3/53.5, driven mostly by the larger intrinsic payment, not task behavior). Why: a 5x dose bracket made no behavioral difference -- the mechanism (intrinsic bonus decaying as fast as the policy narrows onto the frozen pose) is dose-insensitive in this range, not dose-starved. Next: closes the RND dose bracket at 0.02/0.10. This cycle launched two follow-ups to close the remaining axes before the track's BC-kickstart last resort: cw-walkcurr-pf-fwd6-rnd100 (10x further, coef=1.0, makes RND the dominant per-step term) and cw-walkcurr-pf-fwd6-rnd10-cont1 (+4M budget continuation at the same coef=0.10, testing whether the still-rising-but-not-crossed freeprog trajectory eventually tips over with more steps).
+**refused_reason**: hexapod-mjx-train-2 already runs cw-walkcurr-pf-fwd6-rnd10 — GPU pods host exactly one run; pick a free GPU pod.
 
