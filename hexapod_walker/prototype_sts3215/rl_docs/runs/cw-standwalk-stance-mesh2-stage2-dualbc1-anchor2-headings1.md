@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-27T03:50:45+00:00
+**created**: 2026-08-27T03:56:48+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-1
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill maturity or close a class. WALK-SURVIVES: DR-0 det walk gait_valid >=5/6, no 3+-leg-sacrifice freeze, prog_ratio >=0.2. DIRECTION-LEARNS: walk eval WITH goal.walk_heading_max_rad=0.7854: median direction_err_mean_deg materially below the anchor2 baseline (~52 deg, 08-27 mixed-session smoke; <=35 deg full bar, >=10 deg drop partial). STANCE-UNHARMED: hold/lower panels within the anchor2 band (hold/sto 6/6 hold_min_load is the KNOWN baseline failure, not a regression). JOINT call with -s1: both seeds direction-learn + walk survives -> promote the heading cone into the stage-2 recipe and open the next command rung (stops/reverses); walk collapses either seed -> close the static-cone lever, route direction coverage through walk_cmd_stage curriculum instead.
 
-**refused_reason**: hexapod-mjx-train-0 code marker 099671613e43532328e9b659095d1b5e6a0d8719-dirty != local HEAD 099671613e43532328e9b659095d1b5e6a0d8719 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-1 already runs cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6-logstdsplit — GPU pods host exactly one run; pick a free GPU pod.
 
