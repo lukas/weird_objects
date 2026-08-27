@@ -1,6 +1,53 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~11:2x (idle-kick cycle: `anchor7-detachtrunk{,-s1}`
+Update, 2026-08-27 ~11:4x (idle-kick cycle: **Next -1.85 MIXED-SESSION
+BASELINE READOUT CLOSED** — the four detached long-session evals
+queued by the 08-27 op-priority note (`anchor2`, `anchor2-s1`,
+`anchor3`, `anchor3-s1`, on train-8/9/10/11) all finished (`verdict
+written` in every `/tmp/mixedsession_<run>.log`, 4-8h after launch);
+copied the artifact dirs back (`kubectl cp`, no relaunch) and read all
+4 `session_verdict.json`. **Result: ALL FOUR FAIL the hard
+zero-terminations gate — none is a promotable single-model
+candidate.** Termination rate per 90-episode session: anchor2 66/90
+(73%), anchor2-s1 62/90 (69%), anchor3 66/90 (73%), anchor3-s1 60/90
+(67%). Dominant cause is `over_current` (28-37 of the terms, more than
+`hold_low_height`'s 10-33 or `hold_min_load`'s 5-13) — consistent with
+the already-known RUNG-9 flat-rise residual, just showing up more
+often here because a long mode_seq session revisits `rise` many times.
+By segment: rise 20-39 terms, walk 20-27, hold 7-17 (walk's share is
+new information — the composed session stresses walk's fragility more
+than isolated per-mode canaries did, matching the same anchor4-7
+catastrophe class the concurrent `-2.0` dig-in is chasing). Direction
+tracking is essentially absent (`direction_err_med_deg` 71-78 across
+all 4 — expected, none of these 4 checkpoints carry a heading
+mechanism; that fix is headings-curric1's line, already folded into
+the log_std/critic dig-in queue) and `slip_per_m_med` is huge (28-32,
+`progress_ratio_med` only 0.037-0.064) — video (`dr0/walk_det_0.png`
+etc.) shows a splaying, barely-translating stance rather than a
+walking gait, not a slip-while-walking pathology. Height tracking
+itself is fine (`height_err_end_med_mm` 10-17, 3/4 pass the soft
+height axis) and `anchor2`/`anchor3` (not the `-s1` seeds) keep
+`gait_valid_frac`=1.0 with no sacrificed legs even while terminating —
+the base seeds are the (still non-passing) frontrunners if a
+provisional ranking is needed later. **No action beyond recording**:
+every failure mode this readout surfaces (over_current/rise,
+walk-collapse, no-heading) already has an owner in the Next queue
+(RUNG-9 ref mint, the `-2.0` critic/trunk dig-in, headings-curric):
+this session-level instrument mainly confirms those same defects
+recur, and worse, once composed into one long control sequence — it
+does not add a new lever, so none is opened here. Full numbers in
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_{anchor2,
+anchor2_s1,anchor3,anchor3_s1}_mixedsession/session_verdict.json`.
+Deliverable for the operator's 08-27 integrated-policy priority note:
+**not ready — no single mesh/100Hz policy currently survives a
+randomized long mixed-control session; the campaign's active dig-in
+queue is the fastest path there, keep funding it.** `anchor7-
+detachtrunk{,-s1}` (the `-2.0` canary) was STILL mid-eval as of this
+write (~90min in of the ~1h35-1h50m projection on train-1/3) — left
+untouched again, no re-podeval. Real work this cycle (data pulled,
+analyzed, written up) — touching `CYCLE_WORKED`. Previous entry below.
+
+Previous entry, 2026-08-27 ~11:2x (idle-kick cycle: `anchor7-detachtrunk{,-s1}`
 eval STILL COMPUTING, no verdict — confirmed via `ps` on train-1/
 train-3, all 4 `eval_checkpoint` workers alive and CPU-hot since
 10:16, ~1h in of the ~1h35-1h50m projection; per the 10:3x banner's own
@@ -4231,21 +4278,16 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
     `resume_orphaned_eval.py` workaround for in-flight passes; this
     fix is for every future run once the watcher next restarts.
 
--1.85 MIXED-SESSION BASELINE READOUT (08-27 kick cycle; owner = the
-    cycle that sees the four session verdicts land). Poll
-    `/tmp/mixedsession_<run>.log` on train-8/9/10/11 for 'verdict
-    written', then `kubectl cp` each
-    `logs/ckpt_eval/<run>_mixedsession/` back (anchor2, anchor2-s1,
-    anchor3, anchor3-s1). Compare candidates on the scorecard
-    (zero-terms, session_complete_frac, terms_by_segment_mode /
-    _start_kind, walk axes, height, current), WATCH the 60 s/180 s
-    session videos, name the best current single-model candidate +
-    write the operator's long-session report (08-27 priority note
-    deliverable). Fold the failure localization into the lever queue:
-    hold_min_load terms in hold segments = the per-core split's
-    target (-1.8); direction error = headings1's target; flat-rise
-    over_current = RUNG-9 ref mint. Do NOT relaunch these evals —
-    they are detached and running.
+-1.85 MIXED-SESSION BASELINE READOUT — CLOSED (08-27 ~11:4x, see top
+    banner for the full readout): all 4 candidates (anchor2/-s1,
+    anchor3/-s1) FAIL the hard zero-terminations gate (60-73% of
+    episodes terminate, `over_current` dominant); no single-model
+    candidate is promotable yet. No new lever opened — every failure
+    mode observed (rise over_current, walk collapse, no heading) maps
+    onto an already-funded Next item (RUNG-9 ref mint, the `-2.0`
+    critic/trunk dig-in, headings-curric). Re-run this instrument
+    (`ops.sh sessioncmd <run>`) once any of those levers lands a
+    promoted checkpoint, not before.
 
 -1.8 PER-CORE `log_std` SPLIT — DIG-IN FLAGGED (08-27, anchor4-stdanneal
     joint call). Code-read finding (`rl_move/sim/gru_policy.py`
