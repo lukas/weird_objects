@@ -2900,3 +2900,22 @@ gated only with --strict. (d) 180 s pass runs DR-0 only, n=3/mode, for
 wall-clock feasibility. If any of these should differ (esp. the hard
 zero-term choice or the 180 s DR diet), say so and the bundle constants
 in eval_mixed_session.py get a one-line change + re-baseline.
+
+## 2026-08-27 ~14:1x — walk-retention guardrail mechanism choice (operator note 20260827T135505Z; assume-and-go, no answer needed)
+
+The note offers "KL/BC/anchor or Lagrangian-style non-regression" for
+walk retention. Chosen first implementation: the EXISTING walk-tick BC
+anchor (scripted TripodGait target, phase-locked, knee_abs dialect) —
+because (a) it is the walk teacher stotight45-seed13's own
+training-recipe guardrail, i.e. already behaviorally proven to hold a
+walking policy on this exact gait through RL fine-tuning; (b) it needs
+zero new code (81 unit tests green, incl. walk emission/phase-lock),
+so the wave launched within the hour instead of after a build+bank
+cycle; (c) supervising actions is immune to reward-farming by
+construction (loss-space, reward stack untouched — no semantics-bank
+churn). The note's other named mechanisms (per-mode objective
+normalization, frozen-teacher KL, Lagrangian constraint) are
+pre-registered in standwalk STATUS Next -2.35 in funding order, gated
+on this wave's branches. If the operator prefers the Lagrangian
+formulation FIRST regardless of the BC-anchor outcome, say so and the
+next cycle builds it.

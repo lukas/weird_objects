@@ -1,6 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~13:5x (triage cycle: **anchor9-gradnorm (seed0)
+Update, 2026-08-27 ~14:1x (operator-kick cycle: **OPERATOR DESIGN
+CORRECTION EXECUTED (MCP note 20260827T135505Z, Lukas via Codex) —
+walk-retention guardrail moved INTO the training loss; 4-arm
+walk-anchor wave LAUNCHED, all VERIFIED RUNNING**). The operator
+orders: stop relying on evals as the primary protection against walk
+forgetting — make walk regression hurt during training itself
+(multi-teacher distill + per-mode-normalized objectives + an
+always-on walk-retention KL/BC/anchor term), evals become audit only.
+Gap analysis against this order: (a) multi-teacher distillation is
+already this lineage's foundation (`ppo_goal_cw_standwalk_stage2_
+dualbc1.zip`, stance teacher acq8m + walk teacher stotight45-seed13);
+(b) walk-mode anti-park/partial-credit pricing is already dense and
+bank-proven (probe_walk_income: honest gait out-earns every
+degenerate 2-4x; k_walk_idle_charge, k_park_duty, walk_kernel_prog_
+gate, k_drag_stance, course/overspeed, loadslip terms all live in
+this recipe); but (c) **every dualbc1 arm to date trained with
+`train.bc_anchor_walk=0.0` — walking has had NO in-loss retention
+term this entire campaign**, the exact defect the operator names.
+The fix needs zero new code: the walk-tick BC anchor (scripted
+TripodGait target, phase-locked, raw-module knee dialect) is
+existing, 81-tests-green machinery — and it is the walk teacher
+stotight45-seed13's OWN training-recipe guardrail (`bc_anchor_walk=1
++ phase_lock=1 + knee_abs=1`, coef 1.0), so enabling it anchors the
+walk core to the same target its teacher was held to. Wiring
+verified before launch: both the policy's phase-obs clock
+(`walk_task._seq_reset_mode_state`) and the anchor's phase-locked
+clock (sim_env mode-seq switch path) reset per segment switch, so
+they stay aligned in composed `goal.mode_seq` episodes. **LAUNCHED
+(respec, single mechanism change `bc_anchor_walk=1 + phase_lock=1 +
+knee_abs=1`, 2M canaries, all 4 VERIFIED RUNNING train-0..3):**
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor11-walkretain{,-s1}`
+on the anchor6b-logstdsplit-fix{,-s1} recipes — the hold-FIXING but
+walk-catastrophe-prone pair (seed0 clean/seed1 0-of-6 collapse):
+direct rescue test of "retention loss prevents the collapse every
+architecture-side fix failed to stop"; and `...-anchor12-walkretain-
+base{,-s1}` on the walk-clean anchor2{,-s1} recipes — the control
+isolating what the anchor itself does to a healthy walk (matched
+parents' evals already on disk). Full PASS/PARTIAL/FAIL branches +
+wiring-check-first (`train/bc_anchor_fill_walk`/`loss_walk` nonzero)
+in the ledger gate texts. **Sequencing note**: prior banners gated
+all new arms on anchor10-percoreclip's read — the operator note
+supersedes that gating (operator orders outrank standing
+pre-registrations); anchor10's read (owned by the concurrent cycle)
+should now be read ALONGSIDE this wave, and the anchor9 seed-
+divergence flag still applies to it. **Pre-registered follow-ups
+added to Next (-2.35)**: per-mode-group objective/advantage
+normalization build (the operator's normalization mechanism; fund on
+walkretain FAIL), per-mode anchor coefficient (walk dose separate
+from stance's 3.0; fund if the control regresses), frozen-teacher-
+policy KL anchor (heavier retention variant if the scripted target
+pulls the gait). No triage owed this cycle (no finished run assigned;
+anchor10-percoreclip{,-s1} + anchor9 pair belong to concurrent
+cycles). CYCLE_WORKED. Prior banner below.
+
+Previous entry, 2026-08-27 ~13:5x (triage cycle: **anchor9-gradnorm (seed0)
 CANARY FAIL - MECHANISM verdicted — own-seed SUPPORTED, joint
 DIVERGENT with the concurrently-verdicted -s1 read; `train.
 bc_anchor_percore_clip` mechanism BUILT+TESTED+LAUNCHED as
@@ -4341,6 +4395,43 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
+-2.4 LAUNCHED (08-27 ~14:1x, operator design correction 20260827T135505Z
+    — reward/loss-level walk-retention guardrail, supersedes the
+    "no arm until anchor10 lands" sequential gating): 4-arm wave
+    `anchor11-walkretain{,-s1}` (rescue test on the hold-fixing/
+    walk-catastrophe anchor6b-logstdsplit-fix{,-s1} recipes) +
+    `anchor12-walkretain-base{,-s1}` (control on the walk-clean
+    anchor2{,-s1} recipes). Single mechanism change everywhere:
+    `train.bc_anchor_walk=1.0 + bc_anchor_phase_lock=1 +
+    bc_anchor_knee_abs=1` — the walk teacher stotight45-seed13's own
+    training-recipe walk anchor, previously ALWAYS off in this
+    lineage. Wiring-check-first + joint PASS/PARTIAL/FAIL branches in
+    the ledger gate texts. Whoever triages: read jointly with
+    anchor10-percoreclip's result (concurrent cycle) — if BOTH
+    mechanisms rescue walk, prefer the loss-level retention term for
+    the lineage (operator-preferred class) and A/B them only if the
+    reads conflict.
+-2.35 PRE-REGISTERED follow-ups to -2.4 (fund per its branches, in
+    this order):
+    (a) per-mode-group objective/advantage normalization inside
+        `RecurrentPPO.train()` (operator's "normalize/constrain
+        per-mode objective contributions"; the anchor8 diagnostic
+        already measured adv_loco_std up to 2-7x adv_stance_std at
+        the trough, so the global normalizer IS structurally
+        cross-mode either way) — bigger default-off/bit-exact build,
+        fund on walkretain FAIL;
+    (b) per-mode anchor coefficient (walk dose decoupled from
+        stance's coef=3.0; teacher's own walk dose was 1.0) — fund if
+        the anchor12 control shows the anchor pulling a healthy walk
+        off its gait;
+    (c) frozen-teacher-policy KL/BC anchor (anchor walk ticks to the
+        dualbc1 init policy's own mean action instead of the scripted
+        gait; needs new code: teacher forward pass + own hidden state
+        in the collect callback) — the heavier retention variant if
+        (b) is insufficient;
+    (d) Lagrangian-style non-regression constraint on walk scenarios
+        (operator note names it) — only if (a)-(c) all fail to hold
+        walk without costing stance.
 -2.2 DIG-IN, LAUNCHED this cycle (08-27 ~12:5x): anchor8-advstats
     (seed0) VERDICTED CANARY FAIL - MECHANISM — the advantage-
     normalization-scope hypothesis (-2.1 below) is REFUTED, and not
