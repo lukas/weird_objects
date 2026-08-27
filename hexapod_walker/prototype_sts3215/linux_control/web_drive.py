@@ -128,7 +128,7 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
               "/dance", "/rock", "/quad", "/rl", "/experiments", "/measure",
-              "/calibrate")
+              "/calibrate", "/touchdown")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
 STATIC_FILES = {
@@ -400,6 +400,9 @@ class Handler(BaseHTTPRequestHandler):
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/geometry/manual":
             self._json(200, BENCH.manual_geometry_state() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/touchdown_zero":
+            self._json(200, BENCH.touchdown_zero_state() if BENCH
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/calibration/report":
             self._json(200, BENCH.calibration_report() if BENCH
@@ -813,6 +816,17 @@ class Handler(BaseHTTPRequestHandler):
                     knee_height_mm=data.get("knee_height_mm"),
                     knee_to_boot_tip_mm=data.get("knee_to_boot_tip_mm"),
                     boot_diameter_mm=data.get("boot_diameter_mm")))
+            elif path == "/api/measure/touchdown_zero":
+                self._json(200, BENCH.measure_touchdown_zero(
+                    zero_tip_clearance_mm=data.get("zero_tip_clearance_mm"),
+                    femur_mm=data.get("femur_mm"),
+                    tibia_mm=data.get("tibia_mm"),
+                    boot_diameter_mm=data.get("boot_diameter_mm"),
+                    legs=data.get("legs"),
+                    axes=data.get("axes"),
+                    torque=data.get("torque"),
+                    settle_s=data.get("settle_s"),
+                    save=data.get("save", True)))
             elif path == "/api/measure/annotate":
                 self._json(200, BENCH.measure_annotate(
                     fields=data if isinstance(data, dict) else {}))

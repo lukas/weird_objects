@@ -219,10 +219,18 @@ visible as consistency checks.  If the contact/FK height disagrees with the
 operator measurement, the sweep is marked `manual_geometry_mismatch` and is not
 used as a dimension source.
 
+Touchdown-zero hints are separate from Feetech middle calibration:
+`POST /api/measure/touchdown_zero` low-torque taps requested legs near the
+geometry-predicted hip/knee floor contact angles, logs raw samples, and saves
+`linux_control/logs/touchdown_zero.json` only when every requested leg/axis
+finds contact.  `GET /api/touchdown_zero` reads the latest saved hints.  The
+saved `encoder_zero_error_deg` values are software compensation hints; this
+route never rewrites servo EEPROM zero or calls `/api/set_zero`.
+
 Measured-geometry decision, 2026-08-21: the old 128 mm tibia/contact length
 was retired.  MuJoCo, the gait IK, and the checkup geometry now use
 `femur_mm=90.0`, `tibia_mm=150.0` (knee axis to boot apex/contact tip), and
-`boot_diameter_mm=14.0`.  The nominal hip-center radius remains
+`boot_diameter_mm=9.0`.  The nominal hip-center radius remains
 `200/2 + 12.5 = 112.5 mm`, close to the operator's about-114 mm measurement;
 keep using `/api/geometry/manual` for measured height/radius annotations.  For
 future geometry changes, update motion constants only after the measurements,

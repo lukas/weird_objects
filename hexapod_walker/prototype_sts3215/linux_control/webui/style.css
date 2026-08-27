@@ -365,6 +365,12 @@
   .cal-manual-row label { color:#e7eaf0; font-weight:700; margin-right:4px; }
   .cal-manual-row input[type=number] { width:82px; }
   .cal-manual-row button { padding:7px 12px; }
+  .tdz-grid { display:grid; grid-template-columns:minmax(260px, 1fr) minmax(180px, 260px);
+    gap:14px; margin-top:12px; align-items:start; }
+  .tdz-mini { margin-top:6px; }
+  .tdz-mini button { flex:0 0 auto; min-width:74px; padding:7px 10px; font-size:12px; }
+  .tdz-bad { color:#ff7b72; }
+  .tdz-good { color:#5fd08a; }
   .cal-step.pending { opacity:.72; }
   .cal-step.running { border-color:#2f6df6; background:#111a2c; }
   .cal-step.ok .cal-step-name { color:#5fd08a; }
@@ -397,4 +403,5 @@
     .robot-console-title { display:none; }
     .robot-console-detail { order:9; min-width:100%; }
     .cal-step { grid-template-columns:1fr; }
+    .tdz-grid { grid-template-columns:1fr; }
   }

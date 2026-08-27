@@ -3181,6 +3181,9 @@ class BenchAPI:
     def _manual_geometry_path(self) -> Path:
         return Path(__file__).resolve().parent / "logs" / "geometry_manual.json"
 
+    def _touchdown_zero_path(self) -> Path:
+        return Path(__file__).resolve().parent / "logs" / "touchdown_zero.json"
+
     @staticmethod
     def _maybe_float(val) -> float | None:
         if val is None:
@@ -3278,6 +3281,32 @@ class BenchAPI:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, indent=2) + "\n")
         return self.manual_geometry_state()
+
+    def touchdown_zero_state(self) -> dict:
+        """Latest touchdown-derived software zero hints."""
+        path = self._touchdown_zero_path()
+        if not path.is_file():
+            return {
+                "ok": True,
+                "learned": False,
+                "path": str(path),
+                "log_name": path.name,
+            }
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError) as e:
+            return {"ok": False, "error": str(e), "path": str(path)}
+        if not isinstance(data, dict):
+            return {"ok": False, "error": "touchdown zero is not an object",
+                    "path": str(path)}
+        out = dict(data)
+        out.update({
+            "ok": True,
+            "learned": True,
+            "path": str(path),
+            "log_name": path.name,
+        })
+        return out
 
     def _manual_zero_hypotheses(
             self, samples: list[dict], *,
@@ -8854,6 +8883,460 @@ class BenchAPI:
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
         return {"ok": True, "stamp": stamp, "targets_deg": targets}
+
+    def measure_touchdown_zero(
+            self, *, zero_tip_clearance_mm=None, femur_mm=None,
+            tibia_mm=None, boot_diameter_mm=None, legs=None, axes=None,
+            torque=None, settle_s=None, save=True) -> dict:
+        """Tap requested legs down and save software zero hints.
+
+        This does not call ``set_zero_here`` or rewrite servo EEPROM centers.
+        It records where low-torque contact starts relative to measured
+        geometry and saves encoder-frame errors for later review/application.
+        """
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        try:
+            from touchdown_zero import (
+                analysis_dict, analyze_touch_rows, expected_dicts,
+                expected_touch_angles, make_sweep_angles,
+            )
+        except ImportError as e:
+            return {"ok": False, "error": f"touchdown_zero missing: {e}"}
+
+        manual = self.manual_geometry_state()
+        height = self._maybe_float(zero_tip_clearance_mm)
+        if height is None:
+            height = self._maybe_float(manual.get("hip_pitch_height_mm"))
+        femur = self._maybe_float(femur_mm)
+        if femur is None:
+            femur = self._maybe_float(manual.get("femur_mm")) or 90.0
+        tibia = self._maybe_float(tibia_mm)
+        if tibia is None:
+            tibia = self._maybe_float(manual.get("tibia_mm")) or 150.0
+        boot = self._maybe_float(boot_diameter_mm)
+        if height is None:
+            return {
+                "ok": False,
+                "error": (
+                    "zero_tip_clearance_mm is required unless manual "
+                    "hip_pitch_height_mm is saved"),
+                "manual": manual,
+            }
+        try:
+            expected = expected_touch_angles(
+                zero_tip_clearance_mm=height,
+                femur_mm=femur,
+                tibia_mm=tibia,
+                boot_diameter_mm=boot)
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": str(e)}
+
+        def parse_legs(val) -> list[int]:
+            if val is None:
+                return list(range(6))
+            raw = val
+            if isinstance(val, str):
+                raw = [x for x in val.replace(",", " ").split() if x]
+            if not isinstance(raw, (list, tuple, set)):
+                raw = [raw]
+            out: list[int] = []
+            for item in raw:
+                try:
+                    leg = int(item)
+                except (TypeError, ValueError):
+                    raise ValueError(f"bad leg {item!r}")
+                if not 0 <= leg < 6:
+                    raise ValueError(f"leg must be 0..5, got {leg}")
+                if leg not in out:
+                    out.append(leg)
+            return out
+
+        def parse_axes(val) -> list[str]:
+            if val is None:
+                return ["hip", "knee"]
+            raw = val
+            if isinstance(val, str):
+                raw = [x for x in val.replace(",", " ").split() if x]
+            if not isinstance(raw, (list, tuple, set)):
+                raw = [raw]
+            out: list[str] = []
+            for item in raw:
+                axis = str(item).strip().lower()
+                if axis not in ("hip", "knee"):
+                    raise ValueError(f"axis must be hip or knee, got {item!r}")
+                if axis not in out:
+                    out.append(axis)
+            return out
+
+        def truthy(val, default: bool = True) -> bool:
+            if val is None:
+                return default
+            if isinstance(val, str):
+                return val.strip().lower() in ("1", "true", "yes", "on")
+            return bool(val)
+
+        try:
+            leg_list = parse_legs(legs)
+            axis_list = parse_axes(axes)
+            torque_i = 220 if torque is None else int(round(float(torque)))
+            torque_i = max(150, min(520, torque_i))
+            settle = 0.42 if settle_s is None else float(settle_s)
+            settle = max(0.18, min(1.5, settle))
+            save_result = truthy(save, True)
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": str(e)}
+        if not leg_list or not axis_list:
+            return {"ok": False, "error": "no legs/axes requested"}
+
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "measure_touchdown_zero"
+            self._demo_status = "touchdown zero"
+            self._demo_params = {
+                "zero_tip_clearance_mm": height,
+                "femur_mm": femur,
+                "tibia_mm": tibia,
+                "boot_diameter_mm": boot,
+                "legs": leg_list,
+                "axes": axis_list,
+                "torque": torque_i,
+                "save": save_result,
+            }
+            self._cal_result = None
+            self._cal_progress = {"msg": "touchdown zero"}
+        self._set_activity("measure", "touchdown zero")
+
+        def _worker():
+            result: dict = {"ok": False, "mode": "touchdown_zero"}
+            live: set[int] = set()
+            rec: dict = {
+                "kind": "touchdown_zero",
+                "stamp": stamp,
+                "input_measurements": {
+                    "zero_tip_clearance_mm": round(float(height), 3),
+                    "femur_mm": round(float(femur), 3),
+                    "tibia_mm": round(float(tibia), 3),
+                    "boot_diameter_mm": (
+                        None if boot is None else round(float(boot), 3)),
+                },
+                "requested": {"legs": leg_list, "axes": axis_list},
+                "torque": torque_i,
+                "settle_s": round(settle, 3),
+                "expected": expected_dicts(expected),
+                "samples": [],
+                "per_leg": [],
+                "notes": [
+                    "Low-torque touchdown zero hints only; servo logical "
+                    "zero is not rewritten.",
+                    "encoder_zero_error_deg = observed_touch_deg - "
+                    "expected_touch_deg.",
+                    "Approx physical angle ~= encoder_deg - "
+                    "encoder_zero_error_deg; command compensation adds the "
+                    "same error to a desired physical angle.",
+                ],
+            }
+
+            def progress(msg: str, **extra) -> None:
+                with self._lock:
+                    self._cal_progress = {
+                        "msg": msg,
+                        "mode": "touchdown_zero",
+                        **extra,
+                    }
+                    self._demo_status = msg
+
+            def zero_pose() -> list[float]:
+                return [0.0] * N_JOINTS
+
+            def pose_for(leg: int, axis: str, angle: float) -> list[float]:
+                q = zero_pose()
+                j = int(leg) * 3
+                if axis == "hip":
+                    q[j + 1] = float(angle)
+                elif axis == "knee":
+                    q[j + 2] = float(angle)
+                return q
+
+            def fb_float(row: dict, key: str) -> float:
+                try:
+                    return float(row.get(key) or 0.0)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            def sample_row(leg: int, axis: str, cmd_deg: float,
+                           baseline: dict[int, dict]) -> dict:
+                fb = self._read_feedback_map(d.bus)
+                jh = int(leg) * 3 + 1
+                jk = int(leg) * 3 + 2
+                rh = fb.get(jh) or {}
+                rk = fb.get(jk) or {}
+                bh = baseline.get(jh) or {}
+                bk = baseline.get(jk) or {}
+                hdeg = self._maybe_float(rh.get("deg"))
+                kdeg = self._maybe_float(rk.get("deg"))
+                hcur = abs(fb_float(rh, "current_a"))
+                kcur = abs(fb_float(rk, "current_a"))
+                hload = fb_float(rh, "load_pct")
+                kload = fb_float(rk, "load_pct")
+                hcur0 = abs(fb_float(bh, "current_a"))
+                kcur0 = abs(fb_float(bk, "current_a"))
+                hload0 = fb_float(bh, "load_pct")
+                kload0 = fb_float(bk, "load_pct")
+                encoder = hdeg if axis == "hip" else kdeg
+                current_delta = max(0.0, hcur - hcur0, kcur - kcur0)
+                load_delta = max(0.0, hload - hload0, kload - kload0)
+                return {
+                    "leg": int(leg),
+                    "axis": axis,
+                    "cmd_deg": round(float(cmd_deg), 2),
+                    "encoder_deg": (
+                        None if encoder is None else round(encoder, 2)),
+                    "hip_deg": None if hdeg is None else round(hdeg, 2),
+                    "knee_deg": None if kdeg is None else round(kdeg, 2),
+                    "hip_current_a": round(hcur, 3),
+                    "knee_current_a": round(kcur, 3),
+                    "hip_load_pct": round(hload, 1),
+                    "knee_load_pct": round(kload, 1),
+                    "current_delta_a": round(current_delta, 3),
+                    "load_delta_pct": round(load_delta, 1),
+                }
+
+            try:
+                from feetech_bus import AXIS_LIMITS_DEG
+                from inplace_demos import (
+                    _enable_torque, _limp_all, _live_robot_ids,
+                    _set_torque_limit, _write_pose,
+                )
+            except ImportError as e:
+                result = {"ok": False, "mode": "touchdown_zero",
+                          "error": str(e)}
+            else:
+                guard_error = None
+                contact_count = 0
+                requested_count = len(leg_list) * len(axis_list)
+                leg_rows: dict[int, dict] = {
+                    int(leg): {"leg": int(leg)} for leg in leg_list
+                }
+                try:
+                    self._bus_hot_begin()
+                    with d._lock:
+                        d.mode = "demo"
+                        d.gait.stop()
+                    live = _live_robot_ids(d.bus)
+                    if len(live) < 12:
+                        result = {
+                            "ok": False,
+                            "mode": "touchdown_zero",
+                            "error": f"need more servos (live={len(live)})",
+                            "live": sorted(live),
+                        }
+                    else:
+                        progress("touchdown zero: safe zero")
+                        zero_start = self._safe_zero_sync(
+                            abort_check=self._demo_abort.is_set,
+                            on_progress=lambda p: progress(
+                                "touchdown zero safe-zero: "
+                                + str(p.get("msg") or "running")))
+                        rec["zero_start"] = zero_start
+                        if (gen != self._demo_gen
+                                or self._demo_abort.is_set()
+                                or not zero_start.get("ok")):
+                            result = {
+                                "ok": False,
+                                "mode": "touchdown_zero",
+                                "aborted": bool(self._demo_abort.is_set()
+                                                or zero_start.get("aborted")),
+                                "error": (zero_start.get("error")
+                                          or "safe zero failed"),
+                                "record": rec,
+                            }
+                        else:
+                            _enable_torque(d.bus, live)
+                            _set_torque_limit(d.bus, live, torque_i)
+                            for leg in leg_list:
+                                if guard_error or self._demo_abort.is_set():
+                                    break
+                                for axis in axis_list:
+                                    if (guard_error
+                                            or self._demo_abort.is_set()):
+                                        break
+                                    axis_index = 1 if axis == "hip" else 2
+                                    exp = expected[axis].expected_touch_deg
+                                    sweep = make_sweep_angles(
+                                        exp,
+                                        limit=AXIS_LIMITS_DEG[axis_index])
+                                    progress(
+                                        f"touchdown zero: L{leg} {axis} zero",
+                                        leg=leg, axis=axis)
+                                    _write_pose(
+                                        d.bus, zero_pose(), live,
+                                        speed=110, acc=9)
+                                    time.sleep(0.55)
+                                    baseline = self._read_feedback_map(d.bus)
+                                    rows: list[dict] = []
+                                    analysis = None
+                                    for angle in sweep:
+                                        if self._demo_abort.is_set():
+                                            guard_error = "aborted"
+                                            break
+                                        progress(
+                                            f"touchdown zero: L{leg} {axis} "
+                                            f"{angle:+.1f} deg",
+                                            leg=leg, axis=axis,
+                                            angle_deg=angle)
+                                        _write_pose(
+                                            d.bus,
+                                            pose_for(leg, axis, angle),
+                                            live, speed=72, acc=8)
+                                        time.sleep(settle)
+                                        row = sample_row(
+                                            leg, axis, angle, baseline)
+                                        rows.append(row)
+                                        rec["samples"].append(row)
+                                        max_cur = max(
+                                            float(row.get("hip_current_a")
+                                                  or 0.0),
+                                            float(row.get("knee_current_a")
+                                                  or 0.0))
+                                        max_load = max(
+                                            float(row.get("hip_load_pct")
+                                                  or 0.0),
+                                            float(row.get("knee_load_pct")
+                                                  or 0.0))
+                                        if max_cur >= 0.75:
+                                            guard_error = (
+                                                f"L{leg} {axis} current "
+                                                f"guard {max_cur:.2f}A")
+                                            break
+                                        if max_load >= 45.0:
+                                            guard_error = (
+                                                f"L{leg} {axis} load guard "
+                                                f"{max_load:.0f}%")
+                                            break
+                                        analysis = analyze_touch_rows(
+                                            axis, rows,
+                                            expected_touch_deg=exp)
+                                        if analysis.ok:
+                                            break
+                                    if analysis is None:
+                                        analysis = analyze_touch_rows(
+                                            axis, rows,
+                                            expected_touch_deg=exp)
+                                    axis_result = analysis_dict(analysis)
+                                    axis_result["sweep_deg"] = sweep
+                                    leg_rows[int(leg)][axis] = axis_result
+                                    if analysis.ok:
+                                        contact_count += 1
+                                    _write_pose(
+                                        d.bus, zero_pose(), live,
+                                        speed=100, acc=8)
+                                    time.sleep(0.35)
+
+                            rec["per_leg"] = [
+                                leg_rows[int(leg)] for leg in leg_list
+                            ]
+                            complete = (
+                                guard_error is None
+                                and not self._demo_abort.is_set()
+                                and contact_count == requested_count)
+                            rec["summary"] = {
+                                "requested": requested_count,
+                                "contacts": contact_count,
+                                "complete": bool(complete),
+                                "saved": False,
+                                "guard_error": guard_error,
+                            }
+
+                            if save_result and complete:
+                                payload = {
+                                    "timestamp": (
+                                        time.strftime("%Y-%m-%dT%H:%M:%S")),
+                                    "source": "touchdown_zero",
+                                    "learned": True,
+                                    "input_measurements": (
+                                        rec["input_measurements"]),
+                                    "expected": rec["expected"],
+                                    "per_leg": rec["per_leg"],
+                                    "convention": rec["notes"][1:],
+                                    "measurement_stamp": stamp,
+                                }
+                                path = self._touchdown_zero_path()
+                                path.parent.mkdir(parents=True, exist_ok=True)
+                                path.write_text(
+                                    json.dumps(payload, indent=2) + "\n")
+                                rec["summary"]["saved"] = True
+                                rec["touchdown_zero_path"] = str(path)
+
+                            progress("touchdown zero: return zero")
+                            if not self._demo_abort.is_set():
+                                _write_pose(
+                                    d.bus, zero_pose(), live,
+                                    speed=100, acc=8)
+                                time.sleep(0.5)
+
+                            if guard_error:
+                                finalized = self._meas_finalize(rec)
+                                result = {
+                                    "ok": False,
+                                    "mode": "touchdown_zero",
+                                    "recoverable": True,
+                                    "guard_stop": guard_error != "aborted",
+                                    "aborted": guard_error == "aborted",
+                                    "error": guard_error,
+                                    "record": finalized.get("record", rec),
+                                }
+                            else:
+                                result = self._meas_finalize(rec)
+                                result["mode"] = "touchdown_zero"
+                except Exception as e:
+                    result = {"ok": False, "mode": "touchdown_zero",
+                              "error": str(e), "record": rec}
+                finally:
+                    try:
+                        if live:
+                            _set_torque_limit(d.bus, live, 1000)
+                    except Exception:
+                        pass
+                    try:
+                        if live:
+                            _limp_all(d.bus, live)
+                    except Exception:
+                        try:
+                            d.handle("X")
+                        except Exception:
+                            pass
+                    self._bus_hot_end()
+
+            if gen != self._demo_gen:
+                return
+            with d._lock:
+                if d.mode == "demo":
+                    d.mode = "idle"
+                d.armed = False
+            with self._lock:
+                self._cal_result = result
+                if result.get("ok"):
+                    summ = (result.get("record") or {}).get("summary") or {}
+                    self._demo_status = (
+                        "done · touchdown zero "
+                        f"{summ.get('contacts')}/{summ.get('requested')}"
+                        + (" saved" if summ.get("saved") else ""))
+                else:
+                    self._demo_status = (
+                        "error: " + str(result.get("error") or "failed"))
+                self._cal_progress = {"msg": self._demo_status}
+            self._set_activity("limp", self._demo_status)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "stamp": stamp, "mode": "touchdown_zero"}
 
     def measure_axis_geometry(
             self, *, knee_height_mm: float | None = None,

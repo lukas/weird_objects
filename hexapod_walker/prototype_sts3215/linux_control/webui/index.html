@@ -18,6 +18,7 @@
     <button id="tab-drive" class="tab on">Drive</button>
     <span class="tabsep"></span>
     <button id="tab-calibrate" class="tab">Calibrate</button>
+    <button id="tab-touchdown" class="tab">Touchdown</button>
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
@@ -758,6 +759,69 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
     </div>
   </div>
   </div><!-- /view-measure -->
+
+  <div id="view-touchdown" class="view">
+  <div class="row">
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Touchdown zero</h2>
+      <div class="hint">Low-torque per-leg taps near the geometry-predicted
+        floor contact angle. Saves software zero hints only; it never rewrites
+        servo middle/zero.</div>
+      <div class="cal-manual-row">
+        <label>Geometry</label>
+        <input id="tdzheight" type="number" step="0.5" value="88">
+        <span>zero tip h</span>
+        <input id="tdzfemur" type="number" step="0.5" value="90">
+        <span>femur</span>
+        <input id="tdztibia" type="number" step="0.5" value="150">
+        <span>knee→tip</span>
+        <input id="tdzboot" type="number" step="0.5" value="9">
+        <span>boot Ø</span>
+        <input id="tdztorque" type="number" step="10" value="220">
+        <span>torque</span>
+      </div>
+      <div class="tdz-grid">
+        <div>
+          <label class="slab">Legs</label>
+          <div class="btns seg" id="tdzlegs">
+            <button data-leg="0" class="on">0</button>
+            <button data-leg="1" class="on">1</button>
+            <button data-leg="2" class="on">2</button>
+            <button data-leg="3" class="on">3</button>
+            <button data-leg="4" class="on">4</button>
+            <button data-leg="5" class="on">5</button>
+          </div>
+          <div class="btns tdz-mini">
+            <button id="tdzalllegs">All</button>
+            <button id="tdzleg0">L0 only</button>
+          </div>
+        </div>
+        <div>
+          <label class="slab">Axes</label>
+          <div class="btns seg" id="tdzaxes">
+            <button data-axis="hip" class="on">Hip</button>
+            <button data-axis="knee" class="on">Knee</button>
+          </div>
+        </div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="tdzrun" class="on">▶ Run selected taps</button>
+        <button id="tdzrunl0">▶ Run L0 check</button>
+        <button id="tdzstop" class="danger">■ Stop</button>
+        <button id="tdzrefresh">↻ Refresh</button>
+      </div>
+      <div class="hint" id="tdzexpected" style="margin-top:10px">—</div>
+      <div class="hint" id="tdzstatus" style="margin-top:8px">Idle.</div>
+      <div class="hint" id="tdzsummary" style="margin-top:8px">No run yet.</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Saved software zero hints</h2>
+      <div id="tdzsaved" class="hint">No saved touchdown-zero hints yet.</div>
+    </div>
+  </div>
+  </div><!-- /view-touchdown -->
 
   <div id="view-calibrate" class="view">
   <div class="row">

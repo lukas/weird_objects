@@ -2,9 +2,10 @@ const conn = document.getElementById('conn');
 const sentEl = document.getElementById('sent');
 const gpEl = document.getElementById('gp');
 let gait = 0, armed = false, dancePaused = false, lastInput = 0;
-let activeView = 'drive';  // drive | motors | demos | rl | calibrate | debug
+let activeView = 'drive';  // drive | motors | demos | rl | calibrate | touchdown | debug
 let calAxis = 'all';
 let calTimer = null;
+let tdzTimer = null;
 let selJoint = null, selSid = null;
 let motorsTimer = null;
 let linkOk = null;           // null=unknown, true/false after first ping
@@ -1354,10 +1355,12 @@ $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); d
 
 // --- tab switching ----------------------------------------------------------
 const VIEWS = ['drive','motors','demos','dance','rock','quad','rl',
-               'experiments','measure','calibrate','debug'];
+               'experiments','measure','calibrate','touchdown','debug'];
 const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
                     dance:'Dance', rock:'Rock', quad:'Quad', rl:'RL',
-                    measure:'Measure', calibrate:'Calibrate', debug:'Debug'};
+                    experiments:'Experiments', measure:'Measure',
+                    calibrate:'Calibrate', touchdown:'Touchdown',
+                    debug:'Debug'};
 function showView(which){
   activeView = which;
   VIEWS.forEach(v=>{
@@ -1395,6 +1398,11 @@ function showView(which){
     refreshCalibrate(); startCalPoll();
   }
   else stopCalPoll();
+  if(which === 'touchdown'){
+    if(servosArmed){ cmd('HOLD'); forceResend(); }
+    tdzRefresh(); startTdzPoll();
+  }
+  else stopTdzPoll();
   if(which === 'rl'){ refreshRlTab(); simPollMaybe(); }
   else stopSimPoll();
   if(which === 'measure'){ muRefresh(); muPollMaybe(); }
@@ -1409,8 +1417,238 @@ $('tab-rl').onclick = ()=> showView('rl');
 $('tab-experiments').onclick = ()=> showView('experiments');
 $('tab-measure').onclick = ()=> showView('measure');
 $('tab-calibrate').onclick = ()=> showView('calibrate');
+$('tab-touchdown').onclick = ()=> showView('touchdown');
 $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
+
+// --- Touchdown-zero software calibration -----------------------------------
+function tdzNum(id){
+  const el = $(id);
+  if(!el || String(el.value).trim() === '') return null;
+  const n = Number(el.value);
+  return Number.isFinite(n) ? n : null;
+}
+function tdzDeg(v, digits=2){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(digits) + '°';
+}
+function tdzPlainDeg(v, digits=2){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(digits) + '°' : '—';
+}
+function tdzSigned(v, digits=2){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(digits);
+}
+function tdzExpectedPreview(){
+  const h = tdzNum('tdzheight'), f = tdzNum('tdzfemur');
+  const t = tdzNum('tdztibia'), b = tdzNum('tdzboot');
+  const el = $('tdzexpected');
+  if(!el) return;
+  if(!(h > 0 && f > 0 && t > 0)){
+    el.textContent = 'Enter positive height and link lengths.';
+    return;
+  }
+  const hipRatio = h / (f + t);
+  const kneeRatio = h / t;
+  if(Math.abs(hipRatio) > 1 || Math.abs(kneeRatio) > 1){
+    el.innerHTML = '<span class="tdz-bad">Geometry is unreachable for this height.</span>';
+    return;
+  }
+  const hip = Math.asin(hipRatio) * 180 / Math.PI;
+  const knee = Math.asin(kneeRatio) * 180 / Math.PI;
+  let bootTxt = '';
+  if(b > 0){
+    const r = b * 0.5;
+    const ratio = Math.max(0, h - r) / Math.max(1e-9, t - r);
+    if(Math.abs(ratio) <= 1){
+      const kb = Math.asin(ratio) * 180 / Math.PI;
+      bootTxt = ` · boot-radius knee ${tdzPlainDeg(kb)}`;
+    }
+  }
+  el.innerHTML = `Expected touch: hip ${tdzPlainDeg(hip)} · knee ${tdzPlainDeg(knee)}${bootTxt}`;
+}
+function tdzButtons(sel){
+  return Array.from(document.querySelectorAll(sel));
+}
+function tdzSelectedLegs(){
+  return tdzButtons('#tdzlegs button[data-leg].on')
+    .map(b=>Number(b.dataset.leg))
+    .filter(n=>Number.isInteger(n) && n >= 0 && n <= 5);
+}
+function tdzSelectedAxes(){
+  return tdzButtons('#tdzaxes button[data-axis].on')
+    .map(b=>b.dataset.axis)
+    .filter(a=>a === 'hip' || a === 'knee');
+}
+function tdzSetLegs(legs){
+  const want = new Set(legs);
+  tdzButtons('#tdzlegs button[data-leg]').forEach(b=>{
+    b.classList.toggle('on', want.has(Number(b.dataset.leg)));
+  });
+}
+function tdzBody(legOverride=null){
+  return {
+    zero_tip_clearance_mm: tdzNum('tdzheight'),
+    femur_mm: tdzNum('tdzfemur'),
+    tibia_mm: tdzNum('tdztibia'),
+    boot_diameter_mm: tdzNum('tdzboot'),
+    torque: tdzNum('tdztorque'),
+    legs: legOverride || tdzSelectedLegs(),
+    axes: tdzSelectedAxes(),
+    save: true,
+  };
+}
+function tdzAxisCell(row, axis){
+  const a = row && row[axis];
+  if(!a) return '<td colspan="5">—</td>';
+  const ok = !!a.ok;
+  const cls = ok ? 'tdz-good' : 'tdz-bad';
+  return `<td class="${cls}">${htmlEscape(a.status || (ok ? 'contact' : '—'))}</td>`+
+    `<td>${tdzPlainDeg(a.expected_touch_deg)}</td>`+
+    `<td>${tdzPlainDeg(a.observed_touch_deg)}</td>`+
+    `<td>${tdzDeg(a.encoder_zero_error_deg)}</td>`+
+    `<td>${htmlEscape(a.contact_strength || '')}</td>`;
+}
+function tdzRenderRecord(record, label='Saved'){
+  const el = $('tdzsaved');
+  if(!el) return;
+  if(!record || (!record.learned && !Array.isArray(record.per_leg))){
+    el.textContent = 'No saved touchdown-zero hints yet.';
+    return;
+  }
+  const perLeg = Array.isArray(record.per_leg) ? record.per_leg : [];
+  const meas = record.input_measurements || {};
+  const stamp = record.timestamp || record.measurement_stamp || record.stamp || '';
+  const summary = record.summary || {};
+  const rows = perLeg.map(row => (
+    `<tr>`+
+      `<td>L${htmlEscape(row.leg)}</td>`+
+      tdzAxisCell(row, 'hip')+
+      tdzAxisCell(row, 'knee')+
+    `</tr>`
+  )).join('');
+  el.innerHTML =
+    `<div>${htmlEscape(label)}${stamp ? (' · '+htmlEscape(stamp)) : ''}`+
+      (summary.requested != null
+        ? ` · contacts ${htmlEscape(summary.contacts)}/${htmlEscape(summary.requested)}`
+        : '')+
+      (summary.saved ? ' · saved' : '')+
+    `</div>`+
+    `<div style="margin-top:6px">height ${calMm(meas.zero_tip_clearance_mm)} · `+
+      `femur ${calMm(meas.femur_mm)} · tibia ${calMm(meas.tibia_mm)} · `+
+      `boot Ø ${calMm(meas.boot_diameter_mm)}</div>`+
+    (rows ? (
+      `<table class="cal-table" style="margin-top:10px"><thead><tr>`+
+        `<th>leg</th>`+
+        `<th>hip</th><th>hip exp</th><th>hip touch</th><th>hip err</th><th>hip strength</th>`+
+        `<th>knee</th><th>knee exp</th><th>knee touch</th><th>knee err</th><th>knee strength</th>`+
+      `</tr></thead><tbody>${rows}</tbody></table>`
+    ) : '<div style="margin-top:8px">No per-leg rows.</div>');
+}
+async function tdzRefresh(){
+  tdzExpectedPreview();
+  let cal = null;
+  try{
+    const cr = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
+    if(cr.ok) cal = await cr.json();
+  }catch(e){}
+  const runningTouch = !!(cal && cal.running && cal.name === 'measure_touchdown_zero');
+  const progress = (cal && cal.progress) || {};
+  $('tdzrun').disabled = runningTouch;
+  $('tdzrunl0').disabled = runningTouch;
+  if(runningTouch){
+    $('tdzstatus').textContent = progress.msg || 'Running touchdown zero…';
+    $('tdzsummary').textContent = 'Running. Keep watching the robot.';
+    return;
+  }
+  if(cal && cal.result && cal.result.mode === 'touchdown_zero'){
+    const rec = cal.result.record || {};
+    const s = rec.summary || {};
+    $('tdzstatus').textContent = cal.result.ok
+      ? 'Last touchdown run complete.'
+      : 'Last touchdown run failed: '+(cal.result.error || 'unknown');
+    $('tdzsummary').textContent = s.requested != null
+      ? `Last run contacts ${s.contacts}/${s.requested}`+
+        (s.saved ? ' · saved' : '')+
+        (s.guard_error ? (' · '+s.guard_error) : '')
+      : (progress.msg || 'Idle.');
+    tdzRenderRecord(rec, 'Last run');
+    return;
+  }
+  try{
+    const r = await fetch('/api/touchdown_zero?t='+Date.now(), {cache:'no-store'});
+    const d = await r.json();
+    $('tdzstatus').textContent = d.learned ? 'Idle. Saved hints loaded.' : 'Idle. No saved hints yet.';
+    $('tdzsummary').textContent = d.learned
+      ? `Saved ${d.measurement_stamp || d.timestamp || d.log_name || 'touchdown_zero.json'}`
+      : 'No touchdown-zero run saved.';
+    tdzRenderRecord(d, 'Saved');
+  }catch(e){
+    $('tdzstatus').textContent = 'Touchdown status failed (link?)';
+  }
+}
+function startTdzPoll(){
+  stopTdzPoll();
+  tdzTimer = setInterval(()=>{ if(activeView === 'touchdown') tdzRefresh(); }, 900);
+}
+function stopTdzPoll(){
+  if(tdzTimer){ clearInterval(tdzTimer); tdzTimer = null; }
+}
+async function tdzStart(legOverride=null){
+  const body = tdzBody(legOverride);
+  if(!body.legs.length || !body.axes.length){
+    $('tdzstatus').textContent = 'Pick at least one leg and one axis.';
+    return;
+  }
+  $('tdzstatus').textContent = 'Starting touchdown zero…';
+  $('tdzrun').disabled = true;
+  $('tdzrunl0').disabled = true;
+  try{
+    const r = await fetch('/api/measure/touchdown_zero', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if(!d.ok){
+      $('tdzstatus').textContent = 'Refused: '+(d.error || 'unknown');
+      showErr('Touchdown zero: '+(d.error || 'refused'));
+      $('tdzrun').disabled = false;
+      $('tdzrunl0').disabled = false;
+      return;
+    }
+    $('tdzstatus').textContent = requestReceiptLine(d, 'Touchdown zero')+'; running…';
+    startTdzPoll();
+  }catch(e){
+    $('tdzstatus').textContent = 'Start failed (link?)';
+    $('tdzrun').disabled = false;
+    $('tdzrunl0').disabled = false;
+  }
+}
+tdzButtons('#tdzlegs button[data-leg]').forEach(b=>b.onclick=()=>{
+  b.classList.toggle('on');
+});
+tdzButtons('#tdzaxes button[data-axis]').forEach(b=>b.onclick=()=>{
+  b.classList.toggle('on');
+});
+['tdzheight','tdzfemur','tdztibia','tdzboot','tdztorque'].forEach(id=>{
+  const el = $(id);
+  if(el) el.oninput = tdzExpectedPreview;
+});
+$('tdzalllegs').onclick = ()=> tdzSetLegs([0,1,2,3,4,5]);
+$('tdzleg0').onclick = ()=> tdzSetLegs([0]);
+$('tdzrun').onclick = ()=> tdzStart();
+$('tdzrunl0').onclick = ()=> tdzStart([0]);
+$('tdzstop').onclick = async ()=>{
+  $('tdzstatus').textContent = 'Stopping…';
+  await fetch('/api/calibrate/stop', {method:'POST'});
+  tdzRefresh();
+};
+$('tdzrefresh').onclick = ()=> tdzRefresh();
+tdzExpectedPreview();
 
 // --- Calibrate checkup -------------------------------------------------------
 function startCalPoll(){
