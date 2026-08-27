@@ -1,5 +1,51 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~09:2x (**anchor2-headings-curric1 (seed0) CANARY
+FAIL - MECHANISM, own scope, joint call pends -s1 (concurrent cycle,
+still mid-eval): the graded heading-cone RAMP fallback (Next -1.85's
+own prescribed lever) does NOT protect walk the way the gate assumed
+— it reproduces the SAME anchor4/anchor5-stdmild1/anchor6-logstdsplit
+-class 2-leg-sacrifice freeze that its own sibling headings1 (the
+immediate full-cone open) did NOT show.** det gait_valid 0/6 at BOTH
+DR-0 and own-DR(0.5), sacrificed_legs=[4,5] every det episode,
+progress_ratio med 0.06-0.09 (gate bar >=0.2), slip_per_m med 17-23
+(vs anchor2's healthy ~4-5); video (walk_det_0..5, both DR) shows two
+legs held rigid in the air, near-static shuffle. Sto is a partial
+(gait_valid 3-4/6) rather than a full freeze but det — the panel's
+primary read — fails WALK-SURVIVES outright, so DIRECTION-LEARNS is
+moot/uninterpretable this seed (dir_err med 85-87deg under a broken
+gait, worse than even the ~52deg no-heading baseline — noise, not
+signal). Reward quarters [38.3, 9.5, -179.0, -78.9]: deep Q3 trough,
+still deeply negative at Q4 despite partial recovery — the 08-21
+"aligned bad-and-stuck" shape, same as every other log_std/anneal-
+class walk catastrophe this campaign has hit, not a rising-still-
+training case. **Counterintuitive finding, DIG-IN flagged**: the
+supposedly GENTLER ramp produced a WORSE walk outcome than its own
+instant-full-open sibling (headings1, WALK-SURVIVES clean both
+seeds) — the "ramp softens the blow" intuition this arm was funded on
+is falsified on this seed. Infra note (same class as the already-
+fixed 3300s wrapper timeout): the controller-local eval log stream
+died mid-pass again (`kubectl exec` websocket close 1006 at ~08:03)
+while the remote `eval_checkpoint` kept computing fine on the pod
+(confirmed via direct `ps`/file-mtime polling) — `resume_orphaned_
+eval.py` (already built 08-26) did the copy-back cleanly once all 60
+episodes (5 modes x 6 x det/sto) finished, ~2h25m total wall clock;
+no manual `kubectl cp` needed this time, the existing tool covers it.
+**UPDATE same cycle: candidate (a) ruled out** — pulled
+`env/sched_value` straight from the cached W&B history and confirmed
+a clean, correctly-clipping linear ramp (see Next -1.95's full
+numbers); the `sched.*` engine is not the bug. **Do not fund a third
+heading-exposure-schedule variant (instant open or ramp) until a
+dig-in explains why a clean gentler ramp is WORSE than an instant open
+under this exact coef=3.0 dual-core recipe** — candidates: seed/
+init-trajectory sensitivity unrelated to the heading mechanism
+itself, or a `sched.*` x `mode_seq` segment-boundary interaction at
+the goal-sampling level (not the scheduler's own value trace). Evidence: verdict on `cw-standwalk-
+stance-mesh2-stage2-dualbc1-anchor2-headings-curric1`, `logs/
+ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor2_headings_
+curric1_{gate,owncfg}/`, W&B `lcde9n5h`. Joint call (with -s1) still
+open. Prior banner below.)
+
 Update, 2026-08-27 ~07:4x (kick-cycle housekeeping on
 `anchor6b-logstdsplit-fix{,-s1}` — **WIRING CHECK FIRST clause
 CONFIRMED PASS on both seeds; mechanism read still pending, no
@@ -3912,6 +3958,34 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
+-1.95 DIG-IN (08-27 ~09:2x, own-scope FAIL on anchor2-headings-curric1,
+    seed0; joint call pends -s1), NARROWED same cycle: the graded
+    heading-cone ramp (Next -1.85's own prescribed fallback lever)
+    reproduces the anchor4-class 2-leg-sacrifice walk freeze that its
+    own instant-open sibling (headings1) did NOT show —
+    counterintuitive (the "gentler" mechanism did WORSE).
+    **Candidate (a) RULED OUT this cycle**: pulled the W&B history's
+    `env/sched_value` trace directly (`logs/experiments/...
+    anchor2-headings-curric1/wandb_history.csv`) — it is a clean,
+    exactly-linear ramp (constant ~0.04289 increment per 65536-step
+    logging interval, slope matches the intended
+    `0.7854/1,200,000` almost exactly) that correctly clips at
+    `v1=0.7854` by global_step ~1.245M and holds there through the
+    rest of the run; only a small (~30k-step, ~2.5% of the ramp
+    window) start lag consistent with the documented pool-depth
+    easing lag, not a bug. The `sched.*` engine itself is exonerated
+    — do not re-check its wiring again on this recipe. **Remaining
+    scope is candidate (b) only**: root-cause why a clean linear
+    heading-exposure ramp destabilizes THIS seed's walk core worse
+    than an instant full-open did on its sibling — most likely
+    seed/init-trajectory sensitivity of the coef=3.0 dual-core recipe
+    (or a `sched.*` x `mode_seq` segment-boundary interaction at the
+    goal-sampling level, not the scheduler's value trace) rather than
+    a property of ramp-vs-instant exposure per se; compare this run's
+    own reward/canary trajectory shape against headings1-seed0's from
+    the same 0-1.2M window before assuming the mechanisms differ at
+    all. Evidence: verdict on `cw-standwalk-stance-mesh2-stage2-
+    dualbc1-anchor2-headings-curric1` (08-27 ~09:2x).
 -1.9 DIG-IN (08-27, this cycle's JOINT close on anchor6-logstdsplit/
     -s1): the per-core `log_std` split (Next -1.8, now BUILT and
     TESTED) does not save walk — cross-seed replicated total

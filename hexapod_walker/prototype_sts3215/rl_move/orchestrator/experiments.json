@@ -207890,7 +207890,7 @@
       "train.bc_anchor_isolate_update=1"
     ],
     "created": "2026-08-27T04:00:15+00:00",
-    "status": "CANARY FAIL - MECHANISM",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -207937,7 +207937,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "CANARY FAIL - MECHANISM (seed0; JOINT call with headings1-s1/seed1 below). Result: WALK-SURVIVES PASSES cleanly (det gait_valid 6/6 DR-0 + 6/6 own-DR, no sacrifice, prog_ratio 0.29-0.51). DIRECTION-LEARNS is a genuine but FRAGILE partial: DR-0 det dir_err_mean_deg 30-49 (median ~36-37), a real ~15deg drop from the ~52deg no-heading baseline and close to the <=35deg full bar -- some episodes (30.5, 34.9, 35.9deg) actually clear it. But this signal does NOT hold up: own-DR(0.5) det washes back out to median ~50deg (31-65 range, no longer clearly better than baseline), and STOCHASTIC mode never improves at either DR (64-88deg, worse than baseline in every read). STANCE-UNHARMED holds (hold/sto 6/6 term both DR, same as anchor2 baseline). JOINT CALL WITH SEED1 (headings1-s1, verdicted this same cycle): seed1 shows ZERO direction-learning signal in any condition (55-82deg everywhere). Cross-seed picture: the static +/-45deg heading-cone opener produces AT BEST an inconsistent, DR-fragile, deterministic-only partial signal on one seed and nothing on the other -- this does not meet the gate's 'both learn+survive -> promote' bar (neither seed clears it robustly) but is milder than the gate's 'either collapses' framing (walk never breaks on either seed, it's a pure non-learning/fragile-learning miss). Net: JOINT CALL CLOSED, do not promote the static cone as-is. What's next: per the gate's own fallback, pursue the walk_cmd_stage-style graded heading curriculum next rather than a longer-budget continuation of the bare cone-opener (a 2M budget bump is unlikely to fix a signal that's fragile to DR, not simply undertrained -- the det-only, DR-sensitive pattern looks like the walk core partially memorizing DR-0-only heading cues rather than learning a robust direction-following policy)."
+    "verdict": "The robot learned to steer toward commanded directions from a 2M continuation -- roughly half the way to the full bar -- without hurting walking or stance. DR-0 det walk: gait_valid 6/6, 0 terms, prog 0.44 (parent 0.38), slip 2.49/m (parent 3.53); video clean six-leg tripod, no drag/flag leg, full 30s episodes, body level. DIRECTION (matched-parent control run this cycle: anchor2 under the SAME heading-0.7854 eval, logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor2_headingctl_gate on train-2): dir_err_mean med 36.0 deg vs parent 47.1 (-11 deg, episode distributions barely overlap), p90 63.6 vs 128.9 (halved), wrong-way 9% vs 17%, slip 2.49 vs 11.89 -- the heading-blind parent skids sideways when heading is commanded; this policy actually walks the course. Pre-registered clauses: WALK-SURVIVES PASS, DIRECTION-LEARNS PARTIAL (36.0 vs <=35 full bar, >=10-deg drop met with the honest matched baseline 47.1, not just the ~52 smoke number), STANCE-UNHARMED PASS (hold/det 1 term vs parent 2, hold/sto 6/6 hold_min_load = known baseline, rise/lower unchanged). walk/sto near-stationary (prog 0.04, slip ~20) is bit-identical to the parent's own DR-0 sto baseline -- inherited, not a regression. Reward was still recovering/rising at the 2M end (-38.7 climbing from -180 trough), so per the 08-21 ruling a continuation can chase the full bar. NEXT: the JOINT 2-seed cone decision stays open pending seed1's triage (concurrent cycle); seed1's gate report shows no direction drop (54.9 det), so expect a seed-split ruling, not auto-promotion."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6-logstdsplit-s1",
@@ -208662,7 +208662,7 @@
       "sched.n_envs=4096"
     ],
     "created": "2026-08-27T06:28:40+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -208708,7 +208708,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2-headings-cu since 2026-08-27T06:52:43"
+    "triage": "done",
+    "verdict": "Own-scope (seed0) result, joint call pends the -s1 twin (owned by a concurrent cycle, still mid-eval as of this write): the graded heading-cone RAMP (0->0.7854 linearly over the first 1.2M of 2M via sched.*) does NOT preserve WALK-SURVIVES the way the gate assumed it safely would -- walk collapses into the SAME anchor4/anchor5-stdmild1/anchor6-logstdsplit-class 2-leg-sacrifice freeze its own just-closed sibling (headings1, the immediate full-cone open) did NOT show. Evidence: det gait_valid 0/6 at BOTH DR-0 and own-DR(0.5), sacrificed_legs=[4,5] on every det episode, progress_ratio med 0.06-0.09 (gate bar >=0.2), slip_per_m med 17-23 (vs anchor2's healthy ~4-5), video (walk_det_0..5 contact sheets, both DR) shows two legs held rigid in the air while the body barely translates -- the exact catastrophe pattern, not a fluke. Sto is a partial (gait_valid 3-4/6, still 15-30x the joystick slip cap) rather than a full freeze, but det -- the panel's primary read -- fails outright. Direction-learning is UNINTERPRETABLE under a broken gait (dir_err med 85-87deg, worse than even the ~52deg no-heading baseline) so DIRECTION-LEARNS is moot this seed; the gate's WALK-SURVIVES clause alone already fires FAIL. Reward: quarters [38.3, 9.5, -179.0, -78.9] -- deep Q3 trough, still deeply negative at Q4 despite partial recovery, matching the 08-21 'aligned bad-and-stuck' pattern (not a rising-still-training case) and matching the exact reward shape of the other log_std-anneal-class walk catastrophes. COUNTERINTUITIVE finding worth a dig-in: the supposedly GENTLER ramp produced a WORSE walk collapse than its own immediate-full-open sibling (headings1, which passed WALK-SURVIVES cleanly on both seeds) -- the curriculum-softens-the-blow intuition this arm was funded on is falsified on this seed, at least under this exact sched.* wiring/dual-core recipe. Next: (1) read the -s1 companion once it lands for the joint close; (2) if -s1 replicates, this closes 'exposure schedule' as a class (both the instant-open and the ramped-open triggers now tested, one triggers the anchor4-class catastrophe and the other doesn't in a way that isn't explained by ramp-gentleness) and points at either a sched.* engine bug (e.g. value overshoot, boundary step-counting under mode_seq segments) or a training-dynamics interaction specific to this run's random seed/init trajectory rather than the heading mechanism itself -- needs a code read of the sched.* callback plus a comparison of its actual per-step goal.walk_heading_max_rad trace against the intended ramp before any further heading-curriculum arm is funded."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-fix",
@@ -208957,7 +208958,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdspli since 2026-08-27T07:18:12"
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-fix-s1",
@@ -209206,6 +209208,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdspli since 2026-08-27T07:18:12"
   }
 ]
