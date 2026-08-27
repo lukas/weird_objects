@@ -329,3 +329,44 @@ def test_recover_population_barrier_is_healthy_during_checkup(monkeypatch):
     assert checkup["verdict"] == "HEALTHY"
     assert checkup["recover_population_barrier"] == barrier
     assert "intentionally waiting" in checkup["note"]
+
+
+def test_checkup_finds_completion_marker_past_2000_bytes(monkeypatch):
+    """Regression (08-27, anchor10-percoreclip false DEAD): a fast MJX
+    canary's own post-completion W&B postamble (artifact upload lines
+    + the full Run history/Run summary key dump) can push the
+    "[mjx-train] done" completion banner more than 2000 bytes before
+    the end of the log -- this exact run measured 2107 bytes after the
+    marker, missing the previously-widened-once-already 2000-byte tail
+    window by 107 bytes and reporting DEAD on a cleanly finished run.
+    The tail must now be wide enough to still see the marker."""
+    run = "cw-checkup-tailwidth-regress"
+    entry = {
+        "run": run, "pod": "hexapod-mjx-train-4",
+        "created": "2026-08-27T00:00:00+00:00", "status": "RUNNING",
+        "trainer": "ppo", "log": f"/tmp/train_{run}.log", "steps": 2000000,
+    }
+    monkeypatch.setattr(lr, "load_ledger", lambda: [entry])
+    monkeypatch.setattr(lr, "save_ledger", lambda entries: None)
+    monkeypatch.setattr(lr, "ledger_lock", lambda: contextlib.nullcontext())
+    monkeypatch.setattr(lr, "pod_trainers", lambda pod: [])  # process exited
+    # Fabricate the exact shape: the completion marker, then >2000
+    # bytes of wandb postamble (a synthetic Run summary key dump).
+    postamble = "\n".join(f"wandb:   canary/k{i} 0" for i in range(120))
+    log_text = (
+        "[mjx-train] done: 2,000,000 steps in 906s (2,207 env-steps/s "
+        "incl. setup) -> ckpt.zip\n" + postamble)
+    assert len(log_text.encode()) - log_text.index(
+        "[mjx-train] done") > 2000, "fixture must exceed the old window"
+
+    def _kexec(pod, script, timeout=60):
+        if "tail -c" in script:
+            n = int(script.split("tail -c", 1)[1].split()[0])
+            return log_text[-n:]
+        return "0"
+
+    monkeypatch.setattr(lr, "kexec", _kexec)
+    a = SimpleNamespace(run=run)
+    g = {"compute": {"gpu_pods": ["hexapod-mjx-train-4"]}}
+    assert lr.cmd_checkup(g, a) == 0, (
+        "still reporting DEAD -- the tail window did not actually widen")
