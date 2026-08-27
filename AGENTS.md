@@ -130,3 +130,21 @@ Hard rules:
 
 Details: `.cursor/rules/hexapod-sts-hardware-safety.mdc`,
 `hexapod_walker/prototype_sts3215/rl_move/API.md`.
+
+### Local Mac web hub on `:8898`
+
+Canonical command:
+
+```sh
+cd ~/weird_objects/hexapod_walker/prototype_sts3215
+make web-8898-start       # http://localhost:8898/rl
+make web-8898-status
+make web-8898-restart
+make web-8898-stop
+```
+
+This starts a Mac-side `launchctl` job via `uv run python -m
+rl_move.sim.web_server`; it is not the Uno Q's `hexapod-web.service`
+(`:8080`). The launcher is
+`hexapod_walker/prototype_sts3215/sim_viewer/hexapod_web_8898.sh`.
+It resolves the robot's current IP unless `HEXAPOD_HOST` is set.

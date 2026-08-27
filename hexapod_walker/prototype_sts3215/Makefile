@@ -17,7 +17,7 @@ else
 MJ_PY  := uv run --active python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast help
+.PHONY: check-cad check-cad-fast check-strength validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -52,6 +52,8 @@ help:
 	@echo "  robot-status      Read-only robot web health summary."
 	@echo "  robot-deploy      robot-check + SSH deploy + remote compile + health."
 	@echo "  robot-deploy-fast robot-check + SSH deploy only; deploy waits for /api/ping."
+	@echo "  web-8898-start    Start the local Mac web hub at http://localhost:8898/rl (uv + launchctl)."
+	@echo "  web-8898-status   Check the local :8898 hub and robot proxy target."
 	@echo "  robot-video       Contact sheet from a diagnosis MOV/MP4: make robot-video VIDEO=/path/movie.mov."
 
 check-cad:
@@ -279,3 +281,18 @@ robot-deploy:
 
 robot-deploy-fast:
 	bash $(CURDIR)/linux_control/dev_loop.sh deploy-fast
+
+web-8898 web-8898-start:
+	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" start
+
+web-8898-stop:
+	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" stop
+
+web-8898-restart:
+	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" restart
+
+web-8898-status:
+	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" status
+
+web-8898-logs:
+	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" logs

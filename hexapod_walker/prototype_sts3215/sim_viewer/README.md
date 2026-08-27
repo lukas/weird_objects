@@ -7,6 +7,7 @@ Written 2026-08-09 after re-deriving all of this one too many times.
 
 ```sh
 cd hexapod_walker/prototype_sts3215
+make web-8898-start     # canonical local Mac web hub: http://localhost:8898/rl
 sim_viewer/sim_play.sh     # ← the one to use: stand up AND walk, one window
 sim_viewer/sim_web.sh      # same web UI as the robot, routed to MuJoCo
 sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer)
@@ -14,7 +15,27 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 sim_viewer/sim_quad.sh     # tip-back QUAD walk playground (scripted, no RL)
 ```
 
-`sim_web.sh` starts a native `mujoco.viewer` window and serves the real
+## Canonical local web hub on :8898
+
+For the browser control surface a person or agent should use the managed
+launcher, not a hand-built Python command:
+
+```sh
+cd ~/weird_objects/hexapod_walker/prototype_sts3215
+make web-8898-start
+make web-8898-status
+make web-8898-restart
+make web-8898-stop
+```
+
+This runs on the Mac via `uv run` and `launchctl`, resolves
+`hexapod.local` to the current robot IP when possible, and serves
+`http://localhost:8898/rl`. Override the robot target for one run with
+`HEXAPOD_HOST=http://<robot-ip>:8080 make web-8898-restart`. Logs are in
+`/tmp/hexapod_web_8898.log` and `make web-8898-logs` tails them.
+
+`sim_web.sh` is the foreground/dev wrapper. It also uses `uv run`; by
+default it starts a native `mujoco.viewer` window and serves the real
 robot's `linux_control/webui/` at `http://127.0.0.1:8898/rl`. The web
 page is the controller; the MuJoCo window is the visual surface. The
 shared UI routes the RL tab's stand/lower/held-key
@@ -23,7 +44,7 @@ controls live under `/api/sim/*` and are shown only against this
 backend: reset stand, reset belly, fall, recover, and push.
 
 The browser JPEG preview is off in native-viewer mode. For headless
-debugging, run `python3 -m rl_move.sim.web_server` without `--viewer`,
+debugging, run `uv run python -m rl_move.sim.web_server` without `--viewer`,
 or pass `--browser-frames on` if you intentionally want both surfaces.
 
 Dance scripts (`motor_setup/dance_script.py`, `/api/dances`) play in the

@@ -2,13 +2,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [[ -z "${VENV:-}" ]]; then
-  if [[ -x ".venv/bin/mjpython" || -x ".venv/bin/python" ]]; then
-    VENV=".venv"
-  else
-    VENV="../../.venv"
-  fi
+UV_BIN="${UV:-$(command -v uv || true)}"
+if [[ -z "$UV_BIN" && -x /opt/homebrew/bin/uv ]]; then
+  UV_BIN=/opt/homebrew/bin/uv
 fi
+[ -n "$UV_BIN" ] || {
+  echo "uv not found - install uv or set UV=/path/to/uv" >&2
+  exit 1
+}
 POLICY_DIR="${POLICY_DIR:-rl_move/sim/policies}"
 # macOS ships bash 3.2, where "${EXTRA[@]}" on an empty array trips `set -u`
 # — prepend to "$@" instead of using an array.
@@ -20,18 +21,13 @@ if [[ "${SIM_WEB_PHASE:-1}" != "0" ]]; then
   set -- --phase-obs "$@"
 fi
 if [[ "${SIM_WEB_VIEWER:-1}" != "0" ]]; then
-  PY="$VENV/bin/mjpython"
+  PY=( "$UV_BIN" run mjpython )
   set -- --viewer "$@"
 else
-  PY="$VENV/bin/python"
+  PY=( "$UV_BIN" run python )
 fi
 
-[ -x "$PY" ] || {
-  echo "missing $PY - restore the prototype venv" >&2
-  exit 1
-}
-
-exec "$PY" -m rl_move.sim.web_server \
+exec "${PY[@]}" -m rl_move.sim.web_server \
   --http-port "${SIM_WEB_PORT:-8898}" \
   --policy-dir "$POLICY_DIR" \
   "$@"

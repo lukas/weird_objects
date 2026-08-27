@@ -344,7 +344,9 @@ function showSent(line, isErr){
   const text = String(line || '');
   const looksBad = /refus|fail|error|not ready|missing|timeout|no bus|unknown|denied|abort/i
     .test(text);
-  if(isErr || (looksBad && !isOkReceipt(text)))
+  const bad = !!(isErr || (looksBad && !isOkReceipt(text)));
+  sentEl.classList.toggle('bad', bad);
+  if(bad)
     showErr(line);
   else if(isOkReceipt(text) && isOkReceipt(errbarText.textContent))
     errbarEl.style.display = 'none';

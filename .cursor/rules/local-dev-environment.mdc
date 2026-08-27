@@ -69,6 +69,24 @@ sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer window)
 sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 ```
 
+The canonical local browser/control surface on the Mac is the managed
+`:8898` hub:
+
+```sh
+cd ~/weird_objects/hexapod_walker/prototype_sts3215
+make web-8898-start       # http://localhost:8898/rl
+make web-8898-status
+make web-8898-restart
+make web-8898-stop
+```
+
+It runs `uv run python -m rl_move.sim.web_server` under `launchctl` via
+`sim_viewer/hexapod_web_8898.sh`, resolves the robot's current `:8080`
+target unless `HEXAPOD_HOST` is set, and logs to
+`/tmp/hexapod_web_8898.log`. Do not hand-assemble direct
+`.venv/bin/python`, `nohup`, or random-worktree launch commands for
+`8898`.
+
 Key bindings are drawn IN the window (the user cannot see the terminal
 while a viewer has focus). `sim_play.sh` runs `rl_move/sim/play.py`, a
 cv2 window — cv2 has NO built-in key bindings, so there is no clash

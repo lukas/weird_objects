@@ -47,8 +47,16 @@ make -C hexapod_walker/prototype_sts3215 build
 make -C hexapod_walker/prototype_sts3215 verify-fast
 make -C hexapod_walker/prototype_sts3215 robot-check       # safe local robot/web checks
 make -C hexapod_walker/prototype_sts3215 robot-deploy      # check + SSH deploy + remote health
+make -C hexapod_walker/prototype_sts3215 web-8898-restart  # local Mac web hub on http://localhost:8898/rl
 ```
 
 Robot-control dev loop details live in `linux_control/README.md` and
 `linux_control/dev_loop.sh`. Use `robot-resolve` for a temporary IP when
 `hexapod.local` is flaky; do not commit fixed board IPs.
+
+The canonical local browser/control surface is `make -C
+hexapod_walker/prototype_sts3215 web-8898-start`. It runs on the Mac via
+`uv run`, manages a `launchctl` job, dynamically resolves the robot's
+`:8080` service unless `HEXAPOD_HOST` is set, and serves
+`http://localhost:8898/rl`. Use `web-8898-status`, `web-8898-restart`,
+`web-8898-stop`, and `web-8898-logs` for operations.
