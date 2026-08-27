@@ -1,5 +1,22 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~20:2x (idle-kick cycle: **INFRA FIX, no verdict —
+`anchor14-walkretaincoef1-rescue-s1`'s harness eval had never actually
+been launched**, despite two prior cycles' notes describing it as
+"mid-flight" (18:1x) / implicitly in-progress (20:0x "off-limits this
+cycle"). Mechanical check on `hexapod-mjx-train-1` found zero trace —
+no eval log content, no `logs/ckpt_eval/*rescue_s1*` dir, no
+`eval_checkpoint` process, only the training log. Launched the
+harness directly (`pod_eval.py`); confirmed via `kubectl exec ps aux`
+both DR-0 gate and own-DR passes are genuinely running on-pod. ETA
+~1.5-2h (matches seed0's own just-completed 17:49->20:01 runtime).
+**Do NOT re-launch podeval for this run** — it is now genuinely in
+flight; leave the joint RESCUE-PASS/PARTIAL/FAIL call for the
+SYNCED-marker cycle. All other tracks re-swept fresh: joystick/amp/
+cpg DONE-or-maintenance, walkcurr `[operator]`-blocked, backlog
+empty, 11 GPU pods free with no other legal standwalk arm before this
+read lands.) Prior banner below.
+
 Update, 2026-08-27 ~20:0x (triage cycle: **anchor14-walkretaincoef1-
 rescue (seed0, own scope) CANARY PASS — the RESCUE-recipe half of the
 coef-split wave; on this already-clean seed, coef=1.0 recovers most
