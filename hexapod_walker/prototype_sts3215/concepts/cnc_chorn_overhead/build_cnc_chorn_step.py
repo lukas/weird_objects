@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""THE geometry source for the cnc_chorn_overhead variant's four parts.
+"""THE geometry source for the cnc_chorn_overhead variant's five parts.
 
-STEP-FIRST: the CNC C-clamp and its three printed partners are authored
+STEP-FIRST: the CNC C-clamp and its four printed partners (knee block,
+tibia socket, knee cap, OUTBOARD-arm coxa) are authored
 HERE as build123d/OpenCascade BREP solids.  The .step files exported to
 ``step/`` are the CNC-shop quoting deliverable (chorn_clamp_cnc.step is
 the one that goes out for machining quotes); the tessellated .stl twins
@@ -55,9 +56,12 @@ from step_common import StepPart, export_all, write_bundle  # noqa: E402
 
 STEP_OUT_DIR = HERE / "step"
 
+import math  # noqa: E402
+
 import build_step_first_test as step  # noqa: E402
 import hexapod_prototype as hp  # noqa: E402
 import make_cnc_chorn_variant as cv  # noqa: E402
+import make_rigid_hip_variant as rv  # noqa: E402  (coxa hub constants)
 
 
 # --- span-style primitive adapters (same idiom as the rigid-hip builder) ----
@@ -96,28 +100,23 @@ def _wedge_prism_link() -> object:
 
 # --- chorn_clamp_cnc (CNC 6061-T6) ------------------------------------------
 
+# PLAIN C: the blade plan is just a rectangle from the disc to the web
+# (the outboard hip pivot cleared the plate; no droop/notch/corridor).
 _BLADE_PTS = [
     (cv.AXIS_X, cv.BLADE_W_UP),
-    (cv.AXIS_X + cv.BLADE_LEAD[0][0], cv.BLADE_LEAD[0][1]),
-    (cv.AXIS_X + cv.BLADE_LEAD[1][0], cv.BLADE_LEAD[1][1]),
-    (cv.AXIS_X + cv.BLADE_LEAD[2][0], cv.BLADE_LEAD[2][1]),
-    (cv.WEB_X1, cv.BLADE_LEAD[2][1]),
-    (cv.WEB_X1, cv.CORR_Y_BOT),                # swan-neck: deep aft corridor
-    cv.BLADE_STEP[1],                          # (42, -24)
-    cv.BLADE_STEP[0],                          # (39, -20) step back up
-    (cv.AXIS_X, cv.BLADE_Y_BOT),               # disc end keeps -20
+    (cv.WEB_X1, cv.BLADE_W_UP),
+    (cv.WEB_X1, cv.BLADE_Y_BOT),
+    (cv.AXIS_X, cv.BLADE_Y_BOT),
 ]
-# plan corners that get the R3 (external) fillet -- the droop polyline
-# knuckles, the bottom-step knuckles and the trailing corner under the
-# disc end
-_BLADE_FILLET_XY = [_BLADE_PTS[1], _BLADE_PTS[2], _BLADE_PTS[3],
-                    cv.BLADE_STEP[0], cv.BLADE_STEP[1],
-                    (cv.AXIS_X, cv.BLADE_Y_BOT)]
+# plan corner that gets the R3 (external) fillet -- the trailing corner
+# under the disc end (the leading corner at (AXIS_X, +13) is tangent to
+# the R13 disc round; the web-end corners weld into the web block)
+_BLADE_FILLET_XY = [(cv.AXIS_X, cv.BLADE_Y_BOT)]
 
 
 def _blade(z0: float) -> object:
-    """One clamp blade: drooped plan profile + R13 rounded end over the
-    disc, extruded ARM_T, plan fillets applied on the vertical edges."""
+    """One clamp blade: plain rectangular plan + R13 rounded end over
+    the disc, extruded ARM_T, plan fillet on the vertical edge."""
     poly = step._xy_polygon_prism(_BLADE_PTS, cv.ARM_T)
     disc = step._cyl_z(cv.BLADE_END_R, cv.ARM_T, (cv.AXIS_X, 0.0, 0.0))
     blade = poly + disc
@@ -138,8 +137,7 @@ def _blade(z0: float) -> object:
 def _gusset(z_face: float, sign: int) -> object:
     """R2.5 quarter-round gusset along the internal web/blade corner (the
     3-axis slot tool's corner radius, modeled so the DFM is explicit).
-    Lives in the aft corridor (cv.GUSSET_Y) -- the old -19.5..-8 span
-    crossed the plate-band notch."""
+    Plain C: runs nearly the whole junction (cv.GUSSET_Y)."""
     r = cv.GUSSET_R
     y0, y1 = cv.GUSSET_Y
     box = _box((r, y1 - y0, r),
@@ -148,34 +146,17 @@ def _gusset(z_face: float, sign: int) -> object:
     return box - rod
 
 
-def _notch_prism() -> object:
-    """The plate-band notch cutter (see NOTCH_PTS in the driver): a
-    z-uniform prism through both blades whose vertical wall corners all
-    carry the R2 tool radius, so every internal corner it leaves on the
-    part is 3-axis machinable."""
-    notch = step._xy_polygon_prism(cv.NOTCH_PTS, 60.0)
-    edges = [e for e in notch.edges()
-             if abs(e.position_at(0.0).X - e.position_at(1.0).X) < 0.01
-             and abs(e.position_at(0.0).Y - e.position_at(1.0).Y) < 0.01]
-    assert len(edges) == len(cv.NOTCH_PTS), \
-        f"notch vertical edge pick found {len(edges)}"
-    notch = fillet(edges, cv.NOTCH_FILLET_R)
-    return Pos(0.0, 0.0, (cv.ARM_BOT_Z0 + cv.ARM_TOP_Z1) / 2.0) * notch
-
-
 def make_chorn_clamp_cnc() -> object:
-    """The CNC 6061-T6 C-clamp: two SWAN-NECK blades with integral Phi 19
-    ring bosses that land ON the nominal disc faces (no PETG-era
-    interference -- see the press-fit warning in the driver), a 3.8 mm
-    web whose OUTER face is DATUM A (the production femur wall plane),
-    2x M3-6H tapped web holes + 2x M3 csk through-holes, and the same
-    disc bolt pattern the production yokes use.  The plate-band notch
-    (NOTCH_PTS) removes everything the top plate sweeps through at
-    femur pitches -95..-112.5, so the blade->web load path runs through
-    the deep aft corridor (notch floor to CORR_Y_BOT)."""
+    """The CNC 6061-T6 C-clamp, PLAIN C: two rectangular blades with
+    integral Phi 19 ring bosses that land ON the nominal disc faces (no
+    PETG-era interference -- see the press-fit warning in the driver),
+    a full-height 3.8 mm web whose OUTER face is DATUM A (the
+    production femur wall plane), 2x M3-6H tapped web holes + 2x M3 csk
+    through-holes, and the same disc bolt pattern the production yokes
+    use.  No plate-dodging features: the outboard hip pivot
+    (cv.COXA_EXT) is what clears the plate."""
     web_pts = [(cv.WEB_X0, cv.WEB_Y_BOT), (cv.WEB_X1, cv.WEB_Y_BOT),
-               (cv.WEB_X1, cv.WEB_BEVEL_OUT[1]),
-               (cv.WEB_X0, cv.WEB_BEVEL_IN[1])]
+               (cv.WEB_X1, cv.BLADE_W_UP), (cv.WEB_X0, cv.BLADE_W_UP)]
     web = Pos(0.0, 0.0, (cv.ARM_BOT_Z0 + cv.ARM_TOP_Z1) / 2.0) \
         * step._xy_polygon_prism(web_pts, cv.ARM_TOP_Z1 - cv.ARM_BOT_Z0)
     body = step._union(
@@ -217,23 +198,7 @@ def make_chorn_clamp_cnc() -> object:
         r_csk = cv.WEB_CSK_D / 2.0 + 0.1
         cuts.append(step._cone_x_from_base(
             r_csk, r_csk, base_x=cv.WEB_X0 - 0.1, y=y, z=z, direction=1))
-    # the legs-over-head plate-band notch (swan-neck corridor stays below)
-    cuts.append(_notch_prism())
-    part = step._diff(body, *cuts)
-    # the notch's left wall crosses the blade lead line in one vertical
-    # edge per blade that the cutter's own corner fillets cannot round --
-    # give those the R2 tool radius too
-    jx, jy = cv.NOTCH_JCT_XY
-    edges = []
-    for e in part.edges():
-        p0, p1 = e.position_at(0.0), e.position_at(1.0)
-        if abs(p0.X - p1.X) > 0.01 or abs(p0.Y - p1.Y) > 0.01:
-            continue
-        if abs(p0.X - jx) < 0.3 and abs(p0.Y - jy) < 1.5:
-            edges.append(e)
-    assert len(edges) == 2, \
-        f"notch/lead junction edge pick found {len(edges)}"
-    return fillet(edges, cv.NOTCH_FILLET_R)
+    return step._diff(body, *cuts)
 
 
 # --- femur_ovh_body (PETG) ---------------------------------------------------
@@ -334,16 +299,6 @@ def make_knee_clamp_cap_ovh() -> object:
         _cyl_y(cv.CAP_INSERT_RELIEF_D / 2.0, cv.CAP_BOSS_Y0 - 0.2,
                cv.CAP_BOSS_Y0 + cv.CAP_INSERT_RELIEF_DEPTH,
                x=cv.UPSCREW_X - L, z=cv.UPSCREW_Z),
-        # crown shave at the hip-side tail (CAP_SHAVE_* in the driver):
-        # roof + two corner wedges the plate sweeps through at -110/-112.5
-        _box((40.0, 20.0, 60.0),
-             (cv.CAP_SHAVE_X1 - 20.0, cv.CAP_SHAVE_ROOF_Y + 10.0, 16.4)),
-        _box((40.0, 20.0, 20.0),
-             (cv.CAP_SHAVE_X1 - 20.0, cv.CAP_SHAVE_HI[0] + 10.0,
-              cv.CAP_SHAVE_HI[1] + 10.0)),
-        _box((40.0, 20.0, 20.0),
-             (cv.CAP_SHAVE_X1 - 20.0, cv.CAP_SHAVE_LO[0] + 10.0,
-              cv.CAP_SHAVE_LO[1] - 10.0)),
     ]
     return step._diff(body, *cuts)
 
@@ -369,6 +324,108 @@ def make_tibia_ovh_socket() -> object:
                             cv.TIB_FLANGE_X1 - cv.WEB_CBORE_DEPTH,
                             slot_y0=cv.TIB_FLANGE_Y0 - 0.5)       # -20.5
     return step._diff(body, *cuts)
+
+
+# --- hip_clamp_cap_ovh (PETG, well-local frame) ------------------------------
+
+def make_hip_clamp_cap_ovh() -> object:
+    """Production servo clamp cap for the OUTBOARD hip station, with the
+    rigid-hip yaw-axis furniture pulled back to where the yaw axis now
+    is: pedestal + 6805 inner-race press boss + puller notches sit at
+    cap-local x = -COXA_EXT, tied to the cap crown by a two-step arm
+    (constants + swept-band reasoning in the driver's HIPCAP_ARM_*
+    block).  Same removable-part logic as rigid_hip: the pedestal drops
+    over the trimmed hub top AFTER the coxa horn screws are installed,
+    so the yaw drive stays serviceable."""
+    X = -cv.COXA_EXT
+    cap = step.make_servo_clamp_cap()
+    ped = _cyl_y(rv.PED_OD / 2.0, rv.PED_Y0, rv.PED_Y1, x=X, z=rv.AXIS_Z)
+    boss = _cyl_y(rv.BOSS_OD / 2.0, rv.PED_Y1 - 1.0, rv.BOSS_Y1,
+                  x=X, z=rv.AXIS_Z)
+    tip = _cyl_y(rv.BOSS_OD / 2.0 - rv.BOSS_TIP_STEP, rv.BOSS_Y1 - 0.1,
+                 rv.TIP_Y1, x=X, z=rv.AXIS_Z)
+    arms = []
+    for x0, x1, y0, y1 in (cv.HIPCAP_ARM_LO, cv.HIPCAP_ARM_HI):
+        z0, z1 = cv.HIPCAP_ARM_Z
+        arms.append(_box((x1 - x0, y1 - y0, z1 - z0),
+                         ((x0 + x1) / 2.0, (y0 + y1) / 2.0,
+                          (z0 + z1) / 2.0)))
+    body = step._union(cap, ped, boss, tip, *arms)
+    notches = []
+    for sx in (+1.0, -1.0):
+        ext_x = rv.PED_OD / 2.0 - rv.PULLER_NOTCH_R0 + 3.0
+        notches.append(_box(
+            (ext_x, rv.PULLER_NOTCH_DEPTH + 0.05, rv.PULLER_NOTCH_W),
+            (X + sx * (rv.PULLER_NOTCH_R0 + ext_x / 2.0),
+             rv.PED_Y1 - rv.PULLER_NOTCH_DEPTH / 2.0 + 0.025,
+             rv.AXIS_Z),
+        ))
+    return step._diff(body, *notches)
+
+
+# --- coxa_link_ovh (PETG) ----------------------------------------------------
+
+def make_coxa_link_ovh() -> object:
+    """The rigid-hip coxa (build_rigid_hip_step.make_coxa_link_rigid)
+    with the whole cradle arm -- hip bracket + foot slab -- translated
+    cv.COXA_EXT outboard along +x, which puts the hip pivot beyond the
+    top plate's rim (THE legs-over-head move).  The slab already spans
+    from ~x -35 around the cradle, so after the shift it still overlaps
+    the hub column plan by ~20 mm and unions into one rigid body -- no
+    separate bridge member.  Yaw-axis interfaces (horn drive cuts, hub
+    boss, seat ring, dust brim, the shortened-hub trim) are copied
+    verbatim from the rigid builder; the Phi 33.5 hip-axis clearance
+    wells and the rotation-envelope trim follow the moved anchor (the
+    trim keeps its 38.2 mm circle INBOARD only -- outboard the arm is
+    meant to exceed it, see check_yaw_envelope_ovh in the driver)."""
+    hub = step.make_coxa_yaw_hub(one_piece=True)
+    skirt_cut = step._diff(
+        _cyl_z(hp.YAW_HUB_DUST_LIP_OD / 2.0 + 2.0, rv.SLAB_BOT_Z - 1.5,
+               hp.YAW_HUB_BOSS_TOP_Z + 1.0),
+        _cyl_z(20.0, rv.SLAB_BOT_Z - 2.5, hp.YAW_HUB_BOSS_TOP_Z + 2.0),
+    )
+    hub = step._diff(hub, skirt_cut)
+    bb = hub.bounding_box()
+    hub = step._intersect(hub, _cyl_z(60.0, bb.min.Z - 1.0, rv.HUB_TRIM_Z))
+    bracket = (Pos(cv.COXA_EXT, 0.0, -rv.COL_DROP)
+               * step.make_coxa_hip_bracket(one_piece=True))
+    ring = step._diff(
+        _cyl_z(rv.HUB_RING_OD / 2.0, rv.HUB_RING_Z0, rv.HUB_RING_Z1),
+        _cyl_z(rv.HUB_RING_ID / 2.0, rv.HUB_RING_Z0 - 1.0,
+               rv.HUB_RING_Z1 + 1.0),
+    )
+    brim = step._diff(
+        _cyl_z(rv.BRIM_OD / 2.0, rv.BRIM_BOT_Z, rv.BRIM_TOP_Z),
+        _cyl_z(rv.HUB_RING_ID / 2.0, rv.BRIM_BOT_Z - 1.0,
+               rv.BRIM_TOP_Z + 1.0),
+    )
+    body = step._union(hub, bracket, ring, brim)
+    hip_ax_x = rv.COXA_HIP_ANCHOR_V[0] + cv.COXA_EXT
+    hip_ax_z = rv.COXA_HIP_ANCHOR_V[2]
+    cuts = [_cyl_y(16.75, ylo, yhi, x=hip_ax_x, z=hip_ax_z)
+            for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75))]
+    shaft_top_z = 80.0
+    drive_clear = hp.DISC_HORN_BOLT_OD + 0.3
+    stations = [(0.0, 0.0, rv.HORN_CENTRE_SEAT_Z,
+                 hp.HORN_CENTRE_OD)]
+    r = hp.DISC_HORN_BOLT_PCD / 2.0
+    stations.extend(
+        (r * math.cos(t), r * math.sin(t), rv.HORN_HEAD_SEAT_Z,
+         drive_clear)
+        for t in hp.DISC_HORN_BOLT_ANGLES_RAD)
+    for sx, sy, seat_z, shank_d in stations:
+        cuts.append(_cyl_z(hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0, seat_z,
+                           shaft_top_z, sx, sy))
+        cuts.append(_cyl_z(shank_d / 2.0, rv.SLAB_BOT_Z - 1.0,
+                           seat_z + 0.5, sx, sy))
+    body = step._diff(body, *cuts)
+    bb = body.bounding_box()
+    keep = step._union(
+        _cyl_z(rv.ROT_ENVELOPE_R, bb.min.Z - 1.0, bb.max.Z + 1.0),
+        _box((150.0, 96.0, bb.max.Z - bb.min.Z + 2.0),
+             (4.0 + 75.0, 0.0, (bb.min.Z + bb.max.Z) / 2.0)),
+    )
+    return step._intersect(body, keep)
 
 
 # --- specs, checks, main -----------------------------------------------------
@@ -402,6 +459,20 @@ def cnc_chorn_part_specs() -> list[StepPart]:
             None,
             "Production knee cap minus the overhead wedge tail, plus the "
             "insert-boss up-screw retention (6x, PETG).",
+        ),
+        StepPart(
+            "coxa_link_ovh",
+            make_coxa_link_ovh,
+            None,
+            "Rigid-hip coxa with the cradle arm moved COXA_EXT=42 mm "
+            "outboard -- the legs-over-head hip pivot (6x, PETG).",
+        ),
+        StepPart(
+            "hip_clamp_cap_ovh",
+            make_hip_clamp_cap_ovh,
+            None,
+            "Production hip cap + yaw-axis pedestal/press-boss reached "
+            "back over a two-step arm (6x, PETG).",
         ),
     ]
 
