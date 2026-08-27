@@ -1,5 +1,49 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~13:3x (triage cycle: **anchor9-gradnorm-s1
+CANARY FAIL - MECHANISM - JOINT DIVERGENCE — seed1's own gradnorm
+read does NOT replicate seed0's basis for launching anchor10-
+percoreclip**). Read the finished `...anchor9-gradnorm-s1` W&B
+history for `train/gradnorm_{a,b}_mean` (a=walk/loco core, b=stance
+core, per `_dual_core_param_groups`), same WIRING CHECK / call-order-
+pairing discipline as anchor8. Result diverges sharply from the
+concurrently-owned seed0 read that already justified building +
+launching `train.bc_anchor_percore_clip` /
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip`
+(seed0: median b/a 4.2x, 23/30 rollouts >=3x, persistent through the
+reward trough, "never comparable let alone inverted"). Seed1: full
+30-rollout median b/a 1.95x, only **10/30** rollouts clear the >=3x
+bar (20/30 sit inside a comparable ±3x band), and at the EXACT
+reward-trough window (rollout idx 6-13, this run's own reward
+quarters [40.0,-8.7,-460.3,-112.0]) the ratio is comparable-to-
+INVERTED: b/a = [12.4(single-rollout outlier, core-a's raw norm
+collapsed to 3.3), 0.73, 0.73, 1.62, 0.88, 0.71, 0.56, 0.63], median
+0.73 — core A (WALK) is usually the LARGER raw gradient there,
+opposite of seed0's reported stance-dominant trough. Per this arm's
+own pre-registered joint rule ("REFUTED if the two stay comparable on
+either/both seeds"), seed1 ALONE already fails the SUPPORT bar — the
+concurrent cycle's decision to build+launch anchor10-percoreclip off
+seed0 alone (reasonable: the diagnostic is cheap and anchor10 is
+itself a direct behavioral test) is not doubly gradnorm-confirmed.
+**Flag for whoever reads anchor10-percoreclip's result**: if walk
+still fails there, do NOT read that as "grad-clip coupling refuted,
+try another architecture-sharing variant" AND do not read a walk
+rescue there as definitive proof grad-norm-clip-coupling was the
+mechanism either — the diagnostic evidence for the mechanism itself
+is seed-divergent; either outcome should route to the reward/task-
+level audit named in anchor9's own REFUTED branch (every
+architecture-sharing/optimizer-coupling candidate — log_std anchor4-
+6b, trunk anchor7, advantage-norm anchor8, grad-clip anchor9 — will
+then have at least one seed contradicting it). Verdict:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm-s1`.
+Evidence: `logs/experiments/cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor9-gradnorm-s1/wandb_history.csv`. No code change, no new
+launch this cycle — anchor10-percoreclip (seed0, train-4) is already
+running under the concurrent cycle's ownership; this track has no
+other fundable arm until that read lands (every remaining Next item
+gates sequentially on it, same as last cycle's note). Prior banner
+below.
+
 Update, 2026-08-27 ~12:5x (dig-in cycle: **anchor8-advstats (seed0)
 CANARY FAIL - MECHANISM — advantage-normalization-scope hypothesis
 REFUTED, INVERTED not just unsupported; gradnorm diagnostic
