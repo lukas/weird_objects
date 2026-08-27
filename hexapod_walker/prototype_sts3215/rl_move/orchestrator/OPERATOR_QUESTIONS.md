@@ -2883,3 +2883,20 @@ it opportunistically. status: informational, no operator input
 needed — flagging so the restart happens deliberately instead of by
 accident, and so future cycles remember `resume_orphaned_eval.py`
 exists before hand-rolling a kubectl poll loop.
+
+## 2026-08-27 (kick cycle, operator 08-27 integrated-policy priority) — mixed-session gate design assumptions (assume-and-go)
+Q: The 08-27 priority note asked for 60 s + 180 s mixed-control session
+gates but left the session distribution and scoring bars open. Assumed:
+(a) env-native `goal.mode_seq=1.0` sessions (the same machinery stage-2
+policies train on, NO external re-anchor help) are THE honest gate;
+`eval_modeseq`/`bulk_session_eval` remain the helped/wrapper-baseline
+instruments. (b) Canonical bundle: 8-12 s segments (clears the measured
+7 s rise-ramp floor), hold segments carry height-command scripts, walk
+segments carry the joystick stress_mix family resampled ~4 s, held-out
+seed base 91000. (c) HARD gate = zero terminations of ANY kind (incl.
+hold_min_load — a session needing a termination is not deployable);
+completion/gait/slip(2.9)/dir-err(40 deg)/height(15 mm) are soft axes,
+gated only with --strict. (d) 180 s pass runs DR-0 only, n=3/mode, for
+wall-clock feasibility. If any of these should differ (esp. the hard
+zero-term choice or the 180 s DR diet), say so and the bundle constants
+in eval_mixed_session.py get a one-line change + re-baseline.
