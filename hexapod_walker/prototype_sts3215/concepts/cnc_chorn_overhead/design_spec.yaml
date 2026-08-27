@@ -16,7 +16,8 @@
 
 concept: cnc_chorn_overhead
 base: rigid_hip            # chassis/plate/hatch/COTS all inherited
-build_id: cnc_chorn_overhead
+build_id: prototype_sts3215/cnc-chorn-overhead   # sibling build in the STS
+    # hub project (standalone cnc_chorn_overhead id retired 2026-08-27)
 
 architecture:
   outboard_hip_pivot_mm: 42.0    # COXA_EXT -- sweep-derived minimum at

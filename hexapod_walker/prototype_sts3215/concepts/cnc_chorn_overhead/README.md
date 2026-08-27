@@ -221,6 +221,35 @@ access holes, checked line-of-sight), then `hip_clamp_cap_ovh` drops
 over the trimmed hub top — same removable-cap service logic as
 rigid_hip.
 
+## Print set (`stl/`) — the complete part set for this robot version
+
+`stl/` presents the FULL part set to build this variant robot,
+rigid_hip-style: slice the PETG parts, quote the CNC part from
+`step/`, and treat `*_DO_NOT_PRINT.stl` as COTS visuals.
+
+* **Variant printables (PETG, this concept)**: `coxa_link_ovh` ×6,
+  `hip_clamp_cap_ovh` ×6, `femur_ovh_body` ×6, `tibia_ovh_socket` ×6,
+  `knee_clamp_cap_ovh` ×6.  Print each like the rigid_hip /
+  production part it replaces (see rigid_hip's Print notes and the
+  production print list); the parts keep their ancestors' wall
+  planes and seat geometry, only reach/wedge features moved.
+* **CNC — do not print**: `chorn_clamp_cnc_CNC_6061.stl` is the
+  tessellated viewer stand-in for the aluminum clamp.  The quoting
+  deliverable is `step/chorn_clamp_cnc.step` (×12 + spares, with
+  `step/cnc_chorn_manifest.json` and
+  `step/cnc_chorn_step_first_bundle.zip` — send the zip).
+* **Inherited rigid_hip printables** (byte-identical geometry to
+  `concepts/rigid_hip`; print per its Print notes):
+  `chassis_bottom_rigid`, `chassis_top_rigid`, `top_hatch_rigid`,
+  `centre_wago_block`.
+* **Unchanged production printables**: `foot_boot` ×6,
+  `yaw_servo_retainer` ×6 — print from the main `stl_prototype/` set;
+  the copies here are for the viewer.
+* **COTS / cut stock (do not print)**: `bearing_6805`, `servo_body`,
+  `wago5`, `yaw_bearing_upper` visuals, plus `tibia_tube_ovh` — the
+  CF tibia tube cut 16.6 mm SHORTER than production (see BOM delta).
+  Fastener deltas are in the BOM section above.
+
 ## Pipeline
 
 ```sh
@@ -239,3 +268,29 @@ imported from `make_cnc_chorn_variant.py`); `_probe_outboard.py` is
 the plan-raster probe that seeded the COXA_EXT search (the final value
 was set by sweeping the real solids — see the COXA_EXT block in the
 driver).
+
+## Build & view (BuildViz)
+
+This concept is a sibling BUILD inside the `prototype_sts3215` hub
+PROJECT — grouped with the production robot and the reinforcement test
+kits, not a standalone project.  Build id:
+**`prototype_sts3215/cnc-chorn-overhead`**.
+
+```sh
+# publish to the local hub (run from hexapod_walker/prototype_sts3215):
+npx buildviz push --project prototype_sts3215 --build cnc-chorn-overhead \
+    --upload-assets --scene concepts/cnc_chorn_overhead/scene.json \
+    -m "<what changed>"
+# view: http://127.0.0.1:5183/?project=prototype_sts3215&build=cnc-chorn-overhead
+
+# cloud mirror (BUILDVIZ_API_KEY from the k8s secret -- see AGENTS.md):
+uv run tools/push_cloud_buildviz.py \
+    --build-id prototype_sts3215/cnc-chorn-overhead
+# https://buildviz.cwd1f0-new-cluster.coreweave.app/?project=prototype_sts3215&build=cnc-chorn-overhead
+```
+
+(`design_spec.yaml` next to the scene rides along automatically.  The
+original standalone `cnc_chorn_overhead` project id was retired
+2026-08-27 when the build moved into the STS project; the local entry
+was deleted, but the cloud hub has no delete endpoint, so a stale
+`cnc_chorn_overhead` entry lingers there — ignore it.)
