@@ -2,19 +2,19 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: RUNNING
 
-**created**: 2026-08-27T03:56:48+00:00
+**created**: 2026-08-27T04:00:15+00:00
 
-**pod**: hexapod-mjx-train-1
+**pod**: hexapod-mjx-train-2
 
 **steps**: 2000000
 
 **parent**: cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2
 
-**hypothesis**: Plain sentence: the integrated stand+walk policy has only ever been commanded straight-ahead walking, and the new 60s mixed-session gate measured it ignoring direction commands (median direction error ~52 deg under the joystick stress_mix script, anchor2 smoke 08-27); this arm opens a modest +/-45 deg heading command cone in the walk segments of the same stage-2 recipe so the walk core learns to follow commanded directions -- required by the track DONE gate (directions followed) and the operator 08-27 integrated-policy priority. Single lever vs anchor2's own recipe: goal.walk_heading_max_rad 0.0 -> 0.7854 (heading rides the existing vx_ref/vy_ref obs channels, so the checkpoint is layout-compatible), 2M continuation off anchor2's own checkpoint. Prediction-if-true: walk survives (det gait_valid >=5/6) AND direction error drops well below the ~52 deg untrained baseline (<=35 deg full bar). Prediction-if-false: heading commands destabilize the walk core or direction error stays at baseline (course-reward pricing at nonzero headings, dig-in scope). Strongest alternative: needs the staged walk_cmd_stage curriculum, not a static cone. RETRY of the 03:37 queue attempt: that drain pass hit a transient dirty-code-marker refusal (a concurrent cycle's then-uncommitted WIP), not a design problem.
+**wandb_id**: 2t05s1ng
 
-**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill maturity or close a class. WALK-SURVIVES: DR-0 det walk gait_valid >=5/6, no 3+-leg-sacrifice freeze, prog_ratio >=0.2. DIRECTION-LEARNS: walk eval WITH goal.walk_heading_max_rad=0.7854: median direction_err_mean_deg materially below the anchor2 baseline (~52 deg, 08-27 mixed-session smoke; <=35 deg full bar, >=10 deg drop partial). STANCE-UNHARMED: hold/lower panels within the anchor2 band (hold/sto 6/6 hold_min_load is the KNOWN baseline failure, not a regression). JOINT call with -s1: both seeds direction-learn + walk survives -> promote the heading cone into the stage-2 recipe and open the next command rung (stops/reverses); walk collapses either seed -> close the static-cone lever, route direction coverage through walk_cmd_stage curriculum instead.
+**hypothesis**: Plain sentence: the integrated stand+walk policy ignores direction commands (median dir err ~52 deg on the 08-27 mixed-session smoke; it only ever trained straight-ahead); this arm opens a +/-45 deg heading cone (goal.walk_heading_max_rad 0 -> 0.7854, heading rides the existing vx_ref/vy_ref obs channels) as a 2M continuation off anchor2's own checkpoint. Prediction-if-true: walk survives (det gait_valid >=5/6) and dir err drops well below ~52 deg (<=35 full bar). Prediction-if-false: walk destabilizes or dir err unchanged (course-reward pricing at nonzero heading, dig-in). Alternative: needs the staged walk_cmd_stage curriculum. Retry: prior attempts REFUSED on a transient dirty-code-marker, then PARKED after racing another launch for the same pod; seed-1 twin is already RUNNING on train-0.
 
-**refused_reason**: hexapod-mjx-train-1 already runs cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6-logstdsplit — GPU pods host exactly one run; pick a free GPU pod.
+**gate**: MECHANISM-HEALTH CANARY ONLY. WALK-SURVIVES: DR-0 det walk gait_valid >=5/6, no 3+-leg-sacrifice freeze, prog_ratio >=0.2. DIRECTION-LEARNS: walk eval WITH goal.walk_heading_max_rad=0.7854 median direction_err_mean_deg well below ~52 deg baseline (<=35 full bar, >=10 deg drop partial). STANCE-UNHARMED: hold/lower within anchor2 band (hold/sto 6/6 hold_min_load is the KNOWN baseline failure, not regression). JOINT 2-seed call: both learn+survive -> promote cone, open stops/reverses rung; either collapses -> close static cone, use walk_cmd_stage curriculum.
 
