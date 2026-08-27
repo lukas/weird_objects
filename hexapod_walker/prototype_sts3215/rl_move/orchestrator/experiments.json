@@ -208407,7 +208407,7 @@
       "sched.n_envs=4096"
     ],
     "created": "2026-08-27T06:26:31+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS (own scope) - JOINT DIVERGENCE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -208453,7 +208453,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2-headings-cu since 2026-08-27T06:47:36"
+    "triage": "done",
+    "verdict": "CANARY PASS (own scope) - JOINT DIVERGENCE: seed1 half of the anchor2-headings-curric1 joint 2-seed call. UNLIKE seed0 (verdicted CANARY FAIL - MECHANISM: total anchor4-class 2-leg-sacrifice freeze, det gait_valid 0/6, sac=[4,5]), this seed's walk is HEALTHY -- det gait_valid 6/6 both DR-0 and own-DR, 0 sacrificed legs, prog med 0.29-0.31 (clears the >=0.2 bar), slip med 4.7-5.6 (in the healthy band), video confirms all six legs cycling normally (walk_det_0_sheet.png), no freeze. Direction-learning is weak (dir_err mean 52-55deg, wrong_direction_frac 0.2-0.29, direction_valid_frac ~0.89) but that is the SAME fragile-partial pattern already logged for headings1 (Next -1.85), not a new catastrophe. Per this arm's pre-registered joint-close decision rule (STATUS Next -1.95): seed1 healthy-like-headings1 + seed0 anchor4-class catastrophe = SEED-LEVEL NOISE in an already-fragile coef=3.0 dual-core recipe, not evidence the ramp mechanism itself destabilizes walk. Joint call: do not fund a ramp-vs-instant heading-exposure mechanism arm on this recipe; the earlier 'gentler ramp is worse' read on seed0 alone does not replicate. No further ramp ramp-vs-instant work; campaign should target the shared critic/trunk per anchor6b's own separate closure."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2-headings-curric1",
@@ -208913,7 +208914,7 @@
       "stance"
     ],
     "created": "2026-08-27T06:51:28+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -208959,7 +208960,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdspli since 2026-08-27T07:18:12"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: per-core log_std split (retrofit-fixed wiring) does NOT rescue walk from the anchor4-class collapse on this joint 2-seed call -> exploration-noise theory REFUTED. Evidence: wiring check green both seeds (prior cycle: log_std_b tensor annealed to -4.0/std 0.018, distinct from walk's untouched log_std ~-1.49/std 0.225 -- checkpoint-verified, not inferred). Seed0 (this run) WALK-SURVIVES clean (det gait_valid 6/6, prog med 0.23, 0 sacrificed legs, slip med 6.6) AND HOLD-HELPS-FULL (hold/sto term 2/6, hold/det term 2/6) -- a clean pass in isolation. But twin seed1 (fix-s1) shows the anchor4-class catastrophe (det gait_valid 0/6, 3-5 legs sacrificed, prog med 0.01, video-confirmed static splayed-leg freeze) with the SAME wiring green. Per this arm's pre-registered gate text, FAIL-with-wiring-green on either seed is the decisive joint result: giving walk its own log_std slice does not fix the freeze -> exploration-noise theory for the anchor4-class collapse REFUTED. Root cause is NOT per-mode action-noise coupling; dig-in moves to the shared critic/trunk (gate's own next-step clause). Do not launch further log_std-split variants."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-fix-s1",
@@ -209163,7 +209165,7 @@
       "stance"
     ],
     "created": "2026-08-27T06:55:42+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -209209,6 +209211,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdspli since 2026-08-27T07:18:12"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: seed1 half of the anchor6b-logstdsplit-fix joint 2-seed call (see that run's verdict for full evidence). Wiring check green (log_std_b tensor annealed to -4.0/std 0.018, distinct from walk's untouched log_std ~-1.49/std 0.225 -- checkpoint-verified). Despite correct wiring, walk shows the anchor4-class catastrophe: det gait_valid 0/6, 3-5 legs sacrificed every episode (sac=[0,1,5] or worse), prog med 0.01, video-confirmed static splayed-leg freeze (walk_det_2_sheet.png) -- essentially no walking. Twin seed0 (fix, no -s1) passed cleanly (WALK-SURVIVES + HOLD-HELPS-FULL). Per the pre-registered gate, FAIL-with-wiring-green on either seed is the decisive result -> exploration-noise theory for the anchor4-class collapse is REFUTED; the per-mode log_std split is not the fix. Dig-in moves to shared critic/trunk; no further log_std-split arms."
   }
 ]

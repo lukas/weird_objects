@@ -1,5 +1,44 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-27 ~09:5x (**BOTH joint calls from the concurrent
+07:4x/09:2x banners now CLOSED this cycle** — the missing gate.json
+for `anchor6b-logstdsplit-fix{,-s1}` and `anchor2-headings-curric1-s1`
+had actually finished computing on their pods (08:52/09:22/09:38) but
+never got copied back — the `pod_eval.py`/`resume_orphaned_eval.py`
+wrapper hit its own wait-timeout (7200s) and gave up one hop too
+early, or (fix seed0) never had a wrapper re-attached after the
+timeout at all. Manual `kubectl cp` per Next -1.86's known gap; no
+re-eval needed, just sync. Two decisive reads:
+**(1) anchor6b-logstdsplit-fix JOINT CLOSE — exploration-noise theory
+REFUTED.** Wiring was already checkpoint-verified green both seeds
+(07:4x banner). Seed0 (fix) WALK-SURVIVES clean (det gait_valid 6/6,
+prog med 0.23, 0 sacrificed legs, slip med 6.6) AND HOLD-HELPS-FULL
+(hold/sto term 2/6) — a clean isolated pass. Seed1 (fix-s1)
+reproduces the FULL anchor4-class catastrophe (det gait_valid 0/6,
+3-5 legs sacrificed every episode, prog med 0.01, video-confirmed
+static splayed-leg freeze) with the SAME wiring green. Per this arm's
+own pre-registered gate text, FAIL-with-wiring-green on either seed
+is the decisive result: giving walk its own `log_std` slice does NOT
+fix the freeze. **Root cause is not per-mode action-noise coupling —
+next dig-in targets the shared critic/trunk (or the anchor-loss
+magnitude itself), per Next -1.9's own next-step clause. Do not fund
+any further log_std-split dose/variant arm.**
+**(2) anchor2-headings-curric1 JOINT CLOSE — seed-level noise, not a
+ramp-mechanism fault.** Seed1 (curric1-s1) is HEALTHY: det gait_valid
+6/6 both DR-0/own-DR, 0 sacrificed legs, prog med 0.29-0.31, slip med
+4.7-5.6, video confirms all six legs cycling (no freeze). Direction-
+learning is weak (dir_err mean 52-55deg) but that matches the ALREADY
+-KNOWN headings1 fragile-direction pattern (Next -1.85), not a new
+catastrophe. Per the pre-registered joint-close decision rule (old
+Next -1.95): seed1-healthy + seed0-catastrophe = seed-level noise in
+an already-fragile coef=3.0 dual-core recipe. **Do not fund a ramp-
+vs-instant heading-exposure mechanism arm — the "gentler ramp is
+worse" read does not replicate cross-seed.** Evidence: verdicts on
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-fix{,
+-s1}` and `...-anchor2-headings-curric1-s1`; synced `logs/ckpt_eval/
+..._{gate,owncfg}/report.json` + contact sheets for all four. Prior
+banners below.)
+
 Update, 2026-08-27 ~09:2x (**anchor2-headings-curric1 (seed0) CANARY
 FAIL - MECHANISM, own scope, joint call pends -s1 (concurrent cycle,
 still mid-eval): the graded heading-cone RAMP fallback (Next -1.85's
@@ -3433,6 +3472,14 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**EXPLORATION-NOISE THEORY CLOSED (08-27 ~09:5x): the per-core
+`log_std` split (wiring checkpoint-verified) still lets one of two
+seeds catastrophe (anchor6b-logstdsplit-fix-s1). Next funded
+question is Next -2.0: root-cause the shared critic/trunk (or the
+anchor-loss magnitude) during the Q2-Q3 trough common to every
+catastrophe-class run this campaign — no further log_std arm of any
+flavor until that lands.** Previous entry:
+
 **DOSE-BRACKET GRID CLOSED (08-27 ~03:1x): magnitude lever dead,
 building the per-core `log_std_b` split now — see the Last-updated
 banner at the top of this file for the full 4-arm evidence.** One-line
@@ -3958,7 +4005,38 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--1.95 DIG-IN (08-27 ~09:2x, own-scope FAIL on anchor2-headings-curric1,
+-2.0 DIG-IN, funded next (08-27 ~09:5x, JOINT CLOSE on
+    anchor6b-logstdsplit-fix{,-s1} — see top banner): with the
+    per-core `log_std` split now checkpoint-verified WIRED and STILL
+    not saving walk on one of two seeds (anchor4-class catastrophe,
+    0/6 gait_valid, 3-5 legs sacrificed), the exploration-noise theory
+    for the anchor4/5/6-class walk collapse is REFUTED. Move
+    root-cause one layer up: dump the SHARED critic/trunk gradients
+    (or isolate the anchor-loss magnitude itself, `train.
+    bc_anchor_coef=3.0`) during the Q2-Q3 trough window common to
+    every catastrophe-class run this campaign (anchor4-stdanneal,
+    5-stdmild1 seed0, 6-logstdsplit{,-s1} invalid pair, 6b-fix-s1) —
+    check whether the trunk's walk-mode gradient is being overwritten
+    by the anchor BC loss on the shared layers, not just the action
+    head. Do NOT fund another `log_std`-flavored arm (shared, split,
+    annealed, or dosed) on this coef=3.0 dual-core recipe until a
+    trunk-level candidate is named and tested. Evidence: verdicts on
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-
+    fix{,-s1}` (08-27 ~09:5x).
+-1.95 CLOSED (08-27 ~09:5x, JOINT CLOSE on anchor2-headings-curric1
+    {,-s1} — see top banner): seed1 is HEALTHY (det gait_valid 6/6, 0
+    sacrificed legs) with the same fragile-direction weakness already
+    known from headings1, not a freeze. Per this entry's own
+    pre-registered decision rule, seed1-healthy + seed0-catastrophe =
+    SEED-LEVEL NOISE in the coef=3.0 recipe, not a ramp-vs-instant
+    mechanism effect. **Do not fund a ramp-vs-instant heading-
+    exposure arm — closed, no further work on this fork.** The
+    candidate-(b) root-cause question below (why does seed0 alone
+    collapse) folds into -2.0's broader shared-critic/trunk dig-in
+    rather than a dedicated heading-curriculum investigation. Original
+    text preserved for the reasoning trail:
+
+-1.95-orig DIG-IN (08-27 ~09:2x, own-scope FAIL on anchor2-headings-curric1,
     seed0; joint call pends -s1), NARROWED same cycle: the graded
     heading-cone ramp (Next -1.85's own prescribed fallback lever)
     reproduces the anchor4-class 2-leg-sacrifice walk freeze that its
