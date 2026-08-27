@@ -210459,7 +210459,7 @@
       "train.bc_anchor_debug_gradnorm=1"
     ],
     "created": "2026-08-27T12:54:11+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -210505,7 +210505,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm since 2026-08-27T13:14:52"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: MECHANISM-HEALTH CANARY, seed0 own scope: WIRING CHECK FIRST confirmed (train/gradnorm_a_mean and train/gradnorm_b_mean both present, 30/30 rollouts, nonzero, dual-core branch of _gradnorm_diag_ctx fired). Read (paired by call-order, not wandb _step, per anchor8's own pitfall): core B (stance) raw pre-clip grad L2 norm is >=3x core A (walk) in 23/30 logged rollouts, median b/a=4.2x overall and 3.5x isolated to the reward-trough window (rollout idx 6-13, this run's own reward quarters [38.5,15.5,-275.6,-24.1]), max 16x -- never comparable let alone inverted on THIS seed. Per this arm's own pre-registered decision rule that is SUPPORTED (not \"REFUTED, every shared-computation mechanism now dead\" -- this is the first of the four candidates -- log_std/trunk/advantage-norm/grad-clip -- whose own-seed read actually landed in the predicted direction). Built+tested (8 new unit tests incl. a synthetic-grad behavioral proof the two cores actually decouple) and launched the prescribed follow-up, train.bc_anchor_percore_clip (default 0, bit-exact off): replaces sb3-contrib's ONE global clip_grad_norm_ call with three independent per-group clips at the same max_norm, factored through a new shared _dual_core_param_groups helper (also used to refactor _gradnorm_diag_ctx, byte-identical grouping, zero behavior change -- gradnorm tests still green). Launched cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip{,-s1} on the identical anchor9-gradnorm recipe with only the mechanism flag added. IMPORTANT CAVEAT (concurrent cycle's own seed1 read, f580f822): anchor9-gradnorm-s1's own gradnorm trace does NOT replicate this seed0 support -- seed1 full-run median b/a=1.95x (only 10/30 rollouts clear >=3x) and at the identical trough window the ratio is comparable-to-INVERTED (median 0.73, core A often the larger raw gradient there) -- so the JOINT call across both seeds is DIVERGENCE, not a clean cross-seed SUPPORT, joining every other architecture-sharing candidate (log_std, trunk, advantage-norm) in having at least one seed disagree. anchor10-percoreclip is still the right next step (it is a direct behavioral test of walk-survival, not contingent on the diagnostic being cross-seed-clean) but neither its pass nor its fail should be read as dispositive proof/disproof of grad-clip-coupling specifically -- either outcome routes to the reward/task-level audit if walk still fails. Verdict on THIS run (seed0): CANARY FAIL - MECHANISM (own-seed SUPPORTED, joint DIVERGENT with -s1's already-recorded read). Evidence: logs/experiments/cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm/wandb_history.csv (train/gradnorm_{a,b}_mean, 30 paired samples); rl_move/sim/bc_anchor.py _gradnorm_diag_ctx/_percore_clip_ctx."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm-s1",
@@ -210970,7 +210971,7 @@
       "train.bc_anchor_percore_clip=1"
     ],
     "created": "2026-08-27T13:24:49+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -211050,6 +211051,12 @@
         "time": "2026-08-27T13:48:29+00:00",
         "process_alive": false,
         "verdict": "DEAD",
+        "log_tail": "\nwandb:       canary/lower_b 1\nwandb: canary/rise_bridge_a 0\nwandb: canary/rise_bridge_b 0\nwandb: canary/rise_crouch_a 0\nwandb: canary/rise_crouch_b 0\nwandb:   canary/rise_flat_a 0\nwandb:   canary/rise_flat_b 1\nwandb:                 +171 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip at: https://wandb.ai/l2k2/hexapod-balance/runs/9ioyv0v6\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260827_132608-9ioyv0v6/logs\n"
+      },
+      {
+        "time": "2026-08-27T13:52:10+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "\nwandb:       canary/lower_b 1\nwandb: canary/rise_bridge_a 0\nwandb: canary/rise_bridge_b 0\nwandb: canary/rise_crouch_a 0\nwandb: canary/rise_crouch_b 0\nwandb:   canary/rise_flat_a 0\nwandb:   canary/rise_flat_b 1\nwandb:                 +171 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip at: https://wandb.ai/l2k2/hexapod-balance/runs/9ioyv0v6\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260827_132608-9ioyv0v6/logs\n"
       }
     ],
