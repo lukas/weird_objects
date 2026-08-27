@@ -1,6 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~03:1x (**anchor5-stdmild2-s1 (dose -2.0,
+Last updated: 2026-08-27 ~03:1x (**JOINT DOSE-BRACKET GRID CLOSED,
+4/4 arms read: no single shared `log_std` value threads the needle —
+magnitude is dead as a lever, PER-CORE `log_std` SPLIT (Next -1.8) is
+now the funded next step.** Completes the picture across all three
+tested points plus the already-closed extreme:
+- **-4.0** (`anchor4-stdanneal`/`-s1`, std 0.018, a strong DECREASE
+  below the un-annealed recipe's own end-state std ~0.225): HOLD-HELPS
+  fully met (hold/sto 6/6->0-2/6) but WALK-SURVIVES fails catastrophically
+  both seeds (anchor1-class leg-sacrifice freeze, gait_valid 0/6).
+- **-2.0** (`anchor5-stdmild2`/`-s1`, std 0.135, a milder decrease):
+  WALK-SURVIVES holds both seeds (gait_valid 5-6/6, prog 0.26-0.29,
+  real cycling on video) but HOLD-HELPS is a flat zero — hold/sto
+  stays 6/6 term on both seeds at both DR, bit-identical to the
+  anchor2/3 baseline, and hold/det picks up NEW terms it didn't have
+  before (mild regression, not neutral).
+- **-1.0** (`anchor5-stdmild1`/`-s1`, std 0.368 — **CORRECTION**: this
+  is actually an INCREASE above the un-annealed baseline ~0.225, not
+  a milder decrease as the launch hypothesis assumed; log_std_final
+  ordering does not track std magnitude monotonically once you cross
+  the baseline): a genuine cross-seed SPLIT — seed0 gets the full
+  anchor4-class walk catastrophe (gait_valid 0/6 in every cell, a
+  consistent 2-leg [4,5] sacrifice, prog 0.00-0.10) despite this being
+  the "least aggressive" nominal setting, while seed1 survives walk
+  cleanly (gait_valid 6/6, prog 0.29-0.30) — AND hold gets zero help
+  on either seed (6/6 sto term unchanged, det picks up new terms).
+  Read this as "extra noise" hurting seed0's walk core via a different
+  mechanism than -4.0's "noise starvation," not as a point further
+  along the same anneal axis.
+**Net: no dose in {-1.0, -2.0, -4.0} both protects walk reliably AND
+helps hold at all; -4.0 is the only one that moves hold, and it always
+kills walk.** This satisfies the track's own pre-registered escalation
+rule (STATUS Next -1.8) with margin to spare. **Next fundable arm:
+build the per-core `log_std_b` split** (separate learnable std for the
+stance-gated core, anneal only that one toward -4.0-class values,
+leave the walk core's own `log_std` untouched) — design already
+specified in Next -1.8; this is now cycle work, not a pending
+decision. SKILLS.md not touched (no PASS this round). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor5_
+stdmild{1,2}{,_s1}_{gate,owncfg}/report.json`, W&B `hzjoj8xj`/
+`duwxunzn`/`qggsdmzc`/`4qaiutn8`. Prior banners below.)
+
+Previous entry, 2026-08-27 ~03:1x (**anchor5-stdmild2-s1 (dose -2.0,
 seed1) CANARY FAIL - MECHANISM — CROSS-SEED REPLICATION of the seed0
 read below; the -2.0 dose is now closed on both seeds.** Same split:
 WALK-SURVIVES met (DR-0 det gait_valid 6/6, 0 terms, slip 4.21/m vs
@@ -3067,7 +3108,15 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
-**ANCHOR4-STDANNEAL JOINT CALL CLOSED (08-27 ~00:4x): CANARY FAIL -
+**DOSE-BRACKET GRID CLOSED (08-27 ~03:1x): magnitude lever dead,
+building the per-core `log_std_b` split now — see the Last-updated
+banner at the top of this file for the full 4-arm evidence.** One-line
+summary: none of -1.0/-2.0/-4.0 on the single SHARED `log_std` both
+protects walk and helps hold; -4.0 is the only dose that moves hold at
+all and it always wrecks walk. Implementing the per-core split
+(Next -1.8) this cycle.
+
+Previous entry (superseded): **ANCHOR4-STDANNEAL JOINT CALL CLOSED (08-27 ~00:4x): CANARY FAIL -
 MECHANISM cross-seed — std-anneal fixes hold, wrecks walk; root cause
 + refill in the Last-updated banner at the top of this file, not
 duplicated here.** One-line summary: the dual-core policy shares ONE
