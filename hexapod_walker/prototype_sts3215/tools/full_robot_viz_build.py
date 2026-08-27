@@ -343,8 +343,9 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         ("coxa_link", "hip_servo"),
         ("femur_link", "knee_servo"),
         # Clamp cap PRESS-FIT onto its own servo body: the centre tongue
-        # reaches CLAMP_TONGUE_INTERF = 1 mm PAST the seated body +Y face for a
-        # snug press fit (user request, Jun 2026; ~1.5 k mm^3 designed
+        # reaches CLAMP_TONGUE_INTERF = 0.5 mm PAST the seated body +Y face for
+        # a snug press fit (user request, Jun 2026; 1.0 -> 0.5 Aug 26 2026 --
+        # the cap top bowed around the screws; ~0.8 k mm^3 designed
         # interference).  NB: this is the servo<->cap press; the cap<->BRACKET
         # mate below stays strict (must be flush ~0 mm^3).
         ("hip_servo", "hip_clamp_cap"),

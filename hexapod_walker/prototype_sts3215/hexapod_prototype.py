@@ -1639,19 +1639,23 @@ HORN_CLEAR_OPENING_OD  = 24.0   # = DISC_HORN_OD (20) + HORN_CLEAR_OPENING_MARGI
                                 #   the DISC_HORN_OD definition (single source)
 WELL_LIP_SLIDE_CL      = 0.4    # lift the top retaining lip off the front face
 CLAMP_CAP_T            = 5.0    # clamp-cap flange thickness (Y)
-CLAMP_TONGUE_INTERF    = 1.0    # mm -- PRESS-FIT: the tongue reaches 1 mm PAST the
-                                #       SEATED body +Y face (into the body) for a snug
-                                #       press fit (user: "the part that comes down and
-                                #       touches the servo should come down 1 more mm").
-                                #       Was 0 (flush); tightening the 2 cap bolts then
-                                #       FORCES the body against the -Y wall and
-                                #       holds it with zero slop (preload comes
-                                #       from bolt tension + print fit).  Fixes
-                                #       the old ~1.5-2 mm rattle where the
-                                #       tongue stopped at the +Y CAVITY face and
-                                #       left the body free to float.  Kept as a
-                                #       named knob in case a press fit is wanted
-                                #       (any >0 value adds a real interference).
+CLAMP_TONGUE_INTERF    = 0.5    # mm -- PRESS-FIT: the tongue reaches this far PAST
+                                #       the SEATED body +Y face (into the body) for a
+                                #       snug press fit.  History: 0 (flush) left the
+                                #       old ~1.5-2 mm rattle -- the tongue stopped at
+                                #       the +Y CAVITY face and the body floated.
+                                #       Jun 2026 went to 1.0 (user: "the part that
+                                #       comes down and touches the servo should come
+                                #       down 1 more mm"); Aug 26 2026 bench: 1.0 was
+                                #       too much -- the tongue bottoms on the rigid
+                                #       body ~1 mm before the flange meets the wall
+                                #       ends, so tightening the 2 cap bolts visibly
+                                #       BOWED the cap top around the screws (the
+                                #       counterbore leaves only 2 mm of flange under
+                                #       each head).  Halved to 0.5: still a real
+                                #       interference (preload from bolt tension +
+                                #       print fit forces the body against the -Y
+                                #       wall) but the forced deflection is halved.
 CLAMP_BOLT_PILOT_OD    = 2.5    # M3 self-tap pilot in the +/-X wall +Y ends
 CLAMP_BOLT_PILOT_DEPTH = 12.0   # mm thread engagement into the wall
 CLAMP_BOLT_CLEAR_OD    = 3.4    # M3 clearance through the cap flange
@@ -1699,7 +1703,7 @@ CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (
 # down 5mm further closer to the middle of the back of the servo").  An
 # L-shaped hook near the -X end of the +Y edge:
 #   * a WALL dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back plane along
-#     the +Y edge strip (y >= tongue_y0 = 11.4 -- flat rim at z = 0, proven
+#     the +Y edge strip (y >= tongue_y0 = 11.9 -- flat rim at z = 0, proven
 #     by the seated CLAMP_SEAT_DROP lip; the raised ~1.8 mm centre platform
 #     around the 5264 bay stops short of it);
 #   * a SHELF turning inboard (-Y) to y = CLAMP_BACK_HOOK_Y0 = 5.0, i.e.
@@ -6101,7 +6105,7 @@ def _sandwich_fixed_side(*, end_face_bolts: bool = True,
         # Relief shelf under the knee clamp cap's dropped tongue (+Y corner):
         # the tongue occupies y >= SERVO_BODY_D/2 - CLAMP_TONGUE_INTERF down
         # to z = -CLAMP_SEAT_DROP; shave the tab 0.25 below it there.
-        tongue_y0 = SERVO_BODY_D / 2.0 - CLAMP_TONGUE_INTERF   # +11.4
+        tongue_y0 = SERVO_BODY_D / 2.0 - CLAMP_TONGUE_INTERF   # +11.9
         relief = _box((abs(wall_in_x - (FEMUR_REAR_TAB_X1 + 0.5)) + 1.0,
                        (FEMUR_REAR_TAB_Y1 + 2.0) - (tongue_y0 - 0.25),
                        CLAMP_SEAT_DROP + 0.25),
@@ -6171,11 +6175,13 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
     and laterally, NOT behind the body), so the body's seated +Y face is at
     +SERVO_BODY_D/2.  The OLD tongue stopped at the +Y CAVITY face
     (SERVO_BODY_D/2 + WELL_BODY_CL = +13.1), i.e. WELL_BODY_CL OUTBOARD of the
-    body, so the body could float toward +Y into that gap -> the user's
-    measured ~1.5-2 mm rattle.  The tongue now reaches CLAMP_TONGUE_INTERF =
-    1 mm PAST the body's seated +Y face (a press-fit interference, user
-    request), so tightening the 2 cap bolts traps the body between the -Y wall
-    and the tongue with a snug press fit and zero slop."""
+    body, so the     body could float toward +Y into that gap -> the user's
+    measured ~1.5-2 mm rattle.  The tongue now reaches CLAMP_TONGUE_INTERF
+    PAST the body's seated +Y face (a press-fit interference, user request),
+    so tightening the 2 cap bolts traps the body between the -Y wall and the
+    tongue with a snug press fit and zero slop.  (Aug 26 2026: interference
+    reduced 1.0 -> 0.5 mm -- at 1 mm the flange visibly bowed around the
+    screws when tightened; see the CLAMP_TONGUE_INTERF comment.)"""
     # +Y face of the body, seated against the cradle's -Y wall.
     body_face_y = SERVO_BODY_D / 2.0                       # +12.4 (seated body +Y face)
     wall_end_y = WELL_D / 2.0                              # +16.9 (wall +Y ends)
