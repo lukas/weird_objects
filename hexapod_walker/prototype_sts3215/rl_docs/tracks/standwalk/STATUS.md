@@ -3011,10 +3011,12 @@ still-fragile core of exploration noise and it collapses into an
 anchor1-class leg-sacrifice freeze on both seeds, even though hold's
 stochastic termination genuinely improves (6/6 -> 0-2/6). Milder-dose
 bracket (4 arms, `anchor5-stdmild2{,-s1}` at -2.0, `anchor5-stdmild1{,
--s1}` at -1.0) launched and VERIFIED RUNNING; two of the four (both
-seed-0s) already finished their 2M budget mid-cycle — left for the
-next finish-triggered cycle per this campaign's established
-convention. DIG-IN flagged for the harder per-core `log_std` split
+-s1}` at -1.0) launched and VERIFIED RUNNING; `anchor5-stdmild2`
+(seed0, -2.0 dose) already finished its 2M budget mid-cycle (W&B
+`qggsdmzc` state=finished) — left for the next finish-triggered cycle
+per this campaign's established convention; the other three were
+still mid-training (0.8-1.6M/2M) as of this write. DIG-IN flagged for
+the harder per-core `log_std` split
 regardless of the dose-bracket outcome (real policy/checkpoint code,
 deep-cycle scope). SKILLS.md not updated (no PASS this cycle).
 
