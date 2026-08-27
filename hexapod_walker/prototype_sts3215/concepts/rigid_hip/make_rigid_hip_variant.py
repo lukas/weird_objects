@@ -1840,6 +1840,12 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
             inst("tibia_tube", f"L{i} tibia tube", T["tibia"], leg=i),
             inst("foot_boot", f"L{i} foot boot", T["tibia"] @ foot_frame, leg=i),
         ]
+        # BuildViz FK: joints compose up the ``parent`` chain and each
+        # instance is driven by the deepest joint that lists it -- so the
+        # per-link instance lists above only articulate correctly with the
+        # yaw -> hip -> knee parent chain declared (same pattern as
+        # tools/full_robot_viz_build.py).  Without ``parent`` the hip sweep
+        # moved the femur but left the tibia yoke/tube/boot behind.
         joints += [
             {"id": f"L{i}-yaw", "type": "revolute", "axis": [0, 0, 1],
              "origin": axis_pt, "instances": yaw_ids,
@@ -1847,10 +1853,12 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
              "label": f"L{i} yaw"},
             {"id": f"L{i}-hip", "type": "revolute", "axis": pitch_ax,
              "origin": [float(x) for x in hip_pt], "instances": hip_ids,
+             "parent": f"L{i}-yaw",
              "limits": {"min": femur_up_limit, "max": 30.0}, "home": 0,
              "label": f"L{i} hip (up-limit {femur_up_limit:g} due to plate)"},
             {"id": f"L{i}-knee", "type": "revolute", "axis": pitch_ax,
              "origin": [float(x) for x in knee_pt], "instances": knee_ids,
+             "parent": f"L{i}-hip",
              "limits": {"min": -30.0, "max": 20.0}, "home": 0,
              "label": f"L{i} knee"},
         ]

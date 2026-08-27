@@ -2682,6 +2682,7 @@
     "016-L0 knee servo",
     "017-L0 knee cap"
    ],
+   "parent": "L0-yaw",
    "limits": {
     "min": -47.5,
     "max": 30.0
@@ -2707,6 +2708,7 @@
     "019-L0 tibia tube",
     "020-L0 foot boot"
    ],
+   "parent": "L0-hip",
    "limits": {
     "min": -30.0,
     "max": 20.0
@@ -2759,6 +2761,7 @@
     "029-L1 knee servo",
     "030-L1 knee cap"
    ],
+   "parent": "L1-yaw",
    "limits": {
     "min": -47.5,
     "max": 30.0
@@ -2784,6 +2787,7 @@
     "032-L1 tibia tube",
     "033-L1 foot boot"
    ],
+   "parent": "L1-hip",
    "limits": {
     "min": -30.0,
     "max": 20.0
@@ -2836,6 +2840,7 @@
     "042-L2 knee servo",
     "043-L2 knee cap"
    ],
+   "parent": "L2-yaw",
    "limits": {
     "min": -47.5,
     "max": 30.0
@@ -2861,6 +2866,7 @@
     "045-L2 tibia tube",
     "046-L2 foot boot"
    ],
+   "parent": "L2-hip",
    "limits": {
     "min": -30.0,
     "max": 20.0
@@ -2913,6 +2919,7 @@
     "055-L3 knee servo",
     "056-L3 knee cap"
    ],
+   "parent": "L3-yaw",
    "limits": {
     "min": -47.5,
     "max": 30.0
@@ -2938,6 +2945,7 @@
     "058-L3 tibia tube",
     "059-L3 foot boot"
    ],
+   "parent": "L3-hip",
    "limits": {
     "min": -30.0,
     "max": 20.0
@@ -2990,6 +2998,7 @@
     "068-L4 knee servo",
     "069-L4 knee cap"
    ],
+   "parent": "L4-yaw",
    "limits": {
     "min": -47.5,
     "max": 30.0
@@ -3015,6 +3024,7 @@
     "071-L4 tibia tube",
     "072-L4 foot boot"
    ],
+   "parent": "L4-hip",
    "limits": {
     "min": -30.0,
     "max": 20.0
@@ -3067,6 +3077,7 @@
     "081-L5 knee servo",
     "082-L5 knee cap"
    ],
+   "parent": "L5-yaw",
    "limits": {
     "min": -47.5,
     "max": 30.0
@@ -3092,6 +3103,7 @@
     "084-L5 tibia tube",
     "085-L5 foot boot"
    ],
+   "parent": "L5-hip",
    "limits": {
     "min": -30.0,
     "max": 20.0
