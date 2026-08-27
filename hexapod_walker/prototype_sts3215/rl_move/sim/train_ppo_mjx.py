@@ -3045,6 +3045,30 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[mjx-train] --net-arch {net_arch} matches the "
                       "warm-start checkpoint; proceeding")
             print(f"[mjx-train] warm start from {args.init_from}")
+            if args.gru_dual_log_std_split:
+                # BUGFIX (08-27, anchor6-logstdsplit forensics): the
+                # load() above rebuilds the policy from the CHECKPOINT's
+                # own policy_kwargs, so a pre-split parent silently
+                # dropped log_std_split=True — no log_std_b was ever
+                # constructed, and the "stance-only" anneal fell back
+                # to cooling the one SHARED log_std (both anchor6
+                # seeds shipped that way and merely reproduced the
+                # anchor4-stdanneal catastrophe instead of testing the
+                # split). Retrofit the split onto the loaded policy
+                # and record it in policy_kwargs so THIS run's saved
+                # checkpoints reload with the split constructed.
+                if not isinstance(model.policy, DualGruActorCriticPolicy):
+                    raise SystemExit(
+                        "--gru-dual-log-std-split warm start needs a "
+                        "DualGruActorCriticPolicy checkpoint (got "
+                        f"{type(model.policy).__name__})")
+                if not getattr(model.policy, "log_std_split", False):
+                    model.policy.enable_log_std_split()
+                    model.policy_kwargs["log_std_split"] = True
+                    print("[mjx-train] --gru-dual-log-std-split: "
+                          "retrofitted log_std_b onto the warm-start "
+                          "checkpoint (parent predates the split; "
+                          "fresh optimizer state)")
             if args.asym_critic:
                 from .asym_policy import AsymActorCriticPolicy
                 if not isinstance(model.policy, AsymActorCriticPolicy):
@@ -3961,6 +3985,28 @@ def main(argv: list[str] | None = None) -> int:
             def __init__(self):
                 super().__init__()
                 self._warned_fallback = False
+                # FAIL-CLOSED (08-27, anchor6-logstdsplit forensics):
+                # a specific --log-std-anneal-core request that the
+                # policy cannot target must REFUSE, not silently
+                # anneal ALL log_std parameters. The old "printed
+                # once" fallback warning was dead code — it checked
+                # hasattr(pol, "_log_std_core") (always true on the
+                # dual policy) instead of whether the core lookup
+                # returned None (split off), so both anchor6 seeds
+                # annealed the shared log_std without a word.
+                core = getattr(args, "log_std_anneal_core", "all")
+                if core != "all":
+                    pol = model.policy
+                    if not (hasattr(pol, "_log_std_core")
+                            and pol._log_std_core(core)):
+                        raise SystemExit(
+                            f"--log-std-anneal-core {core}: "
+                            f"{type(pol).__name__} cannot target that "
+                            "core (log_std_split off, or unknown core "
+                            "name) — refusing to silently anneal ALL "
+                            "log_std parameters. Pass --gru-dual-log-"
+                            "std-split (or drop --log-std-anneal-core) "
+                            "and relaunch.")
                 if args.warm_log_std_override is not None:
                     self._start = float(args.warm_log_std_override)
                 else:

@@ -688,6 +688,50 @@ def test_dual_log_std_split_save_load_roundtrip(tmp_path):
         "log_std_b should have diverged from log_std after training"
 
 
+def test_dual_log_std_split_retrofit(tmp_path):
+    """enable_log_std_split (anchor6-logstdsplit forensics, 08-27): a
+    plain --init-from warm start rebuilds the policy from the
+    CHECKPOINT's own policy_kwargs, so pre-split parents dropped the
+    flag silently. The retrofit path must (a) build log_std_b seeded
+    from the current log_std, (b) register it with a fresh optimizer
+    so it trains, (c) be idempotent, and (d) — with policy_kwargs
+    patched the way train_ppo_mjx does — survive a save/load
+    roundtrip with the split constructed."""
+    from sb3_contrib import RecurrentPPO
+
+    model = _dual_model()  # split OFF, like a pre-split checkpoint
+    pol = model.policy
+    assert pol.log_std_split is False
+    with th.no_grad():
+        pol.log_std.data.fill_(-1.5)
+    pol.enable_log_std_split()
+    assert pol.log_std_split is True
+    assert pol.log_std_b.requires_grad
+    assert th.allclose(pol.log_std_b, pol.log_std)
+    assert pol._log_std_core("stance") == (pol.log_std_b,)
+    # New parameter is actually in the (rebuilt) optimizer.
+    opt_params = {id(p) for g in pol.optimizer.param_groups
+                  for p in g["params"]}
+    assert id(pol.log_std_b) in opt_params, \
+        "retrofitted log_std_b missing from the optimizer"
+    # Idempotent: second call must not replace the tensor.
+    b_id = id(pol.log_std_b)
+    pol.enable_log_std_split()
+    assert id(pol.log_std_b) == b_id
+    # Roundtrip with the trainer's policy_kwargs patch applied.
+    model.policy_kwargs["log_std_split"] = True
+    with th.no_grad():
+        pol.log_std_b.data.fill_(-3.0)
+    zip_path = tmp_path / "dual_retrofit.zip"
+    model.save(zip_path)
+    loaded = load_checkpoint_auto(zip_path)
+    assert loaded.policy.log_std_split is True
+    assert th.allclose(loaded.policy.log_std_b,
+                       th.full_like(loaded.policy.log_std_b, -3.0))
+    assert th.allclose(loaded.policy.log_std,
+                       th.full_like(loaded.policy.log_std, -1.5))
+
+
 def test_dual_bptt_forward_matches_entry_points():
     """distill_gru's whole-episode path must agree with the production
     get_distribution path from zero states (same math, two routes)."""

@@ -1,6 +1,737 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Last updated: 2026-08-27 ~03:4x (**OPERATOR PRIORITY 08-27 (MCP
+Update, 2026-08-27 ~15:2x (triage cycle: **anchor10-percoreclip
+(seed0) CANARY FAIL - MECHANISM — per-core grad-clip decoupling does
+NOT rescue walk; the LAST proposed architecture-sharing/optimizer-
+coupling mechanism on this recipe family is now closed**). Own-seed
+scope (joint call awaits `anchor10-percoreclip-s1`, still training on
+train-5 as of this write — belongs to whoever reads its SYNCED
+marker). WIRING CHECK FIRST confirmed two ways before reading any
+behavior: `cfg_set` has `train.bc_anchor_percore_clip=1`, and the
+checkpoint zip's own `policy.pth` tensors include `mlp_extractor_b`/
+`core_b`/`action_net_b` — the dual-core branch genuinely loaded, not
+a silent single-core fallback (the exact wiring-miss class that bit
+anchor6-logstdsplit). Then the full DR-0 gate panel (4 modes x
+det+sto + a startjitter pair, `logs/ckpt_eval/cw_standwalk_stance_
+mesh2_stage2_dualbc1_anchor10_percoreclip_gate/report.json`): walk/det
+0/6 `gait_valid`, sacrificed legs consistently `[3]` (some episodes
+`+[2]`/`+[4]`), `progress_ratio` NEGATIVE (-0.02 to -0.04 — net
+backward drift, not stalled-forward), slip/m 45-46; walk/sto 0/6
+`gait_valid`, same sacrificed set, slip/m 23-29; `walk_startjitter`
+det+sto also 0/6 both. Own-DR(0.5) panel is the same or worse (sto
+loses a 4th leg, `[0,2,3,4]`). Video/contact-sheet: static splayed
+crouch, no six-leg cycling, visually identical to every prior
+anchor4/5/6/6b/7/8/9 catastrophe — not the milder partial-drag shape
+anchor7's rescued seed showed. Per this gate's own pre-registered
+rule this is squarely the 0/6-same-signature REFUTED branch. Non-walk
+modes keep roughly their existing log_std-anneal protection (rise
+4-5/6, lower 3-6/6, hold 3-4/6 across det/sto/both DR levels) — the
+damage stays walk-specific, as in every prior arm. This closes the
+full architecture-sharing candidate list for this recipe (log_std
+anchor4-6b, trunk-detach anchor7, advantage-norm-scope anchor8,
+grad-clip-per-core anchor9/10): every one built, wiring-checked, and
+behaviorally tested, and every one leaves walk in the same 0/6
+total-freeze basin. **This lands AFTER the operator design
+correction below (anchor11/12-walkretain, launched ~14:1x) — no
+conflict, same direction**: that wave's in-loss walk-retention anchor
+is exactly the reward/task-level mechanism this gate's own text (and
+anchor9's) named as the required next step once every architecture-
+sharing candidate failed; anchor10's fail is one more confirmation
+the operator's diagnosis (evals-only protection was never going to be
+enough) was right, not a new open question. No new launch this cycle
+— the correct next-step mechanism is already running as anchor11/12.
+Verdict: `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-
+percoreclip`. Evidence: `logs/ckpt_eval/cw_standwalk_stance_mesh2_
+stage2_dualbc1_anchor10_percoreclip_{gate,owncfg}/report.json` +
+contact_sheet.png. Prior banner below.
+
+Update, 2026-08-27 ~14:1x (operator-kick cycle: **OPERATOR DESIGN
+CORRECTION EXECUTED (MCP note 20260827T135505Z, Lukas via Codex) —
+walk-retention guardrail moved INTO the training loss; 4-arm
+walk-anchor wave LAUNCHED, all VERIFIED RUNNING**). The operator
+orders: stop relying on evals as the primary protection against walk
+forgetting — make walk regression hurt during training itself
+(multi-teacher distill + per-mode-normalized objectives + an
+always-on walk-retention KL/BC/anchor term), evals become audit only.
+Gap analysis against this order: (a) multi-teacher distillation is
+already this lineage's foundation (`ppo_goal_cw_standwalk_stage2_
+dualbc1.zip`, stance teacher acq8m + walk teacher stotight45-seed13);
+(b) walk-mode anti-park/partial-credit pricing is already dense and
+bank-proven (probe_walk_income: honest gait out-earns every
+degenerate 2-4x; k_walk_idle_charge, k_park_duty, walk_kernel_prog_
+gate, k_drag_stance, course/overspeed, loadslip terms all live in
+this recipe); but (c) **every dualbc1 arm to date trained with
+`train.bc_anchor_walk=0.0` — walking has had NO in-loss retention
+term this entire campaign**, the exact defect the operator names.
+The fix needs zero new code: the walk-tick BC anchor (scripted
+TripodGait target, phase-locked, raw-module knee dialect) is
+existing, 81-tests-green machinery — and it is the walk teacher
+stotight45-seed13's OWN training-recipe guardrail (`bc_anchor_walk=1
++ phase_lock=1 + knee_abs=1`, coef 1.0), so enabling it anchors the
+walk core to the same target its teacher was held to. Wiring
+verified before launch: both the policy's phase-obs clock
+(`walk_task._seq_reset_mode_state`) and the anchor's phase-locked
+clock (sim_env mode-seq switch path) reset per segment switch, so
+they stay aligned in composed `goal.mode_seq` episodes. **LAUNCHED
+(respec, single mechanism change `bc_anchor_walk=1 + phase_lock=1 +
+knee_abs=1`, 2M canaries, all 4 VERIFIED RUNNING train-0..3):**
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor11-walkretain{,-s1}`
+on the anchor6b-logstdsplit-fix{,-s1} recipes — the hold-FIXING but
+walk-catastrophe-prone pair (seed0 clean/seed1 0-of-6 collapse):
+direct rescue test of "retention loss prevents the collapse every
+architecture-side fix failed to stop"; and `...-anchor12-walkretain-
+base{,-s1}` on the walk-clean anchor2{,-s1} recipes — the control
+isolating what the anchor itself does to a healthy walk (matched
+parents' evals already on disk). Full PASS/PARTIAL/FAIL branches +
+wiring-check-first (`train/bc_anchor_fill_walk`/`loss_walk` nonzero)
+in the ledger gate texts. **Sequencing note**: prior banners gated
+all new arms on anchor10-percoreclip's read — the operator note
+supersedes that gating (operator orders outrank standing
+pre-registrations); anchor10's read (owned by the concurrent cycle)
+should now be read ALONGSIDE this wave, and the anchor9 seed-
+divergence flag still applies to it. **Pre-registered follow-ups
+added to Next (-2.35)**: per-mode-group objective/advantage
+normalization build (the operator's normalization mechanism; fund on
+walkretain FAIL), per-mode anchor coefficient (walk dose separate
+from stance's 3.0; fund if the control regresses), frozen-teacher-
+policy KL anchor (heavier retention variant if the scripted target
+pulls the gait). No triage owed this cycle (no finished run assigned;
+anchor10-percoreclip{,-s1} + anchor9 pair belong to concurrent
+cycles). CYCLE_WORKED. Prior banner below.
+
+Previous entry, 2026-08-27 ~13:5x (triage cycle: **anchor9-gradnorm (seed0)
+CANARY FAIL - MECHANISM verdicted — own-seed SUPPORTED, joint
+DIVERGENT with the concurrently-verdicted -s1 read; `train.
+bc_anchor_percore_clip` mechanism BUILT+TESTED+LAUNCHED as
+anchor10-percoreclip{,-s1}; infra fix landed: checkup false-DEAD
+tail-window gap**). Read this run's own `train/gradnorm_{a,b}_mean`
+history (30 paired rollouts, WIRING CHECK FIRST confirmed nonzero
+both keys): core B (stance) raw pre-clip grad L2 norm is >=3x core A
+(walk) in 23/30 rollouts, median b/a=4.2x overall and 3.5x isolated
+to the reward-trough window (idx 6-13), max 16x — matches this arm's
+own pre-registered SUPPORT bar on this seed alone. The concurrently-
+running cycle had already read seed1 (`anchor9-gradnorm-s1`,
+f580f822) and found the OPPOSITE shape at the trough (median b/a=0.73,
+core A often larger) — so the JOINT call across both seeds is
+DIVERGENCE, joining log_std/trunk/advantage-norm in having at least
+one seed disagree; recorded that caveat directly on this run's
+verdict rather than re-opening their already-closed -s1 entry.
+Regardless, built + unit-tested (8 new tests incl. a synthetic-grad
+behavioral proof) `train.bc_anchor_percore_clip` (default 0,
+bit-exact off): replaces sb3-contrib's ONE global `clip_grad_norm_`
+call inside `RecurrentPPO.train()` with THREE independent per-group
+clips (core a / core b / shared) at the same max_norm, via a new
+shared `_dual_core_param_groups` helper (also used to refactor
+`_gradnorm_diag_ctx` in place — byte-identical grouping, gradnorm
+tests stay green). Launched `cw-standwalk-stance-mesh2-stage2-
+dualbc1-anchor10-percoreclip{,-s1}` on the byte-identical anchor9-
+gradnorm recipe (same seeds/init-from) with only the mechanism flag
+added, explicitly as a direct WALK-SURVIVES behavioral test — the
+gate text tells the next reader NOT to treat either pass or fail as
+proof/disproof of grad-clip-coupling specifically, given the seed-
+divergent diagnostic evidence; a fail routes straight to the
+reward/task-level audit anchor9's own gate text names, same as if
+every architecture-sharing candidate is now exhausted. Both seed0
+(train-4) and seed1 (train-5) already finished training (fast MJX
+canary, ~15 min/2M steps) — seed0 status FINISHED, seed1 VERIFIED
+RUNNING as of this write, left for the SYNCED-marker cycle to
+triage. **Infra fix landed en route**: `cmd_checkup`'s "process
+missing -> check log tail for a completion marker" fallback used a
+`tail -c 2000` window that a fast MJX canary's own W&B postamble
+(artifact-upload lines + full Run history/summary key dump) can
+overrun — measured 2107 bytes after the `[mjx-train] done` marker on
+anchor10-percoreclip's own log (107 bytes past the old window),
+producing a false DEAD checkup read on a cleanly finished run.
+Widened to `tail -c 8000` with a regression test fixturing the exact
+overrun shape; re-running checkup after the fix correctly reads
+FINISHED. Full track sweep: backlog empty, all 12 GPU pods free
+(besides the two just-launched), joystick/amp/cpg DONE-or-
+maintenance, walkcurr `[operator]`-blocked — no other standwalk arm
+is legal until anchor10-percoreclip's own read lands (same sequential
+gating every recent banner has noted). CYCLE_WORKED. Prior banner
+below.
+
+Previous entry, 2026-08-27 ~13:3x (triage cycle: **anchor9-gradnorm-s1
+CANARY FAIL - MECHANISM - JOINT DIVERGENCE — seed1's own gradnorm
+read does NOT replicate seed0's basis for launching anchor10-
+percoreclip**). Read the finished `...anchor9-gradnorm-s1` W&B
+history for `train/gradnorm_{a,b}_mean` (a=walk/loco core, b=stance
+core, per `_dual_core_param_groups`), same WIRING CHECK / call-order-
+pairing discipline as anchor8. Result diverges sharply from the
+concurrently-owned seed0 read that already justified building +
+launching `train.bc_anchor_percore_clip` /
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor10-percoreclip`
+(seed0: median b/a 4.2x, 23/30 rollouts >=3x, persistent through the
+reward trough, "never comparable let alone inverted"). Seed1: full
+30-rollout median b/a 1.95x, only **10/30** rollouts clear the >=3x
+bar (20/30 sit inside a comparable ±3x band), and at the EXACT
+reward-trough window (rollout idx 6-13, this run's own reward
+quarters [40.0,-8.7,-460.3,-112.0]) the ratio is comparable-to-
+INVERTED: b/a = [12.4(single-rollout outlier, core-a's raw norm
+collapsed to 3.3), 0.73, 0.73, 1.62, 0.88, 0.71, 0.56, 0.63], median
+0.73 — core A (WALK) is usually the LARGER raw gradient there,
+opposite of seed0's reported stance-dominant trough. Per this arm's
+own pre-registered joint rule ("REFUTED if the two stay comparable on
+either/both seeds"), seed1 ALONE already fails the SUPPORT bar — the
+concurrent cycle's decision to build+launch anchor10-percoreclip off
+seed0 alone (reasonable: the diagnostic is cheap and anchor10 is
+itself a direct behavioral test) is not doubly gradnorm-confirmed.
+**Flag for whoever reads anchor10-percoreclip's result**: if walk
+still fails there, do NOT read that as "grad-clip coupling refuted,
+try another architecture-sharing variant" AND do not read a walk
+rescue there as definitive proof grad-norm-clip-coupling was the
+mechanism either — the diagnostic evidence for the mechanism itself
+is seed-divergent; either outcome should route to the reward/task-
+level audit named in anchor9's own REFUTED branch (every
+architecture-sharing/optimizer-coupling candidate — log_std anchor4-
+6b, trunk anchor7, advantage-norm anchor8, grad-clip anchor9 — will
+then have at least one seed contradicting it). Verdict:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm-s1`.
+Evidence: `logs/experiments/cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor9-gradnorm-s1/wandb_history.csv`. No code change, no new
+launch this cycle — anchor10-percoreclip (seed0, train-4) is already
+running under the concurrent cycle's ownership; this track has no
+other fundable arm until that read lands (every remaining Next item
+gates sequentially on it, same as last cycle's note). Prior banner
+below.
+
+Update, 2026-08-27 ~12:5x (dig-in cycle: **anchor8-advstats (seed0)
+CANARY FAIL - MECHANISM — advantage-normalization-scope hypothesis
+REFUTED, INVERTED not just unsupported; gradnorm diagnostic
+BUILT+TESTED+LAUNCHED (Next -2.2)**). Read the finished
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-advstats` (seed0)
+W&B history for `train/adv_{loco,stance}_std`. First had to solve a
+real read-pitfall: the cached CSV looked like the diagnostic never
+fired (mean/share columns all-empty on the rows where std was
+populated) — root cause is this stack's wandb-tensorboard sync giving
+EVERY `train/*` scalar, including stock PPO metrics like `approx_kl`/
+`loss`, its own separate implicit `_step` (confirmed this is pre-
+existing/universal, not something this cycle's diagnostic broke), so
+the six new keys must be paired by call-order, not by matching `_step`
+values. Once paired correctly: wiring genuinely worked (nonzero share
+every rollout, ~0.27 loco / ~0.73 stance), but the result is the
+OPPOSITE of the predicted direction — `adv_loco_std` is often 2-7x
+LARGER than `adv_stance_std`, especially during the exact reward-
+trough window (rollout idx 6-13 of 30, matching the run's own reward
+quarters [38.4, 21.0, -287.6, -49.9]) — never the reverse. Seed1's
+own already-finished data (read for context, not verdicted here —
+belongs to whichever cycle owns `anchor8-advstats-s1`) shows the
+identical inverted pattern. sb3-contrib's shared global advantage
+normalizer is REFUTED as the walk-starvation mechanism, joining
+log_std-sharing (anchor6/6b) and trunk-gradient-bleed (anchor7).
+Escalated to the fallback named in anchor8's own pre-registered
+hypothesis text: PPO's global `clip_grad_norm_` over ALL params
+together — a code read confirms the dual-core policy already has
+fully separate GRUs/heads/critics per core (only a parameterless
+`FlattenExtractor` is shared), so one global clip factor could still
+couple the two cores with zero shared weights. Built+tested a new
+read-only diagnostic (`train.bc_anchor_debug_gradnorm`, default off/
+bit-exact, 5 new tests) that transiently monkeypatches
+`torch.nn.utils.clip_grad_norm_` to log pre-clip per-core grad L2
+norms; launched on the byte-identical anchor8-advstats recipe (same
+seed, same `init-from`, only the diagnostic flag swapped) as
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm{,-s1}`,
+VERIFIED RUNNING (train-1/train-3). Snapshot
+`exp/pre-anchor9-gradnorm-diagnostic`. Checked all other tracks for
+runnable work with the 10 remaining free GPU slots: amp/cpg are
+gate-GREEN (maintenance/[operator]-only), walkcurr is operator-
+blocked (do-not-launch per its own STATUS), joystick's DONE gate is
+already met and its only active hardening thread self-closed pending
+a genuinely new mechanism (deferred to this track). No parallel
+standwalk arm is legal either — every Next item on this track gates
+the next one sequentially by explicit pre-registration ("do not fund
+X until this diagnostic's read is in"), so 2 launches is the full
+correct batch this cycle, not underuse of capacity. Prior banner
+below.
+
+Previous entry, 2026-08-27 ~12:2x (idle-kick/dig-in cycle: **anchor7-detachtrunk{,-s1}
+JOINT CLOSE (Next -2.0) — CANARY FAIL - MECHANISM, both seeds, but
+genuinely informative; NEW diagnostic BUILT+TESTED+LAUNCHED (Next
+-2.1)**). Resumed the two long-pending gate/owncfg passes via
+`resume_orphaned_eval.py` (both had finished computing remotely ~11:48/
+~11:56 but never synced back — the known Next -1.86 wrapper-timeout
+gap, now-fixed code hadn't yet been picked up by these two in-flight
+runs) and read the full `report.json` for both seeds' DR-0 gate + own-DR
+owncfg passes. **Result: detach_trunk does NOT deliver the pre-registered
+FULL PASS (neither seed reaches det gait_valid>=5/6 at DR-0) and does
+not match the anticipated PARTIAL shape either.** Instead it moves BOTH
+seeds toward a similar, MILDER failure basin from opposite directions:
+seed0 (`detachtrunk`) REGRESSES from its own `fix` parent's CLEAN walk
+(6/6 gait_valid, sac=[], prog 0.22-0.24) to a 0/6-gait_valid 2-3-leg
+persistent drag (sac=[3,4] every det episode, prog 0.13-0.14) — a real
+regression, not noise; seed1 (`detachtrunk-s1`) is RESCUED from its own
+`fix-s1` parent's TOTAL freeze (0/6 gv, sac 3-5 legs, prog 0.004-0.009,
+essentially static) to a milder 1-leg drag (sac=[0] or [1], prog
+0.10-0.11) and, at own-DR(0.5), reaches gait_valid 5/6 (mostly clean).
+Hold is roughly unchanged both seeds vs their `fix`/`fix-s1` parents.
+**Why this matters**: if trunk-gradient bleed from the BC anchor loss
+were the SOLE cause of the anchor4-class catastrophe, isolating the
+trunk from that gradient should never hurt an already-clean seed —it
+did (seed0) — so trunk-bleed is refuted as a *sufficient*, safe-in-
+isolation explanation, joining the already-refuted exploration-noise
+theory (anchor6b). Verdicts: `cw-standwalk-stance-mesh2-stage2-dualbc1-
+anchor7-detachtrunk{,-s1}` (both FAIL). Evidence:
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor7_
+detachtrunk{,_s1}_{gate,owncfg}/report.json` + contact sheets, vs
+`..._anchor6b_logstdsplit_fix{,_s1}_gate/report.json` for the parent
+comparison.
+
+**NEW CANDIDATE MECHANISM, reasoned from the architecture + sb3-contrib
+source (not yet behaviorally confirmed) — a THIRD, previously-untested
+root cause distinct from log_std and trunk-sharing:** the dual-core
+policy (`gru_policy.DualGruActorCriticPolicy`) already gives walk
+(core A) and stance (core B) fully separate GRUs + actor/critic heads
+— `bc_anchor_detach_trunk=1` additionally proved the anchor loss can't
+even touch the shared upstream `extract_features`/either GRU core
+anymore, and the catastrophe still isn't fixed. That points away from
+any *shared-weight* explanation and toward sb3-contrib's own
+`RecurrentPPO.train()`: it normalizes advantages with ONE global
+`(mean, std)` per minibatch (`advantages[mask].mean()/.std()`,
+`ppo_recurrent.py`) — this stack has NO VecNormalize/reward-scaling
+anywhere (grep-confirmed) — and every dual-core recipe trains with
+`goal.mode_seq` composing hold/rise/lower/walk INSIDE one episode, so a
+single env's own rollout chunk already interleaves multiple mode
+families in time before any cross-env mixing. That makes the shared
+advantage-normalization constant structurally cross-mode on
+essentially every minibatch, independent of any trunk/log_std sharing.
+If stance's raw advantage variance (plausible: rise/hold/lower carry
+large terminal penalties up to `reward.term_cost_max`) dwarfs walk's
+bounded per-tick kernel reward, the shared normalizer would shrink
+walk's own PPO gradient toward zero FOR FREE — no shared weights
+needed at all. **BUILT + TESTED this cycle**: a strictly READ-ONLY
+diagnostic, `train.bc_anchor_debug_adv_stats` (default 0, bit-exact —
+3 new unit tests in `test_bc_anchor.py`: default-off no-op, correct
+loco/stance split on synthetic data, clean skip when
+`obs.mode_onehot` isn't present), that logs the RAW pre-normalization
+per-mode-family advantage `mean/std/share`
+(`train/adv_{loco,stance}_{mean,std,share}`) from `self.rollout_buffer`
+AFTER `super().train()` has already consumed it — changes no
+gradient/weight/RNG draw. Snapshotted
+(`exp/pre-anchor8-advstats-diagnostic`). **LAUNCHED**:
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-advstats{,-s1}` —
+the EXACT `anchor6b-logstdsplit-fix{,-s1}` recipe (same seeds, same
+`init-from anchor2{,_s1}`, no detach_trunk) with ONLY the diagnostic
+flag added, so this cycle's diagnostic read lands on the
+ALREADY-KNOWN clean-walk (seed0) / total-catastrophe (seed1) pair —
+seed0 VERIFIED RUNNING on train-1, seed1 launch in flight. Decision
+rule pre-registered in the gate text: if `train/adv_stance_std` is
+persistently several-x `train/adv_loco_std` on both seeds, the
+hypothesis is SUPPORTED (design a per-mode-group advantage
+normalization mechanism next); if the two stay comparable, it's
+REFUTED and the next candidate is critic/value-function coupling.
+Prior banner below.
+
+Update, 2026-08-27 ~11:4x (idle-kick cycle: **Next -1.85 MIXED-SESSION
+BASELINE READOUT CLOSED** — the four detached long-session evals
+queued by the 08-27 op-priority note (`anchor2`, `anchor2-s1`,
+`anchor3`, `anchor3-s1`, on train-8/9/10/11) all finished (`verdict
+written` in every `/tmp/mixedsession_<run>.log`, 4-8h after launch);
+copied the artifact dirs back (`kubectl cp`, no relaunch) and read all
+4 `session_verdict.json`. **Result: ALL FOUR FAIL the hard
+zero-terminations gate — none is a promotable single-model
+candidate.** Termination rate per 90-episode session: anchor2 66/90
+(73%), anchor2-s1 62/90 (69%), anchor3 66/90 (73%), anchor3-s1 60/90
+(67%). Dominant cause is `over_current` (28-37 of the terms, more than
+`hold_low_height`'s 10-33 or `hold_min_load`'s 5-13) — consistent with
+the already-known RUNG-9 flat-rise residual, just showing up more
+often here because a long mode_seq session revisits `rise` many times.
+By segment: rise 20-39 terms, walk 20-27, hold 7-17 (walk's share is
+new information — the composed session stresses walk's fragility more
+than isolated per-mode canaries did, matching the same anchor4-7
+catastrophe class the concurrent `-2.0` dig-in is chasing). Direction
+tracking is essentially absent (`direction_err_med_deg` 71-78 across
+all 4 — expected, none of these 4 checkpoints carry a heading
+mechanism; that fix is headings-curric1's line, already folded into
+the log_std/critic dig-in queue) and `slip_per_m_med` is huge (28-32,
+`progress_ratio_med` only 0.037-0.064) — video (`dr0/walk_det_0.png`
+etc.) shows a splaying, barely-translating stance rather than a
+walking gait, not a slip-while-walking pathology. Height tracking
+itself is fine (`height_err_end_med_mm` 10-17, 3/4 pass the soft
+height axis) and `anchor2`/`anchor3` (not the `-s1` seeds) keep
+`gait_valid_frac`=1.0 with no sacrificed legs even while terminating —
+the base seeds are the (still non-passing) frontrunners if a
+provisional ranking is needed later. **No action beyond recording**:
+every failure mode this readout surfaces (over_current/rise,
+walk-collapse, no-heading) already has an owner in the Next queue
+(RUNG-9 ref mint, the `-2.0` critic/trunk dig-in, headings-curric):
+this session-level instrument mainly confirms those same defects
+recur, and worse, once composed into one long control sequence — it
+does not add a new lever, so none is opened here. Full numbers in
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_{anchor2,
+anchor2_s1,anchor3,anchor3_s1}_mixedsession/session_verdict.json`.
+Deliverable for the operator's 08-27 integrated-policy priority note:
+**not ready — no single mesh/100Hz policy currently survives a
+randomized long mixed-control session; the campaign's active dig-in
+queue is the fastest path there, keep funding it.** `anchor7-
+detachtrunk{,-s1}` (the `-2.0` canary) was STILL mid-eval as of this
+write (~90min in of the ~1h35-1h50m projection on train-1/3) — left
+untouched again, no re-podeval. Real work this cycle (data pulled,
+analyzed, written up) — touching `CYCLE_WORKED`. Previous entry below.
+
+Previous entry, 2026-08-27 ~11:2x (idle-kick cycle: `anchor7-detachtrunk{,-s1}`
+eval STILL COMPUTING, no verdict — confirmed via `ps` on train-1/
+train-3, all 4 `eval_checkpoint` workers alive and CPU-hot since
+10:16, ~1h in of the ~1h35-1h50m projection; per the 10:3x banner's own
+instruction, left unread, no re-podeval. Full fleet sweep confirmed the
+triage queue holds nothing else (`ops.sh triage 72`: every run in the
+last 3 days verdicted except these two) and every other track is
+DONE/blocked exactly as the 10:3x/09:5x banners already established
+(joystick/amp/cpg DONE-or-maintenance, walkcurr `[operator]`-blocked on
+the BC-kickstart ruling, q_20260824T0233Z) — did not re-derive that
+from scratch, just spot-checked each track's own STATUS banner dates
+against now. Drained the one AGENT-DOABLE item actually sitting in the
+queue instead of a pure no-op: **Next -1.86 (the pod-eval wrapper-
+timeout INFRA gap) is FIXED** — see its own entry below for the full
+change. This is a real code landing (tested, snapshotted,
+`exp/watchloop-prestage-timeout-scale-fix`), not a re-verify — touching
+`CYCLE_WORKED`.
+
+Previous entry, 2026-08-27 ~10:3x (kick-cycle housekeeping on
+`anchor7-detachtrunk{,-s1}` — **WIRING CHECK FIRST clause satisfied
+both seeds; mechanism read (WALK-SURVIVES joint call) still computing,
+no verdict yet.**) Confirmed the gate's precondition two ways rather
+than trusting the launch note alone: (1) the code-level mechanism
+itself is unit-test-green (`test_detach_trunk_stops_gradient_into_
+recurrent_core`, `test_dual_bc_anchor_mean_and_detach` — both PASS,
+re-ran this cycle) — with `bc_detach_trunk=True` the anchor loss
+provably reaches zero gradient on the shared GRU/feature-extractor
+params and nonzero gradient on the actor head only, so the mechanism
+is not a no-op by construction; (2) both runs' cached W&B `config.
+cfg_set` (pulled fresh from `logs/experiments/<run>/wandb_summary.
+json`, not just the launch args) contain `train.bc_anchor_detach_
+trunk=1` alongside the unchanged `--gru-dual-log-std-split`/
+`--log-std-anneal-core stance` lineage — the flag was genuinely parsed
+and threaded into this exact run, not lost in a respec. This satisfies
+WIRING CHECK FIRST on both seeds without needing a per-checkpoint
+grad-norm dump (no such diagnostic is logged during training; the
+unit test + confirmed cfg is the practical equivalent). **Eval status**:
+both prestage passes (gate + own-DR, 4-mode x det+sto joint panel,
+`control.hz=100`/30s episodes/video-every-1 — the same long-panel
+shape as anchor6b, ~1.6-2h projected) are healthy and progressing
+normally on their own pods (`ps` shows the `eval_checkpoint` workers
+at 700+% CPU, new episode videos landing every ~2 min, 5/6 `walk_det`
+already rendered on train-1 as of this write) — this time via a
+FRESH `pod_eval.py` subprocess (started 10:16, reads on-disk code),
+so the previously-diagnosed stale-in-memory-`watch_loop.py` 3300s-
+timeout gap (Next -1.86) does not apply: `eval_timeout_scale` gives
+this panel an 8x-scaled ~6h wrapper budget, comfortably longer than
+the projected wall clock. No manual `resume_orphaned_eval.py` safety
+net launched this cycle (not needed). **Reward-quarter peek** (cached
+`wandb_history.csv`, suggestive only, not a substitute for the eval):
+seed0 `detachtrunk` `[38.3, 22.7, -316.7, -58.9]` is slightly DEEPER/
+worse in Q3-Q4 than its own already-clean-passing baseline `fix`
+`[38.4, 15.2, -263.8, -40.7]`, while seed1 `detachtrunk-s1` `[39.8,
+3.1, -348.8, -99.3]` is slightly SHALLOWER/better than its own
+catastrophic baseline `fix-s1` `[40.0, -7.4, -444.6, -121.7]` — a
+small, ambiguous, opposite-direction shift on each seed relative to
+its own parent, consistent with either seed noise or a mild real
+effect in the predicted direction on seed1 only; the actual
+gait_valid/sacrificed-legs/video read decides, not this reward shape.
+Full track sweep reconfirmed: 12/12 GPU pods free, `backlog.json`
+empty, no other standwalk Next item or other-track item is launchable
+(joystick/amp/cpg DONE-or-maintenance-only, walkcurr `[operator]`-
+blocked pending the BC-kickstart ruling, `OPERATOR_QUESTIONS.md`
+q_20260824T0233Z) — correctly no launch this cycle. Leaving both
+verdicts for the cycle that reads the `SYNCED` marker; do not re-podeval.
+Prior banner below.
+
+Update, 2026-08-27 ~09:5x (**BOTH joint calls from the concurrent
+07:4x/09:2x banners now CLOSED this cycle** — the missing gate.json
+for `anchor6b-logstdsplit-fix{,-s1}` and `anchor2-headings-curric1-s1`
+had actually finished computing on their pods (08:52/09:22/09:38) but
+never got copied back — the `pod_eval.py`/`resume_orphaned_eval.py`
+wrapper hit its own wait-timeout (7200s) and gave up one hop too
+early, or (fix seed0) never had a wrapper re-attached after the
+timeout at all. Manual `kubectl cp` per Next -1.86's known gap; no
+re-eval needed, just sync. Two decisive reads:
+**(1) anchor6b-logstdsplit-fix JOINT CLOSE — exploration-noise theory
+REFUTED.** Wiring was already checkpoint-verified green both seeds
+(07:4x banner). Seed0 (fix) WALK-SURVIVES clean (det gait_valid 6/6,
+prog med 0.23, 0 sacrificed legs, slip med 6.6) AND HOLD-HELPS-FULL
+(hold/sto term 2/6) — a clean isolated pass. Seed1 (fix-s1)
+reproduces the FULL anchor4-class catastrophe (det gait_valid 0/6,
+3-5 legs sacrificed every episode, prog med 0.01, video-confirmed
+static splayed-leg freeze) with the SAME wiring green. Per this arm's
+own pre-registered gate text, FAIL-with-wiring-green on either seed
+is the decisive result: giving walk its own `log_std` slice does NOT
+fix the freeze. **Root cause is not per-mode action-noise coupling —
+next dig-in targets the shared critic/trunk (or the anchor-loss
+magnitude itself), per Next -1.9's own next-step clause. Do not fund
+any further log_std-split dose/variant arm.**
+**(2) anchor2-headings-curric1 JOINT CLOSE — seed-level noise, not a
+ramp-mechanism fault.** Seed1 (curric1-s1) is HEALTHY: det gait_valid
+6/6 both DR-0/own-DR, 0 sacrificed legs, prog med 0.29-0.31, slip med
+4.7-5.6, video confirms all six legs cycling (no freeze). Direction-
+learning is weak (dir_err mean 52-55deg) but that matches the ALREADY
+-KNOWN headings1 fragile-direction pattern (Next -1.85), not a new
+catastrophe. Per the pre-registered joint-close decision rule (old
+Next -1.95): seed1-healthy + seed0-catastrophe = seed-level noise in
+an already-fragile coef=3.0 dual-core recipe. **Do not fund a ramp-
+vs-instant heading-exposure mechanism arm — the "gentler ramp is
+worse" read does not replicate cross-seed.** Evidence: verdicts on
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-fix{,
+-s1}` and `...-anchor2-headings-curric1-s1`; synced `logs/ckpt_eval/
+..._{gate,owncfg}/report.json` + contact sheets for all four. Prior
+banners below.)
+
+Update, 2026-08-27 ~09:2x (**anchor2-headings-curric1 (seed0) CANARY
+FAIL - MECHANISM, own scope, joint call pends -s1 (concurrent cycle,
+still mid-eval): the graded heading-cone RAMP fallback (Next -1.85's
+own prescribed lever) does NOT protect walk the way the gate assumed
+— it reproduces the SAME anchor4/anchor5-stdmild1/anchor6-logstdsplit
+-class 2-leg-sacrifice freeze that its own sibling headings1 (the
+immediate full-cone open) did NOT show.** det gait_valid 0/6 at BOTH
+DR-0 and own-DR(0.5), sacrificed_legs=[4,5] every det episode,
+progress_ratio med 0.06-0.09 (gate bar >=0.2), slip_per_m med 17-23
+(vs anchor2's healthy ~4-5); video (walk_det_0..5, both DR) shows two
+legs held rigid in the air, near-static shuffle. Sto is a partial
+(gait_valid 3-4/6) rather than a full freeze but det — the panel's
+primary read — fails WALK-SURVIVES outright, so DIRECTION-LEARNS is
+moot/uninterpretable this seed (dir_err med 85-87deg under a broken
+gait, worse than even the ~52deg no-heading baseline — noise, not
+signal). Reward quarters [38.3, 9.5, -179.0, -78.9]: deep Q3 trough,
+still deeply negative at Q4 despite partial recovery — the 08-21
+"aligned bad-and-stuck" shape, same as every other log_std/anneal-
+class walk catastrophe this campaign has hit, not a rising-still-
+training case. **Counterintuitive finding, DIG-IN flagged**: the
+supposedly GENTLER ramp produced a WORSE walk outcome than its own
+instant-full-open sibling (headings1, WALK-SURVIVES clean both
+seeds) — the "ramp softens the blow" intuition this arm was funded on
+is falsified on this seed. Infra note (same class as the already-
+fixed 3300s wrapper timeout): the controller-local eval log stream
+died mid-pass again (`kubectl exec` websocket close 1006 at ~08:03)
+while the remote `eval_checkpoint` kept computing fine on the pod
+(confirmed via direct `ps`/file-mtime polling) — `resume_orphaned_
+eval.py` (already built 08-26) did the copy-back cleanly once all 60
+episodes (5 modes x 6 x det/sto) finished, ~2h25m total wall clock;
+no manual `kubectl cp` needed this time, the existing tool covers it.
+**UPDATE same cycle: candidate (a) ruled out** — pulled
+`env/sched_value` straight from the cached W&B history and confirmed
+a clean, correctly-clipping linear ramp (see Next -1.95's full
+numbers); the `sched.*` engine is not the bug. **Do not fund a third
+heading-exposure-schedule variant (instant open or ramp) until a
+dig-in explains why a clean gentler ramp is WORSE than an instant open
+under this exact coef=3.0 dual-core recipe** — candidates: seed/
+init-trajectory sensitivity unrelated to the heading mechanism
+itself, or a `sched.*` x `mode_seq` segment-boundary interaction at
+the goal-sampling level (not the scheduler's own value trace). Evidence: verdict on `cw-standwalk-
+stance-mesh2-stage2-dualbc1-anchor2-headings-curric1`, `logs/
+ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor2_headings_
+curric1_{gate,owncfg}/`, W&B `lcde9n5h`. Joint call (with -s1) still
+open. Prior banner below.)
+
+Update, 2026-08-27 ~07:4x (kick-cycle housekeeping on
+`anchor6b-logstdsplit-fix{,-s1}` — **WIRING CHECK FIRST clause
+CONFIRMED PASS on both seeds; mechanism read still pending, no
+verdict yet, long panel in flight.**) Read both finished checkpoints'
+`policy.pth` tensors directly (not just the train-log line): both
+carry a genuine `log_std_b` at ~-4.0 (std 0.0183, matches the W&B
+`log_std_anneal/{std,value}` trace ending exactly there) that is
+DISTINCT from `log_std` at ~-1.49 (std ~0.225 — essentially
+UNTOUCHED across the whole 2M run, `train/std` 0.22508->0.22523 fix /
+0.22510->0.22510-ish s1) — unlike the invalid anchor6 pair, this time
+the per-core split is genuinely wired and walk's own std was never
+annealed. Both pods' train logs also show the expected retrofit line.
+This satisfies the gate's own WIRING-CHECK-FIRST precondition on both
+seeds — the FULL PASS/PARTIAL/FAIL mechanism call now hinges on the
+actual joint panel (WALK-SURVIVES + HOLD-HELPS), which is still
+computing: this panel is unusually long (4-mode x det+sto x 6-episode
++ jitter, control.hz=100, video-every-1) — ~20 min just for the 6
+`walk_det` episodes on the gate pass alone, both gate+owncfg running
+in parallel per pod; projecting ~2.5-3h wall clock total, longer than
+the ~1h35-1h50m measured on the smaller anchor2/3/4/5-class panels.
+Early `walk_det` peek (frame strips, first 5/6 episodes synced) shows
+real body translation across the checkerboard floor and a nonzero
+end-of-episode v (0.070 vs vref 0.080 on one episode) — NOT an
+obvious static freeze on a first look, but per-episode
+gait_valid/prog_ratio/leg-sacrifice counts need the finished
+report.json, not a video skim (the anchor5-stdmild2 banner's own
+"3-frame misread" caution applies here too — do not trust this peek
+over the full report). Reward quarters for both seeds show the SAME
+trough-then-partial-recovery shape as anchor4-stdanneal's
+walk-catastrophe class (fix: `[38.4, 15.2, -263.8, -40.7]`, fix-s1:
+`[40.0, -7.4, -444.6, -121.7]`, both still deeply negative at Q4) —
+suggestive of the same catastrophe but NOT dispositive without the
+eval; flagging so the next cycle reads the reward shape alongside the
+video rather than off either alone. **Safety net**: given the known
+stale-watcher 3300s-wrapper-vs-actual-duration infra gap (Next
+-1.86), launched `resume_orphaned_eval.py` (nohup, `--timeout-s
+7200`) for both runs' gate+owncfg passes so the copy-back lands even
+if the live `pod_eval.py` wrapper gets killed early by the stale
+in-memory constant — do NOT relaunch or re-podeval these two; poll
+`/tmp/eval_cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-
+logstdsplit-fix{,-s1}{,_owncfg}.log` for `SYNCED` before verdicting.
+Independently reconfirmed this cycle's own full track sweep
+(joystick/amp/cpg DONE or operator-blocked, walkcurr blocked): no
+other standwalk Next item is launchable without either this pair's
+read or the mixed-session baseline readout another cycle owns — 12
+free GPU pods, correctly no launch this cycle. Prior banner below.)
+
+Prior banner, 2026-08-27 ~07:2x (**headings1 SEED-0 VERDICTED: DIRECTION
+PARTIAL, walk+stance unharmed — joint 2-seed cone call still open
+(s1's verdict belongs to its own cycle).** `-anchor2-headings1`
+(2M discovery, single lever heading 0→0.7854) = PARTIAL: DR-0 det
+walk gait_valid 6/6, 0 terms, prog 0.44 (parent 0.38), slip 2.49 vs
+3.53; DIRECTION vs a NEW matched-parent control run this cycle
+(anchor2 evaluated under the SAME heading-0.7854 eval — artifact
+`logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor2_headingctl_gate`
+on train-2): dir_err_mean med 36.0° vs 47.1° (−11°), p90 63.6° vs
+128.9° (halved), wrong-way 9% vs 17%, slip 2.49 vs 11.89 — the
+heading-blind parent SKIDS under heading commands; headings1 walks
+the course. Full bar (≤35°) missed by 1°; reward still rising at the
+2M end → an 08-21 continuation is live IF the joint call promotes
+the cone. CALIBRATION NOTE for the joint call: the honest
+same-protocol det baseline is 47.1°, not the ~52° stress_mix smoke
+number; sto-pass direction (74–81° on BOTH policies) is
+noise-dominated and should not gate. Seed1's gate report (peeked
+mechanically, left unverdicted for its own cycle) shows NO direction
+drop (54.9° det) with walk surviving → expect a seed-split ruling,
+neither "both learn → promote" nor a walk collapse. STANCE-UNHARMED:
+hold/det 1 term vs parent 2, hold/sto 6/6 hold_min_load = known
+baseline, rise/lower unchanged; walk/sto near-stationary prog 0.04
+bit-identical to parent DR-0 sto — inherited, not a headings
+regression. Also: the 04:18 watcher SUSPECT on train-3
+(then-logstdsplit-s1, stall @4096) was a JIT-warmup false alarm —
+verified 1M steps @11.4k fps, canaries green — no action taken;
+that lineage was later superseded by the anchor6b wiring-fix
+relaunch (see below). Prior banner below.)
+
+Update, 2026-08-27 ~07:0x (kick-cycle housekeeping, no verdict yet):
+this cycle's assigned run `anchor2-headings-curric1-s1` (seed1) hit
+W&B `finished` (2031616 steps) exactly at prestage time — its own
+gate/owncfg passes were already auto-started by the watcher. Its
+joint-call companion `anchor2-headings-curric1` (seed0, listed as
+"still training" when this cycle started) also flipped to `finished`
+mid-cycle with no prestage triggered yet (checkup only saw "budget
+reached; wrap-up window") — manually started its missing `pod_eval.py`
+pass so both halves of the joint pair land together, plus a
+`resume_orphaned_eval.py` safety net on the seed1 pass given the
+known stale-watcher-timeout gap (Next -1.86: the long-lived
+`watch_loop.py` process is still running pre-7500s-fix in-memory code).
+Both passes are 100Hz/30s-episode/video-every-1 4-mode joint panels
+(~1h35-1h50m each per the established measurement) — not done within
+this cycle's window; leaving the joint verdict for the cycle that
+sees the SYNCED markers land (do NOT relaunch). Noted in passing: the
+per-core `log_std` split's dig-in cycle found+fixed a real wiring bug
+(the split was never actually built into the checkpoint;
+CANARY FAIL - INFRASTRUCTURE, corrected) and relaunched
+`anchor6b-logstdsplit-fix{,-s1}` on train-1/train-3 — train-1 now
+carries BOTH that fresh training job AND this cycle's eval processes
+concurrently (mechanical: `capacity.py`'s trainer scan doesn't see
+bare `eval_checkpoint` processes, so the launcher picked train-1 as
+"free"); flagging in case throughput on either job looks anomalous,
+but not intervening (both are legitimately owned elsewhere / already
+in flight). Full track sweep this cycle (joystick/amp/cpg DONE or
+operator-blocked per their own STATUS files, walkcurr blocked on the
+registered `[operator]` no-BC-teacher ruling) confirms standwalk is
+the only open track and its own Next queue has nothing else launchable
+beyond what's already running or dig-in-scoped — 12 free GPU slots,
+empty backlog, no non-duplicate runnable arm found. Prior banner
+below.)
+
+Last updated: 2026-08-27 ~06:5x (**DIG-IN CORRECTION — the
+anchor6-logstdsplit "split FAIL / exploration-noise theory refuted"
+call below is RETRACTED: the split was NEVER IN THE POLICY.** Both
+seeds' checkpoints have NO `log_std_b` tensor (saved policy_kwargs =
+`{'lstm_hidden_size': 256}`, shared `log_std` pinned at exactly -4.0).
+Root cause, two stacked defects: (1) a plain `--init-from` warm start
+goes through `RecurrentPPO.load`, which rebuilds the policy from the
+CHECKPOINT's own saved policy_kwargs — the CLI `extra_pk`
+(`log_std_split=True`) only applies to from-scratch builds — so
+`--gru-dual-log-std-split` was a silent no-op; (2)
+`--log-std-anneal-core stance` then got `_log_std_core('stance')==None`
+and the anneal callback SILENTLY fell back to annealing ALL log_stds =
+the one shared parameter (the documented "never silent" warning was
+dead code: it tested `hasattr` instead of the None return). W&B proof:
+`log_std_anneal/value` starts at -1.49 (the shared warm-start value)
+and ends -4.0; final `train/std` 0.018316 = exp(-4.000) is walk's own
+sampling std. So the anchor6 pair merely REPLICATED anchor4-stdanneal
+(shared -4.0 anneal: hold improves, walk freezes); the
+exploration-noise-starvation theory is UNTESTED and remains the
+leading hypothesis — the shared-critic/trunk investigation is
+POSTPONED until a genuinely-wired split run fails. Both runs
+re-verdicted CANARY FAIL - INFRASTRUCTURE. FIXES (commit `4fe10154`,
+tag `exp/...anchor6b-logstdsplit-fix`): (a)
+`DualGruActorCriticPolicy.enable_log_std_split()` retrofit, wired into
+the plain `--init-from` path with `model.policy_kwargs` patched so the
+run's own checkpoints reload with the split; (b) `_LogStdAnnealCb` now
+REFUSES (SystemExit) a specific `--log-std-anneal-core` the policy
+cannot target — fail-closed; (c) `test_dual_log_std_split_retrofit`,
+33/33 gru_policy tests green. RELAUNCHED the identical 2-seed pair on
+the fixed code: `anchor6b-logstdsplit-fix` (train-1) /
+`-fix-s1` (train-3), VERIFIED RUNNING, retrofit log line confirmed on
+both pods + anneal completing on `log_std_b` only. Their gate adds a
+WIRING CHECK FIRST clause (retrofit line in train log + `log_std_b`
+present and != `log_std` in the finished checkpoint) before any
+interpretation. The headings1 partial call and the infra
+prestage-timeout finding below are unaffected. Prior banner below —
+read its item (1) as RETRACTED.)
+
+Prior banner, 2026-08-27 ~06:2x (**TWO JOINT CALLS CLOSED THIS CYCLE:
+per-core log_std split is a clean cross-seed FAIL (walk still
+collapses); the heading-cone opener is a fragile/non-promotable
+partial. Real infra finding: the prestage timeout is too short for
+these video-heavy 100 Hz passes.** (1) **anchor6-logstdsplit/-s1
+(Next -1.8's funded lever) JOINT FAIL, cross-seed replicated**: giving
+the stance core its own `log_std_b` (leaving the walk core's own
+`log_std` untouched) DOES partially help hold (sto term 6/6 baseline
+-> 2-3/6) but walk STILL collapses into a TOTAL leg-sacrifice freeze
+on both seeds (det gait_valid 0/6, 4-5 legs sacrificed every episode,
+prog_ratio pinned ~0, video-confirmed static freeze) — the SAME
+anchor4-stdanneal-class catastrophe the split was built to prevent.
+This refutes the shared-exploration-noise-starvation theory of the
+walk failure outright (walk's own log_std was never touched here and
+it broke anyway): the real cause is something else that correlates
+with annealing under this coef=3.0 dual-core recipe (candidate: a
+shared critic/trunk upstream of the per-mode heads). **DIG-IN
+flagged**: (a) sanity-check the log_std_b wiring itself before fully
+trusting the refutation (dump log_std vs log_std_b tensors + confirm
+which gates walk-mode sampling), (b) if wiring is clean, the next
+target is the shared critic/trunk, not log_std magnitude at all — do
+not fund a further shared-or-split log_std dose arm on this recipe.
+(2) **anchor2-headings1/-s1 (direction-coverage pair) JOINT CLOSED,
+not promotable**: WALK-SURVIVES passes cleanly on both seeds (6/6
+gait_valid both DR, real progress, no sacrifice). DIRECTION-LEARNS is
+at best a fragile, DR-0-only, deterministic-only partial on seed0
+(dir_err median ~36-37deg at DR-0 det, a real ~15deg drop off the
+~52deg no-heading baseline and close to the 35deg full bar — but it
+washes back out to ~50deg under own-DR and never improves in
+stochastic mode) and a FLAT MISS on seed1 (55-82deg in every read,
+no better than baseline). Neither seed clears the gate's own 'both
+learn+survive -> promote' bar, but walk never collapses either — a
+pure non-learning/DR-fragile miss, not a catastrophe. Next lever per
+the gate's own fallback: a graded `walk_cmd_stage`-style heading
+curriculum, not a longer-budget continuation of the bare static-cone
+opener. (3) **INFRA FINDING**: `pod_eval.py`'s orchestrator-level
+wrapper timeout (3300s) is shorter than these runs' actual eval
+wall-clock (~1h35-1h50m per gate+owncfg pair, confirmed by direct
+video-count polling) — `video-every 1` on a 4-mode x 6-episode x
+det+sto x (walk+rise+lower+hold+walk_startjitter) panel at 100 Hz
+mesh renders 60 clips per pass and is simply slower than the wrapper
+budget assumes. The orchestrator's own prestage subprocess died with
+`TimeoutExpired` on all 4 of this cycle's runs (both anchor6-
+logstdsplit{,-s1} and anchor2-headings1{,-s1}), logging "(cycle will
+do it manually)" — the underlying `eval_checkpoint.py` processes kept
+running successfully on their pods despite the client-side kubectl
+exec connection dying (a kubectl/container quirk, not a crash), so no
+compute was lost, only the automatic copy-back. This cycle did the
+`kubectl cp` + SYNCED-marker fallback by hand for all 4 runs (all 4
+report.json + videos now on the controller). **Follow-up (unfunded,
+cheap):** either raise `pod_eval.py`'s orchestrator wrapper timeout
+(or PASS_TIMEOUT_S) for standwalk-track mode_seq/joint_walk panels at
+control.hz=100, or default `--video-every` higher than 1 for the
+routine gate/owncfg passes (video every episode is far more than
+triage needs) — whichever lands first, unblocks future cycles from
+repeating this manual-copy dance. Evidence: `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stage2_dualbc1_{anchor6_logstdsplit,
+anchor6_logstdsplit_s1,anchor2_headings1,anchor2_headings1_s1}_{gate,
+owncfg}/`, W&B `uhbf737q`/`oek1m6qy`/`2t05s1ng`/`ryzjxw2m`. Mixed-
+session baselines (Next -1.85) still mid-flight on train-8..11 (dr0
+pass done on all 4 per this cycle's poll, own-DR/180s passes still
+running) — leave for the cycle that sees 'verdict written' land.
+Prior banner below.)
+
+Prior banner, 2026-08-27 ~03:4x (**OPERATOR PRIORITY 08-27 (MCP
 20260827T030823Z): ONE integrated policy + LONG MIXED-SESSION GATES —
 instrument BUILT, 4 candidate baselines RUNNING, direction-coverage
 pair QUEUED (kick cycle).** (1) NEW INSTRUMENT
@@ -3176,6 +3907,14 @@ lower session harness is stage-2 tooling to build.
 
 ## Now
 
+**EXPLORATION-NOISE THEORY CLOSED (08-27 ~09:5x): the per-core
+`log_std` split (wiring checkpoint-verified) still lets one of two
+seeds catastrophe (anchor6b-logstdsplit-fix-s1). Next funded
+question is Next -2.0: root-cause the shared critic/trunk (or the
+anchor-loss magnitude) during the Q2-Q3 trough common to every
+catastrophe-class run this campaign — no further log_std arm of any
+flavor until that lands.** Previous entry:
+
 **DOSE-BRACKET GRID CLOSED (08-27 ~03:1x): magnitude lever dead,
 building the per-core `log_std_b` split now — see the Last-updated
 banner at the top of this file for the full 4-arm evidence.** One-line
@@ -3701,21 +4440,309 @@ Stage-1 mesh calibration facts (measured 08-25, kick cycle):
 
 ## Next
 
--1.85 MIXED-SESSION BASELINE READOUT (08-27 kick cycle; owner = the
-    cycle that sees the four session verdicts land). Poll
-    `/tmp/mixedsession_<run>.log` on train-8/9/10/11 for 'verdict
-    written', then `kubectl cp` each
-    `logs/ckpt_eval/<run>_mixedsession/` back (anchor2, anchor2-s1,
-    anchor3, anchor3-s1). Compare candidates on the scorecard
-    (zero-terms, session_complete_frac, terms_by_segment_mode /
-    _start_kind, walk axes, height, current), WATCH the 60 s/180 s
-    session videos, name the best current single-model candidate +
-    write the operator's long-session report (08-27 priority note
-    deliverable). Fold the failure localization into the lever queue:
-    hold_min_load terms in hold segments = the per-core split's
-    target (-1.8); direction error = headings1's target; flat-rise
-    over_current = RUNG-9 ref mint. Do NOT relaunch these evals —
-    they are detached and running.
+-2.4 LAUNCHED (08-27 ~14:1x, operator design correction 20260827T135505Z
+    — reward/loss-level walk-retention guardrail, supersedes the
+    "no arm until anchor10 lands" sequential gating): 4-arm wave
+    `anchor11-walkretain{,-s1}` (rescue test on the hold-fixing/
+    walk-catastrophe anchor6b-logstdsplit-fix{,-s1} recipes) +
+    `anchor12-walkretain-base{,-s1}` (control on the walk-clean
+    anchor2{,-s1} recipes). Single mechanism change everywhere:
+    `train.bc_anchor_walk=1.0 + bc_anchor_phase_lock=1 +
+    bc_anchor_knee_abs=1` — the walk teacher stotight45-seed13's own
+    training-recipe walk anchor, previously ALWAYS off in this
+    lineage. Wiring-check-first + joint PASS/PARTIAL/FAIL branches in
+    the ledger gate texts. Whoever triages: read jointly with
+    anchor10-percoreclip's result (concurrent cycle) — if BOTH
+    mechanisms rescue walk, prefer the loss-level retention term for
+    the lineage (operator-preferred class) and A/B them only if the
+    reads conflict.
+    **UPDATE (08-27 ~15:2x): anchor10-percoreclip (seed0) is now
+    read (top banner) -- CANARY FAIL - MECHANISM, 0/6 gait_valid
+    every walk variant, same anchor4-class signature. Architecture-
+    side per-core-clip is closed; read anchor11/12 on their own
+    merits, not as a fork against percoreclip.**
+-2.35 PRE-REGISTERED follow-ups to -2.4 (fund per its branches, in
+    this order):
+    (a) per-mode-group objective/advantage normalization inside
+        `RecurrentPPO.train()` (operator's "normalize/constrain
+        per-mode objective contributions"; the anchor8 diagnostic
+        already measured adv_loco_std up to 2-7x adv_stance_std at
+        the trough, so the global normalizer IS structurally
+        cross-mode either way) — bigger default-off/bit-exact build,
+        fund on walkretain FAIL;
+    (b) per-mode anchor coefficient (walk dose decoupled from
+        stance's coef=3.0; teacher's own walk dose was 1.0) — fund if
+        the anchor12 control shows the anchor pulling a healthy walk
+        off its gait;
+    (c) frozen-teacher-policy KL/BC anchor (anchor walk ticks to the
+        dualbc1 init policy's own mean action instead of the scripted
+        gait; needs new code: teacher forward pass + own hidden state
+        in the collect callback) — the heavier retention variant if
+        (b) is insufficient;
+    (d) Lagrangian-style non-regression constraint on walk scenarios
+        (operator note names it) — only if (a)-(c) all fail to hold
+        walk without costing stance.
+-2.2 DIG-IN, LAUNCHED this cycle (08-27 ~12:5x): anchor8-advstats
+    (seed0) VERDICTED CANARY FAIL - MECHANISM — the advantage-
+    normalization-scope hypothesis (-2.1 below) is REFUTED, and not
+    merely unsupported: `train/adv_loco_std` is often SEVERAL-X
+    `train/adv_stance_std` (up to ~7x during the exact reward-trough
+    window, rollout idx 6-13 of 30), the OPPOSITE of the predicted
+    direction. Seed1's own already-computed data (read this cycle,
+    not verdicted here — belongs to whichever cycle owns
+    `anchor8-advstats-s1`) shows the identical inverted pattern (loco
+    std up to ~6x stance std at the trough), so the refutation looks
+    seed-independent. Wiring pitfall worth recording: this stack's
+    wandb-tensorboard sync gives every `train/*` scalar — including
+    stock PPO ones like `approx_kl`/`loss`, not just the new
+    diagnostic keys — its OWN separate `_step`, so the raw CSV looks
+    empty/misaligned if you match rows by `_step`; pair by call-order
+    within the run instead. Per the pre-registered decision rule,
+    escalated to the fallback named in anchor8's own hypothesis text:
+    PPO's global `clip_grad_norm_(self.policy.parameters(),
+    max_grad_norm)` clips ALL params together each minibatch — a code
+    read confirms the dual-core policy already has fully separate
+    `core_a`/`core_b` GRUs, `action_net`/`_b`, `value_net`/`_b` (only
+    a parameterless `FlattenExtractor` is shared), so a single global
+    clip factor could still starve one core even with zero shared
+    weights. **BUILT+TESTED+LAUNCHED**: read-only diagnostic
+    `train.bc_anchor_debug_gradnorm` (default 0, bit-exact — 5 new
+    tests in `test_bc_anchor.py`: default-off no-op incl. exact
+    `clip_grad_norm_` function-object restoration, correct a/b/shared
+    param grouping, clean skip on non-dual policies) that transiently
+    monkeypatches `torch.nn.utils.clip_grad_norm_` during
+    `super().train()` to log the PRE-CLIP per-core grad L2 norm
+    (`train/gradnorm_{a,b,shared}_mean`) before delegating unchanged
+    to the real clip. Launched on the IDENTICAL anchor8-advstats
+    recipe (same seed, same `init-from anchor2{,_s1}`, only the
+    diagnostic flag swapped) as `cw-standwalk-stance-mesh2-stage2-
+    dualbc1-anchor9-gradnorm{,-s1}`, VERIFIED RUNNING on
+    hexapod-mjx-train-{1,3}. Decision rule: if `gradnorm_a_mean` is
+    persistently several-x `gradnorm_b_mean` (or vice versa),
+    especially during the trough, SUPPORTED — build a per-core
+    gradient clip next (default off, bit-exact). If comparable
+    throughout, REFUTED — every proposed shared-computation coupling
+    mechanism (log_std, trunk-gradient, advantage-normalization,
+    grad-norm-clip) will have been tested and refuted; escalate to a
+    reward/task-level audit of the walk objective under this exact
+    recipe, not another architecture-sharing arm. Snapshot
+    `exp/pre-anchor9-gradnorm-diagnostic`; code
+    `rl_move/sim/bc_anchor.py` `_gradnorm_diag_ctx`.
+-2.1 CLOSED (08-27 ~12:5x, see -2.2 above): the advantage-
+    normalization-scope hypothesis this item funded is REFUTED
+    (inverted direction). Original text preserved for the reasoning
+    trail:
+
+-2.1-orig DIG-IN, LAUNCHED this cycle (08-27 ~12:2x, JOINT CLOSE on
+    anchor7-detachtrunk{,-s1} — see top banner): detach_trunk refutes
+    itself as a sufficient/safe fix (regresses a clean seed, only
+    partially rescues a catastrophic one, both land in a similar
+    milder 1-3-leg-drag basin). Since the dual-core architecture
+    already gives walk/stance fully separate GRUs+heads and
+    detach_trunk additionally proved the anchor loss can't reach
+    EITHER core or the shared feature extractor anymore, the residual
+    catastrophe cannot be a shared-WEIGHT story. New candidate,
+    reasoned from `sb3_contrib.ppo_recurrent.RecurrentPPO.train()`'s
+    own source: advantage normalization is ONE global (mean,std) per
+    minibatch, this stack has no VecNormalize/reward-scaling anywhere,
+    and `goal.mode_seq` composes modes INSIDE one episode — so the
+    normalizer is structurally cross-mode on ~every minibatch, a
+    purely-statistical corruption path needing no shared parameters.
+    **BUILT+TESTED+LAUNCHED**: read-only diagnostic
+    `train.bc_anchor_debug_adv_stats` (default 0, bit-exact, 3 new
+    tests) logging `train/adv_{loco,stance}_{mean,std,share}`;
+    launched on the EXACT `anchor6b-logstdsplit-fix{,-s1}` recipe
+    (known clean-walk / known-catastrophe pair) with only the flag
+    added, as `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-
+    advstats{,-s1}`. **Do not fund another log_std/trunk-detach
+    variant until this diagnostic's read is in.** Decision rule: if
+    `train/adv_stance_std` is persistently several-x
+    `train/adv_loco_std` on both seeds -> SUPPORTED, build a per-mode-
+    group advantage-normalization mechanism arm next (requires a full
+    override of `RecurrentPPO.train()`'s minibatch loop — bigger,
+    higher-blast-radius change, needs careful bit-exact-when-off
+    testing before it ever trains anything). If the two stay
+    comparable -> REFUTED, escalate to the critic/value-function
+    coupling candidate instead (dump per-mode value-loss contribution,
+    not just advantage stats). Evidence: verdicts on
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor7-detachtrunk{,
+    -s1}` (08-27 ~12:2x); code `rl_move/sim/bc_anchor.py`
+    `_maybe_log_adv_mode_stats`; snapshot
+    `exp/pre-anchor8-advstats-diagnostic`.
+-2.0 CLOSED (08-27 ~12:2x, JOINT CLOSE on anchor7-detachtrunk{,-s1} —
+    see top banner and -2.1 above): the trunk-bleed hypothesis this
+    item funded is REFUTED as a sufficient/safe-in-isolation
+    explanation. Original text preserved for the reasoning trail:
+
+-2.0-orig DIG-IN, LAUNCHED this cycle (08-27 ~09:5x, JOINT CLOSE on
+    anchor6b-logstdsplit-fix{,-s1} — see top banner): with the
+    per-core `log_std` split now checkpoint-verified WIRED and STILL
+    not saving walk on one of two seeds (anchor4-class catastrophe,
+    0/6 gait_valid, 3-5 legs sacrificed), the exploration-noise theory
+    for the anchor4/5/6-class walk collapse is REFUTED. Move
+    root-cause one layer up: dump the SHARED critic/trunk gradients
+    (or isolate the anchor-loss magnitude itself, `train.
+    bc_anchor_coef=3.0`) during the Q2-Q3 trough window common to
+    every catastrophe-class run this campaign (anchor4-stdanneal,
+    5-stdmild1 seed0, 6-logstdsplit{,-s1} invalid pair, 6b-fix-s1) —
+    check whether the trunk's walk-mode gradient is being overwritten
+    by the anchor BC loss on the shared layers, not just the action
+    head. Do NOT fund another `log_std`-flavored arm (shared, split,
+    annealed, or dosed) on this coef=3.0 dual-core recipe until a
+    trunk-level candidate is named and tested. Evidence: verdicts on
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6b-logstdsplit-
+    fix{,-s1}` (08-27 ~09:5x). **LAUNCHED this cycle**: the lever
+    already exists in code (`train.bc_anchor_detach_trunk`, built
+    08-12 for the joystick track's `cw-arch-gru-anchor2` — no_grads
+    the GRU/feature-extractor path so the anchor loss only updates
+    the actor head, never the shared trunk) and that same arch-track
+    run already showed the matching signature (walk anchor OFF, walk
+    still froze — proof of trunk bleed from OTHER modes' anchor
+    pairs, not the walk term itself). Respec'd on top of the exact
+    anchor6b-logstdsplit-fix{,-s1} recipe (log_std split kept, only
+    `train.bc_anchor_detach_trunk=1` added) as
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor7-detachtrunk{,
+    -s1}`, VERIFIED RUNNING on hexapod-mjx-train-{1,3}. Full
+    PASS/PARTIAL/FAIL rule in the gate text.
+-1.95 CLOSED (08-27 ~09:5x, JOINT CLOSE on anchor2-headings-curric1
+    {,-s1} — see top banner): seed1 is HEALTHY (det gait_valid 6/6, 0
+    sacrificed legs) with the same fragile-direction weakness already
+    known from headings1, not a freeze. Per this entry's own
+    pre-registered decision rule, seed1-healthy + seed0-catastrophe =
+    SEED-LEVEL NOISE in the coef=3.0 recipe, not a ramp-vs-instant
+    mechanism effect. **Do not fund a ramp-vs-instant heading-
+    exposure arm — closed, no further work on this fork.** The
+    candidate-(b) root-cause question below (why does seed0 alone
+    collapse) folds into -2.0's broader shared-critic/trunk dig-in
+    rather than a dedicated heading-curriculum investigation. Original
+    text preserved for the reasoning trail:
+
+-1.95-orig DIG-IN (08-27 ~09:2x, own-scope FAIL on anchor2-headings-curric1,
+    seed0; joint call pends -s1), NARROWED same cycle: the graded
+    heading-cone ramp (Next -1.85's own prescribed fallback lever)
+    reproduces the anchor4-class 2-leg-sacrifice walk freeze that its
+    own instant-open sibling (headings1) did NOT show —
+    counterintuitive (the "gentler" mechanism did WORSE).
+    **Candidate (a) RULED OUT this cycle**: pulled the W&B history's
+    `env/sched_value` trace directly (`logs/experiments/...
+    anchor2-headings-curric1/wandb_history.csv`) — it is a clean,
+    exactly-linear ramp (constant ~0.04289 increment per 65536-step
+    logging interval, slope matches the intended
+    `0.7854/1,200,000` almost exactly) that correctly clips at
+    `v1=0.7854` by global_step ~1.245M and holds there through the
+    rest of the run; only a small (~30k-step, ~2.5% of the ramp
+    window) start lag consistent with the documented pool-depth
+    easing lag, not a bug. The `sched.*` engine itself is exonerated
+    — do not re-check its wiring again on this recipe. **Remaining
+    scope is candidate (b) only**: root-cause why a clean linear
+    heading-exposure ramp destabilizes THIS seed's walk core worse
+    than an instant full-open did on its sibling — most likely
+    seed/init-trajectory sensitivity of the coef=3.0 dual-core recipe
+    (or a `sched.*` x `mode_seq` segment-boundary interaction at the
+    goal-sampling level, not the scheduler's value trace) rather than
+    a property of ramp-vs-instant exposure per se. **Trajectory
+    comparison DONE this cycle (both cached `wandb_history.csv`,
+    `rollout/ep_rew_mean` at matched `global_step`): curric1 and
+    headings1-seed0's mixed-goal reward curves are NOT
+    distinguishable anywhere in the run** — near-identical Q1-Q3
+    climb (both ~9->78 by step ~720k), the SAME deep trough at
+    ~850k-1.1M (curric1 -103 to -257 vs headings1 -106 to -450 — if
+    anything headings1's trough is DEEPER), and the SAME partial
+    recovery to a near-identical FINAL value (curric1 -36.74 vs
+    headings1 -38.75 at step 2,031,616). The aggregate mixed-mode
+    reward (walk=0.30/rise=0.40/lower=0.15/hold=0.15) genuinely cannot
+    tell healthy-walk-headings1 apart from frozen-walk-curric1 —
+    rise/lower/hold dominate the scalar and mask a walk-only
+    collapse; this is itself a reusable finding (reinforces "video/
+    gate outrank reward" beyond the usual reason — here reward isn't
+    just noisy, it's actively blind to this exact failure mode) worth
+    a footnote in RESEARCH_RULES.md-adjacent guidance if this pattern
+    recurs. Net: no reward-curve signature separates the two runs, so
+    whatever differs is either genuine seed-level chaotic divergence
+    in the walk core's own PPO trajectory (not visible in any logged
+    scalar checked so far) or something in gait_valid/sacrificed_legs-
+    level state never surfaced in `rollout/*`. **Decision for the
+    joint close: if curric1-s1 ALSO shows the leg-sacrifice freeze,
+    treat the ramp mechanism itself as suspect (fund a matched-seed
+    instant-vs-ramp A/B, not just this one arm); if curric1-s1 is
+    HEALTHY like headings1's own seed1, treat this as seed-level noise
+    in an already-fragile coef=3.0 recipe (matches the campaign's
+    other seed-split reads, e.g. anchor5-stdmild1: seed0 catastrophe /
+    seed1 fine on an otherwise-identical arm) and do not fund a ramp-
+    vs-instant mechanism arm at all.** Evidence: verdict on
+    `cw-standwalk-stance-mesh2-stage2-dualbc1-anchor2-headings-
+    curric1` (08-27 ~09:2x); `logs/experiments/cw-standwalk-stance-
+    mesh2-stage2-dualbc1-anchor2-{headings1,headings-curric1}/
+    wandb_history.csv` (reward-curve comparison, this cycle).
+-1.9 DIG-IN (08-27, this cycle's JOINT close on anchor6-logstdsplit/
+    -s1): the per-core `log_std` split (Next -1.8, now BUILT and
+    TESTED) does not save walk — cross-seed replicated total
+    leg-sacrifice freeze despite walk's own `log_std` never being
+    annealed. Before designing a third mechanism: (a) sanity-check the
+    `--gru-dual-log-std-split`/`--log-std-anneal-core stance` wiring
+    itself (dump `log_std` vs `log_std_b` from the saved checkpoint,
+    confirm which tensor actually gates walk-mode action sampling
+    during rollout — rule out an implementation bug before trusting
+    the refutation of the exploration-noise theory); (b) if wiring is
+    clean, the next root-cause target is the SHARED CRITIC/TRUNK
+    upstream of the per-mode heads (or the anchor loss magnitude
+    itself), not `log_std` at all — do not fund a further shared- or
+    split-`log_std` dose arm on the coef=3.0 dual-core recipe until
+    this lands. Evidence: verdicts on `cw-standwalk-stance-mesh2-
+    stage2-dualbc1-anchor6-logstdsplit{,-s1}` (08-27 ~06:2x).
+-1.85 DIRECTION-COVERAGE FOLLOW-UP (08-27, this cycle's JOINT close on
+    anchor2-headings1/-s1): the bare static +/-45deg heading-cone
+    opener is NOT promotable — walk survives cleanly on both seeds but
+    direction-learning is at best a fragile, DR-0-only partial on one
+    seed (washes out under own-DR, never improves stochastic) and a
+    flat miss on the other. A longer-budget continuation of the same
+    recipe is not the prescribed lever (the DR-fragility pattern reads
+    like partial memorization of a DR-0-only heading cue, not
+    undertraining). Next arm: a graded `walk_cmd_stage`-style heading
+    curriculum (small angles first, widening only after a certified
+    pass) rather than opening the full cone at once — pre-register a
+    2-seed canary before funding. Evidence: verdicts on `cw-standwalk-
+    stance-mesh2-stage2-dualbc1-anchor2-headings1{,-s1}` (08-27
+    ~06:2x).
+-1.86 INFRA — FIXED 08-27 (idle-kick cycle, drained as agent-doable
+    CODE work): `pod_eval.py`'s own internal per-pass wait already
+    self-scales (`eval_timeout_scale`, landed earlier this campaign),
+    but `watch_loop.py`'s OUTER subprocess wrapper around the whole
+    `pod_eval.py` call stayed a flat 7500s — shorter than a full
+    gate+owncfg video-every-1 joint panel at control.hz=100 plus its
+    joygate rider legitimately takes (~1h35-1h50m measured, occasionally
+    another hour on top) — so the WRAPPER killed a still-healthy pod
+    eval before it finished, losing that pass's copy-back even though
+    the remote process kept computing fine (a kubectl quirk: killing
+    the client-side call doesn't kill the remote process). Every
+    standwalk stage-2 triage cycle since has had to notice this by hand
+    and re-sync via `kubectl cp` / `resume_orphaned_eval.py`. Fix:
+    `watch_loop._prestage_wrapper_timeout(run)` reads the run's own
+    `control.hz`/`--episode-seconds` straight from the ledger and
+    reuses `pod_eval.eval_timeout_scale` (+ its own `PASS_TIMEOUT_S`/
+    `JOYGATE_TIMEOUT_S` constants) so the wrapper's budget scales in
+    lockstep with the internal one instead of drifting out of sync —
+    floor stays the old flat 7500s for legacy/unreadable runs (never
+    shrinks). 4 new unit tests (`test_watch_loop_prestage_timeout.py`,
+    all green) + the existing `test_pod_eval_timeout.py` (5/5, still
+    green, untouched). Snapshotted `exp/watchloop-prestage-timeout-
+    scale-fix`. NOTE: this only takes effect once the long-lived
+    `watch_loop.py` PROCESS itself restarts (it runs the code that was
+    loaded at its own start, same class of staleness as the earlier
+    3300->7500 bump) — until then, keep using the manual `pod_eval.py`/
+    `resume_orphaned_eval.py` workaround for in-flight passes; this
+    fix is for every future run once the watcher next restarts.
+
+-1.85 MIXED-SESSION BASELINE READOUT — CLOSED (08-27 ~11:4x, see top
+    banner for the full readout): all 4 candidates (anchor2/-s1,
+    anchor3/-s1) FAIL the hard zero-terminations gate (60-73% of
+    episodes terminate, `over_current` dominant); no single-model
+    candidate is promotable yet. No new lever opened — every failure
+    mode observed (rise over_current, walk collapse, no heading) maps
+    onto an already-funded Next item (RUNG-9 ref mint, the `-2.0`
+    critic/trunk dig-in, headings-curric). Re-run this instrument
+    (`ops.sh sessioncmd <run>`) once any of those levers lands a
+    promoted checkpoint, not before.
 
 -1.8 PER-CORE `log_std` SPLIT — DIG-IN FLAGGED (08-27, anchor4-stdanneal
     joint call). Code-read finding (`rl_move/sim/gru_policy.py`

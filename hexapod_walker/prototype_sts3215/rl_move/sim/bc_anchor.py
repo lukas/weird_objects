@@ -193,6 +193,119 @@ Knobs (set via attach_bc_anchor / cfg):
                                collapse (anchor1: walk destroyed
                                2 seeds, 2 different pathologies).
 
+  train.bc_anchor_debug_adv_stats (default 0, bit-exact when off)
+                               READ-ONLY diagnostic (08-27,
+                               anchor7-detachtrunk dig-in): after
+                               super().train() has already consumed
+                               and applied the rollout buffer, logs
+                               train/adv_{loco,stance}_{mean,std,share}
+                               — the RAW (pre sb3-contrib
+                               per-minibatch normalization) advantage
+                               moments split by the obs-tail mode
+                               one-hot (requires obs.mode_onehot=1).
+                               Tests whether the dual-core catastrophe
+                               that survives both the log_std-split and
+                               bc_anchor_detach_trunk fixes is actually
+                               a THIRD, still-untested mechanism: sb3-
+                               contrib's global per-minibatch advantage
+                               normalization mixes loco/stance ticks
+                               (this stack has no VecNormalize/reward
+                               scaling, and goal.mode_seq composes
+                               modes inside one episode, so minibatches
+                               are cross-mode by construction) — if
+                               stance's raw advantage variance dwarfs
+                               walk's, the shared normalizer could be
+                               shrinking walk's own PPO gradient toward
+                               zero independent of any weight-sharing
+                               path. Changes no gradient/weight/RNG
+                               draw; see _maybe_log_adv_mode_stats.
+                               MEASURED (08-27, anchor8-advstats seed0,
+                               2M steps): REFUTED, and not just "no
+                               support" but the opposite of the
+                               predicted direction — adv_loco_std is
+                               often SEVERAL-X adv_stance_std (up to
+                               ~7x mid-training, during the exact
+                               reward-trough window), never the
+                               reverse. Escalates to the pre-registered
+                               fallback: PPO's global
+                               ``clip_grad_norm_`` (see
+                               bc_anchor_debug_gradnorm below).
+
+  train.bc_anchor_debug_gradnorm (default 0, bit-exact when off)
+                               READ-ONLY diagnostic (08-27,
+                               anchor8-advstats REFUTATION follow-up):
+                               the dual-core policy already gives
+                               loco/stance fully separate GRUs, actor
+                               heads, and value heads (verified by
+                               code read: the only shared per-tick
+                               computation left is a parameterless
+                               FlattenExtractor, i.e. no shared
+                               trainable trunk remains) — but
+                               sb3-contrib's ``RecurrentPPO.train()``
+                               still calls ONE global
+                               ``clip_grad_norm_(self.policy.
+                               parameters(), max_grad_norm)`` over
+                               EVERY parameter together each minibatch.
+                               If one core's raw gradient norm
+                               dominates, the shared clip factor
+                               rescales BOTH cores' grads identically,
+                               starving the smaller core even though
+                               its own weights are otherwise fully
+                               isolated. Wraps ``super().train()`` in a
+                               context manager that transiently
+                               monkeypatches
+                               ``torch.nn.utils.clip_grad_norm_`` to
+                               record the PRE-CLIP per-core (a/b) and
+                               shared-param grad L2 norms
+                               (``train/gradnorm_{a,b,shared}_mean``,
+                               averaged over the train() call's
+                               minibatches) before delegating to the
+                               real clip (unchanged behavior — same
+                               tensors, same max_norm, same return).
+                               No-op / restores the original function
+                               immediately when off or when the policy
+                               isn't dual-core (no ``mlp_extractor_b``).
+                               See _gradnorm_diag_ctx.
+                               MEASURED (08-27, anchor9-gradnorm seed0,
+                               2M steps): SUPPORTED, persistently, not
+                               just during the trough — core B's
+                               (stance) raw grad norm is >=3x core A's
+                               (walk) in 23/30 logged rollouts, median
+                               ratio 4.2x overall and 3.5x isolated to
+                               the reward-trough window (idx 6-13), max
+                               16x; never comparable, let alone
+                               inverted. Escalates to the fallback
+                               named in this arm's own gate text: design
+                               a per-core gradient clip (see
+                               bc_anchor_percore_clip below).
+
+  train.bc_anchor_percore_clip (default 0, bit-exact when off)
+                               MECHANISM (08-27, anchor9-gradnorm
+                               SUPPORT follow-up): replaces
+                               sb3-contrib's ONE global
+                               ``clip_grad_norm_(self.policy.
+                               parameters(), max_grad_norm)`` call
+                               inside ``super().train()`` with THREE
+                               independent clips (core a / core b /
+                               shared) at the SAME max_norm, so core
+                               B's measured several-x-larger raw
+                               gradient can no longer force a single
+                               shared rescale factor onto core A's
+                               unrelated, already-small gradient for
+                               free. Same param groups as
+                               _gradnorm_diag_ctx (frozen a/b/shared
+                               contract, factored into
+                               _dual_core_param_groups so both stay in
+                               sync). Composable with
+                               bc_anchor_debug_gradnorm (nested context
+                               managers; the diagnostic still reads
+                               PRE-any-clip grad norms either way, so
+                               enabling both on the same run keeps the
+                               measurement meaningful). Off (default)
+                               or non-dual policy: no-op, byte-for-byte
+                               the pre-08-27 single global clip. See
+                               _percore_clip_ctx.
+
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
 the ring train/bc_anchor_loss_{rise,hold,lower,walk} +
@@ -261,6 +374,35 @@ def _lazy_sb3():
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
     return PPO, BaseCallback
+
+
+def _dual_core_param_groups(policy):
+    """Classify every named parameter of a dual-core policy
+    (gru_policy.DualGruActorCriticPolicy) as core 'a' (locomotion/
+    walk), 'b' (stance), or 'shared' (the parameterless
+    FlattenExtractor plus anything else not name-matched). FROZEN
+    CONTRACT (08-27): both _gradnorm_diag_ctx (measurement) and
+    _percore_clip_ctx (mechanism) call this SAME helper so the groups
+    a measurement was taken over are byte-identical to the groups a
+    clip acts on — do not fork this logic per-caller."""
+    def _group(name: str) -> str:
+        if (name == "log_std_b" or "core_b" in name
+                or name.startswith(("mlp_extractor_b",
+                                     "action_net_b",
+                                     "value_net_b"))):
+            return "b"
+        if (name == "log_std" or "core_a" in name
+                or name.startswith(("mlp_extractor.",
+                                     "action_net.",
+                                     "value_net."))
+                or name in ("mlp_extractor", "action_net",
+                            "value_net")):
+            return "a"
+        return "shared"
+
+    names = [n for n, _ in policy.named_parameters()]
+    groups = [_group(n) for n in names]
+    return names, groups
 
 
 def make_bc_anchor_ppo_class(base_cls=None):
@@ -338,6 +480,213 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 parts.append(rng.integers(0, n, size=rem))
             return np.concatenate(parts)
 
+        def _maybe_log_adv_mode_stats(self) -> None:
+            """DIAGNOSTIC ONLY, default off, zero effect on training
+            (08-27, anchor7-detachtrunk joint-close dig-in): reads
+            already-computed rollout-buffer advantages/observations
+            AFTER super().train() has fully consumed and updated the
+            policy from them, and logs the RAW (pre sb3-contrib
+            normalization) per-mode-family advantage mean/std/share.
+
+            Motivation: sb3-contrib's RecurrentPPO.train() normalizes
+            advantages with ONE global (mean, std) per minibatch
+            (`advantages[mask].mean()/.std()`, ppo_recurrent.py) —
+            there is no VecNormalize/reward-scaling anywhere in this
+            stack (grep-confirmed). Every dual-core standwalk recipe
+            trains with `goal.mode_seq` composing hold/rise/lower/walk
+            INSIDE one episode, so a single env's own rollout chunk
+            already interleaves multiple mode families in time before
+            any cross-env mixing — meaning the shared normalization
+            constant is structurally cross-mode on essentially every
+            minibatch, independent of any trunk/log_std sharing (both
+            already tested and refuted as the sole cause: anchor6/6b
+            log_std-split and anchor7 detach_trunk both left the
+            anchor4-class walk degradation only partially changed).
+            If the stance family's raw advantage variance dominates
+            the walk family's (very plausible: rise/hold/lower carry
+            large terminal penalties up to `term_cost_max`, walk's
+            reward is a bounded per-tick kernel), the shared normalizer
+            would shrink walk's own gradient signal toward zero for
+            free, independent of any weight-sharing path — a
+            previously untested root-cause candidate for the same
+            "reward trough, partial recovery, degenerate frozen/
+            leg-sacrifice gait" shape every log_std/trunk arm has hit.
+
+            This method only ever READS `self.rollout_buffer.advantages`
+            / `.observations` (already fully consumed/mutated in place
+            by the base class's own `.get()` inside `super().train()`
+            — see sb3_contrib's RecurrentRolloutBuffer.get(), which
+            flattens tensors to (n_envs*n_steps, ...) on first call)
+            and calls `self.logger.record(...)`; it changes no
+            gradient, no weight, no RNG draw. Gated behind
+            `train.bc_anchor_debug_adv_stats` (default 0 = skipped
+            entirely, bit-exact)."""
+            if not getattr(self, "bc_debug_adv_stats", False):
+                return
+            buf = getattr(self, "rollout_buffer", None)
+            adv = getattr(buf, "advantages", None) if buf is not None \
+                else None
+            obs = getattr(buf, "observations", None) if buf is not None \
+                else None
+            if adv is None or obs is None:
+                return
+            try:
+                from rl_move.sim.walk_task import (
+                    MODE_ONEHOT_ORDER, N_MODE_OBS)
+            except Exception:
+                return
+            adv = np.asarray(adv).reshape(-1)
+            obs = np.asarray(obs).reshape(adv.shape[0], -1)
+            if obs.shape[-1] < N_MODE_OBS:
+                return  # obs.mode_onehot not enabled on this run
+            onehot = obs[:, -N_MODE_OBS:]
+            n_loco = 3  # trailing slots (walk, turn, quad); see
+            # gru_policy._N_LOCO_SLOTS / walk_task.MODE_ONEHOT_ORDER
+            loco_mask = onehot[:, -n_loco:].sum(axis=-1) > 0.5
+            stance_mask = ~loco_mask
+            for name, mask in (("loco", loco_mask), ("stance", stance_mask)):
+                m = adv[mask]
+                if m.size == 0:
+                    continue
+                self.logger.record(f"train/adv_{name}_mean", float(m.mean()))
+                self.logger.record(f"train/adv_{name}_std", float(m.std()))
+                self.logger.record(
+                    f"train/adv_{name}_share", float(mask.mean()))
+            del MODE_ONEHOT_ORDER  # imported for the module-shape check only
+
+        def _gradnorm_diag_ctx(self):
+            """DIAGNOSTIC ONLY, default off (08-27, anchor8-advstats
+            REFUTATION follow-up). Returns a context manager that,
+            when ``train.bc_anchor_debug_gradnorm`` is set AND the
+            policy is dual-core (has ``mlp_extractor_b``), transiently
+            monkeypatches ``torch.nn.utils.clip_grad_norm_`` for the
+            duration of ``super().train()`` so every call captures the
+            PRE-CLIP per-core grad L2 norm before delegating to the
+            real clip (same tensors, same max_norm, same return value
+            — zero behavioral change). On exit, logs the per-call
+            values averaged over the train() call as
+            train/gradnorm_{a,b,shared}_mean. Off (default) or on a
+            non-dual policy: returns a no-op context, byte-for-byte
+            the pre-08-27 code path (clip_grad_norm_ never touched)."""
+            import contextlib
+
+            @contextlib.contextmanager
+            def _noop():
+                yield
+
+            if not getattr(self, "bc_debug_gradnorm", False):
+                return _noop()
+            policy = self.policy
+            if not hasattr(policy, "mlp_extractor_b"):
+                return _noop()
+
+            names, groups = _dual_core_param_groups(policy)
+            samples: list[tuple[float, float, float]] = []
+            self_ = self
+
+            @contextlib.contextmanager
+            def _patched():
+                import torch
+
+                orig_clip = torch.nn.utils.clip_grad_norm_
+
+                def _clip(parameters, max_norm, *a, **kw):
+                    params = list(parameters)
+                    sq = {"a": 0.0, "b": 0.0, "shared": 0.0}
+                    for n, g, p in zip(names, groups, params):
+                        if p.grad is None:
+                            continue
+                        sq[g] += float(p.grad.detach().pow(2).sum())
+                    samples.append(
+                        (sq["a"] ** 0.5, sq["b"] ** 0.5, sq["shared"] ** 0.5))
+                    return orig_clip(params, max_norm, *a, **kw)
+
+                torch.nn.utils.clip_grad_norm_ = _clip
+                try:
+                    yield
+                finally:
+                    torch.nn.utils.clip_grad_norm_ = orig_clip
+                    if samples:
+                        arr = np.asarray(samples)
+                        self_.logger.record(
+                            "train/gradnorm_a_mean", float(arr[:, 0].mean()))
+                        self_.logger.record(
+                            "train/gradnorm_b_mean", float(arr[:, 1].mean()))
+                        if arr[:, 2].max() > 0.0:
+                            self_.logger.record(
+                                "train/gradnorm_shared_mean",
+                                float(arr[:, 2].mean()))
+
+            return _patched()
+
+        def _percore_clip_ctx(self):
+            """MECHANISM (default 0, bit-exact when off) — 08-27,
+            anchor9-gradnorm SUPPORT follow-up. anchor9-gradnorm
+            MEASURED (2M-step canary): core B's (stance) raw PPO
+            gradient norm is persistently several-x core A's (walk) —
+            median ~4.2x across 30 logged rollouts, ~3.5x even
+            isolated to the reward-trough window, up to 16x — never
+            comparable, let alone inverted (see
+            train.bc_anchor_debug_gradnorm docstring above for the
+            exact numbers). sb3-contrib's RecurrentPPO.train() still
+            funnels EVERY parameter of both fully-separate cores
+            through ONE ``clip_grad_norm_`` call per minibatch; when
+            core B's raw norm dominates, the resulting single scale
+            factor rescales core A's already-small gradient by the
+            SAME factor for free, even though core A's weights never
+            touch core B's loss at all. Enabled by
+            ``train.bc_anchor_percore_clip``, this context manager
+            replaces that one global clip with THREE independent
+            clips — one per group from ``_dual_core_param_groups``
+            (a / b / shared) — each at the SAME max_norm, so a large
+            stance-core gradient can no longer force an unrelated
+            walk-core rescale. Off (default) or on a non-dual policy:
+            returns a no-op context, byte-for-byte the pre-08-27
+            single global clip (same contract as
+            _gradnorm_diag_ctx's own no-op path — the two compose:
+            nesting either order is safe because the diagnostic always
+            measures grad norms itself, from ``p.grad``, BEFORE
+            delegating to whatever clip implementation is currently
+            installed)."""
+            import contextlib
+
+            @contextlib.contextmanager
+            def _noop():
+                yield
+
+            if not getattr(self, "bc_percore_clip", False):
+                return _noop()
+            policy = self.policy
+            if not hasattr(policy, "mlp_extractor_b"):
+                return _noop()
+
+            names, groups = _dual_core_param_groups(policy)
+
+            @contextlib.contextmanager
+            def _patched():
+                import torch
+
+                orig_clip = torch.nn.utils.clip_grad_norm_
+
+                def _clip(parameters, max_norm, *a, **kw):
+                    params = list(parameters)
+                    buckets: dict[str, list] = {
+                        "a": [], "b": [], "shared": []}
+                    for n, g, p in zip(names, groups, params):
+                        buckets[g].append(p)
+                    norms = [orig_clip(plist, max_norm, *a, **kw)
+                             for plist in buckets.values() if plist]
+                    return max(norms) if norms else orig_clip(
+                        params, max_norm, *a, **kw)
+
+                torch.nn.utils.clip_grad_norm_ = _clip
+                try:
+                    yield
+                finally:
+                    torch.nn.utils.clip_grad_norm_ = orig_clip
+
+            return _patched()
+
         def _bc_policy_mean(self, th_obs, th_h=None):
             """pi mean at the anchor obs. MLP: stateless. Recurrent
             (GRU): one fused cell step FROM the stored rollout hidden
@@ -395,7 +744,10 @@ def make_bc_anchor_ppo_class(base_cls=None):
             return pol.action_net(pol.mlp_extractor.forward_actor(latent))
 
         def train(self) -> None:
-            super().train()
+            with self._percore_clip_ctx():
+                with self._gradnorm_diag_ctx():
+                    super().train()
+            self._maybe_log_adv_mode_stats()
             coef = float(getattr(self, "bc_coef", 0.0))
             n = int(getattr(self, "_bc_n", 0))
             if coef <= 0.0 or n == 0:
@@ -580,6 +932,12 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_detach_trunk", default=0.0)) > 0.0
     model.bc_isolate_update = float(cfg_get(
         cfg, "train", "bc_anchor_isolate_update", default=0.0)) > 0.0
+    model.bc_debug_adv_stats = float(cfg_get(
+        cfg, "train", "bc_anchor_debug_adv_stats", default=0.0)) > 0.0
+    model.bc_debug_gradnorm = float(cfg_get(
+        cfg, "train", "bc_anchor_debug_gradnorm", default=0.0)) > 0.0
+    model.bc_percore_clip = float(cfg_get(
+        cfg, "train", "bc_anchor_percore_clip", default=0.0)) > 0.0
     model.bc_minibatches = int(float(cfg_get(
         cfg, "train", "bc_anchor_minibatches", default=8)))
     model.bc_batch_size = int(float(cfg_get(

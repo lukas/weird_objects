@@ -287,6 +287,29 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
             return (self.log_std_b,)
         return None
 
+    def enable_log_std_split(self):
+        """Retrofit the per-core log_std split onto an ALREADY
+        constructed policy. Needed by the plain --init-from warm-start
+        path: ``RecurrentPPO.load`` rebuilds the policy from the
+        CHECKPOINT's own saved policy_kwargs, so warm-starting a
+        pre-split parent silently dropped ``log_std_split=True`` and
+        the "stance-only" anneal cooled the one SHARED log_std both
+        cores sample from (anchor6-logstdsplit forensics, 08-27: both
+        seeds shipped with no log_std_b at all and reproduced the
+        anchor4-stdanneal shared-anneal catastrophe verbatim).
+        Idempotent. Seeds log_std_b from the current log_std exactly
+        like __init__ and rebuilds the optimizer so the new parameter
+        actually trains (fresh optimizer state — the architecture
+        changed, same policy as any transplant)."""
+        if self.log_std_split:
+            return
+        self.log_std_split = True
+        self.log_std_b = nn.Parameter(
+            self.log_std.data.clone(), requires_grad=True)
+        lr = self.optimizer.defaults["lr"]
+        self.optimizer = self.optimizer_class(
+            self.parameters(), lr=lr, **self.optimizer_kwargs)
+
     # -- RecurrentPPO entry points ---------------------------------
 
     def forward(self, obs, lstm_states, episode_starts,

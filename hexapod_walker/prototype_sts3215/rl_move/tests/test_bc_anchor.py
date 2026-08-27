@@ -1792,3 +1792,289 @@ def test_hold_height_aware_chain_tracks_height_with_feet_planted():
     assert worst_clear_mm < 25.0, (
         f"a foot came {worst_clear_mm:.0f}mm off the ground during the "
         f"height-aware anchored hold — not the honest feet-planted class")
+
+
+def test_debug_adv_stats_default_off_no_op():
+    """train.bc_anchor_debug_adv_stats defaults to False (unset ->
+    getattr False): the diagnostic must not log anything and must not
+    touch rollout_buffer, even if one happens to be set."""
+    model = _tiny_model()
+    model.learn(total_timesteps=32)  # populates self.logger
+    calls = {}
+    model.logger.record = lambda k, v: calls.__setitem__(k, v)
+    model._maybe_log_adv_mode_stats()
+    assert calls == {}
+
+
+def test_debug_adv_stats_splits_loco_and_stance():
+    """When enabled, the diagnostic must correctly separate ticks by
+    the obs-tail mode one-hot (loco = trailing 3 slots: walk/turn/quad)
+    and log per-group raw advantage mean/std/share — read-only, no
+    training side effect."""
+    from types import SimpleNamespace
+    from rl_move.sim.walk_task import N_MODE_OBS
+
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_debug_adv_stats = True
+
+    n = 6
+    obs = np.zeros((n, 2 + N_MODE_OBS), dtype=np.float32)
+    stance_onehot = np.zeros(N_MODE_OBS, dtype=np.float32)
+    stance_onehot[0] = 1.0  # "hold"
+    loco_onehot = np.zeros(N_MODE_OBS, dtype=np.float32)
+    loco_onehot[3] = 1.0  # "walk"
+    for i in range(4):
+        obs[i, -N_MODE_OBS:] = stance_onehot
+    for i in range(4, 6):
+        obs[i, -N_MODE_OBS:] = loco_onehot
+    adv = np.array([1.0, 2.0, 3.0, 4.0, 10.0, 20.0], dtype=np.float32)
+    model.rollout_buffer = SimpleNamespace(advantages=adv, observations=obs)
+
+    calls = {}
+    model.logger.record = lambda k, v: calls.__setitem__(k, v)
+    model._maybe_log_adv_mode_stats()
+
+    assert calls["train/adv_stance_mean"] == pytest.approx(2.5)
+    assert calls["train/adv_loco_mean"] == pytest.approx(15.0)
+    assert calls["train/adv_loco_share"] == pytest.approx(2 / 6)
+    assert calls["train/adv_stance_share"] == pytest.approx(4 / 6)
+    # raw (unnormalized) stance variance dwarfing loco's is exactly the
+    # hypothesis this diagnostic exists to surface, not asserted here
+    # (synthetic numbers), but the std keys must exist and be finite.
+    assert calls["train/adv_loco_std"] >= 0.0
+    assert calls["train/adv_stance_std"] >= 0.0
+
+
+def test_debug_adv_stats_skips_without_mode_onehot():
+    """No obs.mode_onehot tail (obs narrower than N_MODE_OBS) -> the
+    diagnostic must skip cleanly (no crash, nothing logged), not guess."""
+    from types import SimpleNamespace
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_debug_adv_stats = True
+    obs = np.zeros((4, 3), dtype=np.float32)  # narrower than N_MODE_OBS=6
+    adv = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+    model.rollout_buffer = SimpleNamespace(advantages=adv, observations=obs)
+    calls = {}
+    model.logger.record = lambda k, v: calls.__setitem__(k, v)
+    model._maybe_log_adv_mode_stats()
+    assert calls == {}
+
+
+# --- gradnorm diagnostic (08-27, anchor8-advstats REFUTATION follow-up) --
+
+def _tiny_dual_env_ctor():
+    import gymnasium as _g
+    from rl_move.sim.walk_task import N_MODE_OBS
+
+    class _TinyDualEnv(_g.Env):
+        """obs = 3 core dims + N_MODE_OBS one-hot tail, alternating
+        loco/stance per episode so both dual-core branches get real
+        gradient every rollout."""
+
+        def __init__(self):
+            super().__init__()
+            self.observation_space = _g.spaces.Box(
+                -1, 1, (3 + N_MODE_OBS,), dtype=np.float32)
+            self.action_space = _g.spaces.Box(-1, 1, (4,), dtype=np.float32)
+            self._t = 0
+            self._ep = 0
+
+        def _obs(self):
+            core = self.np_random.uniform(-1, 1, 3).astype(np.float32)
+            onehot = np.zeros(N_MODE_OBS, dtype=np.float32)
+            onehot[3 if self._ep % 2 == 0 else 0] = 1.0  # walk vs hold
+            return np.concatenate([core, onehot])
+
+        def reset(self, *, seed=None, options=None):
+            super().reset(seed=seed)
+            self._t = 0
+            self._ep += 1
+            return self._obs(), {}
+
+        def step(self, action):
+            self._t += 1
+            r = float(np.sum(action))
+            return self._obs(), r, False, self._t >= 8, {}
+
+    return _TinyDualEnv
+
+
+def _tiny_dual_model():
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+    from rl_move.sim.gru_policy import DualGruActorCriticPolicy
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    env_ctor = _tiny_dual_env_ctor()
+    venv = DummyVecEnv([env_ctor for _ in range(2)])
+    model = cls(
+        DualGruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, learning_rate=3e-3,
+        seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    model.bc_coef = 0.0  # anchor loss itself is not under test here
+    return model
+
+
+def test_gradnorm_diag_default_off_never_touches_clip():
+    """Off by default (bit-exact): torch.nn.utils.clip_grad_norm_ must
+    be the exact same function object before and after train(), and
+    no gradnorm/* key gets logged."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    orig = torch.nn.utils.clip_grad_norm_
+    calls = {}
+    model.logger.record = lambda k, v, **kw: calls.__setitem__(k, v)
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "off path touched the global clip_grad_norm_ reference"
+    assert not any(k.startswith("train/gradnorm_") for k in calls)
+
+
+def test_gradnorm_diag_restores_original_clip_when_on():
+    """When enabled on a dual-core policy, clip_grad_norm_ is restored
+    to the original function object once train() returns (no lasting
+    global monkeypatch), and per-core norms get logged as finite,
+    non-negative floats."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    model.bc_debug_gradnorm = True
+    orig = torch.nn.utils.clip_grad_norm_
+    calls = {}
+    model.logger.record = lambda k, v, **kw: calls.__setitem__(k, v)
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "clip_grad_norm_ was not restored after the diagnostic context"
+    assert calls["train/gradnorm_a_mean"] >= 0.0
+    assert calls["train/gradnorm_b_mean"] >= 0.0
+    assert np.isfinite(calls["train/gradnorm_a_mean"])
+    assert np.isfinite(calls["train/gradnorm_b_mean"])
+
+
+def test_gradnorm_diag_skips_non_dual_policy():
+    """Enabled, but the policy has no mlp_extractor_b (plain MLP) ->
+    must no-op cleanly, same as the off path."""
+    import torch
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_debug_gradnorm = True
+    orig = torch.nn.utils.clip_grad_norm_
+    calls = {}
+    model.logger.record = lambda k, v, **kw: calls.__setitem__(k, v)
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig
+    assert not any(k.startswith("train/gradnorm_") for k in calls)
+
+
+def test_gradnorm_diag_grouping_matches_named_parameters():
+    """Sanity: every named parameter of a dual-core policy is
+    classified as exactly one of a/b/shared, and 'core_a'/'_b' names
+    land on opposite sides (frozen contract with the DualGru naming
+    used by the diagnostic's ``_group`` helper)."""
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    names = [n for n, _ in model.policy.named_parameters()]
+    assert any("core_a" in n for n in names)
+    assert any("core_b" in n for n in names)
+    assert any(n.startswith("action_net_b") for n in names)
+    assert any(n.startswith("action_net.") or n == "action_net"
+               for n in names)
+
+
+# --- per-core grad clip mechanism (08-27, anchor9-gradnorm SUPPORT --
+# follow-up: gradnorm_a persistently several-x gradnorm_b was
+# MEASURED, not just unsupported, so the pre-registered next arm
+# (decouple the shared clip_grad_norm_ call) is built here) ---------
+
+def test_percore_clip_default_off_never_touches_clip():
+    """Off by default (bit-exact): torch.nn.utils.clip_grad_norm_ must
+    be the exact same function object before and after train(), and
+    the update sequence is untouched."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    orig = torch.nn.utils.clip_grad_norm_
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "off path touched the global clip_grad_norm_ reference"
+
+
+def test_percore_clip_restores_original_when_on():
+    """Enabled on a dual-core policy: clip_grad_norm_ is restored to
+    the original function object once train() returns (no lasting
+    global monkeypatch)."""
+    import torch
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    model.bc_percore_clip = True
+    orig = torch.nn.utils.clip_grad_norm_
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig, \
+        "clip_grad_norm_ was not restored after the percore-clip context"
+
+
+def test_percore_clip_skips_non_dual_policy():
+    """Enabled, but the policy has no mlp_extractor_b (plain MLP) ->
+    must no-op cleanly, same as the off path."""
+    import torch
+    model = _tiny_model()
+    model.learn(total_timesteps=32)
+    model.bc_percore_clip = True
+    orig = torch.nn.utils.clip_grad_norm_
+    model.train()
+    assert torch.nn.utils.clip_grad_norm_ is orig
+
+
+def test_percore_clip_actually_decouples_the_two_cores():
+    """The behavioral crux: with a huge core-B (stance) gradient and a
+    tiny core-A (walk) gradient, a single global clip would rescale
+    BOTH by the same (small) factor derived from B's dominant norm;
+    per-core clipping must leave A essentially untouched while still
+    reining in B. Verified by monkeypatching the grads directly after
+    a real backward pass, then invoking the exact same clip_grad_norm_
+    call sb3-contrib makes inside train()."""
+    import torch
+    from rl_move.sim.bc_anchor import _dual_core_param_groups
+
+    model = _tiny_dual_model()
+    model.learn(total_timesteps=16)
+    model.bc_percore_clip = True
+    policy = model.policy
+    names, groups = _dual_core_param_groups(policy)
+    params = dict(policy.named_parameters())
+    max_norm = 1.0
+    # Craft grads: every core-a param gets a tiny grad, every core-b
+    # param gets a huge one (shared/other params get none).
+    for n, g in zip(names, groups):
+        p = params[n]
+        if g == "a":
+            p.grad = torch.full_like(p, 1e-4)
+        elif g == "b":
+            p.grad = torch.full_like(p, 50.0)
+        else:
+            p.grad = None
+    with model._percore_clip_ctx():
+        torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm)
+    a_norm_after = sum(
+        float(params[n].grad.detach().pow(2).sum())
+        for n, g in zip(names, groups) if g == "a") ** 0.5
+    b_norm_after = sum(
+        float(params[n].grad.detach().pow(2).sum())
+        for n, g in zip(names, groups) if g == "b") ** 0.5
+    # Core B was clipped down to (approximately) max_norm.
+    assert b_norm_after <= max_norm * 1.01
+    # Core A's tiny grad was NOT globally rescaled down by B's huge
+    # norm -- it stays close to its own (already-sub-max_norm) value,
+    # not crushed by the ratio max_norm/total_norm a single global
+    # clip would have applied.
+    a_norm_before = sum(
+        float(1e-4 ** 2) for n, g in zip(names, groups) if g == "a") ** 0.5
+    assert a_norm_after > a_norm_before * 0.9, (
+        "core A's gradient was rescaled by core B's clip factor -- "
+        "the two cores are not actually decoupled")
