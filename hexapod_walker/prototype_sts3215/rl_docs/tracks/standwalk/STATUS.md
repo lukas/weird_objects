@@ -44,6 +44,30 @@ code+canary work — off-limits here; headings is orthogonal
 walk-command coverage and composes with whichever std mechanism wins.
 Prior banner below.)
 
+Update, 2026-08-27 ~04:1x (kick-cycle housekeeping): `anchor5-stdmild2`
+(this cycle's assigned "just finished" run) was already fully
+triaged and the joint dose-bracket call already closed by a concurrent
+cycle before this one reached it (see the "JOINT DOSE-BRACKET GRID
+CLOSED" banner below, commit `bae98ef7`) — verified, no re-triage
+needed. `-anchor2-headings1` was independently found already VERIFIED
+RUNNING (train-2) by the time this cycle's own re-queue attempt drained
+— the launcher correctly deduped the redundant queue item against the
+live W&B run, confirming the pod-race account above. Completed the
+per-core `log_std` split's standard 2-seed pair: launched
+`cw-standwalk-stance-mesh2-stage2-dualbc1-anchor6-logstdsplit-s1`
+(seed1, warm from `anchor2-s1`, train-3, VERIFIED RUNNING) alongside
+the already-running seed0 — same mechanism (separate learnable
+`log_std_b` for the stance core, `--log-std-anneal-core stance`), no
+new code. Fleet after this cycle: 4 standwalk GPU arms training
+(headings1 train-2, headings1-s1 train-0, logstdsplit train-1,
+logstdsplit-s1 train-3), 4 mixed-session baselines still computing on
+train-8..11 (not detected by `capacity.py`'s trainer-process scan —
+do NOT launch there), 4 genuinely free pods (train-4/5/6/7) with no
+further pre-registered ready arm; remaining Next items wait on the
+mixed-session verdicts landing or need dig-in-scope code (STAND_HEIGHT
+rung-4 height-aware anchor, the stage-2 stance-anchor-leak-into-walk
+root cause). Prior banner below.)
+
 Prior banner, 2026-08-27 ~03:1x (**JOINT DOSE-BRACKET GRID CLOSED,
 4/4 arms read: no single shared `log_std` value threads the needle —
 magnitude is dead as a lever, PER-CORE `log_std` SPLIT (Next -1.8) is
