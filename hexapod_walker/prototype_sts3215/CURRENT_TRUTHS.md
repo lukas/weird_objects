@@ -1398,6 +1398,33 @@ follow-ups.
 
 ## Policy and eval facts
 
+- **RECURRENT (GRU) CHECKPOINT EVAL TOOLING (08-28, manual-drive-
+  session-s1 audit — binding):** any tool that calls a recurrent
+  (`--gru-dual`) checkpoint's `model.predict(obs)` WITHOUT explicitly
+  threading the LSTM/GRU hidden state across ticks silently resets it
+  to ZERO on every call (SB3 default) — a per-tick-amnesiac policy,
+  not the trained recurrent one. `manual_drive_session.py`,
+  `drive_policy.py`, and `view.py` all did this and produced a
+  session-driving report (`logs/manual_drive/REPORT.md`, 08-28
+  ~15:0x) that read as a near-total command-following failure
+  (0-5% net translation, belly-flop-to-belly on stops, an
+  over-current death, a "1-ULP-bistable" flat rise) — ALL of which
+  were runner artifacts, not policy defects: re-measured with state
+  correctly threaded, the same checkpoint (`unified1-mix-long-s0/s1`)
+  gets slip/m 2.88-3.09 (inside the joystick <=2.9 band), fwd
+  dir_err 1.4deg, crisp 0.2s stop/go, zero belly-flop, zero
+  over-current, robust flat rise both seeds. `eval_checkpoint.py` was
+  ALWAYS correct (its own `_RecurrentPredictor` shim already threaded
+  state) — this bug was isolated to the three ad-hoc/manual driving
+  tools. Fixed: shared `gru_policy.RecurrentPredictor` /
+  `wrap_recurrent_predictor`, wired into all three tools, locked by
+  `test_recurrent_predictor.py`. LESSON: before trusting ANY new or
+  ad-hoc script's read on a recurrent checkpoint (probe/harvest/drive
+  tools not yet audited), confirm it uses the shared
+  `RecurrentPredictor` wrapper, not a raw `model.predict` call — a
+  clean-looking, reproducible, multi-symptom "policy is broken" video
+  can be entirely a hidden-state bug with zero policy/reward defect
+  behind it.
 - Policies output 18 raw joint targets through the SafetyLayer.
 - Video/physical behavior outranks reward alone; a reward-passing
   cheat is a metric bug, not a skill.
