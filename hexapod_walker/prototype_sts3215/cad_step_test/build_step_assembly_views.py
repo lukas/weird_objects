@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -34,6 +35,10 @@ import hexapod_prototype as hp  # noqa: E402
 
 
 PartBuilder = Callable[[], object]
+
+FASTENER_PRIM_RE = re.compile(
+    r"^stl:fastener_prim_(?P<diameter>[0-9.]+)_(?P<length>[0-9.]+)$"
+)
 
 
 def _hex_color(value: str | None) -> Color | None:
@@ -70,6 +75,27 @@ def make_tibia_tube_assembly() -> object:
         0.0,
     )
     return step._cyl_x(hp.LEG_TUBE_OD / 2.0, length, center)
+
+
+def make_primitive_fastener(diameter_mm: float, length_mm: float) -> object:
+    """Simple screw proxy matching the BuildViz fastener local frame.
+
+    BuildViz primitive fasteners use local +Z along the screw shaft, with the
+    origin on the outer head face. This BREP is intentionally simple; it is
+    only for simulation/connectivity exports, not manufacturing drawings.
+    """
+    head_t = max(0.6 * diameter_mm, 1.0)
+    head = step._cyl_z(
+        diameter_mm * 0.9,
+        head_t,
+        (0.0, 0.0, head_t / 2.0),
+    )
+    shank = step._cyl_z(
+        diameter_mm / 2.0,
+        length_mm,
+        (0.0, 0.0, head_t + length_mm / 2.0),
+    )
+    return step._union(head, shank)
 
 
 ASSEMBLY_BUILDERS: dict[str, PartBuilder] = {
@@ -124,10 +150,17 @@ def _bbox(compound: object) -> dict:
 def _place_instance(inst: dict, cache: dict[str, object]) -> object | None:
     mesh_id = inst.get("meshId")
     builder = ASSEMBLY_BUILDERS.get(mesh_id)
-    if builder is None:
-        return None
     if mesh_id not in cache:
-        cache[mesh_id] = builder()
+        if builder is not None:
+            cache[mesh_id] = builder()
+        else:
+            match = FASTENER_PRIM_RE.match(mesh_id or "")
+            if match is None:
+                return None
+            cache[mesh_id] = make_primitive_fastener(
+                float(match.group("diameter")),
+                float(match.group("length")),
+            )
     shape = _location_from_matrix(_buildviz_matrix(inst.get("transform"))) * cache[mesh_id]
     shape.label = inst.get("name") or mesh_id.replace("stl:", "")
     color = _hex_color(inst.get("color"))
@@ -192,6 +225,215 @@ YAW_FOCUS_INCLUDED = {
     "stl:yaw_bearing_upper",
     "stl:disc_horn",
 }
+
+
+ONE_LEG_LOAD_INCLUDED = {
+    "stl:chassis_bottom",
+    "stl:chassis_top",
+    "stl:coxa_link",
+    "stl:disc_horn",
+    "stl:femur_link",
+    "stl:foot_boot",
+    "stl:servo_clamp_cap",
+    "stl:tibia_knee_yoke",
+    "stl:tibia_tube",
+    "stl:yaw_bearing_cap",
+    "stl:yaw_bearing_lower",
+    "stl:yaw_bearing_upper",
+    "stl:yaw_servo_retainer",
+}
+
+
+def build_connected_one_leg_load_path(*, leg_index: int) -> dict:
+    """Export one leg with servo bodies and fastener proxies for simulation.
+
+    This is less tidy visually than ``build_one_leg_load_path`` but it keeps
+    the physical bridges that Onshape needs for a believable load path.
+    """
+    scene_path = PROTO_DIR / "full_robot_viz" / "scene.json"
+    scene = json.loads(scene_path.read_text())
+    cache: dict[str, object] = {}
+    placed = []
+    counts: Counter[str] = Counter()
+    source_instances = []
+    skipped: Counter[str] = Counter()
+
+    for inst in scene.get("instances", []):
+        mesh_id = inst.get("meshId")
+        keep = mesh_id in {"stl:chassis_bottom", "stl:chassis_top"}
+        if inst.get("leg") == leg_index:
+            keep = True
+        if not keep:
+            continue
+
+        shape = _place_instance(inst, cache)
+        if shape is None:
+            skipped[mesh_id] += 1
+            continue
+        placed.append(shape)
+        counts[mesh_id] += 1
+        source_instances.append(
+            {
+                "id": inst.get("id"),
+                "name": inst.get("name"),
+                "meshId": mesh_id,
+                "role": inst.get("role"),
+                "leg": inst.get("leg"),
+                "joint": inst.get("joint"),
+            }
+        )
+
+    variant = f"connected_one_leg_load_path_L{leg_index}"
+    compound = Compound(placed, label=variant)
+    step_path = STEP_DIR / f"{variant}.step"
+    stl_path = STL_DIR / f"{variant}.stl"
+    STEP_DIR.mkdir(parents=True, exist_ok=True)
+    STL_DIR.mkdir(parents=True, exist_ok=True)
+    export_step(compound, step_path)
+    export_stl(compound, stl_path)
+
+    manifest = {
+        "variant": variant,
+        "sourceScene": str(scene_path.relative_to(PROTO_DIR)),
+        "step": str(step_path.relative_to(THIS_DIR)),
+        "stl": str(stl_path.relative_to(THIS_DIR)),
+        "includedInstances": len(placed),
+        "countsByMeshId": dict(counts),
+        "sourceInstances": source_instances,
+        "skippedMeshIds": {k: v for k, v in skipped.items() if k},
+        "bboxMm": _bbox(compound),
+    }
+    manifest_path = OUT_DIR / f"{variant}_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    return manifest
+
+
+def build_connected_full_load_path() -> dict:
+    """Export the full chassis plus all six connected leg load paths.
+
+    This is the Onshape-simulation handoff model: every leg-local instance
+    that has a supported BREP builder, plus primitive fastener proxies, is
+    placed from the verified BuildViz scene. Non-structural electronics are
+    intentionally skipped unless they are already part of the chassis plate
+    geometry.
+    """
+    scene_path = PROTO_DIR / "full_robot_viz" / "scene.json"
+    scene = json.loads(scene_path.read_text())
+    cache: dict[str, object] = {}
+    placed = []
+    counts: Counter[str] = Counter()
+    source_instances = []
+    skipped: Counter[str] = Counter()
+
+    for inst in scene.get("instances", []):
+        mesh_id = inst.get("meshId")
+        keep = mesh_id in {"stl:chassis_bottom", "stl:chassis_top"}
+        if inst.get("leg") is not None:
+            keep = True
+        if not keep:
+            continue
+
+        shape = _place_instance(inst, cache)
+        if shape is None:
+            skipped[mesh_id] += 1
+            continue
+        placed.append(shape)
+        counts[mesh_id] += 1
+        source_instances.append(
+            {
+                "id": inst.get("id"),
+                "name": inst.get("name"),
+                "meshId": mesh_id,
+                "role": inst.get("role"),
+                "leg": inst.get("leg"),
+                "joint": inst.get("joint"),
+            }
+        )
+
+    variant = "connected_full_robot_load_path"
+    compound = Compound(placed, label=variant)
+    step_path = STEP_DIR / f"{variant}.step"
+    stl_path = STL_DIR / f"{variant}.stl"
+    STEP_DIR.mkdir(parents=True, exist_ok=True)
+    STL_DIR.mkdir(parents=True, exist_ok=True)
+    export_step(compound, step_path)
+    export_stl(compound, stl_path)
+
+    manifest = {
+        "variant": variant,
+        "sourceScene": str(scene_path.relative_to(PROTO_DIR)),
+        "step": str(step_path.relative_to(THIS_DIR)),
+        "stl": str(stl_path.relative_to(THIS_DIR)),
+        "includedInstances": len(placed),
+        "countsByMeshId": dict(counts),
+        "sourceInstances": source_instances,
+        "skippedMeshIds": {k: v for k, v in skipped.items() if k},
+        "bboxMm": _bbox(compound),
+    }
+    manifest_path = OUT_DIR / f"{variant}_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    return manifest
+
+
+def build_one_leg_load_path(*, leg_index: int) -> dict:
+    """Export a compact one-leg force-path assembly for simulation setup."""
+    scene_path = PROTO_DIR / "full_robot_viz" / "scene.json"
+    scene = json.loads(scene_path.read_text())
+    cache: dict[str, object] = {}
+    placed = []
+    counts: Counter[str] = Counter()
+    source_instances = []
+    skipped: Counter[str] = Counter()
+
+    for inst in scene.get("instances", []):
+        mesh_id = inst.get("meshId")
+        keep = mesh_id in {"stl:chassis_bottom", "stl:chassis_top"}
+        if mesh_id in ONE_LEG_LOAD_INCLUDED and inst.get("leg") == leg_index:
+            keep = True
+        if not keep:
+            if mesh_id in ONE_LEG_LOAD_INCLUDED:
+                skipped[mesh_id] += 1
+            continue
+
+        shape = _place_instance(inst, cache)
+        if shape is None:
+            skipped[mesh_id] += 1
+            continue
+        placed.append(shape)
+        counts[mesh_id] += 1
+        source_instances.append(
+            {
+                "id": inst.get("id"),
+                "name": inst.get("name"),
+                "meshId": mesh_id,
+                "leg": inst.get("leg"),
+                "joint": inst.get("joint"),
+            }
+        )
+
+    variant = f"one_leg_load_path_L{leg_index}"
+    compound = Compound(placed, label=variant)
+    step_path = STEP_DIR / f"{variant}.step"
+    stl_path = STL_DIR / f"{variant}.stl"
+    STEP_DIR.mkdir(parents=True, exist_ok=True)
+    STL_DIR.mkdir(parents=True, exist_ok=True)
+    export_step(compound, step_path)
+    export_stl(compound, stl_path)
+
+    manifest = {
+        "variant": variant,
+        "sourceScene": str(scene_path.relative_to(PROTO_DIR)),
+        "step": str(step_path.relative_to(THIS_DIR)),
+        "stl": str(stl_path.relative_to(THIS_DIR)),
+        "includedInstances": len(placed),
+        "countsByMeshId": dict(counts),
+        "sourceInstances": source_instances,
+        "skippedCandidateMeshIds": {k: v for k, v in skipped.items() if k},
+        "bboxMm": _bbox(compound),
+    }
+    manifest_path = OUT_DIR / f"{variant}_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    return manifest
 
 
 def build_yaw_bearing_focus(*, leg_index: int) -> dict:
@@ -270,14 +512,38 @@ def main() -> None:
         help="Export one yaw-bearing stack plus chassis_bottom instead of the full robot.",
     )
     parser.add_argument(
+        "--one-leg-load-path",
+        action="store_true",
+        help="Export one full leg force path plus chassis plates for simulation.",
+    )
+    parser.add_argument(
+        "--connected-one-leg-load-path",
+        action="store_true",
+        help=(
+            "Export one leg plus chassis plates, servo bodies, and primitive "
+            "fastener proxies for a connected simulation load path."
+        ),
+    )
+    parser.add_argument(
+        "--connected-full-load-path",
+        action="store_true",
+        help="Export full chassis plus all six connected leg load paths.",
+    )
+    parser.add_argument(
         "--leg-index",
         type=int,
         default=0,
-        help="Leg index to use with --yaw-bearing-focus.",
+        help="Leg index to use with --yaw-bearing-focus or --one-leg-load-path.",
     )
     args = parser.parse_args()
 
-    if args.yaw_bearing_focus:
+    if args.connected_full_load_path:
+        manifest = build_connected_full_load_path()
+    elif args.connected_one_leg_load_path:
+        manifest = build_connected_one_leg_load_path(leg_index=args.leg_index)
+    elif args.one_leg_load_path:
+        manifest = build_one_leg_load_path(leg_index=args.leg_index)
+    elif args.yaw_bearing_focus:
         manifest = build_yaw_bearing_focus(leg_index=args.leg_index)
     else:
         manifest = build_assembly(include_servo_bodies=args.with_servos)

@@ -48,6 +48,26 @@ uv run --no-project --python 3.12 \
     --yaw-bearing-focus --leg-index 0
 ```
 
+A full connected load-path assembly for Onshape structural triage includes both
+chassis plates and all six leg load paths:
+
+```bash
+uv run --no-project --python 3.12 \
+  --with build123d --with trimesh --with numpy \
+  python hexapod_walker/prototype_sts3215/cad_step_test/build_step_assembly_views.py \
+    --connected-full-load-path
+```
+
+The repeatable MuJoCo-to-Onshape prep target replays standing, walking, rising,
+and lowering; writes a full-chassis STEP; then generates a load-case manifest
+and Onshape setup sheet:
+
+```bash
+make -C hexapod_walker/prototype_sts3215 prepare-onshape-strength
+make -C hexapod_walker/prototype_sts3215 prepare-onshape-strength \
+  ONSHAPE_STUDY_ARGS=--upload
+```
+
 The optional stock C-horn variant has its own additive STEP-first exporter. It
 imports the measured/assumed constants from `tools/make_chorn_variant.py`, but
 does not write to `extra_stl/chorn/`:
@@ -85,6 +105,8 @@ Base and C-horn outputs are written to `cad_step_test/out/`:
 - `assembled_robot*_manifest.json`: composed robot-view STEP/STL diagnostics
   using BuildViz's assembly frames.
 - `yaw_bearing_focus_L*_manifest.json`: compact one-leg yaw stack diagnostics.
+- `connected_full_robot_load_path_manifest.json`: full chassis plus all six
+  connected leg load paths for Onshape structural triage.
 - `chorn_manifest.json`: STEP-first stock C-horn variant diagnostics.
 - `hexapod_step_first_test_bundle.zip`: a small bundle suitable for uploading
   to Onshape as a test.
@@ -120,6 +142,9 @@ Additional additive STEP-first diagnostics:
 - `yaw_bearing_focus_L0` assembly: full `chassis_bottom` plus leg-0
   `coxa_link`, `yaw_bearing_cap`, lower/upper 6805 bearings, and yaw
   `disc_horn`.
+- `connected_full_robot_load_path` assembly: full chassis plus all six
+  connected leg load paths, including servo bodies, disc horns, and primitive
+  fastener proxies where the BuildViz scene carries them.
 - Stock C-horn variant parts:
   - `chorn_reference_DO_NOT_PRINT`
   - `spacers`

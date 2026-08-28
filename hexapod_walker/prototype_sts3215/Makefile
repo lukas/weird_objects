@@ -17,7 +17,7 @@ else
 MJ_PY  := uv run --active python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs help
+.PHONY: check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -29,6 +29,13 @@ help:
 	@echo "  check-cad-fast    Same as check-cad but skip the slow workspace-sweep collision check."
 	@echo "  check-strength    OPT-IN failure-point check (Gmsh + CalculiX FEA + closed-form beam bending)."
 	@echo "                    Not wired into check-cad.  Example:  make check-strength MATERIAL=petg"
+	@echo "  prepare-onshape-strength"
+	@echo "                    Repeatable MuJoCo stand/walk/rise/lower load extraction + full-chassis STEP"
+	@echo "                    + Onshape study manifest. Add ONSHAPE_STUDY_ARGS=--upload to push STEP."
+	@echo "  buildviz-chassis-reinforcement"
+	@echo "                    Regenerate + push the BuildViz chassis reinforcement concept test."
+	@echo "  buildviz-tibia-yoke-reinforcement"
+	@echo "                    Regenerate + push the evidence-backed tibia/yoke load-path concept test."
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
 	@echo "  build             Re-run build_all.py → step_prototype/ (BREP STEP truth) + stl_prototype/ + stl_reference/."
@@ -85,6 +92,36 @@ STRENGTH_ARGS += --parts $(PARTS)
 endif
 check-strength:
 	$(RUN) hexapod_walker/prototype_sts3215/strength/__main__.py $(STRENGTH_ARGS)
+
+ONSHAPE_STUDY_ARGS ?=
+prepare-onshape-strength:
+	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
+		--with mujoco --with numpy --with build123d --with trimesh \
+		python hexapod_walker/prototype_sts3215/strength/prepare_onshape_study.py $(ONSHAPE_STUDY_ARGS)
+
+buildviz-chassis-reinforcement:
+	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
+		--with trimesh --with numpy \
+		python hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/make_chassis_reinforcement_concept.py
+	cd "$$(pwd)/../.." && buildviz push \
+		--build-id prototype_sts3215/chassis-reinforcement-test \
+		--scene hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/scene.json \
+		--design-spec hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/design_spec.yaml \
+		--name "STS3215 chassis reinforcement test kit" \
+		--bump --upload-assets \
+		--message "regenerate chassis/yaw-pocket reinforcement concept"
+
+buildviz-tibia-yoke-reinforcement:
+	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
+		--with trimesh --with numpy --with manifold3d \
+		python hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/make_tibia_yoke_reinforcement_concept.py
+	cd "$$(pwd)/../.." && buildviz push \
+		--build-id prototype_sts3215/tibia-yoke-reinforcement-test \
+		--scene hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/scene.json \
+		--design-spec hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/design_spec.yaml \
+		--name "STS3215 tibia/yoke reinforcement load-path test" \
+		--bump --upload-assets \
+		--message "focused tibia/yoke load-path reinforcement concept"
 
 validate:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/validate_geometry.py
