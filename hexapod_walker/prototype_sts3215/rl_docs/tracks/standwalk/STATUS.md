@@ -1,5 +1,78 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~07:2x idle-kick (agent-doable-queue drain, no
+verdict — found + fixed a real sync bug this cycle instead of
+re-verifying an unchanged board):
+
+**Root cause found for why unified1-mix{,-long}-{s0,s1}'s gate/owncfg
+artifacts sat uncollected for 1.5-2h+ after finishing remotely:**
+`watch_loop.py`'s automatic prestage subprocess (`pod_eval.py <run>`)
+timed out at 05:18 (`TimeoutExpired(...3300)`) while gate+owncfg were
+STILL genuinely computing on-pod (this recipe's video-every=1 4+
+mode panel legitimately takes 1.5-2h+, confirmed) and gave up
+("cycle will do it manually" — an intentional escape hatch, not a
+crash). Nobody then re-invoked `pod_eval.py` because every triage
+cycle since correctly refused to ("do not re-podeval", per multiple
+RL_LOG lines) — reasonably, since a naive re-invocation would have
+seen `remote_eval_running()=True` and deferred UNTIL the remote
+process actually exited, at which point the OLD code had **no
+detection for "finished remotely, nobody watching"**: it would have
+fallen through to launching a brand-new duplicate eval into the same
+`--out` path, silently discarding the completed result and burning
+another 1.5-2h of pod compute. That's why every cycle since 04:31 has
+been reduced to hand-`kubectl exec ps aux` polling instead of using
+the actual tool.
+
+Fixed two real bugs in `pod_eval.py` (`exp/podeval-gate-idempotency-
+report-json` + `exp/podeval-reap-orphaned-remote-result` +
+`exp/podeval-pollreap-helper`, 3 snapshots, all tests green):
+1. Gate/owncfg idempotency keyed on bare directory existence, not
+   `report.json` (every OTHER pass in the file — session/mixedsession/
+   joygate — already keyed on its own completion file; gate/owncfg
+   didn't). Exposed live this cycle: a hand `kubectl cp` mid-flight
+   (before I understood the remote state) left a partial dir and
+   pod_eval accepted it as synced, writing a FALSE prestage sentinel —
+   caught, reverted (deleted the partial dirs + false sentinels for
+   `long-{s0,s1}`), then fixed at the source (`core_pass_synced`,
+   keys on `report.json`).
+2. New `remote_report_exists()` check + reap path: if a pod's
+   report.json already exists with no process running, `pod_eval.py`
+   now copies it back directly instead of relaunching. New
+   `ops.sh pollreap <run>` helper wraps "keep re-invoking podeval
+   until nothing's left running remotely" for exactly this orphaned-
+   supervisor situation.
+
+**Applied it:** `cw-standwalk-unified1-mix-s0`/`-s1`'s gate+owncfg
+were genuinely complete on-pod and are now correctly synced locally
+(prestage sentinel legitimately written). Partial read (own-cfg
+session comparison to the acq8m baseline — the gate's OTHER required
+half — still pending, own-DR mixedsession pass in flight): **DR-0 AND
+own-DR walk/det gait_valid 6/6, sac=[], zero terminations, both
+seeds** — `s0` gate prog med 0.46/slip med 3.26, `s1` gate prog med
+0.39/slip med 3.63; owncfg (own-DR) similar. This is the walk-
+retention mechanism (anchor14 lineage) holding cleanly under the full
+unified command-following recipe — encouraging, NOT a verdict (the
+gate is an AND with the own-cfg session termination/direction-err
+read, which needs the still-running own-DR `eval_mixed_session` pass;
+the DR-0 mixedsession pass for `s0` already shows 0/6 terminations
+across rise/walk/jitter too, dir_err ~42-47deg, consistent). `long-
+{s0,s1}` gate/owncfg are still genuinely computing remotely (missing
+hold_sto/lower_sto/walk_startjitter modes) — a detached `ops.sh
+pollreap` loop (150min budget, 5min poll) is now watching both so
+their results get collected the instant they finish, without another
+cycle needing to hand-poll `ps aux` again.
+
+Left for the SYNCED-marker/joint-verdict cycle: all four arms' own-DR
+`eval_mixed_session` reads (the actual gate-deciding half), plus
+`long-{s0,s1}`'s gate/owncfg once `pollreap` collects them. Do NOT
+re-podeval s0/s1 (already synced) or duplicate the pollreap loops for
+long-{s0,s1} (already running, PIDs logged in
+`/tmp/pollreap_cw-standwalk-unified1-mix-long-s{0,1}.log`). All other
+tracks re-swept fresh: joystick/amp/cpg DONE-or-maintenance-only,
+walkcurr `[operator]`-blocked. Backlog empty, 12 GPU-trainer slots
+free (the four eval harnesses are CPU-bound) but no legal standwalk
+arm to fund before this exact wave's joint read lands.
+
 Update, 2026-08-28 idle-kick (agent-doable-queue drain, no verdict —
 the unified1-mix{,-long}-{s0,s1} 2x2 wave's DR-0 gate + own-DR +
 eval_mixed_session own-cfg harnesses are ALL still genuinely running
