@@ -1,5 +1,105 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~05:0x (triage cycle, no verdict yet):
+`cw-standwalk-unified1-mix-long-s0` (16M, this cycle's assigned
+finished run) — `ops.sh review`: ledger `RUNNING` (stale; W&B
+`finished`, steps=16056320, reward quarters
+[57.0, 667.7, 1418.3, 2239.4], gate text pre-registered same as the
+`long-s1` twin ("paired vs `cw-standwalk-unified1-mix-s0` at matched
+steps: PASS if DR-0 det walk gait_valid >=5/6 zero-sac AND session
+terminations-per-episode/completion beat the 30 s twin"). Confirmed
+via on-pod `ps` (train-4) the watcher's DR-0 gate + own-DR(0.5)
+harnesses genuinely running since ~04:48 (both alive, only 1/24
+episodes+video done ~15 min in — matches the historical 1.5-2h ETA
+for this 4-mode/60s/video-every-1 panel, too early to read). The
+auto-launched `eval_session` (partner-pairing protocol) pass already
+failed immediately as expected (`walk policy obs (80,) != env (72,)`
+— joint-mode dual-core-GRU vs single-core-stance harness mismatch,
+informational, identical to the `long-s1`/acq8m finding, not a
+defect). **Same gap as `long-s1` (found by the concurrent cycle
+handling that seed): `long-s0` also had NO `eval_mixed_session`
+own-cfg pass auto-started** (that instrument only auto-prestages for
+`eval_checkpoint`/`eval_session`, not for the mode-panel gate/owncfg
+runs) even though this run's own pre-registered gate needs the
+session terminations/completion comparison against the `mix-s0` (30s
+twin)'s own mixedsession baseline. Launched it now via `ops.sh
+sessioncmd cw-standwalk-unified1-mix-long-s0` (auto-picked up this
+run's own `goal.mode_seq_max_segments=7` from its ledger extra_args,
+no manual edit needed) directly on the run's own pod (train-4) via
+`kubectl exec` (module form, detached, `disown`) — verified genuinely
+running (`ps` on train-4 shows both the wrapper and the python worker
+alive, log created, no traceback). Output ->
+`logs/ckpt_eval/cw_standwalk_unified1_mix_long_s0_mixedsession/`,
+pod-local `/tmp/mixedsession_cw-standwalk-unified1-mix-long-s0.log`
+(wait pattern `verdict written|Traceback`, read via `kubectl exec ...
+tail`, not the controller's own `/tmp`). Re-swept all other tracks
+fresh (unchanged from the concurrent cycle's ~04:4x sweep): joystick
+DONE-gate met, no legal new arm (movecur1 exploit closed, deferred to
+this track); amp DONE (sim-scope), `[operator]` hardware-only;
+cpg DONE, `[operator]` hardware-A/B-only; walkcurr `[operator]`-
+blocked (BC-kickstart ruling, still no answer). `capacity.py` reads
+12/12 FREE (train-4's eval load is CPU-bound, doesn't occupy the GPU
+trainer slot registry) and backlog is empty, but no legal standwalk
+arm exists to fund before this exact 2x2 wave's paired read lands —
+same judgment every prior cycle on this wave has independently
+reached, re-verified fresh this cycle. Left for the SYNCED/verdict-
+written-marker cycle: read gate+owncfg+mixedsession for `long-s0`
+against the `mix-s0` (30s twin) own mixedsession baseline and the
+paired gate text above (the `long-s1` half is the concurrent cycle's
+to close). CYCLE_WORKED (real infra gap found + eval launched,
+mechanically verified). Prior banner below.
+
+Update, 2026-08-28 ~04:4x (triage cycle, no verdict yet):
+`cw-standwalk-unified1-mix-long-s1` (16M, this cycle's assigned
+finished run) has its `ops.sh review` read: W&B `finished`
+(steps=16056320), ledger gate text pre-registered ("paired vs
+`cw-standwalk-unified1-mix-s1` at matched steps: PASS if DR-0 det
+walk gait_valid >=5/6 zero-sac AND session terminations-per-episode/
+completion fraction beat the 30s twin"). Confirmed via on-pod `ps`
+(train-5) that the watcher's DR-0 gate + own-DR(0.5) harness passes
+started genuinely running ~04:43 (both alive, 0 episodes written yet
+— too early to read, typical ETA 1.5-2h for this 4-mode/60s/
+video-every-1 panel). The auto-launched `eval_session` (partner-
+pairing protocol) pass failed immediately as expected/documented
+(`walk policy obs (80,) != env (72,)` — this is a joint-mode dual-
+core-GRU policy, the deployed partner-pairing harness assumes a
+single-core stance policy; informational, not a defect, matches the
+identical acq8m finding two banners down). **Gap found + fixed this
+cycle**: unlike `cw-standwalk-unified1-mix-{s0,s1}` (the 30s twins),
+`long-s1` had NO `eval_mixed_session` own-cfg pass running — that
+instrument is not part of `pod_eval.py`'s auto-prestage (grep-
+confirmed, it only fires for `eval_checkpoint`/`eval_session`), so it
+silently never started for the long arms even though the run's own
+pre-registered gate needs the session terminations/completion
+comparison against the 30s twin's own mixedsession baseline. Launched
+it now via `ops.sh sessioncmd` (adds `goal.mode_seq_max_segments=7`
+automatically, matching this run's own training cfg) on the run's own
+pod (train-5) — verified genuinely running (`ps` shows both the
+wrapper and the python worker, log alive with no traceback 15s in).
+Output -> `logs/ckpt_eval/cw_standwalk_unified1_mix_long_s1_
+mixedsession/`, `/tmp/mixedsession_cw-standwalk-unified1-mix-long-s1.
+log` (wait pattern `verdict written|Traceback`). Checked the sibling
+`cw-standwalk-unified1-mix-long-s0` (this cycle's off-limits run,
+still training per assignment) — genuinely still training on GPU
+(train-4 @ 16.03M/16M via `launch_run.py status`, essentially done,
+left untouched per assignment). All other tracks re-swept fresh:
+joystick's movecur1 lineage is CLOSED (deferred to this track, DONE
+gate stays met per 08-23 `stotight45-seed13`) — no new joystick arm
+legal; amp/cpg DONE-or-maintenance-only (cpg fully closed pending only
+an [operator] hardware A/B, amp blocked on GPU-priority queuing behind
+this exact standwalk wave per its own STATUS); walkcurr
+`[operator]`-blocked (BC-kickstart ruling, no answer yet). Backlog
+empty; 11/12 GPU slots read FREE by `capacity.py` but 3 of those
+(train-0/2/5) are mid-flight on this exact wave's own CPU-bound eval
+harnesses (not idle-idle) and the other 8 have no legal standwalk arm
+to fund before this 2x2 wave's paired read lands (same judgment every
+prior cycle on this wave has independently reached — re-verified
+fresh this cycle, not taken on faith). Left for the SYNCED/verdict-
+written-marker cycle: read gate+owncfg+mixedsession for both mix-long
+seeds against the mix-s{0,1} (30s twin) own mixedsession baseline and
+the paired gate text above. CYCLE_WORKED (real infra gap found + eval
+launched, mechanically verified). Prior banner below.
+
 Update, 2026-08-28 ~04:3x (triage cycle, no verdict yet): the
 `cw-standwalk-unified1-mix-{s0,s1}` 16M runs (train-0/train-2)
 finished training (W&B `finished`) and the watcher's standard

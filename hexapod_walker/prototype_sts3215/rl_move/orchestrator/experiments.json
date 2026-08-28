@@ -214929,7 +214929,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-unified1-mix-long-s0 since 2026-08-28T04:48:54"
   },
   {
     "run": "cw-standwalk-unified1-mix-long-s1",
@@ -215201,6 +215202,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-unified1-mix-long-s1 since 2026-08-28T04:43:47"
   }
 ]
