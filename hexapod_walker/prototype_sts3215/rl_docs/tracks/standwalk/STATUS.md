@@ -1,5 +1,40 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~19:0x (**`cw-standwalk-unified1-joyfix-hdg-c1`
+VERDICTED CANARY FAIL - MECHANISM — the full-circle heading canary
+(one of the 4-arm joyfix grid) closes; staged heading-SET follow-up
+queued and running.** `goal.walk_heading_max_rad=pi` in one 2M-step
+jump off long-s0's 16M PASS checkpoint fails BOTH of its own AND-gated
+health bars: (1) `probe_cmd_sensitivity.py` (built this cycle, response
+mode) on the 2M ckpt reads fwd speed_ratio 0.422 (healthy) but
+max(left,right) speed_ratio 0.006 — WORSE than the pin-forward
+parent's own baseline 0.033, nowhere near the 0.07 target; cross-track
+displacement for left/right commands (0.12-0.13m) is indistinguishable
+from plain fwd/back drift, i.e. no lateral response emerged at all.
+(2) Training reward failed its own stability bar too:
+`rollout/ep_rew_mean` fell from +68 (0.7M) to -310 (1.3M, a >350pt
+sustained crash covering more than half the run) before only
+partially recovering to -115 by 2M. Both are exactly the hypothesis's
+own predicted-if-false branch: a single-jump full command circle is
+too much curriculum width for a 2M warm-start budget on this recipe —
+consistent with the joystick track's own prior staged-curriculum
+ruling (never full +-180 from tick zero). DR-0/own-DR/mixedsession
+harness reads were still computing on-pod at verdict time (this
+recipe's own ETA is 1.5-2h+, see the velobs3-c1 entry below; not
+purely contention) — they cannot flip an already-2/4-failed AND-gate
+and will land in `logs/ckpt_eval/cw_standwalk_unified1_joyfix_hdg_c1_
+{gate,owncfg,mixedsession}/` for the record. **Follow-up queued and
+VERIFIED RUNNING** (same cycle): `cw-standwalk-unified1-joyfix-
+hdgset1`, identical recipe/warm-start, single lever
+`goal.walk_heading_set=[0,0.7854,-0.7854]` (the joystick track's own
+previously-used "rung B" 0/+45/-45deg staged set) in place of the full
+circle. Also extended `probe_cmd_sensitivity.py` with `diag_fl`/
+`diag_fr` response rows (`exp/cw-standwalk-unified1-joyfix-hdgset1`)
+so the next read tests the angles this recipe actually trains on,
+not an off-distribution pure-lateral command. Gate/hypothesis in the
+ledger entry. Evidence: `logs/manual_drive/cmd_sensitivity_joyfix_
+hdg_c1.json`, W&B run `lve8e2nw`.
+
 Update, 2026-08-28 ~17:1x (triage, no verdict yet — `cw-standwalk-
 unified1-joyfix-velobs3-c1` (2M canary, one of the 4-arm joyfix grid)
 finished training; 2 of 5 pre-registered mechanism-health criteria
