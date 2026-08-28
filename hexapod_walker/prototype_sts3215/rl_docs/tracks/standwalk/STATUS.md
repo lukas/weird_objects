@@ -1,5 +1,55 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~22:3x (**`cw-standwalk-unified1-joyfix-bundle-c1` VERDICTED
+CANARY FAIL - MECHANISM — the bundle arm of the 4-arm joyfix grid closes,
+joint evidence with `hdg-c1`.** Combining `walk_obs_body_vel=3` (leg-
+odometry velocity obs) + `k_walk_cmd_track=2.0` with the full-circle
+`goal.walk_heading_max_rad=pi` does NOT rescue hdg-c1's dead lateral
+response: probe_cmd_sensitivity response-mode `max(left,right)
+speed_ratio` = 0.011 (vs hdg-c1's own 0.006), both far below the 0.07
+bar, while fwd stays healthy at 0.4. Training reward is worse than
+"still recovering" — the full `wandb_history` trace shows `ep_rew_mean`
+falling from +38 (0.7M) to a floor of -320..-480 across 1.1-2.0M with
+**no late recovery** (ends -414.6 at 2.03M vs the matched-step `long-
+s0-cont1` reference trend of +9..+57 over the identical window) — flat
+at the bottom, unlike every other joyfix sibling's trough-then-recover
+shape. DR-0 det walk gait_valid 6/6 sac [] terms 0 is fine in isolation
+but two of four AND-gated criteria are unambiguous fails, so the AND-
+gate closes without waiting on the still-computing mixedsession
+(session terminations cannot flip an already-2/4-failed gate; left
+running on train-2 for the record, not re-launched/killed). Built +
+ran the missing probe_cmd_sensitivity response-mode reads for both
+`cmdtrack-c1` and `bundle-c1` this cycle (neither had one yet) using
+each run's own exact eval cfg-set stack. **Conclusion: a full +-180
+heading circle is off this recipe's curriculum budget regardless of
+what else is bundled with it** — `hdgset1` (single-lever, staged
+0/+-45deg set) remains the live heading path, not the bundle.
+`cmdtrack-c1`'s own probe now reads fwd 0.425 (>=0.40 PASS, no
+overspeed inversion) and DR-0 gait_valid 6/6 sac [] terms 0 PASS; its
+reward trace recovers from a -746..-945 trough to -260 by 2.03M
+(rising, not collapsed, but well below the reference's return-to-
+positive) — per the 08-21 ruling this is "still rising", not a fail;
+its own session-terminations criterion is the only one still
+genuinely computing (mixedsession alive on train-1, past dr0 into
+owndr) — left unverdicted for that read. `velobs3-c1`: found its
+mixedsession had silently died after the dr0 pass (no owndr ever
+started, no live process, predates this cycle's `pod_eval.py`
+re-invoke) — re-invoked `pod_eval.py` which correctly detected the
+missing pass and relaunched only `owndr` (not a duplicate, gate+owncfg
+already synced+skipped) — now genuinely running again on train-0.
+velobs3-c1's other 4/5 criteria (reward recovery, DR-0 gait_valid 6/6,
+rise not collapsed 5/6, probe fwd 0.438) were already PASS per the
+prior cycle; only session terminations remains pending. `hdgset1`/
+`hdg-c1`/`long-s0-cont1` gate+owncfg all still genuinely computing on
+the shared, contended train-4 pod (96-98/~100, 44/~90, 2/~90 files
+respectively) — untouched, no orphan. `long-s1-cont1` mixedsession
+(train-5) past dr0 into owndr, untouched. Other tracks re-swept:
+joystick/amp/cpg DONE-or-[operator]-maintenance-only, walkcurr
+[operator]-blocked (BC-kickstart ruling unanswered). Backlog empty, no
+other legal standwalk arm before this wave's remaining reads land.
+CYCLE_WORKED (real verdict + 2 new probe reads + one orphan eval
+caught+rescued, not a re-verify no-op). Prior banner below.)
+
 Update, 2026-08-28 ~20:2x (**`cw-standwalk-unified1-joyfix-hdgset1` finished
 training (2M/2M), 2 of 4 canary criteria CONFIRMED PASS this cycle,
 no verdict yet — DR-0/own-DR/session terms still genuinely computing

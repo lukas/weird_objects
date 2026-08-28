@@ -216800,7 +216800,7 @@
       "reward.k_walk_cmd_track=2.0"
     ],
     "created": "2026-08-28T16:24:36+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -216846,7 +216846,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-joyfix-bundle-c1-cw-standwalk-unified1 since 2026-08-28T17:01:36"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (2 of 4 AND-gated criteria fail, joint evidence with hdg-c1). Bundle combined heading_max=pi (full-circle) + walk_obs_body_vel=3 (leg-odometry velocity obs) + k_walk_cmd_track=2.0 on top of the unified 60s recipe, warm from long-s0's 16M PASS ckpt. (1) probe_cmd_sensitivity response-mode FAILS the lateral bar: max(left,right) speed_ratio = max(0.011, -0.013) = 0.011, required >=0.07 -- essentially unchanged from hdg-c1's own 0.006 FAIL, so neither the velocity observability fix nor the direct command-tracking reward rescued the lateral response the heading-circle lever alone failed to produce. fwd speed_ratio 0.4 does clear its own >=0.35 bar. (2) training reward is NOT recovering: full wandb_history trace shows ep_rew_mean falling from +38 (0.7M) to a floor of -320..-480 by 1.1-2.0M with NO late recovery (ends -414.6 at 2.03M, matched-step reference cont1 trend is +9..+57 over the same window) -- flat at the bottom, not the shared trough-then-recover shape every other joyfix sibling shows. (3) DR-0 det walk gait_valid 6/6, sac [], terms 0 -- this criterion alone is fine. Evidence: probe /tmp/probe_bundle_c1.json, wandb run 31xrlzi8, logs/ckpt_eval/cw_standwalk_unified1_joyfix_bundle_c1_{gate,owncfg}/report.json. Session terminations (mixedsession, still computing on train-2) cannot flip an already-2/4-failed AND-gate; left running for the record, not re-launched. Conclusion: a full +-180 heading circle is off this recipe's curriculum budget regardless of what else is bundled with it -- the staged heading-SET follow-up (hdgset1, single-lever, currently 2/4 PASS) is the live lever, not the bundle."
   },
   {
     "run": "cw-standwalk-unified1-joyfix-hdgset1",
