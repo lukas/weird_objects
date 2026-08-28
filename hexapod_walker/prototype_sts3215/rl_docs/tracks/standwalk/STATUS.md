@@ -1,7 +1,57 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-28 ~13:2x idle-kick (**UNIFIED1-MIX WAVE 3/4 VERDICTED
-— PARTIAL/PARTIAL/PASS, no FAIL, joint call still holds for long-s1.**
+Update, 2026-08-28 ~13:5x idle-kick (**UNIFIED1-MIX WAVE 3/4 GRID
+CLOSES — `long-s1` PASS, completing the 2x2 seed x episode-length
+grid 100 % in the 60s-recipe's favor.** `long-s1`'s own
+`session_verdict.json` (pulled directly off-pod, all 3 passes
+complete: 90 episodes) reads 0/90 terminations, `zero_falls=true`,
+`session_complete_frac=1.0`, `segments_reached_frac=1.0`, `gait_valid_
+frac=1.0` sac=[], vs its pre-registered 30s twin `cw-standwalk-
+unified1-mix-s1`'s 2/90 terms (both over_current on rise/rsi),
+`zero_falls=false`, `complete_frac=0.978`. DR-0 det walk gait_valid
+6/6 sac=[] (gate/report.json) clears the >=5/6-zero-sac clause; rise
+success (owndr pass) 5/6 det + 6/6 sto, not dropped vs the twin's 4/6
+det + 6/6 sto. **Verdicted PASS** — matches `long-s0`'s own PASS
+against ITS 30s twin (2/90 vs 6/90), so both seeds independently agree
+the 60s/`mode_seq_max_segments=7` session recipe beats the cheaper 30s
+one on termination/completion at matched 16M-step budget, not a
+one-seed fluke. Absolute command tracking (dir_err med 62-65deg, slip/m
+med 9-16) is still far outside the joystick-band gate (dir_err<=40,
+slip<=2.9); reward rose monotonically through 16M on every arm with no
+plateau, and dir_err/slip both improved (~5-9deg / 2-3x) since the 8M
+acq8m parent across every arm this wave — per the 08-21 ruling this is
+a CONTINUE signal, not a stop. **Queued + launched this cycle (batch of
+2, `--now`, both verified RUNNING):** `cw-standwalk-unified1-mix-
+long-{s0,s1}-cont1`, each `--init-from-source` off its own just-PASSed
+16M checkpoint, +16M more steps (32M total), identical 60s/segments7
+recipe, gate: PASS if dir_err_med AND slip_per_m_med both improve
+materially (>=15%) with termination/completion staying at-or-above the
+16M level and gait_valid/sac not regressing; FAIL (flat/plateaued
+tracking with flat/down reward) would redirect to a command-tracking
+reward-shape audit instead of more identical-recipe budget.
+**Also found + fixed a second instance of the 08-28 orphaned-remote-
+result bug class**, this time in the mixedsession auto-launch itself
+(not gate/owncfg, which got the fix 6h earlier): it only checked
+"already on controller" and "still RUNNING remotely", with no
+orphaned-finished-remotely branch, so re-invoking `podeval`
+(indirectly, via the `pollreap` loops watching this exact wave) after
+a mixedsession pass had ALREADY finished on the pod silently launched
+a FRESH duplicate dr0+owndr+dr0_long re-run on top of the complete
+one — caught live on BOTH `long-s0`'s and `long-s1`'s pods (fresh
+`eval_mixed_session` processes actively re-running from a truncated
+`dr0.log` while a complete `session_verdict.json` sat right next to
+it). `remote_report_exists()` now takes a `filename` param
+(`session_verdict.json` for mixedsession vs the default
+`report.json`) and the mixedsession launch site reaps instead of
+relaunching, mirroring gate/owncfg's fix; killed the two live
+duplicate processes (verified the good `session_verdict.json` files
+were untouched first), 3 new unit tests, snapshotted
+(`exp/podeval-mixedsession-orphan-reap`). CYCLE_WORKED. Prior banner
+below.
+
+Previous entry, 2026-08-28 ~13:2x idle-kick (**UNIFIED1-MIX WAVE 3/4
+VERDICTED — PARTIAL/PARTIAL/PASS, no FAIL, joint call still holds for
+long-s1.**
 Pulled `session_verdict.json` directly off-pod for all 3 finished
 arms (local pollreap sync still catching up, harmless) and matched
 each against its own pre-registered gate text AND the acq8m 8M
