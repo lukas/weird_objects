@@ -216024,7 +216024,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-unified1-joyfix-hdg-c1 since 2026-08-28T17:06:44"
   },
   {
     "run": "cw-standwalk-unified1-joyfix-velobs3-c1",

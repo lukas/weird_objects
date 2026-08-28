@@ -1,5 +1,66 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~17:1x (triage, no verdict yet — `cw-standwalk-
+unified1-joyfix-velobs3-c1` (2M canary, one of the 4-arm joyfix grid)
+finished training; 2 of 5 pre-registered mechanism-health criteria
+confirmed PASS this cycle, the other 3 (DR-0 gate, session terms,
+own-DR rise) are genuinely still computing remotely, not yet read.
+**(1) Reward-recovery criterion CONFIRMED**: this arm's `ep_rew_mean`
+hits the same deep trough (~-580 around 1.0-1.4M) as the
+`unified1-mix-long-s0-cont1` reference continuation (the "would have
+happened anyway" baseline, same trough depth/step, confirmed via
+direct wandb_history comparison) and recovers to 32.96 by 2.03M vs
+cont1's 9.17/57.4 at the matched steps — within noise of the baseline
+trend, not a velobs-swap-specific destabilization. This is the shared
+"Q2-Q3 trough" the `Now` banner above already names as common to
+every continuation this campaign; not new. **(2) Probe fwd
+speed_ratio CONFIRMED PASS (0.438 >= 0.40 gate floor)**: found+fixed a
+real bug in `probe_cmd_sensitivity.py` first — `run_response` called
+`_obs_cmd_indices` unconditionally even for `--obs-cmd normal`, which
+crashed on any `walk_obs_body_vel=3` (leg-odometry) checkpoint because
+the velocity-ESTIMATE channels react to a command-only counterfactual
+flip on EITHER axis (fwd/back changes the same channels as left/right
+— a real property of the mode-3 estimator worth a future dig-in, since
+it means the zero/rot90 *controls* can't cleanly isolate an axis under
+mode 3, though plain response numbers don't need the index split at
+all). Fixed to only compute those indices when actually needed
+(`obs_cmd != "normal"`), bit-exact for every other caller (none exist
+yet). Snapshot `exp/probe-cmd-sensitivity-normal-mode-fix`. Re-ran on
+the run's own pod (train-0): fwd disp 0.70m/20s along the command,
+speed_ratio 0.438 (parent long-s0 baseline ~0.475, comparable — no
+regression from the obs swap on the metric the hypothesis named).
+**(3) DR-0 gate / session terminations / own-DR rise — still
+genuinely computing** (ps-verified on train-0: gate+owncfg+
+mixedsession all alive since 16:56, only 2/6 `walk_det` episodes
+written so far, matches this recipe's known 1.5-2h+/pass ETA).
+**Found + repaired a live infra wrinkle**: the controller-side
+wait/copy-back supervisor for this run's gate+owncfg dropped mid-flight
+(`SYNCED rc=1`, a `kubectl exec` websocket disconnect — transient
+cluster networking, not a code defect) while the remote
+`eval_checkpoint` workers themselves survived untouched (orphaned but
+still computing, ps-confirmed) — exactly the documented orphaned-
+remote-result class. Launched a detached `ops.sh pollreap` loop
+(300s/180min budget, verified running, no duplicate) so the next
+cycle doesn't have to re-discover this; do NOT re-`podeval` or spawn a
+second pollreap for this run. Sibling arms: `bundle-c1`/`cmdtrack-c1`
+both finished training too and are being triaged by a concurrent cycle
+(ledger `triage: in-cycle` markers confirm, left untouched); `hdg-c1`
+also finished (W&B `finished`, not yet reflected in this cycle's
+stale "still training" assignment) and the watcher already auto-
+started its own gate/owncfg/mixedsession (ps-confirmed on train-4,
+9 procs) — not this cycle's to claim. All 4 joyfix arms are now
+past training; the joint 4-arm read (the wave's actual decision point)
+still needs all four gate reads to land. Other tracks re-swept fresh:
+joystick DONE-gate met, amp/cpg DONE-or-[operator]-hardware-only,
+walkcurr [operator]-blocked (BC-kickstart ruling unanswered). Backlog
+empty; capacity shows free GPU slots but no legal new standwalk arm
+before this wave's joint read lands (same judgment as every prior
+cycle on this wave). CYCLE_WORKED (real bug found+fixed+tested+
+snapshotted, one gate criterion confirmed, one infra orphan caught and
+rescued). Left for the next cycle: read velobs3-c1's gate/owncfg/
+mixedsession once `pollreap` collects them (or ps shows them done),
+fold into the 4-arm joint call alongside bundle/cmdtrack/hdg.)
+
 Update, 2026-08-28 ~16:2x operator-kick audit (**THE MANUAL-DRIVE FEEL
 REPORT WAS MEASURED THROUGH A BROKEN RUNNER — one real BUG found and
 fixed, command plumbing verdict NO-BUG, and the policy is far more
