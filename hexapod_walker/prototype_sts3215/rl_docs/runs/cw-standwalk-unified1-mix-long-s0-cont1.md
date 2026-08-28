@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-28T13:48:41+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 16000000
 
 **parent**: cw-standwalk-unified1-mix-long-s0
+
+**wandb_id**: 4eqojadc
 
 **hypothesis**: Plain English: the 60s/mode_seq_max_segments=7 unified command-following recipe just PASSED its session-health gate (0 falls, complete_frac clean) on both seeds, but absolute direction/slip tracking (dir_err~65deg, slip~9/m) is still far from the joystick command band (dir_err<=40, slip<=2.9); reward rose monotonically through 16M with no plateau and dir_err/slip both improved 5-9deg/2-3x since the 8M parent -- does another 16M steps (32M total) from this exact checkpoint keep closing that gap under the 08-21 continue ruling, or does it plateau (pointing to a reward/eval alignment fix instead of more budget)?
 
