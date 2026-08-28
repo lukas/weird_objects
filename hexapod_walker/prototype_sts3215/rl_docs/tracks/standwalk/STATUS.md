@@ -1,5 +1,35 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~04:3x (triage cycle, no verdict yet): the
+`cw-standwalk-unified1-mix-{s0,s1}` 16M runs (train-0/train-2)
+finished training (W&B `finished`) and the watcher's standard
+DR-0-gate + own-DR harness passes are genuinely in flight on both
+pods (confirmed via `ps`; ~3/24 episodes/video done after ~11 min,
+matching the historical ~1.5-2h ETA for a video-every=1 4-mode panel
+— do NOT re-podeval). **Launched this cycle (both genuinely running,
+confirmed via pod `ps`):** the `eval_mixed_session` own-cfg pass
+(n=6, 60s+180s, own-DR 0.5) on each run's own pod — this is the SAME
+instrument the acq8m parents are running as this wave's paired
+baseline, and the arm's own pre-registered gate explicitly needs it
+("own-cfg session episodes improve over the acq8m parent's
+mixed-session baseline" — terminations/direction-err trend), so
+launching it in parallel with the mode-panel gate/owncfg reads
+(rather than waiting for them to finish first) avoids serializing two
+independent 1.5-2h reads back to back. Output ->
+`logs/ckpt_eval/cw_standwalk_unified1_mix_{s0,s1}_mixedsession/`,
+`/tmp/mixedsession_cw-standwalk-unified1-mix-{s0,s1}.log` (wait
+pattern `verdict written|Traceback`). All other tracks re-swept
+fresh: joystick/amp/cpg DONE-or-maintenance-only, walkcurr
+`[operator]`-blocked; backlog empty; the 6 fully-idle GPU pods
+(6/7/8/9/10/11) have no legal standwalk arm to fund before this
+2x2 wave's own read lands (same "premature" judgment every prior
+cycle on this wave has made) — genuinely idle on that read, not on
+missing work. Left for the SYNCED/verdict-written-marker cycle: read
+gate+owncfg+mixedsession for both seeds against the acq8m parents'
+own paired mixedsession baseline (train-1/train-3, own-DR still in
+flight there too) and the paired gate text above. CYCLE_WORKED (real
+extra-eval launch, mechanically verified). Prior banner below.
+
 Update, 2026-08-28 ~04:1x (operator-kick cycle, order 20260828T033725Z
 "train the unified command-following model now; do not idle behind
 the mixed-session read": **UNIFIED COMMAND-FOLLOWING 2x2 WAVE
