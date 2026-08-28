@@ -1,6 +1,71 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-27 ~22:4x (idle-kick cycle: **NO VERDICT — the
+Update, 2026-08-28 ~00:5x (idle-kick cycle: **anchor14-walkretaincoef1-
+rescue-acq8m + -s1-acq8m JOINT ACQUISITION PASS — the coef=1.0
+per-mode walk-anchor rescue COMPOUNDS with budget through 8M on both
+seeds, landing the best walk quality of the whole anchor8-14 dual-BC
+chain.** Both 8M runs had genuinely FINISHED training (W&B
+`state=finished`) with gate+owncfg harness passes already complete
+on-pod but never synced/read — pulled report.json directly via
+`kubectl cp` this cycle. DR-0 det walk: `gait_valid` 6/6, `sac=[]`
+ALL episodes BOTH seeds; `progress_ratio` med 0.555 seed0 / 0.541
+seed1 (vs each seed's own 2M canary of 0.10); `slip/m` med 1.79/1.72
+(vs 10.13). own-DR(0.5): prog 0.547/0.544 (vs 0.16), slip 1.94/1.92
+(vs 6.81). `walk_startjitter` mirrors `walk`. Video (contact sheets +
+per-episode strips) confirms genuine alternating six-leg gait, no
+drag/lift. Both clauses of the pre-registered gate (gait_valid held
+zero-sac AND progress_ratio improved with slip flat-or-better) clear
+by a wide margin on both seeds — closes the joint call the 21:2x/
+19:5x/17:5x banners below built toward, and refutes "coef=1.0 is a
+fragile 2M-window rescue" (the launch hypothesis's own stated risk).
+**INFRA BUG FOUND+FIXED while chasing why the session pass never
+even logged anything**: `pod_eval.py`'s `remote_eval_running` (the
+08-27 dupe-guard) greps the pod's OWN process table for
+`ps -eo args= | grep MODULE | grep -F -- OUT_REL` — but that exact
+`kubectl exec ... bash -c "..."` invocation is itself a process whose
+argv contains both search strings, so it ALWAYS self-matched and
+reported "already RUNNING" even with nothing real going on (confirmed
+live against `hexapod-mjx-train-1`: the naive pipeline returns rc=0
+on a made-up string that matches no real process). This is exactly
+why the session pass for both acq8m runs silently never launched — no
+log, no crash, no process, just a permanent false positive. Fixed by
+filtering out any ps line containing the literal word "grep" (every
+process in the pipeline, including the wrapper itself, has "grep" in
+its own argv; a real `eval_checkpoint`/`eval_session` target never
+does) plus `ps ww` to avoid column-truncation false negatives on long
+paths. 2 new regression tests that actually exercise a real local
+shell pipeline (not mocked `kexec`, which is why the 08-27 tests
+passed despite the bug) — `test_self_match_regression_*` in
+`test_pod_eval_dupe_guard.py`, 6/6 green, stable across repeat runs.
+Snapshotted (`exp/podeval-selfmatch-fix`). Re-ran the session pass
+under the fix for both acq8m checkpoints: genuinely launches now, but
+returns INCOMPATIBLE (expected — this is a dual-core-GRU obs
+contract, the deployed session harness's partner-pairing protocol
+assumes a single-core stance policy; not a new problem). **LAUNCHED
+the real next step instead**: `eval_mixed_session` (the operator
+08-27 long-session DONE-gate instrument — ONE policy, env-native
+`goal.mode_seq=1.0` rise->hold->walk->lower chains, no partner
+needed) on BOTH acq8m checkpoints, own pods, 60s+180s DR-0+own-DR
+passes — genuinely running (verified via `ps aux`), left for the
+next triage cycle to read (do NOT re-launch; poll
+`/tmp/mixedsession_<run>.log`). SKILLS.md row added. Also closed a
+leftover unverdicted diagnostic from the same chain,
+`anchor8-advstats-s1`: replicates seed0's already-recorded REFUTED
+read almost exactly (adv_loco_std dominates adv_stance_std by up to
+6-8x at the reward trough, the opposite of the hypothesis) —
+housekeeping close, no new action (the chain had already escalated
+past this to anchor9-14). Checked all other tracks fresh:
+joystick/amp/cpg DONE-or-maintenance-only (joystick's own last update
+still sits on the closed k_walk_move_current dose-exhaustion dig-in,
+no fresh pre-registered arm ready), walkcurr `[operator]`-blocked. No
+other standwalk GPU arm launched — the mixed-session read is the
+next decision point (does the composed session hold zero-fall across
+the full sit->rise->walk->lower loop, or does the known hold/lower
+termination residual still bite in composition?), and launching
+further walk-anchor budget before that read would be premature.
+CYCLE_WORKED. Prior banner below.
+
+Prior banner, 2026-08-27 ~22:4x (idle-kick cycle: **NO VERDICT — the
 anchor14-walkretaincoef1-rescue-acq8m/-s1-acq8m 8M harness evals
 (gate+owncfg+session, launched 21:59 by the prior cycle) are still
 genuinely mid-flight, confirmed via on-pod `ps` (both progressing

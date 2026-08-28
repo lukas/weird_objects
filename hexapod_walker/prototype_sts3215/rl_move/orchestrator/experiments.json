@@ -210197,7 +210197,7 @@
       "train.bc_anchor_debug_adv_stats=1"
     ],
     "created": "2026-08-27T12:23:11+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM - JOINT CLOSE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -210251,7 +210251,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor8-advstats-s1 since 2026-08-27T12:44:15"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM - JOINT CLOSED (confirms seed0): diagnostic-only, seed1 own read. WIRING CHECK FIRST confirmed (train/adv_loco_share ~0.72 stance / rest loco every rollout, train/adv_{loco,stance}_std present all 30 train() calls, paired by call-order per the anchor8 seed0 pitfall note, not by wandb _step). Read: adv_stance_std is NEVER several-x adv_loco_std -- the OPPOSITE holds for most of training, especially the reward-trough window (rollout idx 6-13, this runs own reward quarters [40.0,-7.6,-466.6,-112.6], closely matching seed0s [38.4,21.0,-287.6,-49.9] shape): adv_loco_std spikes to 37-51 while adv_stance_std stays 4.5-7.7 (ratio as low as 0.13-0.17x, i.e. loco dominates stance by 6-8x at the trough, not the reverse). Only rollout 0-1 show comparable magnitude. This replicates seed0s already-recorded REFUTED read almost exactly (seed0: adv_loco_std up to 30-42 vs adv_stance_std 5-9, ratio up to ~4-5x the wrong way at the same trough window). Per this arms own pre-registered decision rule (REFUTED if the two stay comparable on either/both seeds), seed1 independently refutes on top of seed0 -- sb3-contribs shared global advantage normalizer is NOT the walk-starvation mechanism on either seed, joint-closed. No new action from this run: the chain already escalated past this (anchor9-gradnorm -> anchor10-percoreclip -> anchor11/12/13-walkretain -> anchor14-walkretaincoef1-rescue, the last of which just JOINT-PASSED its own 8M acquisition read this same cycle). This is a housekeeping close of a diagnostic left unverdicted from an earlier cycle, not a new finding or a blocker to anything currently funded."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor9-gradnorm",
@@ -213808,7 +213809,7 @@
       "train.bc_anchor_walk_coef=1.0"
     ],
     "created": "2026-08-27T21:27:13+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -213855,7 +213856,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor14-walkretain since 2026-08-27T21:59:31"
+    "triage": "done",
+    "verdict": "ACQUISITION PASS: the 8M coef=1.0 walk-anchor continuation keeps improving well past the 2M rescue canary, on the exact pre-registered clauses. Evidence (logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor14_walkretaincoef1_rescue_acq8m_{gate,owncfg}/report.json, pulled this cycle after fixing the podeval self-match bug that had blocked the session pass): DR-0 det walk gait_valid 6/6, sacrificed_legs=[] all 6 episodes, progress_ratio med 0.555 (vs 2M canary 0.10), slip/m med 1.79 (vs 10.13); own-DR(0.5) det walk gait_valid 6/6, sac=[], progress_ratio med 0.547 (vs 0.16), slip/m med 1.94 (vs 6.81) -- both clauses (gait_valid held zero-sac AND progress_ratio improved with slip flat-or-better) clear with a huge margin, not noise. walk_startjitter mirrors walk (prog ~0.53-0.55, gv 6/6 both DR). Video (walk_det contact sheet + per-episode strips) shows a genuine alternating six-leg gait, upright, no drag/persistent lift. Why this matters: this is the best walk quality any stage-2 dual-BC-anchor arm on this mesh lineage has produced -- the lighter per-mode-decoupled coef=1.0 rescue dose is not just a 2M-window fluke, it keeps compounding with budget, refuting the \"fragile short-window rescue\" concern the launch hypothesis flagged. Caveat carried forward (pre-existing, not new): this same checkpoint still shows hold/lower terminations (hold_min_load, over_current) on stochastic passes at rates matching the known flat-start-rise/lower residual already tracked in STATUS -- the acquisition gate was pre-registered walk-only and this verdict stays in that scope; the full sit->rise->walk->lower session-level DONE gate is not yet re-attempted on this checkpoint (session pass returned INCOMPATIBLE, expected for this exotic dual-core-GRU obs contract vs the deployed stance partner). Next: promote this checkpoint as the leading stage-2 walk-quality candidate; the standing lower/hold residual (rung-5 segment-timing lineage) is the remaining lever before a real composed session attempt, not more walk-anchor budget."
   },
   {
     "run": "cw-standwalk-stance-mesh2-stage2-dualbc1-anchor14-walkretaincoef1-rescue-s1-acq8m",
@@ -214065,7 +214067,7 @@
       "train.bc_anchor_walk_coef=1.0"
     ],
     "created": "2026-08-27T21:29:26+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -214112,6 +214114,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stance-mesh2-stage2-dualbc1-anchor14-walkretain since 2026-08-27T21:59:31"
+    "triage": "done",
+    "verdict": "ACQUISITION PASS (JOINT PASS with seed0): the 8M coef=1.0 walk-anchor continuation off the actual catastrophe-rescued seed keeps improving well past the 2M rescue canary, on the exact pre-registered clauses -- and does NOT relapse into the anchor4-class leg-sacrifice freeze under more budget, the specific risk this arm was funded to test. Evidence (logs/ckpt_eval/cw_standwalk_stance_mesh2_stage2_dualbc1_anchor14_walkretaincoef1_rescue_s1_acq8m_{gate,owncfg}/report.json, pulled this cycle after fixing the podeval self-match bug that had blocked the session pass): DR-0 det walk gait_valid 6/6, sacrificed_legs=[] all 6 episodes, progress_ratio med 0.541 (vs 2M canary 0.10), slip/m med 1.72 (vs 10.13); own-DR(0.5) det walk gait_valid 6/6, sac=[], progress_ratio med 0.544 (vs 0.16), slip/m med 1.92 (vs 6.81) -- both clauses clear with a huge margin, matching seed0 almost exactly (0.541 vs 0.555 DR-0, 0.544 vs 0.547 own-DR). walk_startjitter mirrors walk (prog ~0.52-0.55, gv 6/6 both DR). Video (walk_det contact sheet + per-episode strips) shows a genuine alternating six-leg gait, upright, no drag/persistent lift -- the SAME lineage that was a total 0/6 gait_valid freeze pre-rescue now sustains and improves the recovery at 4x the original budget. Why this matters: the joint call this gate was pre-registered for is now closed cleanly -- coef=1.0 is a genuine, budget-compounding fix, not a fragile 2M-window artifact, on BOTH the seed that was already healthy (seed0) and the seed that was the actual catastrophe (seed1). Caveat carried forward (pre-existing, not new, same as seed0s verdict): hold/lower terminations persist on stochastic passes matching the tracked flat-start-rise/lower residual; this acquisition gate was pre-registered walk-only, and the full session-level DONE gate is not re-attempted here (session pass returned INCOMPATIBLE, expected obs-contract mismatch for this dual-core-GRU checkpoint vs the deployed stance partner). Next: both anchor14-walkretaincoef1-rescue-acq8m checkpoints (seed0 + seed1) are now the leading stage-2 walk-quality candidates; the standing lower/hold residual (rung-5 segment-timing lineage) is the remaining lever before a real composed session attempt."
   }
 ]
