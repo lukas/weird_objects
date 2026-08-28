@@ -1,4 +1,5 @@
-# Design spec — sts3215-rigid-hip (CONCEPT BUILD, not production).
+# Design spec — prototype_sts3215/rigid-hip (CONCEPT BUILD, not
+# production; standalone sts3215-rigid-hip id retired 2026-08-27).
 #
 # User idea, Aug 2026: the production yaw joint rides a 6805-2RS pair in
 # chassis_bottom's tower, but the coxa link + hip servo above it are a

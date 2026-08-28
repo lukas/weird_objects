@@ -110,7 +110,9 @@ this variant goes on the robot.
 NOT a production change: nothing in the verified parts registry moves.
 ``hexapod_prototype.py`` is a read-only input; the printed parts unique
 to this variant live in THIS directory's ``stl/`` (never in
-``stl_prototype/``).  BuildViz build id: ``sts3215-rigid-hip``.
+``stl_prototype/``).  BuildViz build id: ``prototype_sts3215/rigid-hip``
+(a sibling build in the STS hub project; the standalone
+``sts3215-rigid-hip`` id was retired 2026-08-27).
 
 STEP-FIRST PIPELINE (user, Aug 2026: "the official way is to make step
 files"): the six variant printables are authored as build123d /

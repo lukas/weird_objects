@@ -86,19 +86,22 @@ Reference: `~/buildviz/README.md` ("How to run BuildViz") and
 (full robot; motion baked into its single scene.json — the separate
 `prototype_sts3215_motion` build id was retired). The `prototype_sts3215`
 hub PROJECT also groups sibling builds:
+`prototype_sts3215/rigid-hip` (rigid-hip concept variant,
+`concepts/rigid_hip`; v1..v20 history migrated with push messages),
 `prototype_sts3215/cnc-chorn-overhead` (CNC C-clamp legs-over-head
-concept, `concepts/cnc_chorn_overhead`; the old standalone
-`cnc_chorn_overhead` project id was retired 2026-08-27 — deleted locally,
-but a stale copy lingers on the cloud hub, which has no delete endpoint),
+concept, `concepts/cnc_chorn_overhead`),
 `prototype_sts3215/chassis-reinforcement-test`, and
-`prototype_sts3215/tibia-yoke-reinforcement-test`. Two-segment
-`--project` + `--build` ids resolve fine in the current viewer on both
-hubs — via `?project=<p>&build=<b>` and even the legacy `?build=<p>/<b>`
-form (verified 2026-08-27; the old ak40-era "two-segment ids don't
-resolve" gotcha is fixed, though `prototype_ak40` itself remains a FLAT
-id registered with `--build-id prototype_ak40` — regenerate via
-`make -C hexapod_walker/prototype_ak40 view-buildviz`).
-`sts3215-rigid-hip` (rigid-hip concept variant, flat id),
+`prototype_sts3215/tibia-yoke-reinforcement-test`. The old standalone
+concept project ids were retired and deleted locally, but the cloud hub
+has no delete endpoint, so STALE copies linger there — ignore:
+`cnc_chorn_overhead` (retired 2026-08-27), `sts3215-rigid-hip`
+(retired 2026-08-27), and the older `sts3215-rigid-hip-step`.
+Two-segment `--project` + `--build` ids resolve fine in the current
+viewer on both hubs — via `?project=<p>&build=<b>` and even the legacy
+`?build=<p>/<b>` form (verified 2026-08-27; the old ak40-era
+"two-segment ids don't resolve" gotcha is fixed, though `prototype_ak40`
+itself remains a FLAT id registered with `--build-id prototype_ak40` —
+regenerate via `make -C hexapod_walker/prototype_ak40 view-buildviz`).
 `prototype_v1/chassis`, `prototype_v1/leg`, `prototype_v1/leg/coxa`,
 `rideable_v1`, `robot-cat`, plus older collision/demo builds. List them live
 with `npx buildviz hub status` or open `http://127.0.0.1:5183/`.
