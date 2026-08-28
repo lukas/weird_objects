@@ -860,15 +860,26 @@ uv run --no-project --python 3.12 \
   --with build123d --with trimesh --with numpy --with manifold3d \
   python concepts/rigid_hip/build_rigid_hip_step.py
 
-npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
-    --build-id sts3215-rigid-hip
-# http://127.0.0.1:5183/?build=sts3215-rigid-hip
-# cloud mirror: tools/push_cloud_buildviz.py --build-id sts3215-rigid-hip
+# publish: a sibling BUILD inside the prototype_sts3215 hub PROJECT
+# (grouped with the production robot + the cnc-chorn-overhead variant).
+# Build id: prototype_sts3215/rigid-hip
+npx buildviz push --project prototype_sts3215 --build rigid-hip \
+    --upload-assets --scene concepts/rigid_hip/scene.json \
+    -m "<what changed>"
+# http://127.0.0.1:5183/?project=prototype_sts3215&build=rigid-hip
+# cloud mirror (BUILDVIZ_API_KEY from the k8s secret -- see AGENTS.md):
+uv run tools/push_cloud_buildviz.py --build-id prototype_sts3215/rigid-hip
+# https://buildviz.cwd1f0-new-cluster.coreweave.app/?project=prototype_sts3215&build=rigid-hip
 ```
 
-(The separate `sts3215-rigid-hip-step` viewer build and its
-`publish_step_scene.py` are retired: with the flip, the main
-`sts3215-rigid-hip` build **is** the STEP-pipeline geometry.)
+(The standalone `sts3215-rigid-hip` project id was retired 2026-08-27
+when this became a sibling build of the STS project — v1..v20 history
+migrated with its push messages; the local entry was deleted, but the
+cloud hub has no delete endpoint, so stale `sts3215-rigid-hip` and
+`sts3215-rigid-hip-step` entries linger there — ignore them.  The
+separate `sts3215-rigid-hip-step` viewer build and its
+`publish_step_scene.py` were already retired: with the flip, this main
+build **is** the STEP-pipeline geometry.)
 
 Checks run at build time: watertightness, seated-stack placement, the
 bottom joint (race on the deck-level ledge with its 0.5 mm servo-case
