@@ -1,5 +1,40 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~15:2x operator-session (**MANUAL-DRIVE FEEL REPORT
+(operator MCP 20260828T140802Z): drove long-s1 (+ long-s0 comparison)
+through a scripted human-like session in local MuJoCo — verdict: NOT
+yet drivable; s0 feels clearly better than s1.** New harness
+`rl_move/sim/manual_drive_session.py` (env-native goal.mode_seq plan
+rise->[hold]->walk(scripted joystick: fwd/stop/crab/diag/sweep/
+reverse/rapid stop-go/half-speed)->lower, commands injected into the
+live traj arrays). Findings, full detail in
+`logs/manual_drive/REPORT.md`: (1) walking never falls and gait stays
+six-leg-valid, but command-following is cosmetic — net translation
+along command 0-5% of the 0.08 m/s command, dir_err ~54-60deg, slip/m
+6.7 (s0) / 15 (s1); it marches in place and drifts; crab 5.6s to 50%
+response (s0), never (s1); sweep not followed; yaw not commandable
+(recipe has no wz channel). (2) BOTH seeds belly-flop to -70mm on
+sustained (>4s) stop commands mid-walk, then climb back; s1 dies
+over_current on the climb-back (det, reproduced seeds 0/1 at the same
+script point; sto @108s), s0 completes the whole 152s script incl. a
+clean lower, zero terms. (3) cold FLAT rise is knife-edge bistable: a
+3e-8/1-ULP action perturbation (BLAS kernel choice by import order)
+flips full stand vs a reproducible ~40mm half-risen park — this
+host's branch always parks, the pod branch rises; bridge/crouch/rsi
+rises robust 6/6. (4) mid-episode rise->hold entry trips
+hold_min_load in ~1.4s (foot unloaded through the switch; NB the
+hold grace clocks run on the EPISODE clock, so mid-episode hold
+entries get zero grace — instrumentation asymmetry, no code changed).
+(5) hold height-down commands overshoot ~20mm (a -20mm command hits
+the -40mm kill line). (6) gate fwd-med 0.83m is a command-draw
+artifact — local eval_checkpoint reproduces the pod's prog_ratio
+0.31/slip 3.87/dir_err 54deg exactly, but not fwd. No ledger verdicts
+changed (qualitative session, not a guardrail eval); cont1 trainings
+untouched. These findings sharpen the cont1 gate question: the
+missing capability is command TRACKING (translation + stop behavior),
+exactly what the pre-registered >=15%-improvement gate measures.
+Prior banner below.
+
 Update, 2026-08-28 ~13:5x idle-kick (**UNIFIED1-MIX WAVE 3/4 GRID
 CLOSES — `long-s1` PASS, completing the 2x2 seed x episode-length
 grid 100 % in the 60s-recipe's favor.** `long-s1`'s own
