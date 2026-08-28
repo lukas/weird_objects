@@ -17,6 +17,7 @@ gate/owncfg in line and this test pins it directly.
 import importlib.util
 import pathlib
 import sys
+import types
 
 _ORCH = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
 sys.path.insert(0, str(_ORCH))  # pod_eval imports its sibling ``tracks``
@@ -26,6 +27,37 @@ pod_eval = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pod_eval)
 
 core_pass_synced = pod_eval.core_pass_synced
+remote_report_exists = pod_eval.remote_report_exists
+
+
+def _fake_kexec(returncode):
+    def _f(pod, cmd, timeout=60):
+        return types.SimpleNamespace(returncode=returncode, stdout="",
+                                      stderr="")
+    return _f
+
+
+def test_remote_report_exists_true_when_test_dash_f_succeeds(monkeypatch):
+    monkeypatch.setattr(pod_eval, "kexec", _fake_kexec(0))
+    assert remote_report_exists("some-pod", "logs/ckpt_eval/foo_gate") is True
+
+
+def test_remote_report_exists_false_when_test_dash_f_fails(monkeypatch):
+    monkeypatch.setattr(pod_eval, "kexec", _fake_kexec(1))
+    assert remote_report_exists("some-pod", "logs/ckpt_eval/foo_gate") is False
+
+
+def test_remote_report_exists_checks_the_right_path(monkeypatch):
+    seen = {}
+
+    def _f(pod, cmd, timeout=60):
+        seen["cmd"] = cmd
+        return types.SimpleNamespace(returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(pod_eval, "kexec", _f)
+    remote_report_exists("some-pod", "logs/ckpt_eval/foo_gate")
+    assert "logs/ckpt_eval/foo_gate/report.json" in seen["cmd"]
+    assert "test -f" in seen["cmd"]
 
 
 def test_missing_dir_not_synced(tmp_path):
