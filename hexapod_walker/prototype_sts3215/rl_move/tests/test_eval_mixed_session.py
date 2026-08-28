@@ -11,7 +11,11 @@ Run: uv run python -m pytest rl_move/tests/test_eval_mixed_session.py -q
 """
 from __future__ import annotations
 
-from rl_move.sim.eval_mixed_session import aggregate_session
+import json
+from pathlib import Path
+
+from rl_move.sim.eval_mixed_session import (
+    aggregate_session, _run_eval_checkpoint, _safe_print)
 
 
 def _ep(*, terminated=False, term_reason="", start_kind="flat",
@@ -115,3 +119,39 @@ def test_per_pass_breakdown():
                            "owndr": _report({"rise/det": bad})})
     assert r["per_pass"]["dr0"] == {"n": 2, "terms": 0}
     assert r["per_pass"]["owndr"] == {"n": 1, "terms": 1}
+
+
+def test_safe_print_survives_broken_pipe(capsys):
+    # BUG (2026-08-28, long-s1-cont1): a driver-process print() to a
+    # dead kubectl-exec stdout pipe used to raise BrokenPipeError
+    # uncaught, killing the whole multi-hour session mid-pass. Must be
+    # a no-op-on-failure, never a crash.
+    def _boom(*a, **kw):
+        raise BrokenPipeError("mock: dead pipe")
+    _safe_print("hello", _print=_boom)  # does not raise
+    _safe_print("world")  # real print still works normally
+    assert "world" in capsys.readouterr().out
+
+
+def test_run_eval_checkpoint_resumes_from_existing_report(tmp_path,
+                                                           monkeypatch):
+    # RESUME (2026-08-28, same bug): a pass whose report.json already
+    # exists on disk (driver crashed AFTER this pass finished but
+    # BEFORE the next one started) must be reused, not re-run — a
+    # mid-session crash should cost only the unfinished passes.
+    out_dir = tmp_path / "dr0"
+    out_dir.mkdir()
+    payload = {"dr_scale": 0.0, "episodes": {"walk/det": []}}
+    (out_dir / "report.json").write_text(json.dumps(payload))
+
+    def _boom_if_called(*a, **kw):
+        raise AssertionError("must not re-run a pass with an existing report")
+    monkeypatch.setattr("rl_move.sim.eval_mixed_session.subprocess.run",
+                        _boom_if_called)
+
+    rp = _run_eval_checkpoint(
+        Path("fake.zip"), task="joint_walk", dr_scale=0.0, seed=91000,
+        n=6, episode_seconds=60.0, modes=["walk"], extra_cfg=[],
+        out_dir=out_dir, log_path=out_dir / "dr0.log")
+    assert rp == out_dir / "report.json"
+    assert json.loads(rp.read_text()) == payload

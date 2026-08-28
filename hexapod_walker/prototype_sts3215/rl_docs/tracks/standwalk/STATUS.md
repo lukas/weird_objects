@@ -1,5 +1,41 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~20:2x (**`cw-standwalk-unified1-joyfix-hdgset1` finished
+training (2M/2M), 2 of 4 canary criteria CONFIRMED PASS this cycle,
+no verdict yet — DR-0/own-DR/session terms still genuinely computing
+on-pod.** (1) Reward-stability criterion CONFIRMED: matched-step
+comparison against the `long-s0-cont1` continuation's own reward
+trajectory (the prescribed "long-s0 continuation trend" baseline,
+pulled from its cached W&B history) shows an near-identical
+adaptation dip — cont1 itself troughs to -576 (1.05-1.3M) before
+recovering to +9..+57 by 2.0-2.1M; hdgset1 troughs only to -186
+(1.5M) and recovers further, to -13, by 2.0M. hdgset1's dip is
+SHALLOWER than the very lineage's own "healthy" reference trend, not
+a sustained fall — clears the canary's reward-stability bar cleanly
+(unlike hdg-c1's own -300/-115 read, which was compared only against
+its own single run, not this matched-step control). (2) probe_cmd_
+sensitivity response-mode run (local, matching cfg stack, `--out
+/tmp/probe_hdgset1.json`): fwd speed_ratio 0.44 (>=0.35 bar, healthy),
+diag_fl/diag_fr speed_ratio 0.314/0.249 (bar >=0.07 vs hdg-c1's
+cardinal-lateral 0.006) — both diagonals respond ~4-4.5x the required
+bar, zero terminations across all 7 response commands. Both numeric
+health bars this canary can answer WITHOUT a multi-hour pod harness
+are now clean PASSes, a sharp contrast with hdg-c1's clean double-FAIL
+on the same two checks. (3)/(4) DR-0 det walk gait_valid and session-
+termination counts are NOT yet available — `eval_checkpoint` gate +
+owncfg + `eval_mixed_session` mixedsession all confirmed genuinely
+launched and running on-pod (train-4, ps-verified, started 20:10,
+sharing the pod with the still-finishing `long-s0-cont1` eval begun
+14:38) — no report.json/session_verdict.json yet as of ~20:2x, too
+early per this recipe's own 1.5-3h/pass + ~4-5h mixedsession-total
+precedent. Leaving this run RUNNING/unverdicted for the cycle whose
+prestage lands the copy-back marker; do not re-launch any of the
+three passes (`ops.sh review` / `ps aux` confirms live, no orphan
+risk). CYCLE_WORKED (built and ran a real diagnostic — the
+probe response-mode confirmation — plus the matched-step reward
+comparison, both genuinely new evidence, not a re-verify no-op).
+Prior banner below.
+
 Update, 2026-08-28 ~19:0x (**`cw-standwalk-unified1-joyfix-hdg-c1`
 VERDICTED CANARY FAIL - MECHANISM — the full-circle heading canary
 (one of the 4-arm joyfix grid) closes; staged heading-SET follow-up

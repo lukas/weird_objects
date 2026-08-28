@@ -97,6 +97,32 @@ COMPLETE_FRAC_MIN = 0.9
 GAIT_VALID_FRAC_MIN = 0.9
 
 
+def _safe_print(*a, _print=print, **kw) -> None:
+    """print(), but survive a dead stdout pipe.
+
+    BUG FOUND 2026-08-28 (cw-standwalk-unified1-mix-long-s1-cont1): this
+    driver runs for up to ~5h (dr0+owndr+dr0_long) inside a `kubectl
+    exec` whose stdout is a long-lived websocket back to the
+    controller (pod_eval.py's Popen). That socket dropped mid-run
+    ("close 1006 (abnormal closure)") while the dr0 pass's OWN
+    subprocess (writing its own on-pod log file, unaffected) kept
+    running for another ~1.5h. When it finished and this driver tried
+    to print its "pass dr0 done" progress line, the write to the
+    already-dead stdout raised an uncaught BrokenPipeError, killing the
+    whole process before owndr/dr0_long ever ran and before
+    session_verdict.json was ever written — total loss of a
+    multi-hour eval with no error surfaced anywhere retryable. Losing
+    the PROGRESS print is harmless (the real results live in each
+    pass's own on-disk report.json); losing the REST OF THE RUN to a
+    transient controller-side connection blip is not. Swallow the
+    broken-pipe/OS-level write failure and keep going.
+    """
+    try:
+        _print(*a, **kw)
+    except (BrokenPipeError, OSError):
+        pass
+
+
 def _seg_cap(episode_seconds: float) -> int:
     # Enough plan capacity to fill the episode at the min segment
     # length, +1 spare; the sampler stops early when the tail is <3 s.
@@ -108,8 +134,20 @@ def _run_eval_checkpoint(ckpt: Path, *, task: str, dr_scale: float,
                          modes: list[str], extra_cfg: list[str],
                          out_dir: Path, log_path: Path,
                          video: bool = False) -> Path:
-    """One eval_checkpoint pass (det+sto via --stochastic)."""
+    """One eval_checkpoint pass (det+sto via --stochastic).
+
+    RESUME (2026-08-28, same fix as `_safe_print`'s docstring): if this
+    exact pass already has a `report.json` on disk (a prior driver
+    invocation crashed/was killed AFTER this pass finished but BEFORE
+    a later one did), reuse it instead of re-running — a crash mid-way
+    through the pass sequence must cost only the passes that hadn't
+    finished yet, not the whole session."""
     out_dir.mkdir(parents=True, exist_ok=True)
+    report = out_dir / "report.json"
+    if report.is_file():
+        _safe_print(f"[mixed-session] pass {out_dir.name} already has a "
+                    f"report.json — reusing (resume), not re-running")
+        return report
     cmd = [sys.executable, "-m", "rl_move.sim.eval_checkpoint",
            str(ckpt), "--task", task, "--modes", *modes,
            "--per-mode", str(n), "--dr-scale", str(dr_scale),
@@ -318,8 +356,8 @@ def main() -> int:
             out_dir=out_root / pname,
             log_path=out_root / f"{pname}.log", video=args.video)
         reports[pname] = json.loads(rp.read_text())
-        print(f"[mixed-session] pass {pname} done "
-              f"({time.time() - t0:.0f}s elapsed)", flush=True)
+        _safe_print(f"[mixed-session] pass {pname} done "
+                    f"({time.time() - t0:.0f}s elapsed)", flush=True)
 
     verdict = aggregate_session(
         reports, slip_cap=args.slip_cap, dir_err_cap=args.dir_err_cap,
@@ -330,9 +368,9 @@ def main() -> int:
     verdict["long_seconds"] = args.long_seconds
     (out_root / "session_verdict.json").write_text(
         json.dumps(verdict, indent=1))
-    print(json.dumps(verdict, indent=1))
-    print(f"[mixed-session] verdict written to "
-          f"{out_root / 'session_verdict.json'}")
+    _safe_print(json.dumps(verdict, indent=1))
+    _safe_print(f"[mixed-session] verdict written to "
+                f"{out_root / 'session_verdict.json'}")
     return 0 if verdict["gate"]["pass"] else 1
 
 
