@@ -156,7 +156,6 @@ def _run_policy(args) -> None:
     import mujoco.viewer
     import torch
     torch.set_num_threads(1)
-    from stable_baselines3 import PPO
     from rl_move.sim.goal_task import SimHexapodGoalEnv
     from rl_move.sim.joint_task import SimHexapodJointGoalEnv
 
@@ -192,7 +191,14 @@ def _run_policy(args) -> None:
 
     if cycle:
         set_mode(cycle[0])
-    model = PPO.load(args.policy, device="cpu")
+    # load_checkpoint_auto + wrap_recurrent_predictor (08-28 runner-bug
+    # audit): PPO.load broke on GRU checkpoints, and a bare
+    # model.predict on a RecurrentPPO runs a zero hidden state every
+    # tick. The wrapper threads the state; reset at every episode reset.
+    from rl_move.sim.gru_policy import (load_checkpoint_auto,
+                                        wrap_recurrent_predictor)
+    model = wrap_recurrent_predictor(
+        load_checkpoint_auto(args.policy, device="cpu"))
     obs, info = env.reset()
 
     DEG = math.pi / 180.0
@@ -316,6 +322,8 @@ def _run_policy(args) -> None:
                 env.traj.goal.unload_leg = None
                 env.traj.reset_published()
                 obs, info = env.reset()
+                if hasattr(model, "reset"):
+                    model.reset()   # recurrent hidden state per-episode
                 ret = 0.0
                 if h_goal > 0:
                     hud_status[0] = (f"STAND: curl ~5s, then rise to "
@@ -342,6 +350,8 @@ def _run_policy(args) -> None:
                     cycle.append(cycle.pop(0))
                     set_mode(cycle[0])
                 obs, info = env.reset()
+                if hasattr(model, "reset"):
+                    model.reset()   # recurrent hidden state per-episode
                 ret = 0.0
                 if not interactive:
                     print(f"new episode: goal={info['goal_mode']}")

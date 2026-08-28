@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import torch as th
 from torch import nn
 
@@ -797,6 +798,53 @@ def repair_legacy_actor_critic_optimizer(path: str | Path,
                 zout.writestr(name, zin.read(name))
     dest.write_bytes(buf.getvalue())
     return True
+
+
+class RecurrentPredictor:
+    """predict/reset shim for GRU (RecurrentPPO) checkpoints.
+
+    A recurrent policy evaluated through the stateless
+    ``model.predict(obs)`` path gets a fresh zero hidden state every
+    tick — that evaluates a memory-less lobotomy of the trained policy,
+    not the policy. This shim threads the hidden state across steps;
+    callers must invoke ``.reset()`` at every episode start (exactly
+    where the state must clear).
+
+    Moved here from eval_checkpoint._RecurrentPredictor (2026-08-28
+    manual-drive runner-bug audit) so every rollout tool shares ONE
+    correct implementation; eval_checkpoint imports it back under its
+    old name. Behavior is bit-exact to the original.
+    """
+
+    def __init__(self, model):
+        self.policy = model.policy
+        self.reset()
+
+    def reset(self) -> None:
+        self._state = None
+        self._episode_start = np.ones((1,), dtype=bool)
+
+    def predict(self, obs, deterministic: bool = False):
+        a, self._state = self.policy.predict(
+            obs, state=self._state, episode_start=self._episode_start,
+            deterministic=deterministic)
+        self._episode_start = np.zeros((1,), dtype=bool)
+        return a, None
+
+
+def wrap_recurrent_predictor(model):
+    """Return a state-threading predictor for recurrent checkpoints.
+
+    Non-recurrent models pass through unchanged (their ``predict`` is
+    already stateless-correct). Use this in EVERY hand-rolled rollout
+    loop instead of calling ``model.predict`` on a RecurrentPPO —
+    found live 08-28: manual_drive_session/drive_policy/view ran GRU
+    policies with a zero hidden state every tick.
+    """
+    if getattr(getattr(model, "policy", None), "lstm_actor", None) \
+            is not None:
+        return RecurrentPredictor(model)
+    return model
 
 
 def load_checkpoint_auto(path: str | Path, device: str = "cpu", env=None):

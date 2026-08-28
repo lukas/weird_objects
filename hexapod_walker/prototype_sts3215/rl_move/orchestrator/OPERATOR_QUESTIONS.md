@@ -2946,3 +2946,28 @@ next cycle builds it.
    both real work items, neither blocking the unified skill set the
    order names (the mixed-session DONE-gate instrument does not
    command yaw either).
+
+## q_20260828T1620Z — recorded decision (no wait): k_walk_cmd_track scope + belly-flop contract after the runner-bug audit
+- cycle: operator-kick 08-28 (fb_20260828T153912_c528ce + kick 20260828T153954Z)
+- context: the 08-21 ruling closed the "scalar k_walk_cmd_track reward-only
+  lever" in the joystick/dep fast-gait context (bcgait2-fastbc1-track1 made
+  OVERSPEED worse). The 08-28 operator note explicitly proposes enabling it for
+  the standwalk unified recipe. Read as: reopened FOR STANDWALK by operator
+  instruction (different lineage, different failure mode — undershoot, not
+  overspeed); bank ordering test re-run PASS
+  (test_joymodes_direct_command_score_orders_exact_direction_first).
+- assumed-and-gone: (a) the parallel bug audit found the manual-drive runner was
+  evaluating a zero-hidden-state lobotomy (fixed, tested); re-measurement killed
+  the note's premise items "belly-flop on stop" and "s1 over_current death"
+  (both artifacts — stop heights +7..14mm, 152s completion both seeds). The
+  proposed stop-specific supported-stand contract and stop->go transition
+  penalty were therefore NOT built — building reward terms against artifact
+  behaviors is misalignment by construction. If real belly-flop appears in a
+  CORRECT-runner eval later, that decision reverses. (b) k_walk_cmd_track was
+  demoted from "the missing objective" to one arm of a 4-arm controlled canary
+  (heading scope / velobs-3 / cmdtrack / bundle), because the audit showed the
+  true gaps are lateral draw coverage and velocity-blind obs, which a reward
+  term cannot fix alone. (c) launched 4 arms x seed 0 instead of 2 seeds x one
+  bundle: mechanism attribution first (launch cap 4), seed replication next
+  wave on the winner(s).
+- ANSWER (operator): _pending_

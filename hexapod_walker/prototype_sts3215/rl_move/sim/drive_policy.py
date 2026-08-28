@@ -50,7 +50,6 @@ def main() -> None:
     args = ap.parse_args()
 
     import cv2
-    from stable_baselines3 import PPO
 
     from .servo_model import SimServoParams
     from .walk_task import SimHexapodJointWalkEnv
@@ -66,10 +65,17 @@ def main() -> None:
     for m in ("hold", "lean", "track", "unload", "raise", "rise", "lower"):
         setattr(gen, f"p_{m}", 0.0)
 
-    model = PPO.load(args.checkpoint, device="cpu")
+    # load_checkpoint_auto + wrap_recurrent_predictor (08-28 runner-bug
+    # audit): PPO.load broke on GRU checkpoints, and a bare
+    # model.predict on a RecurrentPPO runs a zero hidden state every
+    # tick (memory-less lobotomy). The wrapper threads the state; it is
+    # reset at every episode reset below.
+    from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
+    model = load_checkpoint_auto(args.checkpoint, device="cpu")
     assert model.observation_space.shape == env.observation_space.shape, (
         f"obs mismatch: policy {model.observation_space.shape} "
         f"vs env {env.observation_space.shape} — wrong cfg for this ckpt?")
+    model = wrap_recurrent_predictor(model)
 
     vx = vy = 0.0
     quad = False          # QUAD mode: lift fronts 0+5, stand on four
@@ -110,6 +116,8 @@ def main() -> None:
             vx = vy = 0.0
             quad = False
             obs, _ = env.reset()
+            if hasattr(model, "reset"):
+                model.reset()   # recurrent hidden state is per-episode
             apply_cmd()
 
         frame = env.render()
@@ -204,6 +212,8 @@ def main() -> None:
                 msg = "quad off - back on six"
         elif k in (ord("r"), ord("R")):
             obs, _ = env.reset()
+            if hasattr(model, "reset"):
+                model.reset()   # recurrent hidden state is per-episode
             apply_cmd()
             msg = "manual reset"
         elif k in (ord("q"), ord("Q"), 27):

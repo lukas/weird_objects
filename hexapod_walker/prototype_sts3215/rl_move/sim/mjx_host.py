@@ -89,6 +89,13 @@ SNAP_ATTRS = (
     # this list exists for.
     "_seq_plan", "_seq_idx", "_seq_stand_z", "_seq_seg_end",
     "_seq_pose_anchor",
+    # Active segment's own start tick (manual-drive-session-s1 dig-in,
+    # 08-28): the walk/hold-height-drop, hold-min-load and walk-idle
+    # grace windows all measure elapsed time SINCE THIS SEGMENT
+    # STARTED, not since episode reset -- must ride the pool restore
+    # exactly like _seq_idx or a restored mid-sequence episode would
+    # silently get zero grace (or stale grace) at its next switch.
+    "_seg_entry_step",
     # Canonical segment frames (trans-dagger2 fix, 08-14): the settled
     # plant/belly q_nom/_z0/pad-z refs the switch installs per segment.
     # Under DR they are minted per episode — a pool-restored episode

@@ -619,6 +619,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._seq_stand_z = None
         self._seq_seg_end = None
         self._seq_pose_anchor = None
+        self._seg_entry_step = 0
         # Canonical per-family segment frames (goal.mode_seq): the
         # settled plant / belly reference frames a FRESH episode of each
         # segment family would derive at reset (q_nom, _z0, pad-z ref).
@@ -1469,6 +1470,22 @@ class SimHexapodBalanceEnv(_GymBase):
         self._seq_stand_z = None       # abs z of the last commanded stand
         self._seq_seg_end = None       # active segment's end tick
         self._seq_pose_anchor = None   # hold/lower BC base pose mid-seq
+        # Active segment's own start tick (manual-drive-session-s1
+        # dig-in, 08-28: the *_grace_s windows below were all gated on
+        # the EPISODE-absolute clock `self._step_i * self.dt`, so any
+        # mid-sequence segment starting after its own grace window had
+        # already elapsed on the episode clock got ZERO grace — a
+        # mode_seq session's mid-episode hold entry tripped
+        # hold_min_load in ~1.4s (operator manual-drive REPORT.md
+        # finding #3), reproduced live: episode-relative t already
+        # exceeds hold_height_grace_s/hold_min_load_terminate_grace_s
+        # (~1s) the moment a later segment starts. Fixed by measuring
+        # grace against SEGMENT-relative elapsed time instead (below).
+        # Stays 0 for the whole episode when goal.mode_seq is off (no
+        # switches ever happen), so every non-mode_seq config/recipe
+        # is bit-exact — this is a bugfix to the existing grace
+        # mechanism's intent, not a new one.
+        self._seg_entry_step = 0
 
         # Goal first: it decides the reset pose. Rise episodes start at
         # the ZERO pose — legs straight out, belly resting on the yaw
@@ -2876,6 +2893,7 @@ class SimHexapodBalanceEnv(_GymBase):
                                                             dtype=float)
         self._goal_traj = traj
         self._seq_idx = nxt
+        self._seg_entry_step = self._step_i
         self._seq_seg_end = (int(self._seq_plan[nxt + 1]["tick"])
                              if nxt + 1 < len(self._seq_plan)
                              else int(self.episode_steps))
@@ -2946,7 +2964,8 @@ class SimHexapodBalanceEnv(_GymBase):
         if (not terminated and walk_max_drop_mm > 0.0
                 and self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "walk"
-                and self._step_i * self.dt >= walk_height_grace_s
+                and (self._step_i - self._seg_entry_step) * self.dt
+                >= walk_height_grace_s
                 and h_rel < -walk_max_drop_mm * 0.001):
             terminated = True
             status.ok = False
@@ -2981,7 +3000,8 @@ class SimHexapodBalanceEnv(_GymBase):
         if (not terminated and hold_max_drop_mm > 0.0
                 and self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "hold"
-                and self._step_i * self.dt >= hold_height_grace_s
+                and (self._step_i - self._seg_entry_step) * self.dt
+                >= hold_height_grace_s
                 and h_rel < -hold_max_drop_mm * 0.001):
             terminated = True
             status.ok = False
@@ -3044,7 +3064,7 @@ class SimHexapodBalanceEnv(_GymBase):
             min_force_now = min(forces_now)
             self._hold_minload_ema += (self.dt / minload_tau_s) * (
                 min_force_now - self._hold_minload_ema)
-            if self._step_i * self.dt < minload_grace_s:
+            if (self._step_i - self._seg_entry_step) * self.dt < minload_grace_s:
                 self._hold_minload_low_s = 0.0
             else:
                 if self._hold_minload_ema < minload_floor_n:
@@ -3107,7 +3127,7 @@ class SimHexapodBalanceEnv(_GymBase):
             qvel_now = float(np.mean(np.abs(self.data.qvel[self._vadr])))
             self._walk_qvel_ema += (self.dt / idle_tau) * (
                 qvel_now - self._walk_qvel_ema)
-            if self._step_i * self.dt < idle_grace_s:
+            if (self._step_i - self._seg_entry_step) * self.dt < idle_grace_s:
                 self._walk_idle_low_s = 0.0
             else:
                 if self._walk_qvel_ema < idle_floor:

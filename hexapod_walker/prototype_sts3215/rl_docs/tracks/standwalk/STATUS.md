@@ -1,6 +1,52 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-28 ~15:2x operator-session (**MANUAL-DRIVE FEEL REPORT
+Update, 2026-08-28 ~16:2x operator-kick audit (**THE MANUAL-DRIVE FEEL
+REPORT WAS MEASURED THROUGH A BROKEN RUNNER — one real BUG found and
+fixed, command plumbing verdict NO-BUG, and the policy is far more
+drivable than reported.** Operator kicks fb_20260828T153912_c528ce +
+20260828T153954Z. Findings, full detail in `logs/manual_drive/
+REPORT.md` "CORRECTION" section: (1) **BUG, fixed**:
+`manual_drive_session.py` (and `drive_policy.py`/`view.py`) ran the
+GRU checkpoint through the stateless `model.predict` path — SB3
+resets a recurrent policy to a ZERO hidden state on EVERY such call,
+so the whole feel report drove a per-tick-amnesiac lobotomy
+(eval_checkpoint always had the correct `_RecurrentPredictor` shim;
+now shared as `gru_policy.RecurrentPredictor`/
+`wrap_recurrent_predictor`, wired into all three tools + locked by
+`test_recurrent_predictor.py`; several probe_*/harvest_* tools still
+use the raw path — audit before trusting them on recurrent ckpts).
+Re-run with state threaded: s1's over_current death GONE (152s
+complete, both seeds), belly-flop on stops GONE (stop heights
++7..14mm), flat-rise "1-ULP bistability" GONE (both seeds rise ~80mm
+from cold flat), slip/m 6.7/15.0 -> **2.88/3.09** (joystick band is
+<=2.9!), fwd dir_err 1.4deg, crisp 0.2s stop/go. (2) **NO-BUG in
+command plumbing/eval** (`probe_cmd_sensitivity.py`, new): obs
+channels 68/70=vx 69/71=vy correct; frozen-physics+frozen-hstate
+action sweep responds to every command; behavioral controls —
+zeroed-cmd obs collapses translation 4.7x to direction-independent
+creep, rot90-cmd obs ROTATES the response exactly (0.763m cross on
+fwd-rotated right cmd ≈ 0.759m normal fwd) — the policy follows the
+observed command, the gate was not measuring schedule survival; gate
+`fwd med` confound confirmed as draw-distribution artifact (sampler-
+level: `walk_heading_max_rad=0.0` pins every base heading forward).
+(3) Remaining REAL gaps, all training-side: pure-lateral tracking ~7%
+of forward (lateral cmds only ever drawn via square/sweep families;
+diagonals never), ~50% speed undershoot with the velocity-blind
+`walk_obs_body_vel=2` ref-copy obs (deployable mode-3 leg-odometry
+estimator exists since 08-20, unused here), no yaw channel. (4) Also
+landed: seg-relative grace-window bugfix (mode_seq mid-episode
+segments got ZERO hold/walk grace — episode-absolute clocks;
+`_seg_entry_step` + SNAP_ATTRS, `test_mode_seq_grace_windows.py`, 3
+tests, bit-exact when mode_seq off) and `ops.sh manualdrive <run>
+<out-dir>` (reproducible sessions off the ledger cfg stack). (5)
+Launched: 4-arm 2M canary batch off long-s0 isolating the three
+levers (heading scope pi / velobs mode 3 / k_walk_cmd_track=2 /
+bundle) — see ledger. The operator-proposed anti-belly-flop stop
+contract was NOT built: the belly-flop was a runner artifact
+(re-measured gone), recorded in OPERATOR_QUESTIONS.md. Prior banner
+below — read its feel table as LOBOTOMY-RUNNER numbers.)
+
+Previous banner, 2026-08-28 ~15:2x operator-session (**MANUAL-DRIVE FEEL
 (operator MCP 20260828T140802Z): drove long-s1 (+ long-s0 comparison)
 through a scripted human-like session in local MuJoCo — verdict: NOT
 yet drivable; s0 feels clearly better than s1.** New harness

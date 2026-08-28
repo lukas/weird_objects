@@ -205,11 +205,18 @@ def main() -> int:
             setattr(gen, f"p_{m}", 0.0)
     gen.force_rise_start = args.rise_start
 
-    from .gru_policy import load_checkpoint_auto
+    from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
     model = load_checkpoint_auto(args.ckpt, device="cpu")
     assert model.observation_space.shape == env.observation_space.shape, (
         f"obs mismatch: policy {model.observation_space.shape} vs env "
         f"{env.observation_space.shape} — pass the run's own cfg stack")
+    # RUNNER BUG FIX (08-28, second operator kick 20260828T153954Z):
+    # the first manual-drive report ran GRU checkpoints through the
+    # stateless model.predict path — ZERO hidden state every tick, the
+    # exact "memory-less lobotomy" eval_checkpoint._RecurrentPredictor
+    # exists to prevent. Every feel finding measured before this line
+    # landed evaluated that lobotomy, not the policy.
+    model = wrap_recurrent_predictor(model)
 
     rise_end = args.rise_s
     hold_end = rise_end + args.hold_s
