@@ -214339,7 +214339,7 @@
       "goal.walk_cmd_resample_jitter=0.5"
     ],
     "created": "2026-08-28T03:45:18+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -214386,7 +214386,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-mix-s0-cw-standwalk-unified1-mix-s1 since 2026-08-28T04:23:24"
+    "triage": "done",
+    "verdict": "Full unified command-following session (mixedsession: dr0+owndr+dr0_long, 90 eps, matched vs the acq8m 8M parent) reads PARTIAL: walk retention holds (isolated DR-0 gate walk/det gait_valid 6/6 zero-sac; session gait_valid_frac 0.967, session_complete_frac 0.933) and every walk-quality axis improves over the matched-seed acq8m parent -- dir_err_med 63.6deg (parent 69.5), slip/m_med 8.99 (parent 25.98, ~3x better), progress_ratio_med 0.133 (parent 0.079) -- but terminations are flat within noise (6/90 vs parent 5/90, all over_current) and absolute command tracking is still far from usable (dir_err cap ~40deg, slip cap ~2.9). Video/frame-strip matches the numbers: upright six-leg walking, no drag, just slow/imprecise heading-following -- no gate/video disagreement. Harness's own soft-gate already flags slip_ok=false, dir_err_ok=false, matching this run's pre-registered PARTIAL branch ('gait holds, tracking flat -- budget/curriculum question'). sacrificed_legs_seen=[2] shows up in the full session (not the isolated gate) but is IDENTICAL to the acq8m PARENT's own reading -- a pre-existing recipe quirk, not a new regression. Reward still monotonically rising through 16M (quarters 58/743/1376/2031 -- 08-21 continue signal, not plateaued). Next: hold for the long-s0/long-s1 twins' joint read (same wave) before deciding continue-budget vs graded-heading-curriculum mechanism."
   },
   {
     "run": "cw-standwalk-unified1-mix-s1",
@@ -214610,7 +214611,7 @@
       "goal.walk_cmd_resample_jitter=0.5"
     ],
     "created": "2026-08-28T03:49:25+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -214657,7 +214658,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-mix-s0-cw-standwalk-unified1-mix-s1 since 2026-08-28T04:23:24"
+    "triage": "done",
+    "verdict": "Full unified command-following session (mixedsession: dr0+owndr+dr0_long, 90 eps, matched vs the acq8m-s1 8M parent) reads PARTIAL, stronger than the s0 twin: isolated DR-0 gate walk/det gait_valid 6/6 zero-sac; session gait_valid_frac 1.0 (parent 0.983), sacrificed_legs_seen=[] (parent had [2] -- the parent's own leg-2 quirk is GONE, not reappeared). Terminations 2/90 (parent 4/90), session_complete_frac 0.978 (parent 0.956), dir_err_med 59.98deg (parent 66.5), slip/m_med 14.51 (parent 23.34), progress_ratio_med 0.146 (parent 0.078, ~2x). Every axis improves over the matched-seed parent, but absolute command tracking is still far from a usable band (dir_err cap ~40deg, slip cap ~2.9) -- harness soft-gate flags slip_ok=false, dir_err_ok=false, matching this run's own pre-registered PARTIAL branch ('gait holds, tracking flat'). Reward still monotonically rising through 16M (quarters 68/726/1522/2047). This is the catastrophe-prone rescued lineage (seed1) and it shows the CLEANEST read of the whole wave (no sac leg at all). Next: hold for the long-s0/long-s1 twins' joint read before deciding continue-budget vs graded-heading-curriculum mechanism."
   },
   {
     "run": "cw-standwalk-unified1-mix-long-s0",
@@ -214883,7 +214885,7 @@
       "goal.walk_cmd_resample_jitter=0.5"
     ],
     "created": "2026-08-28T03:53:35+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -214930,7 +214932,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-mix-long-s0 since 2026-08-28T04:48:54"
+    "triage": "done",
+    "verdict": "Own paired gate (vs the 30s twin cw-standwalk-unified1-mix-s0, matched 16M steps): PASS -- the 60s-episode/mode_seq_max_segments=7 recipe beats the cheaper 30s twin outside eval noise on every session-health axis: terminations 2/90 vs twin's 6/90, session_complete_frac 0.978 vs 0.933, rise-mode terminations 0/90 vs twin's 3/90 (rise success did NOT drop -- clears this gate's own FAIL clause), isolated DR-0 gate walk/det gait_valid 6/6 zero-sac equal to the twin. Command-tracking absolute quality is in the same ballpark as the twin, NOT separately solved by this arm (dir_err_med 64.56deg vs twin 63.57, slip/m_med 9.17 vs 9.0, progress_ratio 0.131 vs 0.133) -- this PASS answers 'is the longer/harder training recipe worth funding going forward', not 'is command-following done'. vs the matched-seed acq8m parent (8M): terminations 2/90 vs 5/90, dir_err 64.6 vs 69.5, slip 9.17 vs 25.98, prog 0.131 vs 0.079 -- same real-but-modest improvement pattern as the twin. Reward still rising through 16M (quarters 57/668/1418/2239). sacrificed_legs_seen=[2] in the full session, identical to what the acq8m parent already shows -- pre-existing, not new. Recommendation: prefer the 60s/segments=7 recipe (this arm) over the 30s twin for any further command-following continuation; the open question is still continue-budget vs graded-heading-curriculum for the dir_err/slip gap, pending the long-s1 twin's own read."
   },
   {
     "run": "cw-standwalk-unified1-mix-long-s1",

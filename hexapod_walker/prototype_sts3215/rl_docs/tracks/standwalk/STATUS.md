@@ -1,5 +1,63 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 ~13:2x idle-kick (**UNIFIED1-MIX WAVE 3/4 VERDICTED
+— PARTIAL/PARTIAL/PASS, no FAIL, joint call still holds for long-s1.**
+Pulled `session_verdict.json` directly off-pod for all 3 finished
+arms (local pollreap sync still catching up, harmless) and matched
+each against its own pre-registered gate text AND the acq8m 8M
+parents' own freshly-completed mixedsession baseline (also pulled
+off-pod, `train-1`/`train-3`):
+
+| arm (16M) | terms/90 | complete_frac | dir_err_med | slip/m_med | prog_med | gv_frac | sac_legs |
+|---|---|---|---|---|---|---|---|
+| acq8m (parent, 8M) | 5 | 0.944 | 69.5 | 25.98 | 0.079 | 0.983 | [2] |
+| acq8m-s1 (parent, 8M) | 4 | 0.956 | 66.5 | 23.34 | 0.078 | 0.983 | [2] |
+| unified1-mix-s0 (30s) | 6 | 0.933 | 63.6 | 8.99 | 0.133 | 0.967 | [2] |
+| unified1-mix-s1 (30s) | 2 | 0.978 | 60.0 | 14.51 | 0.146 | 1.0 | [] |
+| unified1-mix-long-s0 (60s) | 2 | 0.978 | 64.6 | 9.17 | 0.131 | 0.967 | [2] |
+| unified1-mix-long-s1 (60s) | pending | | | | | | |
+
+Every finished arm improves over its matched-seed parent on
+slip/progress (2-3x) and modestly on dir_err (~5-9deg), with
+terminations flat-or-better — a real, reward-aligned quality gain
+from folding the command bundle into training (reward rose
+monotonically through 16M on all three, 08-21 continue signal, no
+plateau). Absolute command tracking is still nowhere near a usable
+band (dir_err cap ~40deg, slip cap ~2.9) — harness's own soft-gate
+flags `slip_ok=false`/`dir_err_ok=false` on every arm. Isolated DR-0
+gate walk/det stays clean 6/6 gait_valid zero-sac on all three
+(video/frame-strip-checked, matches the numbers: upright six-leg
+gait, no drag, just slow/imprecise heading-following — no gate/video
+disagreement). **`sacrificed_legs_seen=[2]` on s0/long-s0 is NOT a
+new regression** — it's byte-identical to what the acq8m PARENT
+already shows in this same full-session harness; s1 (the
+catastrophe-prone rescued lineage) actually clears it entirely
+(`[]`). `long-s0` additionally clears its own twin-comparison gate
+(PASS vs the 30s `s0` twin: fewer terms, no rise-mode regression) —
+prefer the 60s/`mode_seq_max_segments=7` recipe over the 30s one for
+any further command-following continuation.
+**Verdicted `PARTIAL`/`PARTIAL`/`PASS`** (s0/s1/long-s0 respectively,
+see each run's own verdict text). `long-s1` was still computing its
+final `dr0_long` episode at read time (2/3 `walk_startjitter/sto`
+videos done) — genuinely close, left for the next cycle to fold into
+the FULL joint call: continue-budget (reward not plateaued, dose
+looks like it's working, just slowly) vs a graded heading-curriculum
+mechanism (the `-1.85` STATUS entry below, a DIFFERENT/narrower
+recipe than this wave's full stress_mix bundle, so its FAIL isn't
+directly transferable evidence against continuing this one). No new
+arm launched this cycle — the 2x2 grid's whole point is a joint
+read, and 3/4 isn't the full grid; launching before `long-s1` lands
+risks funding the wrong half of the continue-vs-curriculum fork.
+Local artifact sync (gate/owncfg/mixedsession dirs -> controller) is
+mid-flight via the already-running `pollreap` loops (started 09:19/
+12:37/13:02, not duplicated this cycle) — do not re-launch. All other
+tracks re-swept fresh: joystick/amp/cpg DONE-or-[operator]-
+maintenance-only (banners unchanged), walkcurr [operator]-blocked
+(BC-kickstart ruling, still unanswered). CYCLE_WORKED (3 real
+verdicts + SKILLS.md not yet touched — no PASS meets the track DONE
+bar, still sim-scope tracking work, so no SKILLS row this cycle).
+Prior banner below.
+
 Update, 2026-08-28 ~07:2x idle-kick (agent-doable-queue drain, no
 verdict — found + fixed a real sync bug this cycle instead of
 re-verifying an unchanged board):
