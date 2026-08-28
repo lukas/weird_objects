@@ -1,5 +1,51 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-28 idle-kick (agent-doable-queue drain, no verdict —
+the unified1-mix{,-long}-{s0,s1} 2x2 wave's DR-0 gate + own-DR +
+eval_mixed_session own-cfg harnesses are ALL still genuinely running
+on their own pods, re-confirmed via on-pod `ps` on train-{0,2,4,5}
+(same 4 processes each, same as the prior two triage cycles' reads —
+no new progress to report, too early for any of them per the
+historical 1.5-2h+ ETA). Instead of re-verifying an unchanged board,
+fixed the ROOT CAUSE of the gap the previous two cycles each found
+and manually patched around: `pod_eval.py` (the watcher's auto-
+prestage) never launched `rl_move.sim.eval_mixed_session` for ANY
+run — only `eval_checkpoint`/`eval_session` were wired in — so every
+future "unified command-following" arm (env-native `goal.mode_seq>0`,
+this whole standwalk wave's own recipe class) would have hit the
+identical silent gap and needed another human/agent to notice and
+hand-run `ops.sh sessioncmd` again. Built `mode_seq_frac(cfgs)` (pure,
+tested) as the trigger and wired an auto-launch block into
+`pod_eval.py` mirroring the existing `session`/`joygate` riders
+(same duplicate-run guard via `remote_eval_running`, same
+already-synced check via `session_verdict.json`, informational —
+never folds into pod_eval's exit code, carries the run's FULL
+unstripped cfg stack same as `ops.sh sessioncmd`'s hand invocation,
+7200s timeout matching that tool's own documented convention). 5 new
+tests (`test_pod_eval_mixedsession.py`): trigger fires only on a
+present + nonzero `goal.mode_seq`, fails safe on malformed values,
+matches the real unified1-mix cfg-stack shape. All pod_eval test
+files green (25 passed); `test_actor_only_transplant.py`'s collection
+error under `-k` is pre-existing on `main` (confirmed via `git
+stash`), unrelated. Snapshotted+pushed as
+`exp/pod-eval-mixedsession-autolaunch` (2b97fee8) before anything
+trains on it — this is prestage/eval tooling only, doesn't touch
+training code paths, bit-exact for every non-mode_seq run (function
+returns 0.0, `if 0.0 > 0` never fires). Re-swept all other tracks
+fresh: joystick DONE-gate met (movecur1 exploit deferred to this
+track, no legal new arm); amp DONE (sim-scope) `[operator]`
+hardware-only; cpg DONE `[operator]` hardware-A/B-only; walkcurr
+`[operator]`-blocked (BC-kickstart ruling, still unanswered). Backlog
+empty; `capacity.py` reads 12/12 FREE (the four eval harnesses are
+CPU-bound, don't occupy the GPU trainer registry) but no legal
+standwalk arm exists to fund before this exact wave's paired read
+lands — same judgment every prior cycle on this wave has
+independently reached. CYCLE_WORKED (real code landed: gap fixed,
+tested, snapshotted). Left for the SYNCED/verdict-written-marker
+cycle: read gate+owncfg+mixedsession for all four unified1-mix arms
+against their paired parents/twins per each run's own ledger gate
+text. Prior banners below.
+
 Update, 2026-08-28 ~05:0x (triage cycle, no verdict yet):
 `cw-standwalk-unified1-mix-long-s0` (16M, this cycle's assigned
 finished run) — `ops.sh review`: ledger `RUNNING` (stale; W&B
