@@ -255,7 +255,20 @@ def run_response(env, model, obs_cmd, out):
                 tr.vx[k_go:] = vx
                 tr.vy[k_go:] = vy
                 injected = True
-                vx_ix, vy_ix = _obs_cmd_indices(env)
+                # Only needed to steer the zero/rot90 obs-command
+                # controls (used a few lines up, gated on `obs_cmd !=
+                # "normal"`); computing it unconditionally crashed
+                # plain `--obs-cmd normal` response runs on any
+                # walk_obs_body_vel=3 (leg-odometry) checkpoint, where
+                # the fwd/back and left/right velocity-ESTIMATE
+                # channels both react to a command flip on either axis
+                # (found 2026-08-28 triaging cw-standwalk-unified1-
+                # joyfix-velobs3-c1) and so legitimately overlap for
+                # this heuristic — a real index-detection limitation of
+                # the zero/rot90 controls under mode 3, not a reason to
+                # lose the (unaffected) plain response numbers too.
+                if obs_cmd != "normal":
+                    vx_ix, vy_ix = _obs_cmd_indices(env)
             if env._step_i == k_go:
                 xy0 = env.data.xpos[env._chassis_bid, :2].copy()
             if term or trunc:

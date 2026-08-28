@@ -216295,7 +216295,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-unified1-joyfix-velobs3-c1 since 2026-08-28T16:56:28"
   },
   {
     "run": "cw-standwalk-unified1-joyfix-cmdtrack-c1",
@@ -216568,7 +216569,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-unified1-joyfix-bundle-c1-cw-standwalk-unified1 since 2026-08-28T17:01:37"
   },
   {
     "run": "cw-standwalk-unified1-joyfix-bundle-c1",
@@ -216841,6 +216843,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-unified1-joyfix-bundle-c1-cw-standwalk-unified1 since 2026-08-28T17:01:36"
   }
 ]
