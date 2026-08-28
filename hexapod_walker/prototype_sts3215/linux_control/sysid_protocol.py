@@ -67,7 +67,7 @@ AXES = ("yaw", "hip", "knee")
 # zero imports; the runner re-checks against the live bus limits too).
 AXIS_LIMITS_DEG = {
     "yaw": (-35.0, 35.0),
-    "hip": (-80.0, 30.0),
+    "hip": (-80.0, 40.0),
     "knee": (-20.0, 150.0),
 }
 

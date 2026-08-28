@@ -3678,10 +3678,10 @@ def check_thin_sheets(extra_items=None):
 #               workspace audit found that beyond ~+/-30 deg the femur
 #               spar collides with the coxa_bracket flange at high femur
 #               pitch.
-#   * femur_pitch in [-80.0 deg, +30.0 deg]
+#   * femur_pitch in [-80.0 deg, +40.0 deg]
 #       Source: firmware (HIP_LIMIT_{LO,HI}_DEG) AND mujoco_prototype._leg_xml
-#               (``<joint name="L{i}_pitch" range="-1.40 0.52"/>`` rad,
-#               = -80.2 .. +29.8 deg).  Was -80 deg .. +48.7 deg before
+#               (``<joint name="L{i}_pitch" range="-1.40 0.70"/>`` rad,
+#               = -80.2 .. +40.1 deg).  Was -80 deg .. +48.7 deg before
 #               the workspace audit; the +ve side was tightened to keep
 #               the femur hip pad clear of the chassis_top (which was
 #               already shrunk -- the limit gives an additional safety
@@ -3705,7 +3705,7 @@ def check_thin_sheets(extra_items=None):
 # loose enough that the sweep finishes in a few minutes with the
 # per-pair voxel sampler below.
 WORKSPACE_YAW_DEG       = (-35.0, +35.0)
-WORKSPACE_FEMUR_DEG     = (-80.0, +30.0)
+WORKSPACE_FEMUR_DEG     = (-80.0, +40.0)
 WORKSPACE_KNEE_DEG      = (-20.0, +80.0)
 WORKSPACE_N_YAW         = 5
 WORKSPACE_N_FEMUR       = 7

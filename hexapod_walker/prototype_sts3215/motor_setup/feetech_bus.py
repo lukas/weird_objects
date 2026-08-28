@@ -35,7 +35,7 @@ Per-axis SAFE software limits (MUST match mujoco_prototype._leg_xml and
 check_workspace_self_collision in _verify_prototype.py):
 
     yaw:        -35 .. +35 deg
-    hip pitch:  -80 .. +30 deg
+    hip pitch:  -80 .. +40 deg
     knee pitch: -20 .. +150 deg
 
 Trims: the old Arduino bridge used to persist per-joint trims in
@@ -84,7 +84,7 @@ N_JOINTS = 18
 # Per-axis safe limits, axis = joint % 3 (0 yaw, 1 hip, 2 knee).
 AXIS_LIMITS_DEG = {
     0: (-35.0, 35.0),    # yaw
-    1: (-80.0, 30.0),    # hip pitch
+    1: (-80.0, 40.0),    # hip pitch
     2: (-20.0, 150.0),   # knee pitch (Aug 2026: operator raised from 80 —
                          # the 80° cap made the plant pose the bottom of
                          # the envelope, no crouch possible)

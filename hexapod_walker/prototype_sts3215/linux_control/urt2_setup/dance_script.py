@@ -59,7 +59,7 @@ from pathlib import Path
 
 FORMAT = "hexapod-dance-script/1"
 NAME_RE = re.compile(r"^[a-z0-9_]{1,32}$")
-AXIS_LIMITS_DEG = ((-35.0, 35.0), (-80.0, 30.0), (-20.0, 150.0))
+AXIS_LIMITS_DEG = ((-35.0, 35.0), (-80.0, 40.0), (-20.0, 150.0))
 ALLOWED_KINDS = ("note", "torque", "stream", "ease", "standup",
                  "sit_zero", "limp")
 MAX_SCRIPT_BYTES = 6_000_000

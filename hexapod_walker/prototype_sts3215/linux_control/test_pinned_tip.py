@@ -226,7 +226,7 @@ def test_untrap_suspect_zero_refused_without_motion():
 
 def test_untrap_accepts_weight_shoved_hip():
     # Live regression (08-11 21:05): body weight shoved the pinned L3
-    # hip to +58° — 28° past its +30° soft limit. That is the trapped
+    # hip to +58° — 18° past its +40° soft limit. That is the trapped
     # state itself, NOT a wrong zero; the (wider) untrap slop must let
     # the fold run instead of refusing suspect_zero. FakeBus ReadPos
     # clamps through deg_to_count, so encode this joint's raw count

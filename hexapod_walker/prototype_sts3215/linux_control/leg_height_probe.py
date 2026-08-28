@@ -27,7 +27,7 @@ for _p in (_HERE, _HERE / "urt2_setup", _HERE.parent / "motor_setup"):
 try:
     from feetech_bus import AXIS_LIMITS_DEG
 except Exception:  # pragma: no cover - fallback for standalone copying
-    AXIS_LIMITS_DEG = {1: (-80.0, 30.0), 2: (-20.0, 150.0)}
+    AXIS_LIMITS_DEG = {1: (-80.0, 40.0), 2: (-20.0, 150.0)}
 
 try:
     from tripod_gait import FEMUR_MM as DEFAULT_FEMUR_MM

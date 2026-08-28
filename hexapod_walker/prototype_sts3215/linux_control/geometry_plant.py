@@ -196,7 +196,7 @@ def _candidate_sweep_targets(
         base_hip_deg: float, base_knee_deg: float, base_z_mm: float,
         *, max_targets: int = SWEEP_MAX_TARGETS_PER_LEG) -> list[dict]:
     """Pick reachable same-floor contact targets near the plant pose."""
-    hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+    hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 40.0))
     knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
     raw: list[dict] = []
     for off in SWEEP_HIP_OFFSETS_DEG:
@@ -631,7 +631,7 @@ def run_geometry_contact_sweep(
         return {"ok": False, "mode": "geometry_sweep",
                 "error": "plant pose is not 18 joints"}
 
-    hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+    hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 40.0))
     knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
     samples: list[dict] = []
     target_plan: list[dict] = []

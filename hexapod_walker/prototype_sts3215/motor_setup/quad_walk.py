@@ -45,8 +45,8 @@ REAR_SUPPORT_LEGS = (2, 3)
 TUCK_DEG = (0.0, -68.0, 118.0)
 
 # Conservative hardware bring-up defaults (08-23 video/logs): with the
-# physical L0/L5-front convention, body_z + rear_press drove L1/L4 hips into
-# the +30 deg ceiling while the body stayed nearly level. The rear-up hold
+# physical L0/L5-front convention, body_z + rear_press drove L1/L4 hips toward
+# the positive hip ceiling while the body stayed nearly level. The rear-up hold
 # stays unpressed. The walk is intentionally between the tiny shuffle and the
 # too-large hardware trial: enough stride to travel, slower and less splayed so
 # servo compliance does not turn each step into a pitch pump.
@@ -309,7 +309,7 @@ EXIT_TOTAL_S = sum(EXIT_S)
 MIN_SECONDS = ENTRY_TOTAL_S + EXIT_TOTAL_S + PERIOD_S   # ≈ 17 s
 
 # Hardware joint limits (deg) per axis — rl_move.safety AXIS_LIMITS_DEG.
-LIMITS_DEG = ((-35.0, 35.0), (-80.0, 30.0), (-20.0, 150.0))
+LIMITS_DEG = ((-35.0, 35.0), (-80.0, 40.0), (-20.0, 150.0))
 
 
 def _smooth(u: float) -> float:

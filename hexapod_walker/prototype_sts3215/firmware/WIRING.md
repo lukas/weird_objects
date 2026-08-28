@@ -332,10 +332,10 @@ straight out from the body**, with coxa, femur, tibia and foot colinear:
 | Axis (joint)   | `+` angle moves the link…        | `−` angle moves it… | Range      | Stand plant |
 |----------------|----------------------------------|---------------------|------------|------------:|
 | yaw (j0)       | swings horizontally one way      | the other way       | ±35°       | 0°          |
-| hip pitch (j1) | femur tip **down**               | femur tip **up**    | −80 … +30° | **+20°**    |
-| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up**    | −20 … +80° | **+80°**    |
+| hip pitch (j1) | femur tip **down**               | femur tip **up**    | -80 … +40° | **+20°**    |
+| knee pitch (j2)| tibia tip **down** (folds under) | tibia tip **up**    | -20 … +150° | **+28°**   |
 
-So the **default hardware stand plant (0, +20, +80)** is femur angled
+So the **default hardware stand plant (0, +20, +28)** is femur angled
 toward the floor with tibia steep (or a learned plant from Calibrate →
 Plant height).  CAD / MuJoCo / `sts` RL still use the older crouch
 **(0, −25, +60)** — see `../RL_PLAN.md` Appendix A.

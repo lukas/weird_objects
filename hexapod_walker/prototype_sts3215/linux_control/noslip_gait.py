@@ -78,7 +78,7 @@ from tripod_gait import (COXA, FEMUR, TIBIA, LEG_RADIAL, _clip, _leg_ik,
                          _plant_hip_knee_deg, foot_rz_from_hip_knee)
 
 YAW_LIM = math.radians(35.0)
-HIP_LIM = (math.radians(-80.0), math.radians(30.0))
+HIP_LIM = (math.radians(-80.0), math.radians(40.0))
 KNEE_LIM = (math.radians(-20.0), math.radians(150.0))
 
 # Tangential hip-pitch-axis offset (m): hexapod_prototype.COXA_HIP_ANCHOR_Y

@@ -845,7 +845,7 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
     # changing one without the other lets the policy command poses the
     # geometry cannot accommodate.
     #   yaw:   -0.61 .. +0.61 rad  (= +/-35 deg; was +/-0.90 = +/-51.6 deg)
-    #   hip:   -1.40 .. +0.52 rad  (= -80.2 .. +30 deg; was -1.40 .. +0.85
+    #   hip:   -1.40 .. +0.70 rad  (= -80.2 .. +40 deg; was -1.40 .. +0.85
     #                               = -80.2 .. +48.7 deg)
     #   knee:  -0.35 .. +2.62 rad  (= -20.1 .. +150 deg; Aug 2026: operator
     #                               widened from +80.2 deg — the tight cap
@@ -864,7 +864,7 @@ def _leg_xml(i: int, x: float, y: float, z: float, qw: float, qz: float) -> str:
 
         <body name="L{i}_femur" pos="{COXA:.5f} {HIP_ANCHOR_Y:.5f} 0">
           <inertial pos="{FEMUR / 2:.5f} 0 0" mass="{FEMUR_MASS}" diaginertia="0.00008 0.00022 0.00022"/>
-          <joint name="L{i}_pitch" type="hinge" axis="0 1 0" range="-1.40 0.52"/>
+          <joint name="L{i}_pitch" type="hinge" axis="0 1 0" range="-1.40 0.70"/>
           <geom class="legcol" name="L{i}_femur_col" type="capsule" fromto="0 0 0 {FEMUR:.5f} 0 0" size="0.010"/>
           <geom class="legcol" name="L{i}_knee_servo_col" type="box" pos="{FEMUR - 0.010:.5f} -0.026 0" size="0.021 0.011 0.020"/>
 {femur_link_xml}

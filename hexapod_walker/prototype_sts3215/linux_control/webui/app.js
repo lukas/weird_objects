@@ -1459,15 +1459,19 @@ function tdzExpectedPreview(){
     el.innerHTML = '<span class="tdz-bad">Geometry is unreachable for this height.</span>';
     return;
   }
-  const hip = Math.asin(hipRatio) * 180 / Math.PI;
-  const knee = Math.asin(kneeRatio) * 180 / Math.PI;
+  const pinHip = Math.asin(hipRatio) * 180 / Math.PI;
+  let hip = pinHip;
+  const pinKnee = Math.asin(kneeRatio) * 180 / Math.PI;
+  let knee = pinKnee;
   let bootTxt = '';
   if(b > 0){
     const r = b * 0.5;
-    const ratio = Math.max(0, h - r) / Math.max(1e-9, t - r);
-    if(Math.abs(ratio) <= 1){
-      const kb = Math.asin(ratio) * 180 / Math.PI;
-      bootTxt = ` · boot-radius knee ${tdzPlainDeg(kb)}`;
+    const hipBootRatio = Math.max(0, h - r) / Math.max(1e-9, f + t - r);
+    const kneeBootRatio = Math.max(0, h - r) / Math.max(1e-9, t - r);
+    if(Math.abs(hipBootRatio) <= 1) hip = Math.asin(hipBootRatio) * 180 / Math.PI;
+    if(Math.abs(kneeBootRatio) <= 1) knee = Math.asin(kneeBootRatio) * 180 / Math.PI;
+    if(Number.isFinite(hip) || Number.isFinite(knee)){
+      bootTxt = ` · pin-tip hip ${tdzPlainDeg(pinHip)} · pin-tip knee ${tdzPlainDeg(pinKnee)}`;
     }
   }
   el.innerHTML = `Expected touch: hip ${tdzPlainDeg(hip)} · knee ${tdzPlainDeg(knee)}${bootTxt}`;
@@ -1491,15 +1495,16 @@ function tdzSetLegs(legs){
     b.classList.toggle('on', want.has(Number(b.dataset.leg)));
   });
 }
-function tdzBody(legOverride=null){
+function tdzBody(legOverride=null, axisOverride=null){
   return {
     zero_tip_clearance_mm: tdzNum('tdzheight'),
     femur_mm: tdzNum('tdzfemur'),
     tibia_mm: tdzNum('tdztibia'),
     boot_diameter_mm: tdzNum('tdzboot'),
     torque: tdzNum('tdztorque'),
+    extra_accurate: !!($('tdzaccurate') && $('tdzaccurate').checked),
     legs: legOverride || tdzSelectedLegs(),
-    axes: tdzSelectedAxes(),
+    axes: axisOverride || tdzSelectedAxes(),
     save: true,
   };
 }
@@ -1508,11 +1513,53 @@ function tdzAxisCell(row, axis){
   if(!a) return '<td colspan="5">—</td>';
   const ok = !!a.ok;
   const cls = ok ? 'tdz-good' : 'tdz-bad';
+  let refined = '';
+  const refinement = a.refinement || null;
+  if(refinement && refinement.used_local_result) refined = ' · local';
+  else if(refinement && refinement.local_repeat_count) refined = ' · local noisy';
+  else if(refinement) refined = ' · refine tried';
   return `<td class="${cls}">${htmlEscape(a.status || (ok ? 'contact' : '—'))}</td>`+
     `<td>${tdzPlainDeg(a.expected_touch_deg)}</td>`+
     `<td>${tdzPlainDeg(a.observed_touch_deg)}</td>`+
     `<td>${tdzDeg(a.encoder_zero_error_deg)}</td>`+
-    `<td>${htmlEscape(a.contact_strength || '')}</td>`;
+    `<td>${htmlEscape((a.contact_strength || '') + refined)}</td>`;
+}
+function tdzHeightFitHtml(record){
+  const fit = record && record.height_fit;
+  if(!fit || !fit.ok) return '';
+  const bits = [];
+  if(Number.isFinite(Number(fit.recommended_height_mm)))
+    bits.push(`suggest ${calMm(fit.recommended_height_mm)}`);
+  if(Number.isFinite(Number(fit.recommended_delta_mm)))
+    bits.push(`change ${calDelta(fit.recommended_delta_mm)}`);
+  if(Number.isFinite(Number(fit.hip_mean_height_mm)))
+    bits.push(`hip says ${calMm(fit.hip_mean_height_mm)}`);
+  if(Number.isFinite(Number(fit.knee_mean_height_mm)))
+    bits.push(`knee says ${calMm(fit.knee_mean_height_mm)}`);
+  if(Number.isFinite(Number(fit.axis_spread_mm)))
+    bits.push(`spread ${calMm(fit.axis_spread_mm)}`);
+  const cls = fit.status === 'axis_disagreement' ? 'tdz-bad' : 'tdz-good';
+  const button = Number.isFinite(Number(fit.recommended_height_mm))
+    ? ` <button id="tdzapplyfit" data-height="${htmlEscape(fit.recommended_height_mm)}">Use fitted height</button>`
+    : '';
+  return `<div style="margin-top:8px"><span class="${cls}">Height fit</span>: `+
+    htmlEscape(bits.join(' · '))+
+    (fit.note ? ` · ${htmlEscape(fit.note)}` : '')+
+    button+
+    `</div>`;
+}
+function tdzWireFitButton(){
+  const btn = $('tdzapplyfit');
+  if(!btn) return;
+  btn.onclick = ()=>{
+    const n = Number(btn.dataset.height);
+    if(!Number.isFinite(n)) return;
+    const input = $('tdzheight');
+    if(input){
+      input.value = n.toFixed(1);
+      tdzExpectedPreview();
+    }
+  };
 }
 function tdzRenderRecord(record, label='Saved'){
   const el = $('tdzsaved');
@@ -1541,7 +1588,10 @@ function tdzRenderRecord(record, label='Saved'){
     `</div>`+
     `<div style="margin-top:6px">height ${calMm(meas.zero_tip_clearance_mm)} · `+
       `femur ${calMm(meas.femur_mm)} · tibia ${calMm(meas.tibia_mm)} · `+
-      `boot Ø ${calMm(meas.boot_diameter_mm)}</div>`+
+      `boot Ø ${calMm(meas.boot_diameter_mm)}`+
+      (record.refine_mode ? ` · refine ${htmlEscape(record.refine_mode)}` : '')+
+      `</div>`+
+    tdzHeightFitHtml(record)+
     (rows ? (
       `<table class="cal-table" style="margin-top:10px"><thead><tr>`+
         `<th>leg</th>`+
@@ -1549,6 +1599,7 @@ function tdzRenderRecord(record, label='Saved'){
         `<th>knee</th><th>knee exp</th><th>knee touch</th><th>knee err</th><th>knee strength</th>`+
       `</tr></thead><tbody>${rows}</tbody></table>`
     ) : '<div style="margin-top:8px">No per-leg rows.</div>');
+  tdzWireFitButton();
 }
 async function tdzRefresh(){
   tdzExpectedPreview();
@@ -1561,6 +1612,8 @@ async function tdzRefresh(){
   const progress = (cal && cal.progress) || {};
   $('tdzrun').disabled = runningTouch;
   $('tdzrunl0').disabled = runningTouch;
+  $('tdzstraight').disabled = runningTouch;
+  $('tdzstraightall').disabled = runningTouch;
   if(runningTouch){
     $('tdzstatus').textContent = progress.msg || 'Running touchdown zero…';
     $('tdzsummary').textContent = 'Running. Keep watching the robot.';
@@ -1575,6 +1628,8 @@ async function tdzRefresh(){
     $('tdzsummary').textContent = s.requested != null
       ? `Last run contacts ${s.contacts}/${s.requested}`+
         (s.saved ? ' · saved' : '')+
+        (s.straight_after ? ' · straight' : '')+
+        (s.straight_after_error ? (' · '+s.straight_after_error) : '')+
         (s.guard_error ? (' · '+s.guard_error) : '')
       : (progress.msg || 'Idle.');
     tdzRenderRecord(rec, 'Last run');
@@ -1599,15 +1654,22 @@ function startTdzPoll(){
 function stopTdzPoll(){
   if(tdzTimer){ clearInterval(tdzTimer); tdzTimer = null; }
 }
-async function tdzStart(legOverride=null){
-  const body = tdzBody(legOverride);
+async function tdzStart(legOverride=null, opts={}){
+  const body = tdzBody(legOverride, opts.axes || null);
+  if(opts.extraAccurate) body.extra_accurate = true;
+  if(opts.showStraightAfter) body.show_straight_after = true;
+  if(opts.simultaneous) body.simultaneous = true;
   if(!body.legs.length || !body.axes.length){
     $('tdzstatus').textContent = 'Pick at least one leg and one axis.';
     return;
   }
-  $('tdzstatus').textContent = 'Starting touchdown zero…';
+  $('tdzstatus').textContent = opts.showStraightAfter
+    ? 'Starting all-leg touchdown zero; will show straight after…'
+    : 'Starting touchdown zero…';
   $('tdzrun').disabled = true;
   $('tdzrunl0').disabled = true;
+  $('tdzstraight').disabled = true;
+  $('tdzstraightall').disabled = true;
   try{
     const r = await fetch('/api/measure/touchdown_zero', {
       method:'POST',
@@ -1620,6 +1682,8 @@ async function tdzStart(legOverride=null){
       showErr('Touchdown zero: '+(d.error || 'refused'));
       $('tdzrun').disabled = false;
       $('tdzrunl0').disabled = false;
+      $('tdzstraight').disabled = false;
+      $('tdzstraightall').disabled = false;
       return;
     }
     $('tdzstatus').textContent = requestReceiptLine(d, 'Touchdown zero')+'; running…';
@@ -1628,6 +1692,51 @@ async function tdzStart(legOverride=null){
     $('tdzstatus').textContent = 'Start failed (link?)';
     $('tdzrun').disabled = false;
     $('tdzrunl0').disabled = false;
+    $('tdzstraight').disabled = false;
+    $('tdzstraightall').disabled = false;
+  }
+}
+async function tdzShowStraight(legOverride=null){
+  const legs = legOverride || tdzSelectedLegs();
+  if(!legs.length){
+    $('tdzstatus').textContent = 'Pick at least one leg.';
+    return;
+  }
+  const allLegs = legs.length === 6 && legs.every((leg, i)=>leg === i);
+  $('tdzstatus').textContent = allLegs
+    ? 'Moving all legs to touchdown straight…'
+    : 'Moving selected legs to touchdown straight…';
+  $('tdzstraight').disabled = true;
+  $('tdzstraightall').disabled = true;
+  try{
+    const r = await fetch('/api/touchdown_zero/straight', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        legs,
+        torque: tdzNum('tdztorque'),
+        seconds: 1.6,
+      }),
+    });
+    const d = await r.json();
+    if(!d.ok){
+      const detail = Array.isArray(d.missing) && d.missing.length
+        ? ': '+d.missing.join(', ')
+        : '';
+      $('tdzstatus').textContent = 'Straight refused: '+(d.error || 'unknown')+detail;
+      showErr('Touchdown straight: '+(d.error || 'refused')+detail);
+      return;
+    }
+    const targets = Array.isArray(d.targets) ? d.targets : [];
+    const msg = targets.map(t=>
+      `L${t.leg} ${t.axis} ${tdzDeg(t.target_deg)}`).join(' · ');
+    $('tdzstatus').textContent = msg ? `Showing straight: ${msg}` : 'Showing straight.';
+    $('tdzsummary').textContent = `Touchdown straight complete${d.peak_a != null ? ` · peak ${Number(d.peak_a).toFixed(2)} A` : ''}`;
+  }catch(e){
+    $('tdzstatus').textContent = 'Straight move failed (link?)';
+  }finally{
+    $('tdzstraight').disabled = false;
+    $('tdzstraightall').disabled = false;
   }
 }
 tdzButtons('#tdzlegs button[data-leg]').forEach(b=>b.onclick=()=>{
@@ -1644,6 +1753,15 @@ $('tdzalllegs').onclick = ()=> tdzSetLegs([0,1,2,3,4,5]);
 $('tdzleg0').onclick = ()=> tdzSetLegs([0]);
 $('tdzrun').onclick = ()=> tdzStart();
 $('tdzrunl0').onclick = ()=> tdzStart([0]);
+$('tdzstraight').onclick = ()=> tdzShowStraight();
+$('tdzstraightall').onclick = ()=> tdzStart(
+  [0,1,2,3,4,5],
+  {
+    axes:['hip','knee'],
+    extraAccurate:true,
+    showStraightAfter:true,
+    simultaneous:true,
+  });
 $('tdzstop').onclick = async ()=>{
   $('tdzstatus').textContent = 'Stopping…';
   await fetch('/api/calibrate/stop', {method:'POST'});

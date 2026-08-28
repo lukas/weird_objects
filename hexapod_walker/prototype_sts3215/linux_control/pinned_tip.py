@@ -66,8 +66,8 @@ from safe_zero import SLOW_DPS, foot_z_mm, joint_name
 
 # Zero-frame sanity margin for the pre-fold check. WIDER than
 # safe_zero's 20° slop on purpose (live lesson, 08-11 21:05): in a real
-# trapped state the body's weight legitimately shoves a pinned hip 25°+
-# past its soft limit (measured L3 hip +58° vs the +30° limit), which
+# trapped state the body's weight legitimately shoves a pinned hip 15°+
+# past its soft limit (measured L3 hip +58° vs the +40° limit), which
 # is exactly when untrap is needed — a 20° slop refused it as "wrong
 # zero". 40° still catches genuinely wild zero frames (90-180° off),
 # and a moderately wrong zero is survivable HERE because the fold runs

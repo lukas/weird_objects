@@ -25,7 +25,7 @@ try:
 except Exception:  # pragma: no cover
     AXIS_LIMITS_DEG = {
         0: (-35.0, 35.0),
-        1: (-80.0, 30.0),
+        1: (-80.0, 40.0),
         2: (-20.0, 150.0),
     }
 

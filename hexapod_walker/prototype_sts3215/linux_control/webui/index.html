@@ -767,18 +767,46 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       <div class="hint">Low-torque per-leg taps near the geometry-predicted
         floor contact angle. Saves software zero hints only; it never rewrites
         servo middle/zero.</div>
-      <div class="cal-manual-row">
-        <label>Geometry</label>
-        <input id="tdzheight" type="number" step="0.5" value="88">
-        <span>zero tip h</span>
-        <input id="tdzfemur" type="number" step="0.5" value="90">
-        <span>femur</span>
-        <input id="tdztibia" type="number" step="0.5" value="150">
-        <span>knee→tip</span>
-        <input id="tdzboot" type="number" step="0.5" value="9">
-        <span>boot Ø</span>
-        <input id="tdztorque" type="number" step="10" value="220">
-        <span>torque</span>
+      <div class="tdz-geometry">
+        <div class="tdz-geometry-head">
+          <strong>Geometry</strong>
+          <span>Leg 0 zero pose</span>
+        </div>
+        <label class="tdz-measure">
+          <span>Zero tip height</span>
+          <div class="tdz-inputunit">
+            <input id="tdzheight" type="number" step="0.5" value="97.3">
+            <em>mm</em>
+          </div>
+        </label>
+        <label class="tdz-measure">
+          <span>Hip to knee</span>
+          <div class="tdz-inputunit">
+            <input id="tdzfemur" type="number" step="0.5" value="90">
+            <em>mm</em>
+          </div>
+        </label>
+        <label class="tdz-measure">
+          <span>Knee to foot tip</span>
+          <div class="tdz-inputunit">
+            <input id="tdztibia" type="number" step="0.5" value="150">
+            <em>mm</em>
+          </div>
+        </label>
+        <label class="tdz-measure">
+          <span>Boot diameter</span>
+          <div class="tdz-inputunit">
+            <input id="tdzboot" type="number" step="0.5" value="9">
+            <em>mm</em>
+          </div>
+        </label>
+        <label class="tdz-measure tdz-measure-torque">
+          <span>Tap torque</span>
+          <div class="tdz-inputunit">
+            <input id="tdztorque" type="number" step="10" value="220">
+            <em>raw</em>
+          </div>
+        </label>
       </div>
       <div class="tdz-grid">
         <div>
@@ -805,8 +833,11 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
         </div>
       </div>
       <div class="btns" style="margin-top:12px">
+        <label class="hint"><input id="tdzaccurate" type="checkbox"> Extra accurate</label>
         <button id="tdzrun" class="on">▶ Run selected taps</button>
         <button id="tdzrunl0">▶ Run L0 check</button>
+        <button id="tdzstraight">→ Show selected straight</button>
+        <button id="tdzstraightall">▶ Calibrate all + show straight</button>
         <button id="tdzstop" class="danger">■ Stop</button>
         <button id="tdzrefresh">↻ Refresh</button>
       </div>
@@ -926,6 +957,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=joyrl1"></script>
+  <script src="/app.js?v=joyrl8"></script>
 </body>
 </html>

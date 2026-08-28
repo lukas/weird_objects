@@ -3308,6 +3308,125 @@ class BenchAPI:
         })
         return out
 
+    def touchdown_zero_straight_pose(
+            self, *, legs=None, torque=None, seconds=None, force=False) -> dict:
+        """Move selected legs to touchdown-compensated straight-out pose."""
+        state = self.touchdown_zero_state()
+        if not state.get("ok"):
+            return state
+        if not state.get("learned"):
+            return {"ok": False, "error": "no saved touchdown-zero hints"}
+
+        def parse_legs(val) -> list[int]:
+            if val is None:
+                return list(range(6))
+            raw = val
+            if isinstance(val, str):
+                raw = [x for x in val.replace(",", " ").split() if x]
+            if not isinstance(raw, (list, tuple, set)):
+                raw = [raw]
+            out: list[int] = []
+            for item in raw:
+                try:
+                    leg = int(item)
+                except (TypeError, ValueError):
+                    raise ValueError(f"bad leg {item!r}")
+                if not 0 <= leg < 6:
+                    raise ValueError(f"leg must be 0..5, got {leg}")
+                if leg not in out:
+                    out.append(leg)
+            return out
+
+        try:
+            leg_list = parse_legs(legs)
+            torque_i = 320 if torque is None else int(round(float(torque)))
+            torque_i = max(150, min(520, torque_i))
+            seconds_f = 1.6 if seconds is None else float(seconds)
+            seconds_f = max(0.5, min(5.0, seconds_f))
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": str(e)}
+        if not leg_list:
+            return {"ok": False, "error": "no legs selected"}
+
+        by_leg = {}
+        for row in state.get("per_leg") or []:
+            try:
+                by_leg[int(row.get("leg"))] = row
+            except (TypeError, ValueError):
+                continue
+
+        q, missing_pose = self._present_pose18()
+        if missing_pose:
+            return {
+                "ok": False,
+                "error": "missing encoder readings; cannot build safe pose",
+                "missing_joints": missing_pose[:8],
+            }
+
+        targets: list[dict] = []
+        missing_hints: list[str] = []
+        too_large: list[dict] = []
+        for leg in leg_list:
+            row = by_leg.get(leg)
+            if not isinstance(row, dict):
+                missing_hints.append(f"L{leg}")
+                continue
+            for axis, offset in (("hip", 1), ("knee", 2)):
+                hint = row.get(axis)
+                comp = None
+                if isinstance(hint, dict) and hint.get("ok"):
+                    comp = self._maybe_float(
+                        hint.get("command_compensation_deg"))
+                    if comp is None:
+                        comp = self._maybe_float(
+                            hint.get("encoder_zero_error_deg"))
+                if comp is None:
+                    missing_hints.append(f"L{leg} {axis}")
+                    continue
+                if abs(comp) > 20.0 and not force:
+                    too_large.append({
+                        "leg": leg,
+                        "axis": axis,
+                        "target_deg": round(comp, 2),
+                    })
+                    continue
+                joint = leg * 3 + offset
+                q[joint] = float(comp)
+                targets.append({
+                    "leg": leg,
+                    "axis": axis,
+                    "joint": joint,
+                    "target_deg": round(float(comp), 2),
+                    "source_strength": hint.get("contact_strength"),
+                })
+        if missing_hints:
+            return {
+                "ok": False,
+                "error": "missing touchdown hints for selected legs",
+                "missing": missing_hints,
+            }
+        if too_large:
+            return {
+                "ok": False,
+                "error": "straight hint is unusually large",
+                "bad": too_large,
+            }
+
+        result = self.command_pose(
+            q,
+            seconds=seconds_f,
+            torque=torque_i,
+            force=bool(force),
+            limp_after=False,
+            label="touchdown straight")
+        result.update({
+            "mode": "touchdown_straight",
+            "legs": leg_list,
+            "targets": targets,
+            "measurement_stamp": state.get("measurement_stamp"),
+        })
+        return result
+
     def _manual_zero_hypotheses(
             self, samples: list[dict], *,
             manual_height_mm: float | None,
@@ -4434,7 +4553,7 @@ class BenchAPI:
                 "msg": "no calibrated IMU tilt; margin probe skipped",
             }
 
-        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 40.0))
         knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
         samples: list[dict] = []
         directions = [
@@ -4659,7 +4778,7 @@ class BenchAPI:
             }
 
         yaw_lo, yaw_hi = AXIS_LIMITS_DEG.get(0, (-35.0, 35.0))
-        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 40.0))
         knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
         lift_hip = 8.0
         lift_knee = 18.0
@@ -5429,7 +5548,7 @@ class BenchAPI:
                     "error": "stand pose is not 18 joints"}
 
         yaw_lo, yaw_hi = AXIS_LIMITS_DEG.get(0, (-35.0, 35.0))
-        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 40.0))
         knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
         amp = 4.0
         tilt_hard_limit = 35.0
@@ -8887,7 +9006,9 @@ class BenchAPI:
     def measure_touchdown_zero(
             self, *, zero_tip_clearance_mm=None, femur_mm=None,
             tibia_mm=None, boot_diameter_mm=None, legs=None, axes=None,
-            torque=None, settle_s=None, save=True) -> dict:
+            torque=None, settle_s=None, save=True,
+            extra_accurate=False, show_straight_after=False,
+            simultaneous=False) -> dict:
         """Tap requested legs down and save software zero hints.
 
         This does not call ``set_zero_here`` or rewrite servo EEPROM centers.
@@ -8903,6 +9024,9 @@ class BenchAPI:
             from touchdown_zero import (
                 analysis_dict, analyze_touch_rows, expected_dicts,
                 expected_touch_angles, make_sweep_angles,
+                fit_zero_tip_height_from_contacts,
+                make_refine_sweep_angles,
+                merge_repeat_analyses,
             )
         except ImportError as e:
             return {"ok": False, "error": f"touchdown_zero missing: {e}"}
@@ -8987,6 +9111,11 @@ class BenchAPI:
             settle = 0.42 if settle_s is None else float(settle_s)
             settle = max(0.18, min(1.5, settle))
             save_result = truthy(save, True)
+            extra_accurate_result = truthy(extra_accurate, False)
+            show_straight_after_result = truthy(show_straight_after, False)
+            simultaneous_result = truthy(
+                simultaneous,
+                show_straight_after_result and len(leg_list) > 1)
         except (TypeError, ValueError) as e:
             return {"ok": False, "error": str(e)}
         if not leg_list or not axis_list:
@@ -9008,6 +9137,9 @@ class BenchAPI:
                 "axes": axis_list,
                 "torque": torque_i,
                 "save": save_result,
+                "extra_accurate": bool(extra_accurate_result),
+                "show_straight_after": bool(show_straight_after_result),
+                "simultaneous": bool(simultaneous_result),
             }
             self._cal_result = None
             self._cal_progress = {"msg": "touchdown zero"}
@@ -9016,6 +9148,7 @@ class BenchAPI:
         def _worker():
             result: dict = {"ok": False, "mode": "touchdown_zero"}
             live: set[int] = set()
+            hold_after_success = False
             rec: dict = {
                 "kind": "touchdown_zero",
                 "stamp": stamp,
@@ -9029,6 +9162,11 @@ class BenchAPI:
                 "requested": {"legs": leg_list, "axes": axis_list},
                 "torque": torque_i,
                 "settle_s": round(settle, 3),
+                "refine_mode": (
+                    "always" if extra_accurate_result else "auto"),
+                "show_straight_after": bool(show_straight_after_result),
+                "sweep_mode": (
+                    "simultaneous" if simultaneous_result else "serial"),
                 "expected": expected_dicts(expected),
                 "samples": [],
                 "per_leg": [],
@@ -9064,15 +9202,23 @@ class BenchAPI:
                     q[j + 2] = float(angle)
                 return q
 
+            def pose_for_axis_targets(
+                    axis: str, targets: dict[int, float]) -> list[float]:
+                q = zero_pose()
+                offset = 1 if axis == "hip" else 2
+                for leg, angle in targets.items():
+                    q[int(leg) * 3 + offset] = float(angle)
+                return q
+
             def fb_float(row: dict, key: str) -> float:
                 try:
                     return float(row.get(key) or 0.0)
                 except (TypeError, ValueError):
                     return 0.0
 
-            def sample_row(leg: int, axis: str, cmd_deg: float,
-                           baseline: dict[int, dict]) -> dict:
-                fb = self._read_feedback_map(d.bus)
+            def sample_row_from_feedback(
+                    fb: dict[int, dict], leg: int, axis: str,
+                    cmd_deg: float, baseline: dict[int, dict]) -> dict:
                 jh = int(leg) * 3 + 1
                 jk = int(leg) * 3 + 2
                 rh = fb.get(jh) or {}
@@ -9108,11 +9254,18 @@ class BenchAPI:
                     "load_delta_pct": round(load_delta, 1),
                 }
 
+            def sample_row(leg: int, axis: str, cmd_deg: float,
+                           baseline: dict[int, dict]) -> dict:
+                fb = self._read_feedback_map(d.bus)
+                return sample_row_from_feedback(
+                    fb, leg, axis, cmd_deg, baseline)
+
             try:
                 from feetech_bus import AXIS_LIMITS_DEG
                 from inplace_demos import (
-                    _enable_torque, _limp_all, _live_robot_ids,
-                    _set_torque_limit, _write_pose,
+                    CurrentPeakTracker, _enable_torque, _limp_all,
+                    _live_robot_ids, _set_torque_limit, _write_pose,
+                    ease_to_pose,
                 )
             except ImportError as e:
                 result = {"ok": False, "mode": "touchdown_zero",
@@ -9121,9 +9274,1231 @@ class BenchAPI:
                 guard_error = None
                 contact_count = 0
                 requested_count = len(leg_list) * len(axis_list)
+                reset_torque_i = min(650, max(520, torque_i))
+                zero_tolerance_deg = 2.5
+                repeat_tolerance_deg = 3.0
+                local_repeat_tolerance_deg = 2.0
+                local_refine_trigger_deg = 6.0
                 leg_rows: dict[int, dict] = {
                     int(leg): {"leg": int(leg)} for leg in leg_list
                 }
+
+                def leg_zero_snapshot(leg: int) -> dict:
+                    fb = self._read_feedback_map(d.bus)
+                    j = int(leg) * 3
+                    rh = fb.get(j + 1) or {}
+                    rk = fb.get(j + 2) or {}
+                    hdeg = self._maybe_float(rh.get("deg"))
+                    kdeg = self._maybe_float(rk.get("deg"))
+                    vals = [abs(v) for v in (hdeg, kdeg) if v is not None]
+                    return {
+                        "hip_deg": None if hdeg is None else round(hdeg, 2),
+                        "knee_deg": None if kdeg is None else round(kdeg, 2),
+                        "max_abs_deg": (
+                            None if not vals else round(max(vals), 2)),
+                    }
+
+                def leg_axis_snapshot(
+                        leg: int, axis: str,
+                        target_cmd_deg: float | None = None) -> dict:
+                    fb = self._read_feedback_map(d.bus)
+                    j = int(leg) * 3
+                    rh = fb.get(j + 1) or {}
+                    rk = fb.get(j + 2) or {}
+                    hdeg = self._maybe_float(rh.get("deg"))
+                    kdeg = self._maybe_float(rk.get("deg"))
+                    axis_deg = hdeg if axis == "hip" else kdeg
+                    out = {
+                        "hip_deg": None if hdeg is None else round(hdeg, 2),
+                        "knee_deg": None if kdeg is None else round(kdeg, 2),
+                        "axis_deg": (
+                            None if axis_deg is None else round(axis_deg, 2)),
+                    }
+                    if target_cmd_deg is not None and axis_deg is not None:
+                        out["target_cmd_deg"] = round(float(target_cmd_deg), 2)
+                        out["target_error_deg"] = round(
+                            axis_deg - float(target_cmd_deg), 2)
+                    return out
+
+                def settle_leg_zero(
+                        leg: int, axis: str, label: str
+                ) -> tuple[bool, dict[int, dict], dict]:
+                    initial = leg_zero_snapshot(leg)
+                    initial_err = float(initial.get("max_abs_deg") or 0.0)
+                    timeout_s = max(3.5, min(8.0, 1.2 + initial_err / 9.0))
+                    zrec = {
+                        "leg": int(leg),
+                        "axis": axis,
+                        "label": label,
+                        "torque": reset_torque_i,
+                        "tolerance_deg": zero_tolerance_deg,
+                        "timeout_s": round(timeout_s, 2),
+                        "initial": initial,
+                        "samples": [],
+                    }
+                    progress(
+                        f"touchdown zero: L{leg} {axis} settle zero",
+                        leg=leg, axis=axis)
+                    _set_torque_limit(d.bus, live, reset_torque_i)
+                    start = time.monotonic()
+                    deadline = start + timeout_s
+                    next_write = 0.0
+                    ok = False
+                    last = {}
+                    while time.monotonic() < deadline:
+                        if self._demo_abort.is_set():
+                            break
+                        now = time.monotonic()
+                        if now >= next_write:
+                            _write_pose(
+                                d.bus, zero_pose(), live, speed=180, acc=18)
+                            next_write = now + 0.35
+                        time.sleep(0.16)
+                        snap = leg_zero_snapshot(leg)
+                        snap["t_s"] = round(time.monotonic() - start, 2)
+                        zrec["samples"].append(snap)
+                        last = snap
+                        err = snap.get("max_abs_deg")
+                        if err is not None and float(err) <= zero_tolerance_deg:
+                            ok = True
+                            break
+                    zrec["ok"] = bool(ok)
+                    if last:
+                        zrec["final"] = last
+                    _set_torque_limit(d.bus, live, torque_i)
+                    time.sleep(0.12)
+                    return ok, self._read_feedback_map(d.bus), zrec
+
+                def settle_leg_near(
+                        leg: int, axis: str, label: str,
+                        target_cmd_deg: float, *,
+                        axis_limits: tuple[float, float],
+                        min_axis_deg: float | None = None,
+                        max_axis_deg: float | None = None
+                ) -> tuple[bool, dict[int, dict], dict]:
+                    lo, hi = axis_limits
+                    base_target = max(
+                        float(lo), min(float(hi), float(target_cmd_deg)))
+                    nrec = {
+                        "leg": int(leg),
+                        "axis": axis,
+                        "label": label,
+                        "target_cmd_deg": round(float(base_target), 2),
+                        "min_axis_deg": (
+                            None if min_axis_deg is None
+                            else round(float(min_axis_deg), 2)),
+                        "max_axis_deg": (
+                            None if max_axis_deg is None
+                            else round(float(max_axis_deg), 2)),
+                        "position_tolerance_deg": 3.0,
+                        "torque": torque_i,
+                        "samples": [],
+                        "attempts": [],
+                    }
+                    last = {}
+                    ok = False
+                    extra_backoff = 0.0
+                    for attempt_i in range(1, 5):
+                        target = max(
+                            float(lo),
+                            min(float(hi), base_target - extra_backoff))
+                        arec = {
+                            "attempt": attempt_i,
+                            "target_cmd_deg": round(float(target), 2),
+                            "samples": [],
+                        }
+                        progress(
+                            f"touchdown zero: L{leg} {axis} near lift-off",
+                            leg=leg, axis=axis, angle_deg=target,
+                            attempt=attempt_i)
+                        _set_torque_limit(d.bus, live, torque_i)
+                        start = time.monotonic()
+                        deadline = start + 1.25
+                        next_write = 0.0
+                        while time.monotonic() < deadline:
+                            if self._demo_abort.is_set():
+                                break
+                            now = time.monotonic()
+                            if now >= next_write:
+                                _write_pose(
+                                    d.bus,
+                                    pose_for(leg, axis, target),
+                                    live,
+                                    speed=120,
+                                    acc=12)
+                                next_write = now + 0.26
+                            time.sleep(0.14)
+                            snap = leg_axis_snapshot(leg, axis, target)
+                            snap["t_s"] = round(time.monotonic() - start, 2)
+                            snap["attempt"] = attempt_i
+                            arec["samples"].append(snap)
+                            nrec["samples"].append(snap)
+                            last = snap
+                        axis_deg = self._maybe_float(last.get("axis_deg"))
+                        target_error = (
+                            None if axis_deg is None
+                            else abs(axis_deg - float(target)))
+                        positioned = (
+                            axis_deg is not None
+                            and (
+                                min_axis_deg is None
+                                or axis_deg >= float(min_axis_deg)
+                                or (
+                                    target_error is not None
+                                    and target_error <= 3.0)))
+                        unloaded = (
+                            axis_deg is not None
+                            and (
+                                max_axis_deg is None
+                                or axis_deg <= float(max_axis_deg)))
+                        arec["ok"] = bool(
+                            positioned
+                            and unloaded
+                            and not self._demo_abort.is_set())
+                        arec["positioned"] = bool(positioned)
+                        arec["unloaded"] = bool(unloaded)
+                        if last:
+                            arec["final"] = last
+                        nrec["attempts"].append(arec)
+                        if arec["ok"]:
+                            ok = True
+                            break
+                        if self._demo_abort.is_set():
+                            break
+                        if (axis_deg is not None
+                                and max_axis_deg is not None
+                                and axis_deg > float(max_axis_deg)):
+                            extra_backoff += 4.0
+                    nrec["ok"] = bool(ok)
+                    if last:
+                        nrec["final"] = last
+                        axis_deg = self._maybe_float(last.get("axis_deg"))
+                        final_target = self._maybe_float(
+                            last.get("target_cmd_deg"))
+                        target_error = (
+                            None if axis_deg is None or final_target is None
+                            else abs(axis_deg - final_target))
+                        nrec["positioned"] = bool(
+                            axis_deg is not None
+                            and (
+                                min_axis_deg is None
+                                or axis_deg >= float(min_axis_deg)
+                                or (
+                                    target_error is not None
+                                    and target_error <= 3.0)))
+                        nrec["unloaded"] = bool(
+                            axis_deg is not None
+                            and (
+                                max_axis_deg is None
+                                or axis_deg <= float(max_axis_deg)))
+                    time.sleep(0.08)
+                    return ok, self._read_feedback_map(d.bus), nrec
+
+                def leg_zero_snapshot_many(legs: list[int]) -> dict:
+                    fb = self._read_feedback_map(d.bus)
+                    per_leg: dict[str, dict] = {}
+                    max_vals: list[float] = []
+                    for leg in legs:
+                        j = int(leg) * 3
+                        rh = fb.get(j + 1) or {}
+                        rk = fb.get(j + 2) or {}
+                        hdeg = self._maybe_float(rh.get("deg"))
+                        kdeg = self._maybe_float(rk.get("deg"))
+                        vals = [
+                            abs(v) for v in (hdeg, kdeg)
+                            if v is not None
+                        ]
+                        if vals:
+                            max_vals.append(max(vals))
+                        per_leg[str(int(leg))] = {
+                            "hip_deg": (
+                                None if hdeg is None else round(hdeg, 2)),
+                            "knee_deg": (
+                                None if kdeg is None else round(kdeg, 2)),
+                            "max_abs_deg": (
+                                None if not vals
+                                else round(max(vals), 2)),
+                        }
+                    return {
+                        "per_leg": per_leg,
+                        "max_abs_deg": (
+                            None if not max_vals
+                            else round(max(max_vals), 2)),
+                    }
+
+                def settle_legs_zero(
+                        legs: list[int], axis: str, label: str
+                ) -> tuple[bool, dict[int, dict], dict]:
+                    leg_ints = [int(leg) for leg in legs]
+                    initial = leg_zero_snapshot_many(leg_ints)
+                    initial_err = float(initial.get("max_abs_deg") or 0.0)
+                    timeout_s = max(3.5, min(8.0, 1.2 + initial_err / 9.0))
+                    zrec = {
+                        "legs": leg_ints,
+                        "axis": axis,
+                        "label": label,
+                        "torque": reset_torque_i,
+                        "tolerance_deg": zero_tolerance_deg,
+                        "timeout_s": round(timeout_s, 2),
+                        "initial": initial,
+                        "samples": [],
+                        "mode": "simultaneous",
+                    }
+                    progress(
+                        f"touchdown zero: all {axis} settle zero",
+                        axis=axis, legs=leg_ints)
+                    _set_torque_limit(d.bus, live, reset_torque_i)
+                    start = time.monotonic()
+                    deadline = start + timeout_s
+                    next_write = 0.0
+                    ok = False
+                    last = {}
+                    while time.monotonic() < deadline:
+                        if self._demo_abort.is_set():
+                            break
+                        now = time.monotonic()
+                        if now >= next_write:
+                            _write_pose(
+                                d.bus, zero_pose(), live, speed=180, acc=18)
+                            next_write = now + 0.35
+                        time.sleep(0.16)
+                        snap = leg_zero_snapshot_many(leg_ints)
+                        snap["t_s"] = round(time.monotonic() - start, 2)
+                        zrec["samples"].append(snap)
+                        last = snap
+                        err = snap.get("max_abs_deg")
+                        if err is not None and float(err) <= zero_tolerance_deg:
+                            ok = True
+                            break
+                    zrec["ok"] = bool(ok)
+                    if last:
+                        zrec["final"] = last
+                    _set_torque_limit(d.bus, live, torque_i)
+                    time.sleep(0.12)
+                    return ok, self._read_feedback_map(d.bus), zrec
+
+                def settle_legs_near(
+                        legs: list[int], axis: str, label: str,
+                        target_by_leg: dict[int, float], *,
+                        axis_limits: tuple[float, float],
+                        min_by_leg: dict[int, float],
+                        max_by_leg: dict[int, float]
+                ) -> tuple[bool, dict[int, dict], dict]:
+                    leg_ints = [int(leg) for leg in legs]
+                    lo, hi = axis_limits
+                    targets = {
+                        int(leg): max(
+                            float(lo),
+                            min(float(hi), float(target_by_leg[int(leg)])))
+                        for leg in leg_ints
+                    }
+                    nrec = {
+                        "legs": leg_ints,
+                        "axis": axis,
+                        "label": label,
+                        "target_cmd_deg": {
+                            str(leg): round(float(targets[leg]), 2)
+                            for leg in leg_ints
+                        },
+                        "min_axis_deg": {
+                            str(leg): round(float(min_by_leg[leg]), 2)
+                            for leg in leg_ints
+                        },
+                        "max_axis_deg": {
+                            str(leg): round(float(max_by_leg[leg]), 2)
+                            for leg in leg_ints
+                        },
+                        "position_tolerance_deg": 3.0,
+                        "torque": torque_i,
+                        "samples": [],
+                        "attempts": [],
+                        "mode": "simultaneous",
+                    }
+                    last_by_leg: dict[int, dict] = {}
+                    ok = False
+                    for attempt_i in range(1, 6):
+                        progress(
+                            f"touchdown zero: all {axis} near lift-off",
+                            axis=axis, attempt=attempt_i,
+                            legs=leg_ints)
+                        _set_torque_limit(d.bus, live, torque_i)
+                        start = time.monotonic()
+                        deadline = start + 1.35
+                        next_write = 0.0
+                        arec = {
+                            "attempt": attempt_i,
+                            "targets": {
+                                str(leg): round(float(targets[leg]), 2)
+                                for leg in leg_ints
+                            },
+                            "samples": [],
+                        }
+                        while time.monotonic() < deadline:
+                            if self._demo_abort.is_set():
+                                break
+                            now = time.monotonic()
+                            if now >= next_write:
+                                _write_pose(
+                                    d.bus,
+                                    pose_for_axis_targets(axis, targets),
+                                    live,
+                                    speed=120,
+                                    acc=12)
+                                next_write = now + 0.26
+                            time.sleep(0.14)
+                            fb = self._read_feedback_map(d.bus)
+                            snap = {
+                                "t_s": round(time.monotonic() - start, 2),
+                                "attempt": attempt_i,
+                                "per_leg": {},
+                            }
+                            for leg in leg_ints:
+                                j = int(leg) * 3
+                                rh = fb.get(j + 1) or {}
+                                rk = fb.get(j + 2) or {}
+                                hdeg = self._maybe_float(rh.get("deg"))
+                                kdeg = self._maybe_float(rk.get("deg"))
+                                axis_deg = hdeg if axis == "hip" else kdeg
+                                row = {
+                                    "hip_deg": (
+                                        None if hdeg is None
+                                        else round(hdeg, 2)),
+                                    "knee_deg": (
+                                        None if kdeg is None
+                                        else round(kdeg, 2)),
+                                    "axis_deg": (
+                                        None if axis_deg is None
+                                        else round(axis_deg, 2)),
+                                    "target_cmd_deg": round(
+                                        float(targets[leg]), 2),
+                                }
+                                if axis_deg is not None:
+                                    row["target_error_deg"] = round(
+                                        axis_deg - float(targets[leg]), 2)
+                                snap["per_leg"][str(leg)] = row
+                                last_by_leg[leg] = row
+                            arec["samples"].append(snap)
+                            nrec["samples"].append(snap)
+                        per_leg_status: dict[str, dict] = {}
+                        all_ok = not self._demo_abort.is_set()
+                        for leg in leg_ints:
+                            last = last_by_leg.get(leg) or {}
+                            axis_deg = self._maybe_float(last.get("axis_deg"))
+                            target = targets[leg]
+                            target_error = (
+                                None if axis_deg is None
+                                else abs(axis_deg - float(target)))
+                            positioned = (
+                                axis_deg is not None
+                                and (
+                                    axis_deg >= float(min_by_leg[leg])
+                                    or (
+                                        target_error is not None
+                                        and target_error <= 3.0)))
+                            unloaded = (
+                                axis_deg is not None
+                                and axis_deg <= float(max_by_leg[leg]))
+                            leg_ok = bool(
+                                positioned and unloaded
+                                and not self._demo_abort.is_set())
+                            all_ok = all_ok and leg_ok
+                            per_leg_status[str(leg)] = {
+                                "ok": leg_ok,
+                                "positioned": bool(positioned),
+                                "unloaded": bool(unloaded),
+                                "final": last,
+                            }
+                            if not leg_ok and axis_deg is not None:
+                                if axis_deg > float(max_by_leg[leg]):
+                                    targets[leg] = max(
+                                        float(lo), targets[leg] - 4.0)
+                        arec["per_leg_status"] = per_leg_status
+                        arec["ok"] = bool(all_ok)
+                        nrec["attempts"].append(arec)
+                        if all_ok:
+                            ok = True
+                            break
+                        if self._demo_abort.is_set():
+                            break
+                    nrec["ok"] = bool(ok)
+                    nrec["final_by_leg"] = {
+                        str(leg): last_by_leg.get(leg, {})
+                        for leg in leg_ints
+                    }
+                    if nrec["attempts"]:
+                        nrec["final_status"] = (
+                            nrec["attempts"][-1].get("per_leg_status", {}))
+                    time.sleep(0.08)
+                    return ok, self._read_feedback_map(d.bus), nrec
+
+                def run_touch_repeat_many(
+                        legs: list[int], axis: str, exp: float,
+                        axis_limits: tuple[float, float], repeat_i: int, *,
+                        refine_center_cmd: dict[int, float] | None = None,
+                        refine_center_observed: (
+                            dict[int, float | None] | None) = None
+                ) -> tuple[dict[int, dict], str | None]:
+                    leg_ints = [int(leg) for leg in legs]
+                    stop_error = None
+                    refine = refine_center_cmd is not None
+                    rows_by_leg: dict[int, list[dict]] = {
+                        leg: [] for leg in leg_ints
+                    }
+                    analyses: dict[int, object] = {}
+                    sweep_by_leg: dict[int, list[float]] = {}
+                    center_obs_by_leg: dict[int, float] = {}
+                    if refine:
+                        refine_backoff_deg = (
+                            12.0 if axis == "knee" else 8.0)
+                        for leg in leg_ints:
+                            center_cmd = float(
+                                refine_center_cmd.get(leg, exp))
+                            sweep = make_refine_sweep_angles(
+                                center_cmd,
+                                backoff_deg=refine_backoff_deg,
+                                limit=axis_limits)
+                            if not sweep:
+                                return {
+                                    leg: {
+                                        "ok": False,
+                                        "axis": axis,
+                                        "status": "bad_refine_sweep",
+                                        "expected_touch_deg": exp,
+                                        "repeat": repeat_i,
+                                        "samples": 0,
+                                        "note": (
+                                            "local refine sweep is empty"),
+                                    }
+                                    for leg in leg_ints
+                                }, "bad_refine_sweep"
+                            sweep_by_leg[leg] = sweep
+                            obs = (
+                                None if refine_center_observed is None
+                                else refine_center_observed.get(leg))
+                            center_obs_by_leg[leg] = (
+                                exp if obs is None else float(obs))
+                        unload_margin_deg = (
+                            4.0 if axis == "knee" else 3.0)
+                        near_ok, baseline, near_rec = settle_legs_near(
+                            leg_ints,
+                            axis,
+                            f"repeat_{repeat_i}_near",
+                            {leg: sweep_by_leg[leg][0]
+                             for leg in leg_ints},
+                            axis_limits=axis_limits,
+                            min_by_leg={
+                                leg: max(
+                                    float(axis_limits[0]),
+                                    float(sweep_by_leg[leg][0]) - 3.0)
+                                for leg in leg_ints
+                            },
+                            max_by_leg={
+                                leg: center_obs_by_leg[leg]
+                                - unload_margin_deg
+                                for leg in leg_ints
+                            })
+                        rec.setdefault("near_settles", []).append(near_rec)
+                        if not near_ok:
+                            return {
+                                leg: {
+                                    "ok": False,
+                                    "axis": axis,
+                                    "status": "near_settle_failed",
+                                    "expected_touch_deg": exp,
+                                    "repeat": repeat_i,
+                                    "samples": 0,
+                                    "note": (
+                                        f"all {axis} near lift-off failed"),
+                                    "near_settle": near_rec,
+                                }
+                                for leg in leg_ints
+                            }, "near_settle_failed"
+                        angle_i_by_leg = {leg: 0 for leg in leg_ints}
+                    else:
+                        zero_ok, baseline, zero_rec = settle_legs_zero(
+                            leg_ints, axis, f"repeat_{repeat_i}_pre")
+                        rec.setdefault("zero_settles", []).append(zero_rec)
+                        if not zero_ok:
+                            return {
+                                leg: {
+                                    "ok": False,
+                                    "axis": axis,
+                                    "status": "zero_settle_failed",
+                                    "expected_touch_deg": exp,
+                                    "repeat": repeat_i,
+                                    "samples": 0,
+                                    "note": (
+                                        f"all {axis} zero settle failed"),
+                                    "zero_settle": zero_rec,
+                                }
+                                for leg in leg_ints
+                            }, "zero_settle_failed"
+                        search_overrun_deg = (
+                            14.0 if axis == "hip" else 22.0)
+                        common_sweep = make_sweep_angles(
+                            exp,
+                            overrun_deg=search_overrun_deg,
+                            limit=axis_limits)
+                        sweep_by_leg = {
+                            leg: list(common_sweep) for leg in leg_ints
+                        }
+                        center_obs_by_leg = {
+                            leg: float(exp) for leg in leg_ints
+                        }
+                        angle_i_by_leg = {leg: 0 for leg in leg_ints}
+                    last_angle_by_leg = {
+                        leg: (sweep_by_leg[leg][0]
+                              if sweep_by_leg[leg] else 0.0)
+                        for leg in leg_ints
+                    }
+                    hold_cmd_by_leg: dict[int, float] = {}
+                    done: set[int] = set()
+                    completed_hold_backoff_deg = (
+                        4.0 if axis == "knee" else 3.0)
+                    no_contact_hold_backoff_deg = (
+                        8.0 if axis == "knee" else 6.0)
+                    no_contact_overrun_deg = (
+                        14.0 if axis == "hip" else 22.0)
+                    encoder_done_by_leg = {
+                        leg: min(
+                            float(axis_limits[1]),
+                            max(float(exp) + 5.0,
+                                center_obs_by_leg[leg] + 4.0)
+                            if refine else float(exp) + no_contact_overrun_deg)
+                        for leg in leg_ints
+                    }
+                    touch_kwargs = {"expected_touch_deg": exp}
+                    if refine:
+                        touch_kwargs.update({
+                            "weak_current_delta_a": 0.008,
+                            "weak_load_delta_pct": 1.9,
+                        })
+                    max_samples = (
+                        18 if refine and axis == "hip"
+                        else 24 if refine
+                        else 24 if axis == "hip"
+                        else 32)
+                    while len(done) < len(leg_ints):
+                        if self._demo_abort.is_set():
+                            stop_error = "aborted"
+                            break
+                        if any(
+                                len(rows_by_leg[leg]) >= max_samples
+                                for leg in leg_ints
+                                if leg not in done):
+                            break
+                        active = [leg for leg in leg_ints if leg not in done]
+                        cmd_by_leg: dict[int, float] = {}
+                        for leg in leg_ints:
+                            if leg in done:
+                                cmd_by_leg[leg] = hold_cmd_by_leg.get(
+                                    leg, last_angle_by_leg[leg])
+                                continue
+                            sweep = sweep_by_leg[leg]
+                            idx = angle_i_by_leg[leg]
+                            if idx < len(sweep):
+                                angle = sweep[idx]
+                                angle_i_by_leg[leg] = idx + 1
+                                last_angle_by_leg[leg] = angle
+                            else:
+                                angle = last_angle_by_leg[leg]
+                            cmd_by_leg[leg] = float(angle)
+                        active_angles = [cmd_by_leg[leg] for leg in active]
+                        if active_angles:
+                            angle_msg = (
+                                f"{active_angles[0]:+.1f} deg"
+                                if (max(active_angles)
+                                    - min(active_angles) < 0.05)
+                                else (
+                                    f"{min(active_angles):+.1f}"
+                                    f"..{max(active_angles):+.1f} deg"))
+                        else:
+                            angle_msg = ""
+                        progress(
+                            f"touchdown zero: all {axis} "
+                            f"{'local tap' if refine else 'tap'} "
+                            f"{repeat_i} {angle_msg}",
+                            axis=axis,
+                            repeat=repeat_i,
+                            active=len(active),
+                            total=len(leg_ints))
+                        _write_pose(
+                            d.bus,
+                            pose_for_axis_targets(axis, cmd_by_leg),
+                            live,
+                            speed=72,
+                            acc=8)
+                        time.sleep(settle)
+                        fb = self._read_feedback_map(d.bus)
+                        for leg in active:
+                            row = sample_row_from_feedback(
+                                fb, leg, axis, cmd_by_leg[leg], baseline)
+                            row["repeat"] = repeat_i
+                            row["simultaneous"] = True
+                            if refine:
+                                row["mode"] = "local_refine"
+                            rows_by_leg[leg].append(row)
+                            rec["samples"].append(row)
+                            max_cur = max(
+                                float(row.get("hip_current_a") or 0.0),
+                                float(row.get("knee_current_a") or 0.0))
+                            max_load = max(
+                                float(row.get("hip_load_pct") or 0.0),
+                                float(row.get("knee_load_pct") or 0.0))
+                            if max_cur >= 0.75:
+                                stop_error = (
+                                    f"L{leg} {axis} current guard "
+                                    f"{max_cur:.2f}A")
+                                break
+                            if max_load >= 45.0:
+                                stop_error = (
+                                    f"L{leg} {axis} load guard "
+                                    f"{max_load:.0f}%")
+                                break
+                            analysis = analyze_touch_rows(
+                                axis, rows_by_leg[leg], **touch_kwargs)
+                            analyses[leg] = analysis
+                            if analysis.ok:
+                                done.add(leg)
+                                observed_axis = self._maybe_float(
+                                    getattr(
+                                        analysis, "observed_touch_deg", None))
+                                if observed_axis is None:
+                                    observed_axis = self._maybe_float(
+                                        row.get("encoder_deg"))
+                                if observed_axis is None:
+                                    observed_axis = float(row["cmd_deg"])
+                                hold_cmd_by_leg[leg] = max(
+                                    float(axis_limits[0]),
+                                    observed_axis - completed_hold_backoff_deg)
+                                continue
+                            max_encoder = analysis.max_encoder_deg
+                            if (max_encoder is not None
+                                    and max_encoder
+                                    >= encoder_done_by_leg[leg]):
+                                done.add(leg)
+                                observed_axis = self._maybe_float(
+                                    row.get("encoder_deg"))
+                                if observed_axis is None:
+                                    observed_axis = float(row["cmd_deg"])
+                                hold_cmd_by_leg[leg] = max(
+                                    float(axis_limits[0]),
+                                    float(observed_axis)
+                                    - no_contact_hold_backoff_deg)
+                        if stop_error:
+                            break
+                    reps: dict[int, dict] = {}
+                    for leg in leg_ints:
+                        analysis = analyses.get(leg)
+                        if analysis is None:
+                            analysis = analyze_touch_rows(
+                                axis, rows_by_leg[leg], **touch_kwargs)
+                        rep = analysis_dict(analysis)
+                        rep["repeat"] = repeat_i
+                        rep["simultaneous"] = True
+                        if refine:
+                            rep["mode"] = "local_refine"
+                            rep["refine_center_cmd_deg"] = round(
+                                float(refine_center_cmd.get(leg, exp)), 3)
+                            rep["refine_center_observed_deg"] = round(
+                                float(center_obs_by_leg[leg]), 3)
+                            rep["detection"] = touch_kwargs
+                        rep["planned_sweep_deg"] = sweep_by_leg[leg]
+                        rep["sweep_deg"] = [
+                            r.get("cmd_deg") for r in rows_by_leg[leg]
+                        ]
+                        rep["encoder_done_deg"] = round(
+                            encoder_done_by_leg[leg], 3)
+                        rep["max_samples"] = max_samples
+                        rep["completed_hold_backoff_deg"] = (
+                            completed_hold_backoff_deg)
+                        rep["no_contact_hold_backoff_deg"] = (
+                            no_contact_hold_backoff_deg)
+                        rep["completed_hold_reference"] = "encoder_deg"
+                        reps[leg] = rep
+
+                    if not refine and not self._demo_abort.is_set():
+                        post_ok, _baseline, post_rec = settle_legs_zero(
+                            leg_ints, axis, f"repeat_{repeat_i}_post")
+                        rec.setdefault("zero_settles", []).append(post_rec)
+                        for rep in reps.values():
+                            rep["post_zero_settle"] = post_rec
+                        if not post_ok and stop_error is None:
+                            stop_error = (
+                                f"all {axis} post-zero settle failed")
+                    return reps, stop_error
+
+                def run_touch_repeat(
+                        leg: int, axis: str, exp: float,
+                        axis_limits: tuple[float, float], repeat_i: int, *,
+                        refine_center_cmd: float | None = None,
+                        refine_center_observed: float | None = None
+                ) -> tuple[dict, str | None]:
+                    stop_error = None
+                    refine = refine_center_cmd is not None
+                    if refine:
+                        refine_backoff_deg = (
+                            12.0 if axis == "knee" else 8.0)
+                        sweep = make_refine_sweep_angles(
+                            float(refine_center_cmd),
+                            backoff_deg=refine_backoff_deg,
+                            limit=axis_limits)
+                        if not sweep:
+                            return {
+                                "ok": False,
+                                "axis": axis,
+                                "status": "bad_refine_sweep",
+                                "expected_touch_deg": exp,
+                                "repeat": repeat_i,
+                                "samples": 0,
+                                "note": "local refine sweep is empty",
+                            }, "bad_refine_sweep"
+                        center_observed = (
+                            exp if refine_center_observed is None
+                            else float(refine_center_observed))
+                        unload_margin_deg = (
+                            4.0 if axis == "knee" else 3.0)
+                        min_axis_deg = max(
+                            float(axis_limits[0]), float(sweep[0]) - 3.0)
+                        max_axis_deg = center_observed - unload_margin_deg
+                        near_ok, baseline, near_rec = settle_leg_near(
+                            leg, axis, f"repeat_{repeat_i}_near",
+                            sweep[0],
+                            axis_limits=axis_limits,
+                            min_axis_deg=min_axis_deg,
+                            max_axis_deg=max_axis_deg)
+                        rec.setdefault("near_settles", []).append(near_rec)
+                        if not near_ok:
+                            final = near_rec.get("final") or {}
+                            return {
+                                "ok": False,
+                                "axis": axis,
+                                "status": "near_settle_failed",
+                                "expected_touch_deg": exp,
+                                "repeat": repeat_i,
+                                "samples": 0,
+                                "note": (
+                                    f"L{leg} {axis} near lift-off failed "
+                                    f"hip={final.get('hip_deg')} "
+                                    f"knee={final.get('knee_deg')} "
+                                    f"min={near_rec.get('min_axis_deg')} "
+                                    f"limit={near_rec.get('max_axis_deg')}"),
+                                "near_settle": near_rec,
+                            }, "near_settle_failed"
+                        angle_i = 0
+                    else:
+                        zero_ok, baseline, zero_rec = settle_leg_zero(
+                            leg, axis, f"repeat_{repeat_i}_pre")
+                        rec.setdefault("zero_settles", []).append(zero_rec)
+                        if not zero_ok:
+                            final = zero_rec.get("final") or {}
+                            return {
+                                "ok": False,
+                                "axis": axis,
+                                "status": "zero_settle_failed",
+                                "expected_touch_deg": exp,
+                                "repeat": repeat_i,
+                                "samples": 0,
+                                "note": (
+                                    f"L{leg} {axis} zero settle failed "
+                                    f"hip={final.get('hip_deg')} "
+                                    f"knee={final.get('knee_deg')}"),
+                                "zero_settle": zero_rec,
+                            }, "zero_settle_failed"
+                        search_overrun_deg = (
+                            14.0 if axis == "hip" else 22.0)
+                        sweep = make_sweep_angles(
+                            exp,
+                            overrun_deg=search_overrun_deg,
+                            limit=axis_limits)
+                        angle_i = 0
+                    rows: list[dict] = []
+                    analysis = None
+                    last_angle = sweep[0] if sweep else 0.0
+                    center_observed = (
+                        exp if refine_center_observed is None
+                        else float(refine_center_observed))
+                    encoder_done = min(
+                        float(axis_limits[1]),
+                        max(exp + 5.0, center_observed + 4.0)
+                        if refine else exp + search_overrun_deg)
+                    touch_kwargs = {
+                        "expected_touch_deg": exp,
+                    }
+                    if refine:
+                        touch_kwargs.update({
+                            "weak_current_delta_a": 0.008,
+                            "weak_load_delta_pct": 1.9,
+                        })
+                    max_samples = (
+                        18 if refine and axis == "hip"
+                        else 24 if refine
+                        else 24 if axis == "hip"
+                        else 32)
+                    while len(rows) < max_samples:
+                        if self._demo_abort.is_set():
+                            stop_error = "aborted"
+                            break
+                        if angle_i < len(sweep):
+                            angle = sweep[angle_i]
+                            angle_i += 1
+                            last_angle = angle
+                        else:
+                            angle = last_angle
+                        progress(
+                            f"touchdown zero: L{leg} {axis} "
+                            f"{'local tap' if refine else 'tap'} "
+                            f"{repeat_i} {angle:+.1f} deg",
+                            leg=leg, axis=axis, repeat=repeat_i,
+                            angle_deg=angle)
+                        _write_pose(
+                            d.bus, pose_for(leg, axis, angle),
+                            live, speed=72, acc=8)
+                        time.sleep(settle)
+                        row = sample_row(leg, axis, angle, baseline)
+                        row["repeat"] = repeat_i
+                        if refine:
+                            row["mode"] = "local_refine"
+                        rows.append(row)
+                        rec["samples"].append(row)
+                        max_cur = max(
+                            float(row.get("hip_current_a") or 0.0),
+                            float(row.get("knee_current_a") or 0.0))
+                        max_load = max(
+                            float(row.get("hip_load_pct") or 0.0),
+                            float(row.get("knee_load_pct") or 0.0))
+                        if max_cur >= 0.75:
+                            stop_error = (
+                                f"L{leg} {axis} current guard "
+                                f"{max_cur:.2f}A")
+                            break
+                        if max_load >= 45.0:
+                            stop_error = (
+                                f"L{leg} {axis} load guard {max_load:.0f}%")
+                            break
+                        analysis = analyze_touch_rows(
+                            axis, rows, **touch_kwargs)
+                        if analysis.ok:
+                            break
+                        max_encoder = analysis.max_encoder_deg
+                        if (max_encoder is not None
+                                and max_encoder >= encoder_done):
+                            break
+                    if analysis is None:
+                        analysis = analyze_touch_rows(
+                            axis, rows, **touch_kwargs)
+                    rep = analysis_dict(analysis)
+                    rep["repeat"] = repeat_i
+                    if refine:
+                        rep["mode"] = "local_refine"
+                        rep["refine_center_cmd_deg"] = round(
+                            float(refine_center_cmd), 3)
+                        rep["refine_center_observed_deg"] = round(
+                            float(center_observed), 3)
+                    rep["planned_sweep_deg"] = sweep
+                    rep["sweep_deg"] = [r.get("cmd_deg") for r in rows]
+                    rep["encoder_done_deg"] = round(encoder_done, 3)
+                    rep["max_samples"] = max_samples
+                    if refine:
+                        rep["detection"] = touch_kwargs
+
+                    if not refine and not self._demo_abort.is_set():
+                        post_ok, _baseline, post_rec = settle_leg_zero(
+                            leg, axis, f"repeat_{repeat_i}_post")
+                        rec.setdefault("zero_settles", []).append(post_rec)
+                        rep["post_zero_settle"] = post_rec
+                        if not post_ok and stop_error is None:
+                            final = post_rec.get("final") or {}
+                            stop_error = (
+                                f"L{leg} {axis} post-zero settle failed "
+                                f"hip={final.get('hip_deg')} "
+                                f"knee={final.get('knee_deg')}")
+                    return rep, stop_error
+
+                def contact_values(
+                        reps: list[dict], key: str) -> list[float]:
+                    vals: list[float] = []
+                    for rep in reps:
+                        if not rep.get("ok") or rep.get(key) is None:
+                            continue
+                        try:
+                            vals.append(float(rep[key]))
+                        except (TypeError, ValueError):
+                            pass
+                    return vals
+
+                def median_value(vals: list[float]) -> float | None:
+                    if not vals:
+                        return None
+                    ordered = sorted(vals)
+                    mid = len(ordered) // 2
+                    if len(ordered) % 2:
+                        return ordered[mid]
+                    return 0.5 * (ordered[mid - 1] + ordered[mid])
+
+                def refine_center_command(
+                        center_cmd: float | None,
+                        center_obs: float | None
+                ) -> tuple[float | None, str]:
+                    if center_obs is None:
+                        return center_cmd, "observed_cmd_deg"
+                    if (center_cmd is None
+                            or abs(float(center_cmd)
+                                   - float(center_obs)) > 4.0):
+                        return float(center_obs), "observed_touch_deg"
+                    return float(center_cmd), "observed_cmd_deg"
+
+                def refine_center_observation(
+                        reps: list[dict]) -> tuple[float | None, str]:
+                    contacts: list[tuple[float, int, int, str]] = []
+                    strength_score = {"weak": 1, "edge": 2, "firm": 3}
+                    for idx, rep in enumerate(reps):
+                        if not rep.get("ok"):
+                            continue
+                        obs = self._maybe_float(rep.get("observed_touch_deg"))
+                        if obs is None:
+                            continue
+                        strength = str(rep.get("contact_strength") or "weak")
+                        score = strength_score.get(strength, 1)
+                        contacts.append((float(obs), score, idx, strength))
+                    if not contacts:
+                        return None, "none"
+                    vals = [c[0] for c in contacts]
+                    spread = max(vals) - min(vals)
+                    if spread > local_refine_trigger_deg:
+                        obs, _score, _idx, strength = max(
+                            contacts, key=lambda c: c[0])
+                        return float(obs), f"upper_{strength}"
+                    return median_value(vals), "median_observed_touch_deg"
+
+                def should_refine(merged: dict) -> bool:
+                    if merged.get("status") != "repeat_mismatch":
+                        return False
+                    spread = self._maybe_float(merged.get("repeat_spread_deg"))
+                    return (
+                        spread is not None
+                        and repeat_tolerance_deg < spread)
+
+                def straight_pose_from_record() -> tuple[
+                        list[float], list[dict], list[str]]:
+                    q = zero_pose()
+                    targets: list[dict] = []
+                    missing: list[str] = []
+                    requested_axes = set(axis_list)
+                    for row in rec.get("per_leg") or []:
+                        try:
+                            leg_i = int(row.get("leg"))
+                        except (TypeError, ValueError):
+                            continue
+                        for axis, offset in (("hip", 1), ("knee", 2)):
+                            if axis not in requested_axes:
+                                continue
+                            hint = row.get(axis)
+                            comp = None
+                            if isinstance(hint, dict) and hint.get("ok"):
+                                comp = self._maybe_float(
+                                    hint.get("command_compensation_deg"))
+                                if comp is None:
+                                    comp = self._maybe_float(
+                                        hint.get("encoder_zero_error_deg"))
+                            if comp is None:
+                                missing.append(f"L{leg_i} {axis}")
+                                continue
+                            if abs(float(comp)) > 20.0:
+                                missing.append(
+                                    f"L{leg_i} {axis} large "
+                                    f"{float(comp):+.1f}°")
+                                continue
+                            joint = leg_i * 3 + offset
+                            q[joint] = float(comp)
+                            targets.append({
+                                "leg": leg_i,
+                                "axis": axis,
+                                "joint": joint,
+                                "target_deg": round(float(comp), 3),
+                                "source_strength": (
+                                    hint.get("contact_strength")
+                                    if isinstance(hint, dict) else None),
+                            })
+                    return q, targets, missing
+
+                def run_axis_simultaneous(
+                        axis: str) -> tuple[str | None, int]:
+                    axis_index = 1 if axis == "hip" else 2
+                    exp = expected[axis].expected_touch_deg
+                    axis_limits = AXIS_LIMITS_DEG[axis_index]
+                    repeat_results_by_leg: dict[int, list[dict]] = {
+                        int(leg): [] for leg in leg_list
+                    }
+                    axis_results: dict[int, dict] = {}
+                    for repeat_i in (1, 2):
+                        reps_by_leg, stop_error = run_touch_repeat_many(
+                            [int(leg) for leg in leg_list],
+                            axis,
+                            exp,
+                            axis_limits,
+                            repeat_i)
+                        for leg, rep in reps_by_leg.items():
+                            repeat_results_by_leg[int(leg)].append(rep)
+                        if stop_error:
+                            return stop_error, 0
+
+                    initial_results: dict[int, dict] = {}
+                    for leg in leg_list:
+                        leg_i = int(leg)
+                        initial_results[leg_i] = merge_repeat_analyses(
+                            axis,
+                            repeat_results_by_leg[leg_i],
+                            expected_touch_deg=exp,
+                            repeat_tolerance_deg=repeat_tolerance_deg)
+                        axis_results[leg_i] = initial_results[leg_i]
+
+                    refine_legs: list[int] = []
+                    for leg in leg_list:
+                        leg_i = int(leg)
+                        reps = repeat_results_by_leg[leg_i]
+                        force_refine = (
+                            bool(extra_accurate_result)
+                            and len(contact_values(
+                                reps, "observed_touch_deg")) >= 2
+                            and bool(contact_values(
+                                reps, "observed_cmd_deg")))
+                        if should_refine(axis_results[leg_i]) or force_refine:
+                            refine_legs.append(leg_i)
+
+                    refinement_by_leg: dict[int, dict] = {}
+                    local_results_by_leg: dict[int, list[dict]] = {
+                        leg: [] for leg in refine_legs
+                    }
+                    used_local_by_leg: dict[int, bool] = {
+                        leg: False for leg in refine_legs
+                    }
+                    center_cmd_by_leg: dict[int, float] = {}
+                    center_obs_by_leg: dict[int, float | None] = {}
+                    for leg in refine_legs:
+                        reps = repeat_results_by_leg[leg]
+                        center_cmd = median_value(
+                            contact_values(reps, "observed_cmd_deg"))
+                        center_obs, center_obs_source = (
+                            refine_center_observation(reps))
+                        center_cmd, center_source = refine_center_command(
+                            center_cmd, center_obs)
+                        if center_cmd is None:
+                            continue
+                        center_cmd_by_leg[leg] = float(center_cmd)
+                        center_obs_by_leg[leg] = center_obs
+                        force_refine = bool(extra_accurate_result)
+                        refinement_by_leg[leg] = {
+                            "mode": "near_contact",
+                            "requested_by": (
+                                "always" if force_refine else "mismatch"),
+                            "trigger_spread_deg": (
+                                axis_results[leg].get(
+                                    "repeat_spread_deg")),
+                            "center_cmd_deg": round(float(center_cmd), 3),
+                            "center_cmd_source": center_source,
+                            "center_observed_deg": (
+                                None if center_obs is None
+                                else round(float(center_obs), 3)),
+                            "center_observed_source": center_obs_source,
+                            "max_local_repeats": 3,
+                            "local_repeat_tolerance_deg": (
+                                local_repeat_tolerance_deg),
+                            "simultaneous": True,
+                        }
+
+                    active = [
+                        leg for leg in refine_legs
+                        if leg in center_cmd_by_leg
+                    ]
+                    for local_i in range(3):
+                        if not active:
+                            break
+                        repeat_i = 3 + local_i
+                        reps_by_leg, stop_error = run_touch_repeat_many(
+                            active,
+                            axis,
+                            exp,
+                            axis_limits,
+                            repeat_i,
+                            refine_center_cmd={
+                                leg: center_cmd_by_leg[leg]
+                                for leg in active
+                            },
+                            refine_center_observed={
+                                leg: center_obs_by_leg.get(leg)
+                                for leg in active
+                            })
+                        for leg, rep in reps_by_leg.items():
+                            repeat_results_by_leg[int(leg)].append(rep)
+                            local_results_by_leg[int(leg)].append(rep)
+                        if stop_error:
+                            return stop_error, 0
+
+                        next_active: list[int] = []
+                        for leg in active:
+                            locals_for_leg = local_results_by_leg[leg]
+                            if len(locals_for_leg) < 2:
+                                next_active.append(leg)
+                                continue
+                            local_merged = merge_repeat_analyses(
+                                axis,
+                                locals_for_leg,
+                                expected_touch_deg=exp,
+                                repeat_tolerance_deg=(
+                                    local_repeat_tolerance_deg))
+                            if local_merged.get("ok"):
+                                axis_results[leg] = local_merged
+                                used_local_by_leg[leg] = True
+                            elif len(locals_for_leg) < 3:
+                                next_active.append(leg)
+                        active = next_active
+
+                    for leg in refine_legs:
+                        locals_for_leg = local_results_by_leg.get(leg, [])
+                        refinement = refinement_by_leg.get(leg)
+                        if not refinement:
+                            continue
+                        refinement["local_repeat_count"] = len(
+                            locals_for_leg)
+                        refinement["used_local_result"] = bool(
+                            used_local_by_leg.get(leg, False))
+                        refinement["local_observed_deg"] = [
+                            r.get("observed_touch_deg")
+                            for r in locals_for_leg
+                        ]
+                        if not axis_results[leg].get("ok"):
+                            axis_results[leg] = merge_repeat_analyses(
+                                axis,
+                                repeat_results_by_leg[leg],
+                                expected_touch_deg=exp,
+                                repeat_tolerance_deg=repeat_tolerance_deg)
+                        axis_results[leg]["refinement"] = refinement
+                        if (axis_results[leg].get("ok")
+                                and used_local_by_leg.get(leg, False)):
+                            axis_results[leg]["note"] = (
+                                "near-contact repeat-confirmed touchdown")
+
+                    axis_contacts = 0
+                    first_error = None
+                    for leg in leg_list:
+                        leg_i = int(leg)
+                        axis_result = axis_results[leg_i]
+                        leg_rows[leg_i][axis] = axis_result
+                        if axis_result.get("ok"):
+                            axis_contacts += 1
+                        elif (first_error is None
+                              and axis_result.get("status")
+                              == "repeat_mismatch"):
+                            first_error = (
+                                f"L{leg_i} {axis} touchdown repeats "
+                                "disagree")
+                        elif first_error is None:
+                            first_error = (
+                                f"L{leg_i} {axis} "
+                                f"{axis_result.get('status') or 'failed'}")
+                    return first_error, axis_contacts
+
                 try:
                     self._bus_hot_begin()
                     with d._lock:
@@ -9160,7 +10535,19 @@ class BenchAPI:
                         else:
                             _enable_torque(d.bus, live)
                             _set_torque_limit(d.bus, live, torque_i)
-                            for leg in leg_list:
+                            if simultaneous_result and len(leg_list) > 1:
+                                for axis in axis_list:
+                                    if (guard_error
+                                            or self._demo_abort.is_set()):
+                                        break
+                                    guard_error, axis_contacts = (
+                                        run_axis_simultaneous(axis))
+                                    contact_count += axis_contacts
+                            for leg in (
+                                    [] if (
+                                        simultaneous_result
+                                        and len(leg_list) > 1)
+                                    else leg_list):
                                 if guard_error or self._demo_abort.is_set():
                                     break
                                 for axis in axis_list:
@@ -9169,79 +10556,172 @@ class BenchAPI:
                                         break
                                     axis_index = 1 if axis == "hip" else 2
                                     exp = expected[axis].expected_touch_deg
-                                    sweep = make_sweep_angles(
-                                        exp,
-                                        limit=AXIS_LIMITS_DEG[axis_index])
-                                    progress(
-                                        f"touchdown zero: L{leg} {axis} zero",
-                                        leg=leg, axis=axis)
-                                    _write_pose(
-                                        d.bus, zero_pose(), live,
-                                        speed=110, acc=9)
-                                    time.sleep(0.55)
-                                    baseline = self._read_feedback_map(d.bus)
-                                    rows: list[dict] = []
-                                    analysis = None
-                                    for angle in sweep:
-                                        if self._demo_abort.is_set():
-                                            guard_error = "aborted"
-                                            break
-                                        progress(
-                                            f"touchdown zero: L{leg} {axis} "
-                                            f"{angle:+.1f} deg",
-                                            leg=leg, axis=axis,
-                                            angle_deg=angle)
-                                        _write_pose(
-                                            d.bus,
-                                            pose_for(leg, axis, angle),
-                                            live, speed=72, acc=8)
-                                        time.sleep(settle)
-                                        row = sample_row(
-                                            leg, axis, angle, baseline)
-                                        rows.append(row)
-                                        rec["samples"].append(row)
-                                        max_cur = max(
-                                            float(row.get("hip_current_a")
-                                                  or 0.0),
-                                            float(row.get("knee_current_a")
-                                                  or 0.0))
-                                        max_load = max(
-                                            float(row.get("hip_load_pct")
-                                                  or 0.0),
-                                            float(row.get("knee_load_pct")
-                                                  or 0.0))
-                                        if max_cur >= 0.75:
+                                    axis_limits = AXIS_LIMITS_DEG[axis_index]
+                                    repeat_results: list[dict] = []
+                                    for repeat_i in (1, 2, 3):
+                                        if repeat_i == 3 and repeat_results:
+                                            pending = merge_repeat_analyses(
+                                                axis, repeat_results,
+                                                expected_touch_deg=exp,
+                                                repeat_tolerance_deg=(
+                                                    repeat_tolerance_deg))
+                                            if (should_refine(pending)
+                                                    or (
+                                                        extra_accurate_result
+                                                        and len(contact_values(
+                                                            repeat_results,
+                                                            "observed_touch_deg"))
+                                                        >= 2)):
+                                                break
+                                        rep, stop_error = run_touch_repeat(
+                                            int(leg), axis, exp, axis_limits,
+                                            repeat_i)
+                                        repeat_results.append(rep)
+                                        if stop_error:
                                             guard_error = (
-                                                f"L{leg} {axis} current "
-                                                f"guard {max_cur:.2f}A")
+                                                stop_error if stop_error
+                                                != "zero_settle_failed"
+                                                else str(rep.get("note")))
                                             break
-                                        if max_load >= 45.0:
-                                            guard_error = (
-                                                f"L{leg} {axis} load guard "
-                                                f"{max_load:.0f}%")
+                                        if len(repeat_results) < 2:
+                                            continue
+                                        merged = merge_repeat_analyses(
+                                            axis, repeat_results,
+                                            expected_touch_deg=exp,
+                                            repeat_tolerance_deg=(
+                                                repeat_tolerance_deg))
+                                        if (merged.get("ok")
+                                                or should_refine(merged)
+                                                or repeat_i == 3):
                                             break
-                                        analysis = analyze_touch_rows(
-                                            axis, rows,
-                                            expected_touch_deg=exp)
-                                        if analysis.ok:
-                                            break
-                                    if analysis is None:
-                                        analysis = analyze_touch_rows(
-                                            axis, rows,
-                                            expected_touch_deg=exp)
-                                    axis_result = analysis_dict(analysis)
-                                    axis_result["sweep_deg"] = sweep
+                                    axis_result = merge_repeat_analyses(
+                                        axis, repeat_results,
+                                        expected_touch_deg=exp,
+                                        repeat_tolerance_deg=(
+                                            repeat_tolerance_deg))
+                                    force_refine = (
+                                        bool(extra_accurate_result)
+                                        and len(contact_values(
+                                            repeat_results,
+                                            "observed_touch_deg")) >= 2
+                                        and bool(contact_values(
+                                            repeat_results,
+                                            "observed_cmd_deg")))
+                                    if (not guard_error
+                                            and (
+                                                should_refine(axis_result)
+                                                or force_refine)):
+                                        trigger_spread = (
+                                            axis_result.get(
+                                                "repeat_spread_deg"))
+                                        center_cmd = median_value(
+                                            contact_values(
+                                                repeat_results,
+                                                "observed_cmd_deg"))
+                                        center_obs, center_obs_source = (
+                                            refine_center_observation(
+                                                repeat_results))
+                                        center_cmd, center_source = (
+                                            refine_center_command(
+                                                center_cmd, center_obs))
+                                        local_results: list[dict] = []
+                                        used_local_result = False
+                                        refinement = {
+                                            "mode": "near_contact",
+                                            "requested_by": (
+                                                "always" if force_refine
+                                                else "mismatch"),
+                                            "trigger_spread_deg": (
+                                                trigger_spread),
+                                            "center_cmd_deg": (
+                                                None if center_cmd is None
+                                                else round(center_cmd, 3)),
+                                            "center_cmd_source": (
+                                                center_source),
+                                            "center_observed_deg": (
+                                                None if center_obs is None
+                                                else round(center_obs, 3)),
+                                            "center_observed_source": (
+                                                center_obs_source),
+                                            "max_local_repeats": 3,
+                                            "local_repeat_tolerance_deg": (
+                                                local_repeat_tolerance_deg),
+                                        }
+                                        if center_cmd is not None:
+                                            for _local_i in range(3):
+                                                repeat_i = (
+                                                    len(repeat_results) + 1)
+                                                rep, stop_error = (
+                                                    run_touch_repeat(
+                                                        int(leg), axis, exp,
+                                                        axis_limits, repeat_i,
+                                                        refine_center_cmd=(
+                                                            center_cmd),
+                                                        refine_center_observed=(
+                                                            center_obs)))
+                                                repeat_results.append(rep)
+                                                local_results.append(rep)
+                                                if stop_error:
+                                                    guard_error = stop_error
+                                                    break
+                                                if len(local_results) < 2:
+                                                    continue
+                                                local_merged = (
+                                                    merge_repeat_analyses(
+                                                        axis, local_results,
+                                                        expected_touch_deg=exp,
+                                                        repeat_tolerance_deg=(
+                                                            local_repeat_tolerance_deg)))
+                                                if local_merged.get("ok"):
+                                                    axis_result = local_merged
+                                                    used_local_result = True
+                                                    break
+                                        if local_results:
+                                            refinement["local_repeat_count"] = (
+                                                len(local_results))
+                                            refinement["used_local_result"] = (
+                                                bool(used_local_result))
+                                            refinement["local_observed_deg"] = [
+                                                r.get("observed_touch_deg")
+                                                for r in local_results
+                                            ]
+                                            if not axis_result.get("ok"):
+                                                axis_result = (
+                                                    merge_repeat_analyses(
+                                                        axis,
+                                                        repeat_results,
+                                                        expected_touch_deg=exp,
+                                                        repeat_tolerance_deg=(
+                                                            repeat_tolerance_deg)))
+                                            axis_result["refinement"] = (
+                                                refinement)
+                                            if (axis_result.get("ok")
+                                                    and used_local_result):
+                                                axis_result["note"] = (
+                                                    "near-contact "
+                                                    "repeat-confirmed "
+                                                    "touchdown")
                                     leg_rows[int(leg)][axis] = axis_result
-                                    if analysis.ok:
+                                    if axis_result.get("ok"):
                                         contact_count += 1
-                                    _write_pose(
-                                        d.bus, zero_pose(), live,
-                                        speed=100, acc=8)
-                                    time.sleep(0.35)
+                                    elif (not guard_error
+                                          and axis_result.get("status")
+                                          == "repeat_mismatch"):
+                                        guard_error = (
+                                            f"L{leg} {axis} touchdown repeats "
+                                            "disagree")
 
                             rec["per_leg"] = [
                                 leg_rows[int(leg)] for leg in leg_list
                             ]
+                            rec["height_fit"] = (
+                                fit_zero_tip_height_from_contacts(
+                                    rec["per_leg"],
+                                    input_height_mm=float(height),
+                                    femur_mm=float(femur),
+                                    tibia_mm=float(tibia),
+                                    boot_diameter_mm=boot)
+                            )
                             complete = (
                                 guard_error is None
                                 and not self._demo_abort.is_set()
@@ -9264,6 +10744,7 @@ class BenchAPI:
                                         rec["input_measurements"]),
                                     "expected": rec["expected"],
                                     "per_leg": rec["per_leg"],
+                                    "height_fit": rec.get("height_fit"),
                                     "convention": rec["notes"][1:],
                                     "measurement_stamp": stamp,
                                 }
@@ -9274,22 +10755,90 @@ class BenchAPI:
                                 rec["summary"]["saved"] = True
                                 rec["touchdown_zero_path"] = str(path)
 
-                            progress("touchdown zero: return zero")
-                            if not self._demo_abort.is_set():
+                            straight_after_failed = False
+                            if (show_straight_after_result and complete
+                                    and not self._demo_abort.is_set()):
+                                q_straight, targets, missing = (
+                                    straight_pose_from_record())
+                                rec["straight_after"] = {
+                                    "requested": True,
+                                    "ok": False,
+                                    "targets": targets,
+                                    "missing": missing,
+                                }
+                                if missing:
+                                    straight_after_failed = True
+                                    rec["straight_after"]["error"] = (
+                                        "missing or unsafe straight targets")
+                                else:
+                                    progress(
+                                        "touchdown zero: show calibrated "
+                                        "straight")
+                                    tracker = CurrentPeakTracker()
+                                    straight_torque_i = max(220, torque_i)
+                                    _set_torque_limit(
+                                        d.bus, live, straight_torque_i)
+                                    _enable_torque(d.bus, live)
+                                    ok_hold = ease_to_pose(
+                                        d.bus,
+                                        q_straight,
+                                        abort_check=(
+                                            self._demo_abort.is_set),
+                                        seconds=2.0,
+                                        label=(
+                                            "touchdown calibrated straight"),
+                                        current_tracker=tracker)
+                                    hold_after_success = (
+                                        bool(ok_hold)
+                                        and not self._demo_abort.is_set())
+                                    rec["straight_after"].update({
+                                        "ok": bool(hold_after_success),
+                                        "seconds": 2.0,
+                                        "torque": straight_torque_i,
+                                        "peak_a": round(tracker.peak_a, 3),
+                                        "peak_joint": tracker.peak_joint,
+                                        "goal_deg": [
+                                            round(float(x), 3)
+                                            for x in q_straight
+                                        ],
+                                    })
+                                    if not hold_after_success:
+                                        straight_after_failed = True
+                                        rec["straight_after"]["error"] = (
+                                            "straight move aborted or failed")
+                                rec["summary"]["straight_after"] = bool(
+                                    hold_after_success)
+                                if straight_after_failed:
+                                    rec["summary"][
+                                        "straight_after_error"] = (
+                                            rec.get("straight_after", {})
+                                            .get("error")
+                                            or "straight_after_failed")
+
+                            if not hold_after_success:
+                                progress("touchdown zero: return zero")
+                            if (not hold_after_success
+                                    and not self._demo_abort.is_set()):
                                 _write_pose(
                                     d.bus, zero_pose(), live,
                                     speed=100, acc=8)
                                 time.sleep(0.5)
 
-                            if guard_error:
+                            if guard_error or straight_after_failed:
                                 finalized = self._meas_finalize(rec)
                                 result = {
                                     "ok": False,
                                     "mode": "touchdown_zero",
                                     "recoverable": True,
-                                    "guard_stop": guard_error != "aborted",
+                                    "guard_stop": bool(
+                                        guard_error
+                                        and guard_error != "aborted"),
                                     "aborted": guard_error == "aborted",
-                                    "error": guard_error,
+                                    "error": (
+                                        guard_error
+                                        or rec.get("straight_after", {})
+                                        .get("error")
+                                        or "straight_after_failed"),
                                     "record": finalized.get("record", rec),
                                 }
                             else:
@@ -9300,16 +10849,17 @@ class BenchAPI:
                               "error": str(e), "record": rec}
                 finally:
                     try:
-                        if live:
+                        if live and not hold_after_success:
                             _set_torque_limit(d.bus, live, 1000)
                     except Exception:
                         pass
                     try:
-                        if live:
+                        if live and not hold_after_success:
                             _limp_all(d.bus, live)
                     except Exception:
                         try:
-                            d.handle("X")
+                            if not hold_after_success:
+                                d.handle("X")
                         except Exception:
                             pass
                     self._bus_hot_end()
@@ -9319,7 +10869,7 @@ class BenchAPI:
             with d._lock:
                 if d.mode == "demo":
                     d.mode = "idle"
-                d.armed = False
+                d.armed = bool(hold_after_success)
             with self._lock:
                 self._cal_result = result
                 if result.get("ok"):
@@ -9327,12 +10877,16 @@ class BenchAPI:
                     self._demo_status = (
                         "done · touchdown zero "
                         f"{summ.get('contacts')}/{summ.get('requested')}"
-                        + (" saved" if summ.get("saved") else ""))
+                        + (" saved" if summ.get("saved") else "")
+                        + (" · straight" if summ.get("straight_after")
+                           else ""))
                 else:
                     self._demo_status = (
                         "error: " + str(result.get("error") or "failed"))
                 self._cal_progress = {"msg": self._demo_status}
-            self._set_activity("limp", self._demo_status)
+            self._set_activity(
+                "armed" if hold_after_success else "limp",
+                self._demo_status)
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()

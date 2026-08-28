@@ -875,7 +875,7 @@ not microseconds.
 
 The driver maps the 18 logical joints to servo IDs 2..19 (ID 1 left free)
 (`ID = leg*3 + axis + 1`), enforces the safe per-axis angle limits
-(yaw ±35°, hip −80…+30°, knee −20…+80°), applies per-joint trims from
+(yaw ±35°, hip −80…+40°, knee −20…+150°), applies per-joint trims from
 `motor_setup/feetech_trims.json`, and sync-writes goal positions while
 reading back live feedback:
 
@@ -918,8 +918,8 @@ full command set (`scan`, `centre`, `joint`, `stance`, `relax`,
   the STS3215 is **absolute** — it knows its angle the instant it
   powers on (12-bit encoder), so you can `relax` it, pose by hand, and
   `feedback` reads exactly where it is (no blind centre-on-boot slam).
-* **Travel range:** the safe per-axis limits (yaw ±35°, hip −80…+30°,
-  knee −20…+80°) are enforced in software by `feetech_bus.py`. Sweep
+* **Travel range:** the safe per-axis limits (yaw ±35°, hip −80…+40°,
+  knee −20…+150°) are enforced in software by `feetech_bus.py`. Sweep
   each joint slowly with `joint <j> <deg> --sweep` to confirm no
   mechanical binding before the software limit; fix offsets with
   `trim`, not by re-bolting the horn.

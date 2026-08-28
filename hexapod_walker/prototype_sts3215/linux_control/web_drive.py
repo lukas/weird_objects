@@ -603,6 +603,21 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/set_zero":
             self._json(200, BENCH.set_zero_here() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/touchdown_zero/straight":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.touchdown_zero_straight_pose(
+                    legs=data.get("legs"),
+                    torque=data.get("torque"),
+                    seconds=data.get("seconds"),
+                    force=bool(data.get("force", False))))
         elif path == "/api/safe_zero":
             try:
                 data = json.loads(body or "{}") if body else {}
@@ -826,7 +841,11 @@ class Handler(BaseHTTPRequestHandler):
                     axes=data.get("axes"),
                     torque=data.get("torque"),
                     settle_s=data.get("settle_s"),
-                    save=data.get("save", True)))
+                    save=data.get("save", True),
+                    extra_accurate=data.get("extra_accurate", False),
+                    show_straight_after=data.get(
+                        "show_straight_after", False),
+                    simultaneous=data.get("simultaneous", False)))
             elif path == "/api/measure/annotate":
                 self._json(200, BENCH.measure_annotate(
                     fields=data if isinstance(data, dict) else {}))
