@@ -66,7 +66,15 @@ SWEEP_CMDS = [
 ]
 RESPONSE_CMDS = [("fwd", SPEED, 0.0), ("back", -SPEED, 0.0),
                  ("left", 0.0, SPEED), ("right", 0.0, -SPEED),
-                 ("stop", 0.0, 0.0)]
+                 ("stop", 0.0, 0.0),
+                 # Added 2026-08-28 (hdgset1 staged-curriculum canary):
+                 # a heading-SET recipe (goal.walk_heading_set=[0,+-pi/4])
+                 # never draws pure lateral (+-90deg) in training, so the
+                 # fair in-distribution response check is the +-45deg
+                 # diagonal a policy actually practiced, not left/right.
+                 # (DIAG, DIAG) = +45deg (fwd-left), matching the SWEEP_CMDS
+                 # convention above one-for-one.
+                 ("diag_fl", DIAG, DIAG), ("diag_fr", DIAG, -DIAG)]
 RISE_S = 20.0        # measured: this lineage needs ~14-16 s to stand
 SETTLE_S = 2.0       # walk-segment settle before the command engages
 CRUISE_S = 12.0      # forward cruise before the frozen-state sweep
