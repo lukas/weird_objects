@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-28 ~00:5x (idle-kick cycle: **anchor14-walkretaincoef1-
+Update, 2026-08-28 ~04:1x (operator-kick cycle, order 20260828T033725Z
+"train the unified command-following model now; do not idle behind
+the mixed-session read": **UNIFIED COMMAND-FOLLOWING 2x2 WAVE
+LAUNCHED, all four VERIFIED RUNNING, 16M steps each** —
+`cw-standwalk-unified1-mix-{s0,s1}` (train-0/train-2, 30 s episodes)
+and `cw-standwalk-unified1-mix-long-{s0,s1}` (train-4/train-5, 60 s
+episodes, `goal.mode_seq_max_segments=7`). Each arm continues its own
+PASSed acq8m checkpoint (`respec --init-from-source`) with the
+`eval_mixed_session` canonical command bundle folded INTO training:
+segments 8–12 s, `goal.mode_seq_hold_height_cmd=1.0` +
+`hold_height_cmd_frac=1.0` (standing-height commands),
+`goal.walk_cmd_mode=stress_mix` resampled ~4 s with jitter 0.5
+(forward/reverse/side/sweep/stop command changes — `flip_180`/
+`square`/`sweep_circle` bypass the `walk_heading_max_rad=0.0` cap, so
+rear+lateral+circle coverage needs no heading-cfg change), everything
+else (goal-mix, walk BC anchor coef=1.0, log-std anneal, DR 0.5)
+identical to the acq8m recipe so in-training walk retention stays
+live per the order. Grid dimensions: seed (0 vs 1 — seed1 is the
+catastrophe-prone rescued lineage, an independent relapse probe) ×
+episode length (30 s vs gate-matched 60 s chains: the DONE-gate
+instrument hard-gates ZERO terminations over 60/180 s sessions and
+30 s training never practices >3-segment chains). Gates are paired:
+walk retention (DR-0 det `gait_valid` ≥5/6 zero-sac) AND session
+terminations/completion vs the acq8m parents' mixed-session baseline
+(that audit is STILL RUNNING on train-1/train-3 — dr0 pass complete
+~2.2 h, own-DR in flight; left untouched, it becomes these arms'
+baseline read — do NOT re-launch, poll `/tmp/mixedsession_<run>.log`).
+Deliberate exclusions recorded in OPERATOR_QUESTIONS (08-28 entry):
+`goal.walk_yaw_cmd` (+1 obs dim, no warm start, transplant not wired
+for --gru-dual) and a per-mode reward normalizer (new mechanism, needs
+bank proof first; existing per-mode k_*/goal-mix coefficients serve).
+CYCLE_WORKED. Prior banner below.)
+
+Prior banner, 2026-08-28 ~00:5x (idle-kick cycle: **anchor14-walkretaincoef1-
 rescue-acq8m + -s1-acq8m JOINT ACQUISITION PASS — the coef=1.0
 per-mode walk-anchor rescue COMPOUNDS with budget through 8M on both
 seeds, landing the best walk quality of the whole anchor8-14 dual-BC

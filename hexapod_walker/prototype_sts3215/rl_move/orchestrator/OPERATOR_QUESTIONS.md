@@ -2919,3 +2919,30 @@ pre-registered in standwalk STATUS Next -2.35 in funding order, gated
 on this wave's branches. If the operator prefers the Lagrangian
 formulation FIRST regardless of the BC-anchor outcome, say so and the
 next cycle builds it.
+
+## 2026-08-28 — unified command-following wave (operator order 20260828T033725Z): two assume-and-go design calls
+
+1. **Per-mode reward normalization** (the order's "e.g. ... per-mode
+   reward normalization/coefficients"): no per-mode return-normalizer
+   mechanism exists in the stack today. Building one is a NEW reward
+   mechanism, which per RESEARCH_RULES needs its test_task_semantics
+   bank proof before any launch — SPECIFICATION work, not a launch
+   blocker. Assumed answer: the existing per-mode coefficient
+   machinery (mode-scoped reward.k_* keys + --goal-mix shares) already
+   provides the coefficient half; launched the 2x2 unified wave on
+   that basis and deferred the normalizer. Will build+bank it if the
+   wave's per-mode reward traces show one mode's scale drowning the
+   others (the concrete symptom a normalizer fixes). Say the word if
+   you want it built regardless.
+2. **Yaw-rate (turn-in-place) command channel**: goal.walk_yaw_cmd=1
+   adds +1 obs dim — explicitly a new-lineage flag, no warm start from
+   the acq8m checkpoints (and --obs-pad-transplant only handles
+   tail-appended widening, not the goal-block insertion, and is not
+   wired for --gru-dual). Assumed answer: this wave covers direction
+   changes/reverse/side/circle via the stress_mix translation-command
+   families (flip_180, square, sweep_circle bypass the heading cap);
+   true yaw-rate turning is deferred to either (a) a yaw-obs lineage
+   from scratch/distill or (b) a dual-GRU-aware obs transplant tool —
+   both real work items, neither blocking the unified skill set the
+   order names (the mixed-session DONE-gate instrument does not
+   command yaw either).
