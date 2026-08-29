@@ -1,6 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~08:5x triage cycle (no verdict yet — **both sub-stride
+Update, 2026-08-29 ~09:1x triage cycle (no verdict yet — **w035-c1's own
+n=1 course-trace probe lands, and it CONFIRMS the sibling's activation-
+floor hypothesis rather than refuting it.** w035-c1 (0.35s window, MY
+run this cycle per the prompt's own routing) finished training; its
+official gate/owncfg/mixedsession prestage is genuinely computing on
+train-1 (2/48 gate episodes in ~19min, matching this recipe's
+established multi-hour ETA — confirmed via remote `ls`, not stalled).
+Rather than block on that, ran the same fast preliminary read the
+prior cycle used for w015-c1: pushed the checkpoint (md5-verified) +
+synced fresh code (`1dce256e`) to genuinely-idle `train-3` (zero
+contention with the official passes) and ran a single
+`eval_checkpoint.py --course-trace` det walk episode (seed 91000, the
+run's own full 95-key cfg-set verbatim, no video, ~9min wall on an
+idle pod). Result, informative but n=1 (official n=12 det+sto read
+still the one that counts): harness-printed per-tick `dir_err`
+**52.9deg** (vs long-s0's ~55-65 band and coursedisp-c1's 60.3 mean —
+same small/noisy improvement magnitude as w015's 52.6, nowhere near
+the >=15deg PASS-with-delta bar) and independently re-derived from the
+raw course-trace CSV: disp-mechanism telemetry active on only **17.9%**
+of ticks (1072/6000) — comfortably below the gate's own >=50%
+activation bar (worse than coursedisp-c1's 71% at window=1.5s, and
+only marginally better than w015's 14.3% at window=0.15s despite a
+2.3x longer window). When the mechanism DOES fire, its own windowed
+metric reads clean (mean 11.6/median 6.9deg — genuinely on-course,
+consistent with every prior reading of this mechanism). **Reading the
+pair together**: both sub-stride windows (0.15s AND 0.35s) undershoot
+the >=50% activation bar by a wide margin, and 0.35s barely helps vs
+0.15s (17.9% vs 14.3%) — this looks less like "window size tunes
+activation smoothly" and more like a step-function floor somewhere
+between 0.35s and the parent's 1.5s (which cleared 71%). That is a
+sharper, more useful conclusion than "both closed": if the official
+n=12 reports confirm <50% activation on both, the productive next
+question (should this lever ever be revisited) is where between 0.35s
+and 1.5s activation actually crosses 50%, not whether sub-stride
+windows help dir_err once active (they clearly do, when they fire).
+Per the arm's own pre-registered branches this is consistent with
+"sub-stride displacement pricing closed, route sway to stage-2
+distillation" — but the OFFICIAL verdict stays deferred for both
+siblings until their real n=12 det+sto reports land (gait_valid,
+terminations, slip/m not yet in hand for either). Full sweep: all 12
+GPU training slots free, backlog+backlog_failed empty of in-scope
+work, no legal new standwalk arm exists before this joint pair's
+official reads land. Other tracks re-swept (byte-identical banners):
+joystick/amp/cpg DONE-or-maintenance-only, walkcurr still
+`[operator]`-blocked (`q_20260824T0233Z` unanswered). CYCLE_WORKED (a
+real diagnostic against a genuinely new checkpoint on a freshly-synced
+idle pod, not a re-verify no-op) — next cycle to see w035-c1's SYNCED
+gate/owncfg/mixedsession copy-back should verdict the joint pair per
+the pre-registered gate text, reading both n=1 notes as context only.
+
+Prior update, 2026-08-29 ~08:5x triage cycle (no verdict yet — **both sub-stride
 window siblings (`coursedisp-w015-c1` 0.15s / `coursedisp-w035-c1` 0.35s)
 finished training this cycle; w015-c1's own gate/owncfg/mixedsession
 prestage is genuinely computing but VERY slow on its pod (train-2, 3
