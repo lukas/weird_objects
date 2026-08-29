@@ -1687,6 +1687,21 @@ def main(argv: list[str] | None = None) -> int:
                          "(mutually exclusive with --gru/--transformer/"
                          "--critic-encoder/--obs-pad-transplant); "
                          "from-scratch or asym-parent warm starts only.")
+    ap.add_argument("--decleg", action="store_true",
+                    help="decentralized per-leg actor (Schilling et al. "
+                         "IROS 2020, walkcurr operator ruling "
+                         "fb_20260829T145710): six independent per-leg "
+                         "actor towers over local leg state + shared "
+                         "body/command dims, block-diagonal action "
+                         "head, centralized critic "
+                         "(decleg_policy.DecLegActorCriticPolicy). "
+                         "joint-family tasks with single-frame obs "
+                         "only; from-scratch only (no --init-from "
+                         "transplant path).")
+    ap.add_argument("--decleg-hidden", type=str, default="64,64",
+                    help="per-leg actor tower widths (paper: 2x64); "
+                         "--net-arch stays the centralized critic "
+                         "tower")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -2597,6 +2612,50 @@ def main(argv: list[str] | None = None) -> int:
               f"seed {args.critic_encoder.name} "
               f"(md5 {args.critic_encoder_md5}), history {hist}")
 
+    if args.decleg:
+        # Decentralized per-leg actor (walkcurr rung-1 lever, operator
+        # ruling fb_20260829T145710 / Schilling IROS 2020). The index
+        # sets need the constructed venv's obs width — filled after
+        # venv comes up, mirroring the asym-critic pattern below.
+        if (args.gru or args.gru_dual or args.gru_experts
+                or args.transformer or args.asym_critic
+                or args.critic_encoder is not None):
+            raise SystemExit("--decleg is its own actor architecture; "
+                             "drop --gru*/--transformer/--asym-critic/"
+                             "--critic-encoder")
+        if args.obs_pad_transplant or args.hist_stride_transplant:
+            raise SystemExit("--decleg + obs transplants is not "
+                             "implemented (per-leg towers don't "
+                             "transplant from MLP checkpoints)")
+        if args.init_from is not None:
+            raise SystemExit("--decleg is from-scratch only: per-leg "
+                             "towers cannot inherit centralized MLP "
+                             "weights (resuming a decleg checkpoint "
+                             "reconstructs its policy from the file "
+                             "and needs no flag)")
+        if mirror_coef > 0.0:
+            raise SystemExit("--decleg + mirror loss is untested; "
+                             "drop one")
+        if not str(args.task).startswith("joint"):
+            raise SystemExit("--decleg needs the raw 18-joint action "
+                             "space (joint-family tasks)")
+        _dl_hist = int(float(_parse_cfg_set(args.cfg_set).get(
+            "obs.history_frames", 1)))
+        if _dl_hist != 1:
+            raise SystemExit("--decleg expects single-frame obs "
+                             "(obs.history_frames=1) — the per-leg "
+                             "index map is single-frame")
+        from .decleg_policy import DecLegActorCriticPolicy
+        policy_cls = DecLegActorCriticPolicy
+        _dl_hidden = tuple(int(x) for x in
+                           str(args.decleg_hidden).split(",")
+                           if x.strip())
+        extra_pk = dict(leg_hidden=_dl_hidden)
+        print(f"[mjx-train] decentralized per-leg actor: 6 x "
+              f"{_dl_hidden} towers + block-diagonal head, "
+              f"centralized critic {args.net_arch}; obs index map "
+              "resolved after venv construction")
+
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
           f"host_workers={args.host_workers or 'in-process'} "
@@ -2855,6 +2914,18 @@ def main(argv: list[str] | None = None) -> int:
         extra_pk["privileged_idx"] = _privileged_idx(args, n_obs)
         print(f"[mjx-train] asym-critic privileged idx "
               f"(obs width {n_obs}): {extra_pk['privileged_idx']}")
+    if args.decleg:
+        from .decleg_policy import joint_walk_leg_slices
+        n_obs = int(np.prod(venv.observation_space.shape))
+        _dl_legs, _dl_shared = joint_walk_leg_slices(n_obs)
+        n_act = int(np.prod(venv.action_space.shape))
+        if n_act != 18:
+            raise SystemExit(f"--decleg needs 18 joint actions, env "
+                             f"reports {n_act}")
+        extra_pk["leg_obs_idx"] = _dl_legs
+        extra_pk["shared_obs_idx"] = _dl_shared
+        print(f"[mjx-train] decleg obs map (width {n_obs}): "
+              f"shared {_dl_shared}; leg0 {_dl_legs[0]}")
     if args.walk_curriculum:
         # Construction proof: every training env must be born pure-walk
         # with the curriculum armed (fail-closed; _walkcurr_prepare_
