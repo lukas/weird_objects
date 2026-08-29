@@ -1,6 +1,54 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 idle-kick (no verdict yet — **`hdgset1`'s gate+owncfg
+Update, 2026-08-29 idle-kick (DIG-IN closed — **built + bank-proved +
+launched the k_walk_course fix-lever (b) the prior cycle flagged
+(position-displacement course metric)**). Root-cause recap: the
+recipe's only heading-pricing term, `reward.k_walk_course`, EMAs
+INSTANTANEOUS body velocity (tau=0.75s) and was found completely inert
+for the `long-s1-cont1` lineage. New mechanism landed this cycle:
+`reward.k_walk_course_disp` (+ its own `_overspeed` twin, since the old
+overspeed charge lives nested inside `k_walk_course>0` and would
+otherwise silently vanish) prices the NET BODY-POSITION DISPLACEMENT
+over a trailing window (default 1.5s) instead of a velocity EMA --
+immune to intra-stride sway/zigzag cancellation by construction (it
+measures where the body actually ended up, not an average of noisy
+per-tick velocity samples). New cfg keys default 0 = off, bit-exact
+(confirmed: same 7 pre-existing `test_phasedir_semantics.py` failures
+with/without the patch, no new ones). Validation, cheapest-to-strongest:
+(1) scripted-teacher parity -- swapping the EMA for the disp mechanism
+at matched coefficients reproduces the EXISTING mechanism's pricing of
+every scripted class (obey/fastcadence/stall/park) to within ~1 return
+unit/bin, and prices skew/wrongway MORE aggressively, never less; (2)
+REAL FAILED CHECKPOINT replay (the DIG-IN's own required bar, not just
+a scripted proxy) via a new `eval_checkpoint.py --course-trace` CLI
+diagnostic: on `long-s1-cont1`'s own real 60s deterministic walk
+rollout, the EMA activates on ~4% of commanded ticks (near-inert,
+matches the root-cause's 0/5899) while the windowed net-displacement
+metric activates on ~97% of ticks reading a mean cos ~0.99 -- the
+real PATH is close to on-course (6.2deg net direction error) even
+though the per-tick instantaneous view says ~55-62deg (matches the
+harness's own `direction_err_mean_deg` headline almost exactly). Bank:
+new file `test_course_disp_semantics.py`, 16/16 green (includes the
+real-checkpoint test, skipped only if the artifact zip is absent).
+Landed + pushed (`exp/exp-course-disp-lever-b`, 620230a5). Launched the
+first canary this cycle: `cw-standwalk-unified1-joyfix-coursedisp-c1`
+(2M, warm from `long-s0`'s own 16M PASS checkpoint, `k_walk_course`
+and `k_walk_cmd_track` both OFF so only the new mechanism prices
+course, `--now` VERIFIED RUNNING on train-1) -- open question the
+scripted/replay evidence CANNOT answer: does the mechanism actually
+MOVE `direction_err_mean_deg` once it's driving gradient updates during
+real training, not just read correctly on a frozen checkpoint. Gate:
+MECHANISM-HEALTH CANARY at 2M (reward not collapsing, gait_valid>=5/6,
+terminations<=6/90, `reward_walk_course_disp` telemetry live) with a
+PASS-with-delta bar of >=15deg dir_err drop vs long-s0's own ~55-65deg
+band. Other open reads (`hdgset1`, `long-s0-cont1` mixedsession,
+train-4, both other cycles' claimed runs) reconfirmed still genuinely
+computing via on-pod `ps`, untouched. Other tracks re-swept:
+joystick/amp/cpg DONE-or-`[operator]`-maintenance-only (unchanged),
+walkcurr still `[operator]`-blocked (`q_20260824T0233Z` unanswered).
+CYCLE_WORKED (real tool + mechanism + bank + launch, not a re-verify).
+
+Prior update, 2026-08-29 idle-kick (no verdict yet — **`hdgset1`'s gate+owncfg
 DR-0 reads were reaped this cycle (finished on-pod, sitting uncollected
 — `ops.sh podeval` copy-back-only reap, idempotent, no relaunch): DR-0
 det walk gait_valid 6/6, sac=[], 0 terms — the 2nd of its 4 AND-gated
