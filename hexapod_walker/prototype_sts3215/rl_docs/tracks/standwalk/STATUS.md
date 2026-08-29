@@ -1,5 +1,38 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~15:4x triage (all-heading canary pair VERDICTED PASS,
+**40M acquisition pair LAUNCHED**): both `cw-walk-allheading-tf-scratch1`
+(transformer) and `cw-walk-allheading-mlp-scratch1` (matched MLP twin)
+cleared the 2M mechanism-health canary from the prior cycle's launch.
+Evidence (W&B history, both arms): bc_anchor_loss_walk falls
+monotonically for both (tf 0.0041->0.00019, mlp 0.0030->0.00047);
+course-income mechanism (reward_walk_course_income /
+walk_course_income_support) never hits zero on either arm, dips through
+the mid-run 100Hz reward valley (08-24 FACT) then ticks back up in the
+final ~100k steps of both (tf support 0.22->0.35, mlp 0.30->0.33); no
+NaN/entropy collapse (train/std rises on both); terminations/over_current
+shows a transient bump ~800k-1.05M steps shared almost step-for-step by
+both arms (tf peak 108, mlp peak 86) that fully resolves to single digits
+by 1.1M — a shared training-dynamics wobble, not a divergent explosion;
+reward trajectories track each other closely at every matched step (tf
+quarters 74.4/84.8/127.7/162.3 vs mlp 73.1/87.0/122.4/172.1) — no
+divergence-down signature, the only thing that would fail this gate.
+Frame strips (walk_det_0-5 on-pod for both) show the robot upright, six
+legs planted/spread, no topple. Per the canary's own pre-registered gate
+text, launched the 40M acquisition continuations same cycle:
+`cw-walk-allheading-tf-acq1` (train-0, VERIFIED RUNNING) and
+`cw-walk-allheading-mlp-acq1` (train-1, VERIFIED RUNNING), both
+`--init-from-source` off their own canary checkpoint, identical
+env/reward/BC-anchor stack, no cfg changes (budget-only continuation).
+Cheap first gate for both (unchanged from the canary's own text):
+`eval_cmd_suite` balanced 8-heading panel, det+sto, every heading must
+move (completion >=0.19, half the teacher's 0.373-0.385), zero falls.
+The full n=16 DR-0 gate report (walk det/sto + startjitter sub-checks)
+was still finishing on-pod for both scratch1 canaries at verdict time
+(non-blocking — canary criteria (1)-(4) are training-curve-based, not
+eval-based, per the gate's own text); partial frame strips already
+reviewed showed nothing anomalous.
+
 Update, 2026-08-29 ~15:2x operator-kick (executing fb_20260829T144550_c921fa —
 **NEW LINE: from-scratch ALL-HEADING walker on the mesh/100 Hz
 contract, transformer-preferred, teacher-anchored; canary pair
