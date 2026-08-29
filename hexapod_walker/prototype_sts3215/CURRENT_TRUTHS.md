@@ -1374,8 +1374,21 @@ follow-ups.
   the AMP freeprog-stall explore-vs-survive tension, not yet
   deployed pending a sharper diagnosis than "exploration risk" — see
   the freeprog reward-shape finding above).
-- direction_err_mean_deg has a ~35 deg tick-level floor from stride
-  sway — judge deltas vs a matched clone, not raw values.
+- direction_err_mean_deg tick-level stride-sway floor is
+  CADENCE/FAMILY-SPECIFIC (measured 08-29, `probe_dir_floor.py`,
+  coursedisp-c1 dig-in): the accepted "~35 deg" floor holds only for
+  the 25 Hz / 1.5 deg-per-tick era (re-measured 31.5 deg, scripted
+  teacher, primitive, 0.08 cmd, DR-0 det). Under the 100 Hz /
+  0.375 deg-per-tick contract the same teacher reads mean 13.7 deg
+  (primitive) and mean 13.5 / med 5.4 deg (mesh; six-leg stepping
+  verified, 80 touchdowns/leg/60 s, slip/m 1.27) — the finer slew
+  quantization physically smooths per-tick velocity. Judge deltas vs
+  the MATCHED-cadence/family floor, never the 25 Hz number: a mesh/
+  100 Hz policy at ~60 deg (standwalk unified lineage) has ~47 deg of
+  REAL excess zigzag, not honest structure. Windowed/net course
+  metrics CANNOT see this excess (every window >=0.75 s reads ~6 deg
+  on the same failed rollouts; sway lives at the ~0.375 s half-stride
+  timescale).
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
   on the old 128 mm plant; cross-plant comparisons need matched
   controls.

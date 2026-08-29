@@ -1,6 +1,50 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 later idle-kick (no ledger verdict yet — official
+Update, 2026-08-29 ~08:0x deep dig-in cycle (**coursedisp-c1 VERDICTED
+CANARY PASS-no-delta; the flagged gate-metric question is ANSWERED BY
+MEASUREMENT and the answer overturns the prior cycle's structural-sway
+story**). New tool `rl_move/sim/probe_dir_floor.py` (snapshot
+e765446a) rolls the scripted tripod teacher through real physics and
+measures the per-tick `direction_err` floor under any model family /
+cadence. Results (0.08 cmd, DR-0 det, 60 s, harness's own 5 mm/s
+validity threshold; teacher verified genuinely stepping — six legs x
+exactly 80 touchdowns/60 s at the 1.333 Hz clock, slip/m 1.27):
+- primitive @ 25 Hz (1.5 deg/tick): tick mean **31.5 deg** — validates
+  the probe against the accepted 25 Hz-era "~35 deg floor";
+- primitive @ 100 Hz (0.375 deg/tick): tick mean **13.7 deg**;
+- mesh @ 100 Hz (the standwalk judgment condition): tick mean
+  **13.5 / med 5.4 deg** (windowed 1.5 s: 1.3 deg; net path 1.3 deg).
+So the "~35 deg tick-level structural sway floor" is a 25 Hz slew-
+quantization artifact and does NOT transfer to this track's contract.
+The unified lineage's 60.3/32.4 per-tick reading is therefore ~47 deg
+of REAL stride-to-stride zigzag a clean gait does not have — NOT
+honest structure the metric unfairly taxes. RULING (assume-and-go,
+recorded in OPERATOR_QUESTIONS.md): `direction_err_mean_deg` is
+RETAINED as the track's direction gate metric, judged as a delta vs
+the MATCHED mesh/100 Hz teacher floor (13.5 mean / 5.4 med) per the
+already-registered joystick-track rule — no windowed/net redefinition
+(windowed measures are structurally blind to the excess: every window
+>=0.75 s reads ~6 deg on the same failed rollouts). Why coursedisp-c1
+read flat despite a live mechanism (08-22 MISALIGNED-not-undertrained
+ruling): its 1.5 s displacement window integrates the ~0.375 s
+half-stride zigzag away, so it prices a near-saturated quantity.
+Launched per the gate's own pre-registered PASS-no-delta branch: the
+SUB-STRIDE window sweep `cw-standwalk-unified1-joyfix-coursedisp-
+w035-c1` (0.35 s, train-1) + `-w015-c1` (0.15 s, train-2), both
+VERIFIED RUNNING, warm from the same long-s0 16M parent, ONLY window_s
+changed, bank `test_course_disp_window_semantics.py` 22/22 green at
+both windows (obey>skew/stall/park/wrongway orderings hold
+sub-stride). Pre-registered: if BOTH read flat at 2M, sub-stride
+displacement pricing is CLOSED and the sway fix routes to the stage-2
+teacher-distillation line; slip/m >1.5x parent band = the cmdtrack
+velocity-tax failure mode = FAIL. Caveat on the c1 verdict: the
+mixedsession termination count (<=6/90) was still computing at verdict
+time (gate det pass complete on-pod, sto + mixedsession grinding on
+contended train-1); all measured criteria PASS + healthy video — the
+cycle that sees the SYNCED report should spot-check terminations and
+reopen ONLY if >6/90.
+
+Prior update, 2026-08-29 later idle-kick (no ledger verdict yet — official
 report.json still genuinely computing; but the coursedisp-c1 canary's
 OWN open scientific question is now answered directly from real data,
 not inferred). **`cw-standwalk-unified1-joyfix-coursedisp-c1` (2M

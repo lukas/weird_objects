@@ -2971,3 +2971,29 @@ next cycle builds it.
   bundle: mechanism attribution first (launch cap 4), seed replication next
   wave on the winner(s).
 - ANSWER (operator): _pending_
+
+## q_20260829T0805Z — recorded decision (no wait): standwalk direction gate metric RETAINED as per-tick `direction_err_mean_deg`, judged vs the newly-measured mesh/100Hz teacher floor
+- cycle: deep dig-in 08-29 (coursedisp-c1 escalation)
+- question the triage cycle parked: with the k_walk_course_disp mechanism
+  proven live yet dir_err flat (60.3/32.4 per-tick vs windowed 15.8/4.3),
+  is the per-tick metric even right for a gait with "structural" sway, or
+  should the DONE gate move to a windowed/net heading measure?
+- assumed-and-gone: KEEP the per-tick metric. The "structural" premise was
+  a 25 Hz-era fact wrongly extrapolated: new `probe_dir_floor.py` measured
+  the scripted teacher under the standwalk contract (mesh, 100 Hz,
+  0.375 deg/tick, 0.08 cmd, DR-0; six-leg stepping verified, slip/m 1.27)
+  at per-tick mean 13.5 / med 5.4 deg (25 Hz primitive control: 31.5 deg,
+  reproducing the old ~35 floor). The policy's ~60 deg is real excess
+  zigzag; a windowed gate metric would be structurally BLIND to it (every
+  window >=0.75 s reads ~6 deg on the same failed rollouts) and would
+  declare "directions followed" for a visibly weaving robot. Direction
+  criterion for the standwalk DONE gate therefore inherits the registered
+  joystick-track rule with the matched floor: judge deltas vs 13.5 deg
+  mean (mesh/100 Hz teacher), analogous to joystick's allow=40 vs floor 35
+  (suggested allow: floor + 5..10 deg, i.e. ~20-25 deg mean, to be fixed
+  when the track reaches gate-attempt stage). CURRENT_TRUTHS floor fact
+  updated; sub-stride window arms launched per coursedisp-c1's own
+  PASS-no-delta branch (w035/w015, bank 22/22).
+- operator may override: if a windowed/net direction gate is preferred for
+  hardware reasons, say so and we re-derive; until then per-tick + matched
+  floor is binding for standwalk arms.
