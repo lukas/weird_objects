@@ -1,6 +1,43 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~10:3x idle-kick (housekeeping + contention audit,
+Update, 2026-08-29 ~13:4x idle-kick (real infra fix + partial evidence,
+no final verdict — **found the coursedisp-c1/w015-c1 gate+owncfg
+report.json pairs FINISHED-BUT-UNCOLLECTED with no local supervisor
+watching them (their controller-side driver had died to the same
+kubectl-exec websocket drop already tracked elsewhere in this file;
+remote processes survived), and fixed the same gap for all 3 open
+coursedisp items at once**: launched `ops.sh pollreap` (300s poll,
+5h budget, detached+disowned) for `coursedisp-c1`, `-w035-c1`, and
+`-w015-c1` — the first invocation of each immediately reaped
+gate+owncfg for `-c1` (record-only, already CANARY PASS) and for
+`-w015-c1` (NEW), confirmed `-w035-c1`'s gate/owncfg/mixedsession
+still genuinely computing (not a duplicate, left alone), and started
+all 3 mixedsession passes' own poll cycle so their still-pending
+`session_verdict.json` (dr0->owndr->dr0_long, each pass ~2.5-4h per
+the established convention) will sync back automatically without
+requiring another cycle to notice. **New official evidence,
+`w015-c1` (0.15s window) gate+owncfg (n=6 det walk each, dr=0.0/0.5)**:
+`direction_err_mean_deg` averages 59.8/59.3 deg — squarely inside
+long-s0's ~55-65deg band, confirming (not just an n=1 probe anymore)
+that dir_err is FLAT, not the >=15deg drop PASS-with-delta needs;
+slip/m 2.47-6.62 (well under 1.5x the 9.17 parent band); gait_valid
+6/6, zero new sacrificed legs, zero terminations in this panel. This
+is consistent with (and now backed by n=6, not n=1) both prior course-
+trace probes (w015 14.3% / w035 17.9% mechanism activation, both well
+under the gate's >=50% bar) — trending toward PASS-no-delta on w015
+specifically, but the gate's own text requires mixedsession's session
+termination count (<=6/90) before any of the three can be closed, and
+that has not landed for any of them yet. Left all remote eval
+processes untouched (no relaunch, no duplicate — pod_eval.py's own
+idempotent reap-vs-relaunch logic confirmed this, matching its
+docstring). All 12 GPU training slots free (`capacity.py`), backlog
+empty; no other standwalk arm has independent preconditions met.
+joystick/amp/cpg STATUS.md byte-unchanged for 4+ days (git log
+confirms, DONE-or-maintenance), walkcurr still `[operator]`-blocked
+(`q_20260824T0233Z` unanswered). CYCLE_WORKED (real orphan-reap +
+pollreap-loop infra fix + new n=6 evidence, not a re-verify no-op).
+
+Prior update, 2026-08-29 ~10:3x idle-kick (housekeeping + contention audit,
 no verdict — **committed+pushed the prior cycle's 5-file uncommitted
 diff (hdgset1/long-s0-cont1 FAIL verdicts) that had accumulated in the
 working tree** (44c8e116). Investigated train-1 CPU contention between
