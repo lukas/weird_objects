@@ -1,5 +1,52 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~15:2x operator-kick (executing fb_20260829T144550_c921fa —
+**NEW LINE: from-scratch ALL-HEADING walker on the mesh/100 Hz
+contract, transformer-preferred, teacher-anchored; canary pair
+LAUNCHED**). Operator wants a walker whose FIRST job is balanced
+walking in every direction (the unified1-mix champion is forward-
+biased: crab-right ~5% commanded speed / ~69 deg dir err on manual
+drive). Done this cycle: (1) teacher sanity check (the order's item 2)
+PASSED — new probe `probe_teacher_headings.py`, scripted TripodGait on
+mesh/100 Hz at all 8 balanced headings: ZERO falls, net course err
+<=2.26 deg, completion 0.373-0.385 at EVERY heading (isotropic),
+slip/m 1.24-1.36, all six legs cycling (artifact:
+logs/probe_teacher_headings_mesh100.json) — the teacher is a valid
+all-heading BC anchor source and the champion's forward bias is a
+training artifact, not a robot limit. (2) Launched the 2M mechanism
+canary pair (phase=canary, DR-0, walk-only `--goal-mix walk=1.0`,
+episode 20 s, `goal.walk_heading_set=[0,±45,±90,±135,180 deg]`
+balanced draw + 6 s resamples + stop_frac 0.15, fixed 0.08 m/s, the
+sibling cycle's bank-proven course-income reward stack VERBATIM
+(income 2.0 / sway 2.0 / disp 0.15 / overspeed 4.0 + support gates,
+test_course_income_semantics 9/9 green re-verified pre-launch), walk
+BC anchor at the proven dose (coef 3.0, walk_coef 1.0, phase_lock,
+knee_abs, isolate_update)):
+  - `cw-walk-allheading-tf-scratch1` — transformer (2L/128d/8h/ff256,
+    64-frame context), the operator-preferred arm;
+  - `cw-walk-allheading-mlp-scratch1` — matched-step MLP twin
+    (identical everything, default 128,128 MLP on the same 64-frame
+    stack): the 08-24 valley FACT requires a matched-step control for
+    from-scratch 100 Hz canaries and this reward stack has no prior
+    reference trajectory; also the operator's named fallback if the
+    transformer shows its collapse signature.
+Canary gate is mechanism health ONLY (bc-walk-anchor loss falling,
+course-income share nonzero/rising, no NaN/entropy/termination
+explosion, reward within band of the twin at matched steps — NEVER
+absolute-value judged, 08-24 valley FACT). Healthy canary -> 40M
+acquisition whose cheap first gate is the balanced-heading panel
+(eval_cmd_suite, 8 headings x 0.08 m/s + stop, det+sto: EVERY heading
+must move, completion >= half the teacher's 0.373-0.385, no falls) —
+NOT hours of session eval, per the order. Stage-a scope decisions
+(wz/arcs deferred until the income bank grows a wz case; D6
+regularizer deferred, symmetry pressure via balanced diet +
+command-conditioned anchor + per-heading eval; track routing here) in
+OPERATOR_QUESTIONS q_20260829T16xx. Next after a healthy canary:
+(a) 40M acquisition continuation of the healthy arm(s); (b) graduate
+per the order — heading buckets -> joystick changes/holds/stops/
+sweeps -> longer mixed sessions; (c) add the wz bank case before any
+arc/sweep rung.
+
 Update, 2026-08-29 ~15:3x operator-directed reward/eval design cycle
 (**implemented the fb_20260829T142239_63c818 reward directive + the
 fb_20260829T141858_9421cd windowed eval metric — no launches, per the

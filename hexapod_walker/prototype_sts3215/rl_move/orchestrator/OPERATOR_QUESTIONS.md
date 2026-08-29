@@ -3041,3 +3041,42 @@ next cycle builds it.
 - operator may override: say stall must ALSO lose to wrong-way travel
   and we re-derive the refusal pricing (likely a qvel-based stall
   charge rather than body-speed/travel floors).
+
+## q_20260829T16xx — recorded decisions (no wait): all-heading scratch walker (fb_20260829T144550_c921fa) routing + stage-a scope
+- cycle: operator-kick 08-29 ~15:0x (training-direction half; the
+  reward-design half fb_20260829T142239_63c818 landed the course-income
+  stack the same hour).
+- TEACHER SANITY CHECK (the note's item 2) PASSED before launch:
+  new probe `rl_move/sim/probe_teacher_headings.py` rolled the scripted
+  TripodGait on mesh/100 Hz/0.375deg-tick at all 8 balanced headings
+  (0/±45/±90/±135/180 deg, 0.08 m/s, 16 s each, DR-0): ZERO falls,
+  net course err <=2.26 deg, completion 0.373-0.385 (isotropic — same
+  as forward), windowed(1s) course err p95 <=4.23 deg (inside the 6 deg
+  income deadband), slip/m 1.24-1.36, 21-22 touchdowns every leg.
+  The teacher IS a valid all-heading BC/anchor source on this contract;
+  forward-bias in trained policies is a training/reward artifact.
+  Artifact: logs/probe_teacher_headings_mesh100.json.
+- TRACK ROUTING assumed: `standwalk` (the run lives on the mesh/100 Hz
+  contract, attacks the standwalk champion's measured forward bias, and
+  its graduate is the walking component the standwalk DONE gate needs).
+  joystick's registered gate is already met on 25 Hz/primitive.
+- STAGE-A SCOPE assumed: heading acquisition EXCLUDES wz (arcs/sweeps)
+  — the course-income term integrates the LINEAR command over trailing
+  windows and its bank never measured wz interaction (a turn-while-
+  translating arc bends the honest displacement away from the chord).
+  Arcs/sweeps enter at stage (c) only after a wz case is added to
+  test_course_income_semantics. Operator may override: say arcs must be
+  in stage (a) and we bank-check wz first, then relaunch.
+- D6 SYMMETRY assumed satisfied via the note's own "at least" clause:
+  balanced 8-heading command diet + the command-conditioned teacher
+  anchor (emits the SAME rotationally-mapped gait for every heading) +
+  per-heading eval buckets (eval_cmd_suite panel). A D6 analogue of
+  mirror.py (rotate-60deg obs/action permutation regularizer) is real
+  new machinery (the robot is a slight pinwheel, exact D6 is wrong by
+  construction) — deferred to a pre-registered follow-up arm if the
+  acquisition run shows residual front-axis specialization.
+- STAGE-A SPEED assumed: fixed 0.08 m/s (the bank's own calibration
+  command; "fixed/modest" per the note) even though the 1x teacher only
+  completes ~0.38 of it under this contract — the income optimum sits
+  AT the command and overdriven scripted gaits reach 0.56+ cleanly, so
+  the target is achievable-ish and never pays overspeed.
