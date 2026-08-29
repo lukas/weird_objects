@@ -1,6 +1,93 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~04:3x (idle-kick, no verdict — **command-tracking
+Update, 2026-08-29 ~05:0x idle-kick (**joyfix grid now 4/4 closed, all
+FAIL — and the ~04:3x root-cause's own pre-registered follow-up is
+answered plus a second lever is closed by direct measurement, no safe
+fix found yet.**
+
+1. **`cmdtrack-c1` VERDICTED CANARY FAIL - MECHANISM.** This was the
+   pre-registered test of the ~04:3x diagnostic's alternate lever
+   (`reward.k_walk_cmd_track`, raw per-tick command score, structurally
+   immune to the EMA-vector cancellation that makes `k_walk_course`
+   inert). Result: direction_err_med_deg is FLAT (66.0 vs parent
+   long-s0's own 64.6 — no improvement, the entire point of the lever)
+   while slip_per_m_med blows out 2.53x (23.2 vs parent 9.17, cap
+   1.5x). The other 4 AND-gated criteria (reward recovery, DR-0
+   gait_valid, session terminations, probe fwd speed) all PASS in
+   isolation — this is a clean mechanism refutation, not instability.
+   **CLOSES the raw-tick scalar-lever fix for k_walk_course**, exactly
+   as the diagnostic's own fallback text anticipated.
+2. **`velobs3-c1` VERDICTED CANARY FAIL - MECHANISM** (session
+   read pulled fresh off-pod this cycle, had gone stale on the
+   controller): 4/5 criteria PASS but session terminations
+   (mixedsession, 90 eps) land at 10/90 vs the canary's own <=6/90 bar
+   (over_current 5 + hold_low_height 5, in rise/hold/walk segments) —
+   the SAME pattern as `long-s1-cont1`'s own FAIL: isolated-mode panels
+   stay clean, the defect is sequenced-mode-transition-specific and
+   only the mixedsession instrument catches it. Closes the plain
+   warm-swap of `goal.walk_obs_body_vel` 2->3; per its own gate text,
+   any retry needs an annealed/staged introduction, not a one-shot
+   swap.
+3. **The joyfix grid is now 4/4 closed: bundle-c1 FAIL (08-28),
+   hdg-c1 FAIL (08-28), cmdtrack-c1 FAIL, velobs3-c1 FAIL.** Only
+   `hdgset1` (the staged heading-SET follow-up) remains open, still
+   genuinely computing (mixedsession on train-4, shared with
+   `long-s0-cont1`'s own dr0_long pass) — left untouched.
+4. **k_walk_course fix-lever (a), "just lower the activation floor",
+   is ALSO CLOSED by direct measurement, not assumed safe.** Swept
+   `walk_course_min_speed_m_s` through the full existing
+   `test_phasedir_semantics.py` bank (the exact stack every unified1
+   arm launches with) at 0.01/0.015/0.02: **every value in the
+   zigzag-sensitive band (0.004-0.03, the diagnosed activation gap)
+   breaks 8 of the bank's own established invariants**
+   (`test_obey_beats_fastcadence_every_bin`,
+   `test_pd9_ref_floor_spares_ramp_class_prices_real_overspeed`,
+   `test_pd9_det_orderings_survive_ref_floor`, plus 5 more) — the 0.04
+   floor was deliberately calibrated (phasedir3, 08-22) to stop
+   directed wrong-way/fastcadence travel from clearing the bar during
+   low-speed ramp ticks, and that protection and the zigzag-activation
+   fix share the exact same knob with no daylight between them. A
+   temp local repro (reverted, tree clean) also ruled out the tau
+   knob: raising `walk_course_tau_s` (0.75s -> up to 6s) does NOT
+   raise the achieved EMA magnitude on a synthetic symmetric-zigzag
+   drive — it measurably LOWERS it further (0.0338 -> 0.0222 mean
+   |EMA| at tau 0.75->6.0s), i.e. more averaging does not rescue this
+   failure mode the way period-matched-noise intuition would suggest
+   (likely because the synthetic drive's fast direction reversals are
+   also damped by gait-tracking lag, not just the EMA). **Net position:
+   no single-scalar dose fix exists on the current mechanism** — the
+   only lever left standing is (b) from the ~04:3x diagnostic, a
+   genuinely different metric (net position displacement over a
+   window instead of an EMA of instantaneous velocity), which needs
+   real engineering (body-frame projection, a new per-episode state
+   buffer wired into `MJX_SNAPSHOT_EXTRA` for the batched vec env, and
+   validation against the REAL checkpoint trajectory, not just a
+   scripted zigzag proxy whose fidelity to the learned failure mode is
+   unconfirmed) plus its own bank proof before any launch — correctly
+   DIG-IN scope, not a same-cycle canary. Filed as the track's open
+   Next item; do not fund a same-recipe continuation on `long-s1-cont1`
+   or launch another scalar-lever canary until this lands.
+5. No new launch this cycle: all 12 GPU slots read FREE
+   (`capacity.py`), but the only two items with independent
+   preconditions met (`hdgset1`, `long-s0-cont1`'s own mixedsession)
+   are already running (train-4, confirmed live via on-pod `ps` at
+   both the start and end of this cycle), and the position-displacement
+   mechanism above is correctly gated behind design+bank work another
+   cycle should own, not a rushed same-cycle launch. Re-swept
+   joystick/amp/cpg (DONE-or-`[operator]`-maintenance-only, unchanged)
+   and walkcurr (`[operator]`-blocked, q_20260824T0233Z still open).
+   Backlog+backlog_failed empty of in-scope work. CYCLE_WORKED (2 real
+   verdicts + a real, evidence-based mechanism-design finding — not a
+   re-verify no-op).
+
+DIG-IN flagged for a deep cycle: design + build the position-
+displacement course-direction metric (k_walk_course fix lever (b)),
+validated against `long-s1-cont1`'s real trajectory before any bank
+test or launch — evidence chain: `long-s1-cont1` FAIL (~03:0x) ->
+root-cause (~04:3x) -> `cmdtrack-c1` FAIL + floor/tau dead ends (this
+cycle).
+
+Prior update, 2026-08-29 ~04:3x (idle-kick, no verdict — **command-tracking
 reward audit (the open lever named by the ~03:0x FAIL below) ROOT-
 CAUSED: `reward.k_walk_course` — the ONLY heading/course-tracking
 reward term in the base `unified1-mix` recipe — has been COMPLETELY

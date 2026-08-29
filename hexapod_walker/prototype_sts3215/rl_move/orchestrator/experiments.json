@@ -216253,7 +216253,7 @@
       "goal.walk_cmd_resample_jitter=0.5"
     ],
     "created": "2026-08-28T16:13:48+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -216299,7 +216299,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-joyfix-velobs3-c1 since 2026-08-28T16:56:28"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (4/5 criteria PASS, session-terminations criterion FAILS): swapping goal.walk_obs_body_vel from the ref-copy contract (mode 2, carries zero real body-velocity info) to the leg-odometry velocity estimator (mode 3) on the unified1-mix stack, warm from long-s0's 16M PASS checkpoint, destabilizes SEQUENCED-SESSION mode transitions even though every isolated-mode measure looks fine. Full mixedsession (90 episodes, dr0+owndr+dr0_long) pulled directly off-pod (had gone stale on the controller since an earlier partial sync): n_terminations=10/90 (over_current 5, hold_low_height 5, spread across rise(4)/hold(5)/walk(1) segments) -- more than 1.6x the canary's own <=6/90 bar. The other 4 criteria were already confirmed PASS in a prior cycle (reward recovers from the obs-swap dip, DR-0 det walk gait_valid 6/6 sac [], rise success not collapsed, probe fwd speed_ratio 0.438) and DR-0-only isolated gate stays clean -- this is the SAME pattern already seen on long-s1-cont1 (isolated-mode panels clean, sequenced-session-specific over_current/leg-sacrifice relapse invisible without the mixedsession instrument). Per the canary's own gate text ('FAIL by instability -> retry as annealed/staged obs swap or fresh lineage only'): a plain warm-swap of the velocity observation channel is CLOSED for this recipe; any retry needs an annealed/staged introduction of mode 3, not a one-shot swap. Evidence: logs/ckpt_eval/cw_standwalk_unified1_joyfix_velobs3_c1_{gate,owncfg}/report.json, logs/ckpt_eval/cw_standwalk_unified1_joyfix_velobs3_c1_mixedsession/session_verdict.json (pulled fresh this cycle)."
   },
   {
     "run": "cw-standwalk-unified1-joyfix-cmdtrack-c1",
@@ -216527,7 +216528,7 @@
       "reward.k_walk_cmd_track=2.0"
     ],
     "created": "2026-08-28T16:19:11+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -216573,7 +216574,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-joyfix-bundle-c1-cw-standwalk-unified1 since 2026-08-28T17:01:37"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (4/5 criteria PASS but the decisive one FAILS): adding reward.k_walk_cmd_track=2.0 (raw per-tick command-tracking score, no EMA) on top of the unified1-mix stack, warm from long-s0's 16M PASS checkpoint, does NOT sharpen direction tracking and makes slip materially worse. Session-level (mixedsession, 90 episodes, dr0+owndr+dr0_long): direction_err_med_deg 66.045 vs parent long-s0's own 64.6 baseline (flat/no improvement -- the whole point of the lever), slip_per_m_med 23.233 vs parent 9.17 (2.53x, blows the gate's own <=1.5x-parent cap by a wide margin). The other 4 criteria are fine in isolation (reward recovers Q3->Q4 -783->-272 like every non-failing joyfix sibling; DR-0 det walk gait_valid 6/6 sac []; session terminations 2/90 <=6 cap; probe fwd speed_ratio 0.425 >=0.40 with no overspeed inversion), so this is not a training-instability failure -- it is exactly the hypothesis's own predicted-if-false branch (income shifts to jerky overspeed, matching the 08-20 fast-gait lineage's known risk) landing as measured evidence. Directly answers the k_walk_course root-cause diagnostic's own pre-registered follow-up ('if cmdtrack-c1 also fails to move dir_err, fix k_walk_course itself rather than replace it'): the raw-tick alternative is refuted, not just untried. CLOSES the k_walk_cmd_track scalar lever for standwalk (matches its joystick-track precedent, closed 0/3 there too). Evidence: logs/ckpt_eval/cw_standwalk_unified1_joyfix_cmdtrack_c1_{gate,owncfg,mixedsession}/."
   },
   {
     "run": "cw-standwalk-unified1-joyfix-bundle-c1",
