@@ -1,6 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~05:0x idle-kick (**joyfix grid now 4/4 closed, all
+Update, 2026-08-29 idle-kick (no verdict yet — **`hdgset1`'s gate+owncfg
+DR-0 reads were reaped this cycle (finished on-pod, sitting uncollected
+— `ops.sh podeval` copy-back-only reap, idempotent, no relaunch): DR-0
+det walk gait_valid 6/6, sac=[], 0 terms — the 2nd of its 4 AND-gated
+canary criteria to confirm PASS (probe_cmd_sensitivity already PASSED
+last cycle: fwd 0.44/diag_fl 0.314/diag_fr 0.249, all clearing their
+bars; reward-recovery also already PASSED last cycle, shallower trough
+than the long-s0-cont1 baseline trend). 3 of 4 criteria now CONFIRMED
+PASS; only session-terminations (the mixedsession read) remains open,
+genuinely still computing on train-4 (started 02:57, `owndr` pass at
+~759% CPU, sharing the pod with `long-s0-cont1`'s own still-running
+mixedsession `dr0_long` pass, started 03:40 — both ps-verified alive,
+not stalled, matching this recipe's known 4-5h mixedsession ETA). Full
+12-pod sweep (`train-0/1/2/3/5/6/7/8/9/10/11`) confirms every other pod
+genuinely idle (zero eval/train processes) and no orphans anywhere in
+the fleet this time. No new arm is launchable: the only two open
+standwalk decisions (`hdgset1` canary verdict, `long-s0-cont1` vs
+`long-s1-cont1`'s own FAIL — joint cont1 read) both wait on these same
+two in-flight mixedsession passes; the DIG-IN-flagged position-
+displacement course metric (k_walk_course fix lever (b)) still needs
+real design+bank work another (deep-model) cycle owns, correctly left
+untouched. Other tracks re-swept fresh: joystick/amp/cpg DONE-or-
+[operator]-maintenance-only (banners byte-unchanged since 08-24/08-25),
+walkcurr still [operator]-blocked (`q_20260824T0233Z` unanswered).
+Backlog + backlog_failed empty of in-scope work. CYCLE_WORKED (a real
+reap of finished-but-uncollected eval artifacts, not a re-verify
+no-op).
+
+DIG-IN still open (flagged 08-29 ~05:0x, unaddressed): design + build
+the position-displacement course-direction metric (k_walk_course fix
+lever (b)), validated against `long-s1-cont1`'s real trajectory before
+any bank test or launch.
+
+Prior update, 2026-08-29 ~05:0x idle-kick (**joyfix grid now 4/4 closed, all
 FAIL — and the ~04:3x root-cause's own pre-registered follow-up is
 answered plus a second lever is closed by direct measurement, no safe
 fix found yet.**
