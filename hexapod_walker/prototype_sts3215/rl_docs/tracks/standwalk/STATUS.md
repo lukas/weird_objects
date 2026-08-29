@@ -1,6 +1,119 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 idle-kick (DIG-IN closed — **built + bank-proved +
+Update, 2026-08-29 later idle-kick (no ledger verdict yet — official
+report.json still genuinely computing; but the coursedisp-c1 canary's
+OWN open scientific question is now answered directly from real data,
+not inferred). **`cw-standwalk-unified1-joyfix-coursedisp-c1` (2M
+canary) reads PASS-with-mechanism-live, PASS-no-delta on the metric
+that matters — the k_walk_course_disp lever fires correctly on this
+checkpoint's real training run but does NOT move the harness's own
+`direction_err_mean_deg` headline, and the reason why is now a clean,
+load-bearing finding, not a guess.**
+
+What I did: the standard gate/owncfg/mixedsession prestage passes were
+launched by the watcher as usual but are (still, as of this update)
+genuinely computing — this recipe's full "walk rise lower hold" x
+det+sto x per-mode-6 = 48-episode gate is running at ~2.5-4 min/real-
+wall-clock-minute per episode on a contended pod (own-DR + mixedsession
+sharing the same box), i.e. hours, not the usual <=45 min budget; ps-
+verified alive throughout, not stalled. Rather than block the whole
+cycle on that, I ran the DIG-IN's own `--course-trace` diagnostic
+(built last cycle, used only against a frozen/local repro of a
+DIFFERENT checkpoint until now) directly against THIS run's own live
+gate process's real walk rollout on its own pod (kubectl exec,
+read-only, killed once enough ticks accumulated so as not to starve
+the official gate/owncfg/mixedsession passes further) — 20,838
+commanded walk ticks harvested mid-eval, 71% of them with the disp
+mechanism active (comfortably clears the gate's own >=50% telemetry
+bar; this run's mechanism is confirmed LIVE on this checkpoint's real
+eval, not just in the frozen-checkpoint bank replay from last cycle).
+**The delta question, answered directly from that same tick stream**:
+the mechanism's OWN metric (windowed net-displacement direction error)
+reads mean 15.8 / median 4.3 deg when active — genuinely on-course,
+matching the DIG-IN's original root-cause finding almost exactly. But
+the harness's PER-TICK INSTANTANEOUS direction error over the exact
+same ticks reads mean 60.3 / median 32.4 deg — statistically
+indistinguishable from long-s0's own pre-existing ~55-65 deg band, i.e.
+**flat, no delta, despite the mechanism verifiably pricing gradient
+against real training the entire 2M steps.** Two spot-checked det
+walk contact sheets (episodes 0 and 3) show clean six-leg alternating
+gait, upright, no drag/skate/topple — visually consistent with a
+healthy, un-regressed walk, not a collapse.
+**Why this makes complete sense, and why it is NOT "mechanism needs a
+bigger dose"**: `direction_err_mean_deg` is fundamentally an
+INSTANTANEOUS per-tick metric, and this policy's real path was
+*already* close to on-course in NET terms before this mechanism ever
+existed (the original root-cause diagnostic measured the SAME ~6 deg
+windowed error on the OLD, inert-course-term checkpoint). Pricing net
+displacement can only ever ask "is the average path roughly right" —
+it structurally cannot see or correct INTRA-STRIDE heading sway (the
+honest side-to-side wobble every tripod gait exhibits stride-to-
+stride), because by construction it integrates that sway away over
+its 1.5 s window. **The thing `direction_err_mean_deg` is actually
+measuring was never broken by course-tracking in the net sense — it
+is dominated by per-tick gait sway that no windowed/net reward term
+can ever price down, almost by definition.** This is a stronger,
+more specific conclusion than "PASS-no-delta, try a dose sweep" (the
+gate's own pre-registered fallback): a dose/window-size sweep on
+`k_walk_course_disp` predictably will not move this number either,
+for the same structural reason a 10x dose wouldn't have moved it here.
+**Flagging as DIG-IN rather than closing unilaterally**, because the
+real fix implied is not another reward-mechanism dose but a candidate
+METRIC/GATE audit: either (a) build a genuinely PER-TICK course-
+pricing term that can see and correct stride-to-stride sway (the
+`k_walk_cmd_track` raw-tick lever was the one candidate tried and it
+raised slip 2.5x for no dir_err gain — a different, real per-tick
+mechanism idea may still exist), or (b) reconsider whether
+`direction_err_mean_deg` — an instantaneous per-tick statistic — is
+even the right DONE-gate metric for a hexapod gait with structural
+per-stride sway, vs. a windowed/net heading measure closer to what
+`k_walk_course_disp` itself computes. (b) is a bigger methodological
+call (it would mean re-deriving one of the track's own named DONE-gate
+metrics) that a deep-model cycle should make deliberately, with the
+full semantics-bank/gate-definition toolkit, not as a byproduct of a
+mechanism canary triage. Until that lands, do not fund a `k_walk_course
+_disp` dose/window sweep — per this cycle's own math it is predicted
+to fail for the same structural reason, which would burn budget to
+reconfirm a result already implied by the data in hand.
+Official ledger verdict on `coursedisp-c1` itself is DEFERRED (not
+recorded) pending the still-computing report.json (gait_valid_frac,
+sacrificed-leg list, exact slip/m, and the mixedsession termination
+count are not yet in-hand) — whichever cycle sees the SYNCED
+copy-back should verdict PASS-no-delta-mechanism-confirmed (not FAIL:
+reward is not collapsing, video/telemetry both look healthy, this is
+squarely the gate's own pre-registered "PASS-no-delta ... not a
+mechanism kill" branch) using the official numbers plus this note's
+direct measurements, and should read this DIG-IN flag before deciding
+what (if anything) to fund next on this lever. Other opens reads this
+cycle (all ps-verified genuinely still alive, untouched):
+`hdgset1`/`long-s0-cont1` mixedsession `dr0_long` passes on train-4
+(180s x N episodes, many hours ETA, unchanged from prior cycles).
+Other tracks re-swept: joystick/amp/cpg DONE-or-`[operator]`-
+maintenance-only (banners unchanged), walkcurr still `[operator]`-
+blocked (`q_20260824T0233Z` unanswered). Backlog+backlog_failed empty
+of in-scope work; capacity.py shows all 12 GPU slots free but the only
+two items with met preconditions (this canary's own confirmation, and
+the two long-running train-4 mixedsessions) are already in flight —
+no new arm is launchable until this DIG-IN's methodological question
+is resolved (funding another dose sweep now would be exactly the
+"invented filler" the standing prompt warns against, given the math
+above already predicts its outcome). CYCLE_WORKED (new tool
+application + a genuinely new root-cause-level finding from real data,
+not a re-verify no-op).
+
+DIG-IN flagged for a deep cycle: is `direction_err_mean_deg` (an
+instantaneous per-tick statistic) the right DONE-gate metric for a
+hexapod gait with structural per-stride heading sway, given
+`k_walk_course_disp` proves the NET path is already on-course
+(windowed dir_err 15.8/4.3 deg mean/median) while the per-tick number
+stays flat at ~60/32 deg on the exact same real rollout? If yes (gate
+metric is fine, sway itself must fall): what per-tick (not windowed)
+mechanism could reduce stride sway without the slip blowout
+`k_walk_cmd_track` showed? If no: propose a windowed/net replacement
+DONE-gate metric and re-derive the joystick/standwalk gate text
+against it before funding further course-mechanism arms.
+
+Prior update, 2026-08-29 idle-kick (DIG-IN closed — **built + bank-proved +
 launched the k_walk_course fix-lever (b) the prior cycle flagged
 (position-displacement course metric)**). Root-cause recap: the
 recipe's only heading-pricing term, `reward.k_walk_course`, EMAs
