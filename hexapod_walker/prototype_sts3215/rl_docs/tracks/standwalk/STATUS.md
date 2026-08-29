@@ -1,5 +1,72 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~04:3x (idle-kick, no verdict — **command-tracking
+reward audit (the open lever named by the ~03:0x FAIL below) ROOT-
+CAUSED: `reward.k_walk_course` — the ONLY heading/course-tracking
+reward term in the base `unified1-mix` recipe — has been COMPLETELY
+INERT for `long-s1-cont1`'s entire 16-32M-step lineage.** Reproduced
+the exact recipe locally against the FAILed checkpoint
+(`ppo_goal_cw_standwalk_unified1_mix_long_s1_cont1.zip`, deterministic,
+matched cfg-set stack) with temporary instrumentation (not landed —
+reverted, `git status` clean): confirmed `cfg_get(...,"k_walk_course")`
+correctly reads 2.0 every tick and the outer guard (`s_ref > 1e-3`,
+i.e. a command is active) fires on ~95% of ticks, but the INNER
+activation gate — `spd_c >= reward.walk_course_min_speed_m_s` (0.04
+m/s), where `spd_c` is the MAGNITUDE of a `tau=0.75s` EXPONENTIAL-
+MOVING-AVERAGE of the raw per-tick body-frame velocity VECTOR — never
+fired ONCE across a full deterministic 60s episode (0/5899 active
+ticks), even though this exact checkpoint's own DR-0 gate report shows
+real, non-trivial motion (`speed_mean_m_s=0.031`, `forward_dist_m`
+positive, gait_valid, six legs cycling). Root cause: the EMA is
+VECTOR, not scalar — a body that's genuinely translating but wanders/
+zigzags stride-to-stride (matching the ~62-68deg mean `direction_err`
+this whole campaign has been stuck at) has its per-tick velocity
+vectors partially CANCEL in the exponential average, so `|EMA(v)|`
+stays under the 0.04 m/s floor even when the scalar speed clears it
+comfortably. Since `k_walk_course` is the only term pricing HEADING
+(not just progress-vs-parking) in this recipe, this cleanly explains
+the whole campaign's paradox: slip/drag/idle terms (which don't depend
+on a vector EMA clearing a floor) kept optimizing every continuation,
+while dir_err never moved, because the one term that could have priced
+it was never actually paying or charging anything, the entire time.
+Cross-checked the code's OWN alternate lever: `reward.k_walk_cmd_track`
+(`walk_cmd_track_score`, `walk_task.py:100`) scores the RAW
+instantaneous per-tick velocity against the command with no EMA at
+all — structurally immune to this exact cancellation failure (any
+positive along-command component pays immediately) at the cost of
+reintroducing the stride-sway noise the EMA was originally built
+(operator order 2026-08-22, phasedir1 fix) to filter out — a real
+tradeoff, not a free fix. **This is exactly what the still-running
+`cw-standwalk-unified1-joyfix-cmdtrack-c1` canary (joyfix wave, already
+in flight, not launched by this cycle) tests** — no redundant arm
+needed; its own pending mixedsession/session-terminations read (dr0_long
+in progress on train-1 as of this cycle) is the direct verdict on
+whether trading EMA cancellation-immunity for raw-tick gait-sway noise
+nets out better for `dir_err`. **Pre-registered follow-up if
+`cmdtrack-c1` ALSO fails to move dir_err**: fix `k_walk_course` itself
+rather than replace it — either (a) lower `walk_course_min_speed_m_s`
+from 0.04 to match this lineage's own achieved sustained-EMA band
+(~0.004-0.03 m/s, confirmed via `env/walk_along_ema_m_s`'s training
+history and this cycle's local repro — an order of magnitude below the
+current floor) so the term activates at all, or (b) replace the
+velocity-EMA gate with a longer-baseline net-POSITION-displacement
+direction (delta over N seconds, e.g. reusing the anchor/lookahead
+machinery already in this file) which is immune to both stride-sway
+AND slow-zigzag cancellation by construction, unlike either existing
+lever. Do not fund either without checking `test_task_semantics.py`
+ranks the fix correctly first (reward/eval alignment gate). Other open
+reads this cycle (all still genuinely computing, ps-verified,
+untouched): `long-s0-cont1` gate+owncfg+mixedsession-owndr (train-4),
+`velobs3-c1`/`cmdtrack-c1` mixedsession-dr0_long (train-0/1), `hdgset1`
+gate+owncfg+mixedsession-dr0 (train-4, shared). Other tracks re-swept:
+joystick/amp/cpg DONE-or-`[operator]`-maintenance-only (banners
+unchanged), walkcurr still `[operator]`-blocked (BC-kickstart ruling,
+`q_20260824T0233Z`, still OPEN). Backlog+backlog_failed empty of
+in-scope work. CYCLE_WORKED (real root-cause diagnostic landing new,
+previously-undocumented evidence — not a re-verify no-op — even though
+no code changed and no verdict was recorded this cycle). Prior banner
+below.
+
 Update, 2026-08-29 ~03:0x (**`cw-standwalk-unified1-mix-long-s1-cont1` (32M,
 +16M continuation off the PASSed 16M `long-s1` checkpoint) VERDICTED FAIL
 vs its own pre-registered gate — first FAIL in the 08-21-ruling continuation
