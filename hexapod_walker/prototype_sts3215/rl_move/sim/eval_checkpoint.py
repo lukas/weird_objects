@@ -214,7 +214,20 @@ def _success(mode: str, term: bool, ep: dict,
 
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
-                valid_plant_gate: bool = False) -> tuple[dict, list]:
+                valid_plant_gate: bool = False,
+                course_trace=None) -> tuple[dict, list]:
+    """``course_trace``: an open, writable file handle (CSV, no
+    header) -- when given, every commanded walk tick appends
+    ``step,vx,vy,bx,by,vx_ref,vy_ref,walk_course_cos,
+    walk_course_disp_speed_m_s,walk_course_disp_cos`` (blank fields
+    where the corresponding info key is absent, e.g. the disp keys
+    when ``reward.k_walk_course_disp`` is 0). Diagnostic-only, no
+    effect on the returned ep dict/reward -- built for the
+    k_walk_course fix-lever (b) DIG-IN (2026-08-29) to compare the
+    EMA vs windowed-displacement course mechanisms against a REAL
+    checkpoint's own tick stream instead of a scripted proxy; reusable
+    for any future course/direction diagnostic on a live checkpoint.
+    """
     obs, info0 = env.reset()
     if hasattr(model, "reset"):
         model.reset()   # rot60 sector state is per-episode
@@ -251,6 +264,19 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         obs, r, term, trunc, info = env.step(a)
         ret += float(r)
         done = term or trunc
+
+        if course_trace is not None and mode in ("walk", "quadwalk"):
+            g = env._current_goal()
+            bxy = env.data.xpos[env._chassis_bid, :2]
+            v = env._body_vel_xy()
+            course_trace.write(
+                "%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s,%s,%s\n" % (
+                    env._step_i, float(v[0]), float(v[1]),
+                    float(bxy[0]), float(bxy[1]),
+                    float(g.vx_ref), float(g.vy_ref),
+                    info.get("walk_course_cos", ""),
+                    info.get("walk_course_disp_speed_m_s", ""),
+                    info.get("walk_course_disp_cos", "")))
 
         st = env._state
         if st.servo_current is not None:
@@ -839,7 +865,15 @@ def main() -> None:
     ap.add_argument("--wandb-run", type=str, default=None,
                     help="training run display name; default: derived "
                          "from the checkpoint filename")
+    ap.add_argument("--course-trace", type=Path, default=None,
+                    help="diagnostic: append a per-tick CSV of "
+                         "body-velocity/position/course-mechanism info "
+                         "keys for every WALK-mode episode (see "
+                         "run_episode's course_trace docstring). "
+                         "Default off, no report/reward effect.")
     args = ap.parse_args()
+    course_trace_fh = (open(args.course_trace, "a")
+                       if args.course_trace else None)
 
     from .train_ppo_sim import _annotate_frame, _parse_cfg_set
 
@@ -1009,7 +1043,8 @@ def main() -> None:
                         env, model, deterministic=det, video=video,
                         annotate=_annotate_frame,
                         end_posture_gate=args.end_posture_gate,
-                        valid_plant_gate=args.valid_plant_gate)
+                        valid_plant_gate=args.valid_plant_gate,
+                        course_trace=course_trace_fh)
                     # A forced mode MUST be the mode that actually ran
                     # (see ALL_MODES note): a silent sampler fallback
                     # voids the whole report, so die loudly instead.
@@ -1280,6 +1315,9 @@ def main() -> None:
                   f"parent {bs}/{len(beps)}  delta {cs - bs:+d}")
         print("  (an axis 'effect' exists only if child and parent differ "
               "under the SAME injection)")
+
+    if course_trace_fh is not None:
+        course_trace_fh.close()
 
 
 if __name__ == "__main__":

@@ -304,8 +304,19 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
             for k in ("reward_loadslip_excess",
                       "reward_walk_course_overspeed",
                       "reward_walk_course", "reward_drag_stance",
-                      "reward_walk", "reward_walk_prog"):
+                      "reward_walk", "reward_walk_prog",
+                      "reward_walk_course_disp",
+                      "reward_walk_course_disp_overspeed"):
                 collect[k] = collect.get(k, 0.0) + float(info.get(k, 0.0))
+            if "walk_course_disp_speed_m_s" in info:
+                collect["walk_course_disp_active_ticks"] = 1 + collect.get(
+                    "walk_course_disp_active_ticks", 0)
+                collect["walk_course_disp_cos_sum"] = float(
+                    info.get("walk_course_disp_cos", 0.0)) + collect.get(
+                        "walk_course_disp_cos_sum", 0.0)
+            if "walk_course_cos" in info:
+                collect["walk_course_ema_active_ticks"] = 1 + collect.get(
+                    "walk_course_ema_active_ticks", 0)
             for k in ("walk_loadslip_ratio", "walk_loadslip_factor"):
                 if k in info:
                     collect[k] = float(info[k])

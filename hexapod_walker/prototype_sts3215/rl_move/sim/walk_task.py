@@ -35,6 +35,7 @@ v2 (post cw-walk, which plateaued at a ~0.04 m/s shuffle):
 from __future__ import annotations
 
 import math
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -954,6 +955,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_idle_ema", "_walk_idle_low_s",
                           "_walk_stop_cmd_s",
                           "_walk_qvel_ema", "_walk_course_ema",
+                          "_walk_course_disp_hist",
                           "_walk_kernel_vema", "_walk_kernel_wz_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
@@ -1082,6 +1084,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._walk_stop_freeze_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
+        # Commanded-course NET-DISPLACEMENT ring buffer
+        # (reward.k_walk_course_disp, the k_walk_course EMA-
+        # cancellation fix-lever (b), 08-29 standwalk DIG-IN); lazily
+        # (re)allocated in the reward step once the window size is
+        # known, so a plain reset just drops any prior buffer.
+        self._walk_course_disp_hist = None
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -1665,6 +1673,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._walk_stop_freeze_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
+        # Commanded-course NET-DISPLACEMENT ring buffer
+        # (reward.k_walk_course_disp, the k_walk_course EMA-
+        # cancellation fix-lever (b), 08-29 standwalk DIG-IN); lazily
+        # (re)allocated in the reward step once the window size is
+        # known, so a plain reset just drops any prior buffer.
+        self._walk_course_disp_hist = None
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -3485,6 +3499,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._walk_stop_freeze_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
+        # Commanded-course NET-DISPLACEMENT ring buffer
+        # (reward.k_walk_course_disp, the k_walk_course EMA-
+        # cancellation fix-lever (b), 08-29 standwalk DIG-IN); lazily
+        # (re)allocated in the reward step once the window size is
+        # known, so a plain reset just drops any prior buffer.
+        self._walk_course_disp_hist = None
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -4650,6 +4670,130 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         reward = float(reward) + r_cover
                         info["walk_course_overspeed_m_s"] = over_c
                         info["reward_walk_course_overspeed"] = r_cover
+            # Commanded-COURSE charge via NET POSITION DISPLACEMENT
+            # (k_walk_course fix-lever (b), 2026-08-29 standwalk
+            # DIG-IN). Root-cause chain: `cw-standwalk-unified1-mix-
+            # long-s1-cont1` FAILed its own gate (dir_err plateaued at
+            # ~62-68 deg the whole 16-32M-step lineage) -> the ONLY
+            # course-pricing term above, k_walk_course, was found
+            # COMPLETELY INERT for that entire lineage (0/5899 active
+            # ticks in a full deterministic repro) because its
+            # vector-EMA of INSTANTANEOUS velocity partially CANCELS
+            # under stride-to-stride zigzag even when net travel is
+            # real -> the obvious scalar fixes on that EMA (lower
+            # walk_course_min_speed_m_s, raise walk_course_tau_s) were
+            # closed by direct measurement: every floor value in the
+            # diagnosed activation band breaks 8 of this file's own
+            # `test_phasedir_semantics.py` invariants, and raising tau
+            # measurably LOWERS the achieved EMA magnitude instead of
+            # raising it. Direct local repro against the FAILED
+            # checkpoint's own real rollout (not a scripted proxy)
+            # measured why: per-tick INSTANTANEOUS direction error
+            # mean/median 57.6/32.7 deg (matches the harness's own
+            # `direction_err_mean_deg` headline of ~55-62 almost
+            # exactly -- confirming that headline metric is dominated
+            # by honest stride sway, the exact noise class the EMA was
+            # built to filter) vs. the SAME rollout's net forward-
+            # window direction error only 6.2-6.5 deg at EVERY window
+            # tested (0.75 - 6.0 s) with mean windowed speed ~0.029 m/s
+            # -- comfortably clearing a 0.02 m/s floor even though the
+            # vector EMA of the identical ticks never clears 0.04. This
+            # term replaces "EMA of instantaneous velocity" with "true
+            # net body-position displacement over a trailing window" --
+            # a position delta, not a velocity filter -- which is
+            # immune to both intra-stride sway AND slow zigzag
+            # cancellation by construction: it measures where the body
+            # ACTUALLY ENDED UP over the window, not an average of
+            # noisy tick-level velocity samples. Independent cfg key
+            # from k_walk_course (both may run in the same stack for a
+            # controlled canary); same "added after every income gate"
+            # placement so no gate can shrink it. The position ring
+            # buffer always tracks (cheap: a python deque of (x, y)
+            # tuples, per MJX_SNAPSHOT_EXTRA pool-restore convention)
+            # whenever this term is on; when k_walk_course_disp is 0
+            # the buffer is never allocated (stays None from reset) --
+            # no state update, no info keys, reward bit-exact legacy.
+            # cfg: reward.k_walk_course_disp,
+            # reward.walk_course_disp_window_s,
+            # reward.walk_course_disp_min_speed_m_s.
+            k_cdisp = float(cfg_get(self.cfg, "reward",
+                                    "k_walk_course_disp", default=0.0))
+            if k_cdisp > 0.0:
+                win_s = max(float(cfg_get(
+                    self.cfg, "reward", "walk_course_disp_window_s",
+                    default=1.5)), self.dt)
+                win_ticks = max(int(round(win_s / self.dt)), 1)
+                hist = self._walk_course_disp_hist
+                if hist is None or hist.maxlen != win_ticks + 1:
+                    hist = deque(maxlen=win_ticks + 1)
+                    self._walk_course_disp_hist = hist
+                bxy = self.data.xpos[self._chassis_bid, :2]
+                hist.append((float(bxy[0]), float(bxy[1])))
+                if s_ref > 1e-3 and len(hist) == hist.maxlen:
+                    dx = hist[-1][0] - hist[0][0]
+                    dy = hist[-1][1] - hist[0][1]
+                    d_disp = math.hypot(dx, dy)
+                    avg_v_disp = d_disp / win_s
+                    v_min_cd = float(cfg_get(
+                        self.cfg, "reward",
+                        "walk_course_disp_min_speed_m_s", default=0.02))
+                    if avg_v_disp >= v_min_cd:
+                        cos_cd = max(-1.0, min(1.0, (
+                            dx * goal.vx_ref + dy * goal.vy_ref)
+                            / (d_disp * s_ref)))
+                        r_cdisp = -k_cdisp * (1.0 - cos_cd)
+                        reward = float(reward) + r_cdisp
+                        info["walk_course_disp_cos"] = cos_cd
+                        info["walk_course_disp_speed_m_s"] = avg_v_disp
+                        info["reward_walk_course_disp"] = r_cdisp
+                    # Windowed-displacement overspeed band charge --
+                    # exact structural twin of k_walk_course_overspeed
+                    # (same tol/along-projection/ref-floor knobs) but
+                    # keyed off avg_v_disp so it is NOT silently
+                    # disabled when k_walk_course=0 (that term lives
+                    # inside the k_walk_course>0 gate above and would
+                    # otherwise vanish for any stack that runs the
+                    # disp course charge alone -- caught by this
+                    # mechanism's own bank probe: fastcadence out-
+                    # earned obey 899 vs 806 fwd before this charge
+                    # existed, purely because the anti-overspeed
+                    # protection had gone missing, not because the
+                    # course term itself mispriced anything). Default
+                    # 0 = off, bit-exact.
+                    # cfg: reward.k_walk_course_disp_overspeed,
+                    # reward.walk_course_disp_overspeed_tol,
+                    # reward.walk_course_disp_overspeed_along,
+                    # reward.walk_course_disp_overspeed_ref_floor_m_s.
+                    k_dcover = float(cfg_get(
+                        self.cfg, "reward",
+                        "k_walk_course_disp_overspeed", default=0.0))
+                    if k_dcover > 0.0:
+                        tol_dc = float(cfg_get(
+                            self.cfg, "reward",
+                            "walk_course_disp_overspeed_tol",
+                            default=0.05))
+                        spd_dover = avg_v_disp
+                        if float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_disp_overspeed_along",
+                                default=0.0)) == 1.0:
+                            spd_dover = (dx * goal.vx_ref
+                                        + dy * goal.vy_ref) / (
+                                            s_ref * win_s)
+                        s_den_d = max(s_ref, float(cfg_get(
+                            self.cfg, "reward",
+                            "walk_course_disp_overspeed_ref_floor_m_s",
+                            default=0.0)))
+                        over_d = max(0.0, spd_dover
+                                    - (1.0 + tol_dc) * s_den_d)
+                        if over_d > 0.0:
+                            r_dcover = -k_dcover * min(
+                                over_d / s_den_d, 3.0)
+                            reward = float(reward) + r_dcover
+                            info["walk_course_disp_overspeed_m_s"] = (
+                                over_d)
+                            info["reward_walk_course_disp_overspeed"] = (
+                                r_dcover)
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]),
                 float(goal.vx_ref), float(goal.vy_ref),
