@@ -1,6 +1,58 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~09:1x triage cycle (no verdict yet — **w035-c1's own
+Update, 2026-08-29 ~09:3x idle-kick (agent-doable-queue drain — **TWO
+long-pending mixedsession reads finally landed and both VERDICTED
+FAIL, closing two open threads at once; coursedisp-w015/w035 still
+genuinely computing, untouched.**
+
+1. **`hdgset1` (staged heading-SET canary) — CANARY FAIL** (marginal,
+   one AND-clause only). 3/4 pre-registered criteria PASS (reward
+   recovery, DR-0 gait_valid 6/6, probe_cmd_sensitivity diagonal
+   response), but the mixedsession session-termination read — found
+   this cycle already finished-but-uncollected on train-4 (`ops.sh
+   podeval` idempotent reap, no relaunch) — is 7/90, one over the
+   canary's own <=6/90 cap. All 7 are `hold_low_height`/`over_current`
+   in hold/rise segments (the track's pre-existing stance-hold
+   weakness, not a new walk fall; contact sheet clean six-leg gait).
+   **This closes the joyfix grid at 5/5 FAIL** (bundle-c1, hdg-c1,
+   cmdtrack-c1, velobs3-c1, hdgset1): no heading-width, bundle,
+   raw-tick command-track, velocity-observability, or staged-heading-
+   set lever moves off-axis (lateral/diagonal) command following at
+   this 2M budget without tripping the stance-termination bar.
+2. **`long-s0-cont1` (16M->32M budget continuation) — FAIL, joint
+   with the already-recorded `long-s1-cont1` FAIL.** Same
+   session_verdict.json instrument found finished-but-uncollected on
+   the same pod/reap: dir_err_med 64.6->62.65deg (+3.0%, a plateau),
+   slip/m_med 9.17->8.283 (+9.7%, real but under the 15% material bar
+   both siblings needed for PASS), AND terminations/completion/
+   gait_valid/sac all REGRESSED (2->5 terms, 0.978->0.944 complete,
+   0.967->0.95 gait_valid, sac [2]->[0,2] new leg). Reward itself rose
+   healthily the whole run (quarters -11.5/631.7/1412.5/2210.8) — not
+   an optimizer failure, exactly the gate's own predicted
+   mechanism/reward-shape ceiling: more budget on the identical
+   recipe does not move command-tracking and mildly costs stance
+   robustness doing it. **Confirms (does not just repeat) the
+   long-s1-cont1 finding cross-seed**: budget-continuation on
+   unified1-mix is closed; the course-tracking fix has to be a
+   reward-shape change, which is exactly what the already-in-flight
+   `k_walk_course_disp` / sub-stride-window lever (coursedisp-c1 /
+   w015-c1 / w035-c1) is testing.
+
+Both verdicts + SKILLS.md untouched (no PASS this cycle). Full sweep:
+`coursedisp-w015-c1`/`-w035-c1` still genuinely computing on-pod
+(train-2/train-1, no report.json yet, ps-alive) — the only in-flight
+standwalk work, left untouched. All 12 GPU training slots free
+(`capacity.py`), backlog+backlog_failed empty of in-scope work; with
+the joyfix grid and the cont1 budget-continuation question both now
+fully closed, there is no other pre-registered standwalk arm with met
+preconditions until the coursedisp pair's official reads land. Other
+tracks re-swept fresh: joystick/amp/cpg DONE-or-`[operator]`-
+maintenance-only (banners byte-unchanged), walkcurr still
+`[operator]`-blocked (`q_20260824T0233Z` unanswered). CYCLE_WORKED (2
+real verdicts off genuinely-finished-but-uncollected artifacts, not a
+re-verify no-op).
+
+Prior update, 2026-08-29 ~09:1x triage cycle (no verdict yet — **w035-c1's own
 n=1 course-trace probe lands, and it CONFIRMS the sibling's activation-
 floor hypothesis rather than refuting it.** w035-c1 (0.35s window, MY
 run this cycle per the prompt's own routing) finished training; its

@@ -215433,7 +215433,7 @@
       "goal.walk_cmd_resample_jitter=0.5"
     ],
     "created": "2026-08-28T13:48:41+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -215480,7 +215480,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-mix-long-s0-cont1 since 2026-08-28T14:38:45"
+    "triage": "done",
+    "verdict": "CANARY FAIL vs its own pre-registered continuation gate, matching the sibling long-s1-cont1's already-recorded FAIL -- JOINT read confirms budget-continuation (16M->32M, same recipe, no reward-shape change) is not the fix for command-tracking. Baseline (this seed's own 16M mixedsession, unified1-mix-long-s0 wave-3 table): terms 2/90, complete_frac 0.978, dir_err_med 64.6deg, slip/m_med 9.17, prog_med 0.131, gait_valid_frac 0.967, sac=[2]. This run (32M, session_verdict.json, 90-episode dr0+owndr+dr0_long panel): terms 5/90 (all over_current, walk(3)+rise(2) segments -- NEW, previously 2), complete_frac 0.944 (down), dir_err_med 62.65deg (+3.0%, a plateau under the gate's own <5%-delta bar), slip/m_med 8.283 (+9.67%, real but under the 15% material-improvement bar), gait_valid_frac 0.95 (down), sac=[0,2] (leg 0 newly appears, was clean [2] before). Neither target metric clears the >=15% PASS bar (both PARTIAL-range at best), AND terminations/completion/gait_valid/sac all regressed rather than holding at-or-above the 16M level -- worse than a plain plateau. Training reward itself is healthy and rising throughout (quarters -11.5/631.7/1412.5/2210.8, ep_rew_mean 2772 at 16.06M steps-this-run), so this is not an optimizer failure -- it is exactly the gate's own predicted mechanism/reward-shape ceiling: more budget on the identical recipe does not move command-tracking and mildly costs stance-termination robustness doing it. Consistent with (and superseded by) the course-tracking root-cause work already in flight on other lineages (k_walk_course was found inert/EMA-cancelled, k_walk_course_disp built as the fix, now itself being read via the coursedisp-w015/w035 sub-stride-window siblings) -- no further same-recipe budget continuation should be funded on this lineage. Evidence: logs/ckpt_eval/cw_standwalk_unified1_mix_long_s0_cont1_{gate,owncfg,mixedsession}/session_verdict.json, W&B 4eqojadc."
   },
   {
     "run": "cw-standwalk-unified1-mix-long-s1-cont1",
@@ -217078,7 +217079,7 @@
       "goal.walk_heading_set=[0,0.7854,-0.7854]"
     ],
     "created": "2026-08-28T18:52:27+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -217127,7 +217128,8 @@
       }
     ],
     "checkup_note": "08-28 19:0x SUSPECT (fps 1456 < 5000 floor) root-caused: not misplaced/broken \u2014 6 watcher prestage eval_checkpoint procs (cont1 x3 @4.5h, hdg-c1 x3 @2h) were eating ~24 cores of the train-4 cgroup, starving the trainer's host workers. Run healthy (2.03M/2M steps collected, reward fine); fixed by renice +19 on all eval procs (trainer keeps nice 0) \u2014 no kill, no rebalance, cont1's pending-triage eval evidence preserved.",
-    "triage": "in-cycle cw-standwalk-unified1-joyfix-hdgset1 since 2026-08-28T20:10:21"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (marginal, on the session-termination AND-clause only): the staged heading-SET lever (goal.walk_heading_set=[0,+-45deg], single lever off long-s0's 16M PASS ckpt) clears 3 of its 4 pre-registered criteria -- reward recovers (quarters 33.2/-12.0/-142.7/-113.3, shallower trough than hdg-c1's own -300 crash, ep_rew_mean -13.2 at 1.0M), DR-0 det walk gait_valid 6/6 sac=[] 0 terms, and probe_cmd_sensitivity clears the diagonal bar (diag_fl 0.314/diag_fr 0.249 vs required >=0.07, fwd 0.44 vs >=0.35) -- but the mixedsession session-termination count, read this cycle off a reaped-but-uncollected pass (dr0+owndr+dr0_long, 90 episodes), is 7/90, one over the canary's own <=6/90 cap. All 7 terminations are hold_low_height(5)/over_current(2) during hold/rise segments -- the track's pre-existing, unrelated stance-hold weakness (same signature the standwalk anchor campaign already tracks separately), not a walk fall or a regression the heading mechanism itself caused; contact sheet shows a clean upright six-leg gait throughout, no new pathology. Per the gate's own literal AND-clause this is a FAIL, and per its own fallback ('escalate to the walk_obs_body_vel velocity-blind-obs hypothesis, coordinate with velobs3') that escalation is already closed too (velobs3-c1 FAILed the same mixedsession-termination clause at 10/90 last cycle). This closes the LAST open arm of the joyfix grid: bundle-c1/hdg-c1/cmdtrack-c1/velobs3-c1/hdgset1 are now 5/5 FAIL -- no heading-width, bundle, raw-tick command-tracking, velocity-observability, or staged-heading-set lever moves off-axis (lateral/diagonal) command following at this 2M budget without tripping the stance-termination bar or crashing reward. Evidence: logs/ckpt_eval/cw_standwalk_unified1_joyfix_hdgset1_{gate,owncfg,mixedsession}/, W&B cb0gytvl. Next: no further joyfix-grid arm; command-following work routes to the already-in-flight k_walk_course_disp / sub-stride-window lever (a structurally different mechanism, being read on its own siblings)."
   },
   {
     "run": "cw-standwalk-unified1-joyfix-coursedisp-c1",
