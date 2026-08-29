@@ -44,7 +44,14 @@ land (pollreap already looping); (b) calibrate windowed-gate pass
 thresholds by re-evaluing the joystick champion
 (`cw-dep-bcgait4-phasedir9-stotight45-seed13`, primitive/25 Hz pins)
 and the unified longrun checkpoints with the updated harness (pod
-eval, no training); (c) pre-register the first course-INCOME arm on
+eval, no training) — **champion half LAUNCHED this cycle**: synced the
+updated `eval_checkpoint.py` to train-0 (kubectl cp, md5-verified;
+same-content-as-main a0ffd556, m5eval precedent) and started detached
+`ops.sh podeval ... wincal` (log /tmp/podeval_champion_wincal.log,
+artifacts will land in logs/ckpt_eval/*wincal*); the unified-longrun
+half is DEFERRED until the coursedisp mixedsession evals free
+train-1/-2 (adding eval load there would worsen the documented CPU
+contention); (c) pre-register the first course-INCOME arm on
 the unified1-mix lineage (income 2.0 + sway 2.0 + disp 0.15 stack as
 bank-proven, all other keys per lineage recipe) — preconditions: (a)
 verdicts recorded, so the trio's disp-dose evidence can pick the disp
