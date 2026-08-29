@@ -1,6 +1,30 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~09:3x idle-kick (agent-doable-queue drain — **TWO
+Update, 2026-08-29 ~10:3x idle-kick (housekeeping + contention audit,
+no verdict — **committed+pushed the prior cycle's 5-file uncommitted
+diff (hdgset1/long-s0-cont1 FAIL verdicts) that had accumulated in the
+working tree** (44c8e116). Investigated train-1 CPU contention between
+coursedisp-c1's own still-open `mixedsession` `owndr` pass and
+w035-c1's gate/owncfg: confirmed this is NOT an orphan to kill —
+coursedisp-c1's own recorded verdict text explicitly flags "the
+mixedsession termination count (<=6/90) was still computing at
+verdict time... if the landed report shows terminations>6/90, reopen
+as FAIL", so that pass is a live reopen-check, not redundant load (its
+dr0 pass already landed clean at 09:15; owndr in progress since
+10:28). Left both runs' processes untouched. w015-c1 (train-2,
+uncontended) has progressed further (into `walk_sto_0`) than w035-c1
+(train-1, contended, still on `walk_det_5` since ~09:44) — expected
+given the shared pod, not a stall. No session_verdict.json/report.json
+landed for either sub-stride sibling or for coursedisp-c1's own
+reopen-check this cycle. Backlog empty; no other standwalk arm has
+independent preconditions met (re-confirmed). joystick/amp/cpg
+DONE-or-maintenance (banners unchanged), walkcurr
+[operator]-blocked (q_20260824T0233Z still open). IDLE: nothing
+runnable beyond the housekeeping commit — CYCLE_WORKED not touched
+(git-hygiene + verification only, no new triage/launch/code this
+cycle).
+
+Prior update, 2026-08-29 ~09:3x idle-kick (agent-doable-queue drain — **TWO
 long-pending mixedsession reads finally landed and both VERDICTED
 FAIL, closing two open threads at once; coursedisp-w015/w035 still
 genuinely computing, untouched.**
