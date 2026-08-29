@@ -1,6 +1,53 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~08:0x deep dig-in cycle (**coursedisp-c1 VERDICTED
+Update, 2026-08-29 ~08:5x triage cycle (no verdict yet — **both sub-stride
+window siblings (`coursedisp-w015-c1` 0.15s / `coursedisp-w035-c1` 0.35s)
+finished training this cycle; w015-c1's own gate/owncfg/mixedsession
+prestage is genuinely computing but VERY slow on its pod (train-2, 3
+concurrent eval_checkpoint passes ~850%CPU each contending for the
+28-core budget) — only 2/48 gate episodes written in the first ~20 min,
+matching this recipe's own established multi-hour ETA; w035-c1 is
+another cycle's claimed run this cycle, left untouched per the prompt's
+own routing.** Rather than block the cycle on that, ran a fast
+preliminary read on w015-c1's own frozen checkpoint: pushed it +
+synced fresh code to the genuinely-idle `train-0` (its own gate/owncfg
+pods were busy, this did not contend with them) and ran a single
+`eval_checkpoint.py --course-trace` det walk episode (seed 91000, the
+run's own full cfg-set verbatim, no video). Result, informative but
+n=1 (do not treat as the verdict — the official 12-walk-episode
+det+sto read is still the one that counts): the harness's own printed
+per-tick `dir_err` reads **52.6 deg** (vs long-s0's ~55-65 band and
+coursedisp-c1's 60.3 mean — a small, likely-within-noise improvement,
+nowhere near the >=15 deg PASS-with-delta bar) and the `k_walk_course_
+disp` mechanism's own telemetry fires on only **14.3%** of ticks
+(860/6000) — well BELOW the gate's own >=50% activation bar, and much
+lower than coursedisp-c1's reported 71% at window=1.5s. Read together
+these suggest a specific, new hypothesis for whoever verdicts the
+joint pair once the official numbers land: **the 0.15s window may be
+short enough that `walk_course_disp_min_speed_m_s=0.02` rarely clears
+in a single sub-stride tick (intra-stride net-position cancellation
+happening even at the displacement level, not just the old velocity-
+EMA level) — i.e. w015 could fail on ACTIVATION alone, independent of
+whether the mechanism (when it does fire) helps dir_err.** If the
+official w015 report confirms <50% telemetry while w035 clears it,
+that pins the useful sub-stride floor closer to 0.35s than 0.15s, a
+concrete, useful refinement rather than a flat "both closed." Full
+12-pod sweep: all 12 GPU training slots read FREE (capacity.py — the
+busy CPUs on train-0/2 are eval-only, not training slots), backlog +
+backlog_failed empty of in-scope work; no legal new standwalk arm
+exists before this joint pair's official reads land (per the arm's
+own pre-registered branches). Other tracks re-swept fresh (byte-
+identical STATUS.md headers): joystick/amp/cpg DONE-or-`[operator]`-
+maintenance-only, walkcurr still `[operator]`-blocked (`q_2026082
+4T0233Z` unanswered). CYCLE_WORKED (a real diagnostic tool run against
+a genuinely new checkpoint via a freshly-synced idle pod, not a
+re-verify no-op) — next cycle to see w015-c1's SYNCED gate/owncfg/
+mixedsession copy-back should verdict the pair per the pre-registered
+MECHANISM-HEALTH CANARY gate text, reading this note's n=1 activation-
+rate finding as context, not as a substitute for the official n=12
+read.)
+
+Prior update, 2026-08-29 ~08:0x deep dig-in cycle (**coursedisp-c1 VERDICTED
 CANARY PASS-no-delta; the flagged gate-metric question is ANSWERED BY
 MEASUREMENT and the answer overturns the prior cycle's structural-sway
 story**). New tool `rl_move/sim/probe_dir_floor.py` (snapshot
