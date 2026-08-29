@@ -956,6 +956,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_stop_cmd_s",
                           "_walk_qvel_ema", "_walk_course_ema",
                           "_walk_course_disp_hist",
+                          "_walk_course_win_hist", "_walk_course_win_cum",
                           "_walk_kernel_vema", "_walk_kernel_wz_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
@@ -1090,6 +1091,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # (re)allocated in the reward step once the window size is
         # known, so a plain reset just drops any prior buffer.
         self._walk_course_disp_hist = None
+        # Windowed course-following INCOME + excess-sway ring buffer
+        # (reward.k_walk_course_income / reward.k_walk_excess_sway,
+        # operator reward-design directive fb_20260829T142239_63c818):
+        # deque of (x, y, cum_cmd_x, cum_cmd_y, cum_active_ticks) with
+        # the running totals in _walk_course_win_cum; lazily
+        # (re)allocated in the reward step once the window sizes are
+        # known. Same lifecycle as _walk_course_disp_hist.
+        self._walk_course_win_hist = None
+        self._walk_course_win_cum = [0.0, 0.0, 0]
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -1679,6 +1689,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # (re)allocated in the reward step once the window size is
         # known, so a plain reset just drops any prior buffer.
         self._walk_course_disp_hist = None
+        # Windowed course-following INCOME + excess-sway ring buffer
+        # (reward.k_walk_course_income / reward.k_walk_excess_sway,
+        # operator reward-design directive fb_20260829T142239_63c818):
+        # deque of (x, y, cum_cmd_x, cum_cmd_y, cum_active_ticks) with
+        # the running totals in _walk_course_win_cum; lazily
+        # (re)allocated in the reward step once the window sizes are
+        # known. Same lifecycle as _walk_course_disp_hist.
+        self._walk_course_win_hist = None
+        self._walk_course_win_cum = [0.0, 0.0, 0]
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -3505,6 +3524,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # (re)allocated in the reward step once the window size is
         # known, so a plain reset just drops any prior buffer.
         self._walk_course_disp_hist = None
+        # Windowed course-following INCOME + excess-sway ring buffer
+        # (reward.k_walk_course_income / reward.k_walk_excess_sway,
+        # operator reward-design directive fb_20260829T142239_63c818):
+        # deque of (x, y, cum_cmd_x, cum_cmd_y, cum_active_ticks) with
+        # the running totals in _walk_course_win_cum; lazily
+        # (re)allocated in the reward step once the window sizes are
+        # known. Same lifecycle as _walk_course_disp_hist.
+        self._walk_course_win_hist = None
+        self._walk_course_win_cum = [0.0, 0.0, 0]
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -3964,6 +3992,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # by construction while perfect tracking is unchanged
             # (factor 1); overspeed unaffected (clip at 1). Walk-mode
             # only by construction (this block).
+            # Support-quality product for the windowed course INCOME
+            # term below (fb_20260829T142239_63c818 item 5: positive
+            # walk income must be gated by support quality). Collects
+            # the SAME blended factors the run's own configured support
+            # gates (anchor / loadslip / height / gait) already apply
+            # to kernel income — a belly shuffle, skate or flag-leg
+            # gait earns course income at the same discount its kernel
+            # income takes, by construction, with zero new tuning.
+            # Deliberately EXCLUDES the per-tick prog/yaw kernels: the
+            # windowed term measures progress itself over gait-scale
+            # windows, and a per-tick progress factor would re-import
+            # exactly the instantaneous-velocity sensitivity the
+            # directive forbids.
+            support_gate = 1.0
             g_kernel = float(cfg_get(self.cfg, "reward",
                                      "walk_kernel_prog_gate",
                                      default=0.0))
@@ -4042,6 +4084,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 frac = (anchored / loaded) if loaded > 0 else 0.0
                 a_factor = (1.0 - g_anchor) + g_anchor * frac
                 r_walk *= a_factor
+                support_gate *= a_factor
                 if r_prog > 0.0:
                     r_prog *= a_factor
                 info["walk_anchor_frac"] = frac
@@ -4099,6 +4142,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if g_ls > 0.0:
                     ls_factor = (1.0 - g_ls) + g_ls * factor
                     r_walk *= ls_factor
+                    support_gate *= ls_factor
                     if r_prog > 0.0:
                         r_prog *= ls_factor
                 # Direct loaded-slip excess penalty (operator order
@@ -4188,6 +4232,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if g_hgt > 0.0:
                     hgt_factor = (1.0 - g_hgt) + g_hgt * h_gauss
                     r_walk *= hgt_factor
+                    support_gate *= hgt_factor
                     if r_prog > 0.0:
                         r_prog *= hgt_factor
             # All-support-legs gait gate (08-13, quad track; the
@@ -4245,6 +4290,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     g_score = min(g_score, sc)
                 gt_factor = (1.0 - g_gait) + g_gait * g_score
                 r_walk *= gt_factor
+                support_gate *= gt_factor
                 if r_prog > 0.0:
                     r_prog *= gt_factor
                 if r_cmd_track > 0.0:
@@ -4794,6 +4840,214 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 over_d)
                             info["reward_walk_course_disp_overspeed"] = (
                                 r_dcover)
+            # ---------------------------------------------------------
+            # Windowed command-following INCOME + excess-sway charge
+            # (operator reward-design directive fb_20260829T142239_63c818,
+            # 2026-08-29). The directive: the training reward must not
+            # punish honest short-term tripod sway; the PRIMARY
+            # moving-command income compares NET body displacement over
+            # a gait-scale window to the command INTEGRATED over the
+            # same window ("did the robot advance the requested
+            # distance in the requested direction while staying upright
+            # and supported?"), gated by support quality; a SEPARATE
+            # term charges only sway EXCESS beyond a clean-teacher-
+            # calibrated allowance.
+            #
+            # TEACHER CALIBRATION (probe_dir_floor --envelope-windows,
+            # mesh/100 Hz/0.375 deg-tick/0.08 m/s, 2026-08-29, values
+            # identical across seeds because DR-0 scripted rollouts are
+            # deterministic): windowed course error med 1.2-2.2 deg,
+            # p95 <= 5.2 deg (0.5-2.0 s windows); perpendicular sway
+            # RMS p95 <= 1.7 mm; along-command completion ratio ~0.39
+            # (the scripted teacher CANNOT reach the commanded 0.08
+            # under the mesh/100 Hz slew contract — so a raw
+            # |disp - cmd| vector kernel is speed-deficit-dominated and
+            # would pay a PARK 0.33 of max; refuted before launch,
+            # hence the angle-factor x speed-factor decomposition).
+            #
+            # Income per commanded tick, all factors in [0, 1]:
+            #   k * support_gate                     (directive item 5)
+            #     * angle_factor(course err, teacher-deadbanded)
+            #     * speed_factor(along completion vs command)
+            # angle_factor = 1 inside walk_course_income_deadband_deg
+            # (default 6 deg ~= teacher p95 + margin: the teacher's own
+            # honest sway is NEVER charged), Gaussian falloff with
+            # walk_course_income_sigma_deg (20) beyond it. speed_factor
+            # = clip(along_disp / cmd_disp, 0, 1): parking/refusal ~0,
+            # sideways ~0 via angle, backward 0 (clip), overspeed
+            # capped at 1 and priced by the course_disp overspeed twin.
+            # Windows with any stop tick pay nothing (command switches:
+            # the integrated command IS the time-averaged reference,
+            # per item 7). No net motion above
+            # walk_course_income_min_speed_m_s => no direction => no
+            # income. Defaults 0 = OFF: no state, no info keys, reward
+            # bit-exact legacy.
+            # cfg: reward.k_walk_course_income,
+            # reward.walk_course_income_window_s (0.75 = teacher gait
+            # period), reward.walk_course_income_deadband_deg (6),
+            # reward.walk_course_income_sigma_deg (20),
+            # reward.walk_course_income_min_speed_m_s (0.01),
+            # reward.walk_course_income_support_gate (1 = use the
+            # support product; 0 = ungated, for controlled A/B only).
+            #
+            # Excess-sway charge (item 4): RMS perpendicular deviation
+            # of the body path around the commanded-course line through
+            # the window start, MINUS the teacher-calibrated allowance
+            # reward.walk_sway_allow_mm (default 5 mm ~= 3x teacher p95
+            # — clean tripod sway rides free), charged
+            # -k * min(excess/allow, 3) per tick. Charges the unified
+            # lineage's cm-scale zigzag hard while the honest gait's
+            # <2 mm RMS never activates. Added after every income gate
+            # (charges are never shrunk).
+            # cfg: reward.k_walk_excess_sway,
+            # reward.walk_sway_window_s (0.75), reward.walk_sway_allow_mm.
+            k_cinc = float(cfg_get(self.cfg, "reward",
+                                   "k_walk_course_income", default=0.0))
+            k_sway = float(cfg_get(self.cfg, "reward",
+                                   "k_walk_excess_sway", default=0.0))
+            if k_cinc > 0.0 or k_sway > 0.0:
+                win_inc_s = max(float(cfg_get(
+                    self.cfg, "reward", "walk_course_income_window_s",
+                    default=0.75)), self.dt)
+                win_sway_s = max(float(cfg_get(
+                    self.cfg, "reward", "walk_sway_window_s",
+                    default=0.75)), self.dt)
+                n_inc = max(int(round(win_inc_s / self.dt)), 1)
+                n_sway = max(int(round(win_sway_s / self.dt)), 1)
+                n_max = max(n_inc if k_cinc > 0.0 else 1,
+                            n_sway if k_sway > 0.0 else 1)
+                whist = self._walk_course_win_hist
+                if whist is None or whist.maxlen != n_max + 1:
+                    whist = deque(maxlen=n_max + 1)
+                    self._walk_course_win_hist = whist
+                    self._walk_course_win_cum = [0.0, 0.0, 0]
+                cum = self._walk_course_win_cum
+                cum[0] += goal.vx_ref * self.dt
+                cum[1] += goal.vy_ref * self.dt
+                cum[2] += 1 if s_ref > 1e-3 else 0
+                bxy_w = self.data.xpos[self._chassis_bid, :2]
+                whist.append((float(bxy_w[0]), float(bxy_w[1]),
+                              cum[0], cum[1], cum[2]))
+
+                def _win(n_ticks):
+                    """(dx, dy, dcx, dcy) if the trailing n_ticks window
+                    is complete and fully commanded, else None."""
+                    if len(whist) <= n_ticks:
+                        return None
+                    p1 = whist[-1]
+                    p0 = whist[-1 - n_ticks]
+                    if p1[4] - p0[4] != n_ticks:
+                        return None      # stop tick inside the window
+                    return (p1[0] - p0[0], p1[1] - p0[1],
+                            p1[2] - p0[2], p1[3] - p0[3])
+
+                if k_cinc > 0.0 and s_ref > 1e-3:
+                    w = _win(n_inc)
+                    if w is not None:
+                        dx_w, dy_w, dcx_w, dcy_w = w
+                        d_cmd_w = math.hypot(dcx_w, dcy_w)
+                        d_w = math.hypot(dx_w, dy_w)
+                        v_min_ci = float(cfg_get(
+                            self.cfg, "reward",
+                            "walk_course_income_min_speed_m_s",
+                            default=0.01))
+                        if (d_cmd_w > 1e-9
+                                and d_w >= v_min_ci * win_inc_s):
+                            cos_ci = max(-1.0, min(1.0, (
+                                dx_w * dcx_w + dy_w * dcy_w)
+                                / (d_w * d_cmd_w)))
+                            err_deg = math.degrees(math.acos(cos_ci))
+                            dead = float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_income_deadband_deg",
+                                default=6.0))
+                            sig = max(float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_income_sigma_deg",
+                                default=20.0)), 1e-6)
+                            exc = max(err_deg - dead, 0.0)
+                            angle_f = math.exp(-0.5 * (exc / sig) ** 2)
+                            along_w = (dx_w * dcx_w + dy_w * dcy_w) \
+                                / d_cmd_w
+                            # speed factor: rises linearly to 1 at
+                            # full command completion, then FALLS
+                            # beyond (1 + over_tol) — the income
+                            # optimum must sit AT the commanded speed
+                            # (08-21 ruling: reward optimum == gate
+                            # behavior), never above it. Exceeding the
+                            # band also pays the course_disp overspeed
+                            # twin when armed.
+                            ratio_w = along_w / d_cmd_w
+                            over_tol = float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_income_over_tol",
+                                default=0.05))
+                            over_ramp = max(float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_income_over_ramp",
+                                default=0.5)), 1e-6)
+                            exceed_w = max(
+                                ratio_w - (1.0 + over_tol), 0.0)
+                            speed_f = max(min(ratio_w, 1.0)
+                                          - exceed_w / over_ramp, 0.0)
+                            s_gate = support_gate if float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_income_support_gate",
+                                default=1.0)) == 1.0 else 1.0
+                            r_cinc = k_cinc * s_gate * angle_f * speed_f
+                            reward = float(reward) + r_cinc
+                            info["walk_course_income_err_deg"] = err_deg
+                            info["walk_course_income_angle_f"] = angle_f
+                            info["walk_course_income_speed_f"] = speed_f
+                            info["walk_course_income_support"] = s_gate
+                            info["reward_walk_course_income"] = r_cinc
+                if k_sway > 0.0 and s_ref > 1e-3:
+                    w = _win(n_sway)
+                    if w is not None:
+                        dx_s, dy_s, dcx_s, dcy_s = w
+                        d_cmd_s = math.hypot(dcx_s, dcy_s)
+                        d_s = math.hypot(dx_s, dy_s)
+                        # Charge sway only around a roughly FOLLOWED
+                        # course (window course err <=
+                        # walk_sway_course_cap_deg, default 60, and net
+                        # motion above the income floor): sustained
+                        # WRONG-course travel (sideways/backward) is
+                        # priced by the income/course terms — double-
+                        # charging it here made moving-wrong pay worse
+                        # than parking, inverting the directive's own
+                        # required ordering (sideways/backward > park).
+                        cap_ok = False
+                        if d_cmd_s > 1e-9 and d_s >= 0.01 * win_sway_s:
+                            cos_s = max(-1.0, min(1.0, (
+                                dx_s * dcx_s + dy_s * dcy_s)
+                                / (d_s * d_cmd_s)))
+                            cap = float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_sway_course_cap_deg",
+                                default=60.0))
+                            cap_ok = (math.degrees(math.acos(cos_s))
+                                      <= cap)
+                        if cap_ok:
+                            ux_s, uy_s = dcx_s / d_cmd_s, dcy_s / d_cmd_s
+                            pts = list(whist)[-1 - n_sway:]
+                            x0_s, y0_s = pts[0][0], pts[0][1]
+                            acc = 0.0
+                            for px, py, *_rest in pts:
+                                perp = ((px - x0_s) * uy_s
+                                        - (py - y0_s) * ux_s)
+                                acc += perp * perp
+                            rms_m = math.sqrt(acc / len(pts))
+                            allow_m = max(float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_sway_allow_mm",
+                                default=5.0)), 0.1) / 1000.0
+                            exc_m = max(rms_m - allow_m, 0.0)
+                            info["walk_sway_rms_mm"] = rms_m * 1000.0
+                            if exc_m > 0.0:
+                                r_sway = -k_sway * min(
+                                    exc_m / allow_m, 3.0)
+                                reward = float(reward) + r_sway
+                                info["reward_walk_excess_sway"] = r_sway
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]),
                 float(goal.vx_ref), float(goal.vy_ref),

@@ -1,6 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~13:4x idle-kick (real infra fix + partial evidence,
+Update, 2026-08-29 ~15:3x operator-directed reward/eval design cycle
+(**implemented the fb_20260829T142239_63c818 reward directive + the
+fb_20260829T141858_9421cd windowed eval metric — no launches, per the
+focus note's own "don't fund another arm until the objective is
+proven" order; the objective is now built AND bank-proven**):
+
+1. **Eval**: `eval_checkpoint.windowed_course_stats` — rolling 1 s/2 s
+   net-course windows vs the INTEGRATED command; new ep keys
+   `course_err_{1s,2s}_{mean,med,p90}_deg`, `wrong_course_frac_*`,
+   `course_speed_ratio_*_med`, `course_motion_valid_frac_*`, pushed to
+   W&B medians + both console summary lines. Tick `direction_err_deg`
+   demoted to diagnostic (EVALS.md updated). Unit bank
+   `test_windowed_course_metrics.py` 6/6 (incl. park-can't-hide,
+   stop-straddle exclusion, reversal grace).
+2. **Teacher calibration**: `probe_dir_floor --envelope-windows`
+   (mesh/100 Hz/0.08): windowed course err med 1.2–2.2°, p95 ≤5.2°;
+   sway RMS p95 ≤1.7 mm; completion ~0.39 (teacher can't reach 0.08
+   under the slew contract — killed the raw |disp−cmd| vector-kernel
+   design on measurement: it would pay a PARK 0.33 of max).
+3. **Reward**: `reward.k_walk_course_income` (windowed net
+   command-following INCOME: support-gate product of the run's own
+   anchor/loadslip/height/gait gates × teacher-deadbanded angle factor
+   (6°/σ20°) × command-completion speed factor with falloff past the
+   band — optimum AT the command) and `reward.k_walk_excess_sway`
+   (RMS perpendicular path deviation minus 5 mm teacher allowance,
+   charged only around a followed course, cap 60°). Both default OFF,
+   bit-exact legacy (smoke-verified), state rides MJX_SNAPSHOT_EXTRA.
+4. **Bank** `test_course_income_semantics.py` 9/9 green (mesh/100 Hz):
+   obey 1869 > fastcadence 1520 > zigzag 1187 (income discounted AND
+   −288 sway charge) > stall 693 > sideways 593 > backward 254 > park
+   90; teacher angle-factor 1.0 and sway charge exactly 0 (the
+   directive's central invariant). One documented ordering deviation
+   (stall vs wrong-way; OPERATOR_QUESTIONS q_20260829T15xx). Doses
+   that made the chain work: k_walk_course_disp 0.15 (2.0 buries
+   wrong-way below park), idle floor 0.02/k=20, park_duty 2.0.
+5. q_20260829T0805Z (per-tick gate metric) CLOSED-OVERRIDDEN by the
+   operator notes; CURRENT_TRUTHS + REWARD.md + EVALS.md carry the
+   ruling.
+
+NEXT (this track, in order): (a) coursedisp trio mixedsession verdicts
+land (pollreap already looping); (b) calibrate windowed-gate pass
+thresholds by re-evaluing the joystick champion
+(`cw-dep-bcgait4-phasedir9-stotight45-seed13`, primitive/25 Hz pins)
+and the unified longrun checkpoints with the updated harness (pod
+eval, no training); (c) pre-register the first course-INCOME arm on
+the unified1-mix lineage (income 2.0 + sway 2.0 + disp 0.15 stack as
+bank-proven, all other keys per lineage recipe) — preconditions: (a)
+verdicts recorded, so the trio's disp-dose evidence can pick the disp
+coefficient honestly.
+
+Prior update, 2026-08-29 ~13:4x idle-kick (real infra fix + partial evidence,
 no final verdict — **found the coursedisp-c1/w015-c1 gate+owncfg
 report.json pairs FINISHED-BUT-UNCOLLECTED with no local supervisor
 watching them (their controller-side driver had died to the same

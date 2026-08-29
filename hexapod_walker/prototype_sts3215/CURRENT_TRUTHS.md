@@ -1389,6 +1389,35 @@ follow-ups.
   metrics CANNOT see this excess (every window >=0.75 s reads ~6 deg
   on the same failed rollouts; sway lives at the ~0.375 s half-stride
   timescale).
+- WINDOWED COURSE METRICS + REWARD (operator 08-29,
+  fb_20260829T141858_9421cd + fb_20260829T142239_63c818 — binding;
+  implemented + bank-proven same cycle): the PRIMARY eval read for
+  joystick command-following is the rolling 1 s / 2 s windowed course
+  error (net displacement vs INTEGRATED command;
+  `eval_checkpoint.windowed_course_stats`; ep keys
+  `course_err_{1s,2s}_*`, `wrong_course_frac_*`,
+  `course_speed_ratio_*` — the speed ratio + motion-valid fraction
+  MUST be read alongside so parking can't pass). Tick-level
+  `direction_err_deg` is demoted to a stride-oscillation diagnostic
+  (its excess-zigzag signal is owned reward-side by
+  `k_walk_excess_sway`). TRAINING REWARD rule: no raw per-tick
+  heading/cross-track objective as the primary moving-command term;
+  the primary income is `reward.k_walk_course_income` (windowed net
+  command-following, support-gated, teacher-deadbanded angle x
+  command-completion speed factor with its optimum AT the command
+  band) plus `reward.k_walk_excess_sway` (charges only sway EXCESS
+  beyond the teacher envelope: allow 5 mm ~= 3x teacher p95).
+  Teacher envelope (mesh/100 Hz, probe_dir_floor
+  --envelope-windows): windowed course err p95 <= 5.2 deg, sway RMS
+  p95 <= 1.7 mm, completion ~0.39 (the scripted teacher CANNOT reach
+  0.08 m/s under the slew contract — speed comparisons vs command
+  must remember this). Banks: `test_course_income_semantics.py`
+  (measured chain obey 1869 > fastcadence 1520 > zigzag 1187 > stall
+  693 > sideways 593 > backward 254 > park 90; one documented
+  deviation, OPERATOR_QUESTIONS q_20260829T15xx),
+  `test_windowed_course_metrics.py`. Windowed-gate pass thresholds
+  still need champion calibration (follow-up in standwalk STATUS).
+  Details: REWARD.md, EVALS.md §eval/.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
   on the old 128 mm plant; cross-plant comparisons need matched
   controls.

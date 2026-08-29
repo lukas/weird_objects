@@ -58,6 +58,17 @@ def main() -> None:
     ap.add_argument("--min-speed", type=float, default=0.005,
                     help="dir-err validity threshold m/s (5e-3 = the "
                          "joint_walk env's own inline emitter)")
+    ap.add_argument("--envelope-windows", default="0.5,0.75,1.0,2.0",
+                    help="comma list of window lengths (s) for the "
+                         "teacher-envelope calibration block: windowed "
+                         "course error / |disp-cmd| vector error / "
+                         "perpendicular sway RMS via "
+                         "eval_checkpoint.windowed_course_stats "
+                         "(reward-design directive "
+                         "fb_20260829T142239_63c818 item 3: charge only "
+                         "EXCESS sway beyond the clean teacher's own "
+                         "envelope, so the teacher's numbers ARE the "
+                         "allowance)")
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
 
@@ -102,6 +113,7 @@ def main() -> None:
     hist: deque = deque(maxlen=win_ticks + 1)
 
     tick_errs, win_errs, speeds = [], [], []
+    all_xy, all_cmd = [], []       # full tick streams for the envelope
     n_cmd, n_valid = 0, 0
     fell = False
     xy0 = env.data.xpos[env._chassis_bid, :2].copy()
@@ -135,6 +147,8 @@ def main() -> None:
             tick_errs.append(err)
         speeds.append(float(np.hypot(*v)))
         bxy = env.data.xpos[env._chassis_bid, :2]
+        all_xy.append((float(bxy[0]), float(bxy[1])))
+        all_cmd.append((args.vx, 0.0))
         hist.append((float(bxy[0]), float(bxy[1])))
         if len(hist) == hist.maxlen:
             dx = hist[-1][0] - hist[0][0]
@@ -178,6 +192,45 @@ def main() -> None:
         "touchdowns_per_leg": touchdowns,
         "slip_per_m": round(slip_m / max(float(np.hypot(*net)), 1e-6), 3),
     }
+    # Teacher-envelope calibration block: the exact quantities the
+    # windowed reward terms (k_walk_course_income / k_walk_excess_sway)
+    # and the harness's windowed course metrics consume. Uses the
+    # SHARED implementation so calibration and scoring can never drift.
+    from rl_move.sim.eval_checkpoint import windowed_course_stats
+
+    def _pct(a, q):
+        return round(float(np.percentile(a, q)), 4) if len(a) else None
+
+    env_windows = {}
+    for w_s in [float(x) for x in args.envelope_windows.split(",") if x]:
+        st = windowed_course_stats(all_xy, all_cmd, dt, w_s,
+                                   with_sway=True)
+        env_windows["%g" % w_s] = {
+            "n_cmd_windows": st["n_cmd_windows"],
+            "n_motion_valid": st["n_motion_valid"],
+            "course_err_deg": {
+                "mean": round(float(np.mean(st["err_deg"])), 2)
+                    if st["err_deg"] else None,
+                "med": _pct(st["err_deg"], 50),
+                "p90": _pct(st["err_deg"], 90),
+                "p95": _pct(st["err_deg"], 95)},
+            "vec_err_mm": {
+                "mean": round(1e3 * float(np.mean(st["vec_err_m"])), 2)
+                    if st["vec_err_m"] else None,
+                "p90": _pct(1e3 * np.asarray(st["vec_err_m"]), 90),
+                "p95": _pct(1e3 * np.asarray(st["vec_err_m"]), 95)},
+            "speed_ratio": {
+                "mean": round(float(np.mean(st["speed_ratio"])), 3)
+                    if st["speed_ratio"] else None,
+                "med": _pct(st["speed_ratio"], 50),
+                "p10": _pct(st["speed_ratio"], 10)},
+            "sway_rms_mm": {
+                "mean": round(1e3 * float(np.mean(st["sway_rms_m"])), 2)
+                    if st["sway_rms_m"] else None,
+                "p90": _pct(1e3 * np.asarray(st["sway_rms_m"]), 90),
+                "p95": _pct(1e3 * np.asarray(st["sway_rms_m"]), 95)},
+        }
+    out["envelope_windows"] = env_windows
     env.close()
     print(json.dumps(out, indent=1))
     if args.json_out:

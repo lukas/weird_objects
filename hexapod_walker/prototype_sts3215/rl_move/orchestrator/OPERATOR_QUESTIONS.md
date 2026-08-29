@@ -2997,3 +2997,47 @@ next cycle builds it.
 - operator may override: if a windowed/net direction gate is preferred for
   hardware reasons, say so and we re-derive; until then per-tick + matched
   floor is binding for standwalk arms.
+- **CLOSED by operator (08-29, fb_20260829T141858_9421cd +
+  fb_20260829T142239_63c818): OVERRIDDEN.** The windowed 1–2 s course
+  metric IS the primary command-following read; per-tick
+  `direction_err_deg` stays as a secondary stride-oscillation/wrong-way
+  diagnostic. The "windowed is blind to weaving" concern this entry
+  raised is answered structurally: visible weaving is priced by the new
+  teacher-enveloped `k_walk_excess_sway` term (reward-side, sees the
+  zigzag the windowed angle forgives) and stays gate-visible through
+  slip/m + the retained tick diagnostic. Implemented same cycle:
+  `eval_checkpoint.windowed_course_stats` (course_err_{1s,2s},
+  wrong_course_frac, course_speed_ratio, motion_valid_frac),
+  `k_walk_course_income` + `k_walk_excess_sway` (REWARD.md), teacher
+  calibration via `probe_dir_floor --envelope-windows`, bank
+  `test_course_income_semantics.py` (9/9 green). Pass thresholds for
+  the windowed gate are still to be calibrated against the joystick
+  champion (`cw-dep-bcgait4-phasedir9-stotight45-seed13`) per the
+  note's own suggestion — follow-up item in standwalk STATUS.
+
+## q_20260829T15xx — recorded decision (no wait): course-income bank encodes the operator ordering with ONE measured deviation (march-in-place stall prices above sideways/backward)
+- cycle: reward-design implementation 08-29 (fb_20260829T142239_63c818)
+- the directive's item 8 target chain: teacher > zigzag >
+  sideways/backward/wrong-way > park/belly-shuffle/skate/overspeed.
+- measured under the candidate stack (mesh/100 Hz, 8 s DR-0 scripted
+  rollouts): obey 1869 > fastcadence 1520 > zigzag 1187 > stall 693 >
+  sideways 593 > backward 254 > park 90. Every mover beats PARK (the
+  frozen refusal) and the teacher beats every cheat class — but a
+  march-in-place STALL sits ~100 above SIDEWAYS and ~440 above
+  BACKWARD. Lifting sustained wrong-way travel above stall would
+  require zeroing `k_walk_prog`'s negative-progress pricing (other
+  banks depend on it) or idle-charge doses within ~2× of taxing the
+  honest teacher's own 0.032 m/s crawl (the mesh/100 Hz teacher is
+  SLOW; any refusal floor tight enough to separate a 0-travel stall
+  from a 0.03 m/s wrong-way walk crowds the teacher's own speed).
+- assumed-and-gone: if "belly-shuffle/skate" in the directive's bottom
+  class was meant to include tripod march-in-place (stall), we accept
+  the deviation and document it (this entry + the bank docstring);
+  park (true refusal) is bottom as required. Also: TRUE overspeed
+  (achieved > 1.05× command) is physically unreachable by the scripted
+  instrument on mesh at the 0.08 command (8× drive saturates at the
+  same ~0.56 completion as 4×) — the income speed-factor falloff
+  beyond the band is armed in code regardless.
+- operator may override: say stall must ALSO lose to wrong-way travel
+  and we re-derive the refusal pricing (likely a qvel-based stall
+  charge rather than body-speed/travel floors).

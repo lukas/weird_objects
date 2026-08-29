@@ -204,6 +204,123 @@ def _success(mode: str, term: bool, ep: dict,
     return True
 
 
+# ---------------------------------------------------------------------------
+# windowed course-following metrics (operator eval directive
+# fb_20260829T141858_9421cd, 2026-08-29): the tick-level
+# direction_err_deg headline is dominated by honest tripod stride sway
+# (~35 deg floor primitive/25 Hz; measured 55-65 deg on mesh/100 Hz
+# lineages whose NET path is near on-course — standwalk coursedisp
+# DIG-IN). The PRIMARY command-following read is therefore the course
+# error over rolling 1-2 s windows: net XY displacement vs the
+# INTEGRATED command vector over the same window (time-averaged
+# command — robust to mid-window command switches). Tick-level
+# direction_err_deg stays as a secondary stride-oscillation/wrong-way
+# diagnostic; it is no longer the headline joystick-following gate.
+
+COURSE_WINDOWS = ((1.0, "1s"), (2.0, "2s"))
+
+
+def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
+                          stride_s: float = 0.1,
+                          motion_floor_m_s: float = 0.01,
+                          min_cmd_coherence: float = 0.5,
+                          with_sway: bool = False) -> dict:
+    """Rolling-window net-course statistics over one episode.
+
+    ``xy``: (T,2) body XY per tick; ``cmd``: (T,2) commanded XY
+    velocity per tick.  Windows of ``round(window_s/dt)`` ticks are
+    evaluated every ``stride_s``.  Rules (fb_20260829T141858_9421cd):
+
+    - a window counts only if EVERY tick has a nonzero command (stop
+      commands / stop-straddling windows are excluded — stop behavior
+      is scored by the stop-settle instruments, not here);
+    - the reference is the integrated command vector; windows where
+      command switches cancel more than ``1-min_cmd_coherence`` of the
+      commanded distance (e.g. a mid-window reversal) are skipped —
+      an instantaneous reversal response is physically impossible and
+      must not be charged;
+    - ``speed_ratio`` (along-command net displacement / commanded
+      distance) and ``vec_err_m`` (|net displacement - integrated
+      command|) are recorded for EVERY commanded window, so parking
+      during move commands cannot hide (it simply fails the motion
+      floor for the angle stats while scoring speed_ratio ~0);
+    - the angular course error is recorded only for windows whose net
+      motion clears ``motion_floor_m_s`` (direction is undefined near
+      zero net travel); ``wrong`` flags course error > 90 deg;
+    - ``with_sway``: RMS perpendicular deviation of the path around
+      the commanded-course line through the window start (the honest-
+      sway envelope quantity the reward-side excess-sway term prices).
+    """
+    xy = np.asarray(xy, dtype=float)
+    cmd = np.asarray(cmd, dtype=float)
+    out: dict = {"window_s": window_s, "err_deg": [], "wrong": [],
+                 "speed_ratio": [], "vec_err_m": [], "sway_rms_m": [],
+                 "n_cmd_windows": 0, "n_motion_valid": 0}
+    n = max(int(round(window_s / dt)), 1)
+    if len(xy) <= n:
+        return out
+    stride = max(int(round(stride_s / dt)), 1)
+    s_ref = np.hypot(cmd[:, 0], cmd[:, 1])
+    active = s_ref > 1e-3
+    cum_act = np.concatenate([[0], np.cumsum(active)])
+    cum_cmd = np.vstack([[0.0, 0.0], np.cumsum(cmd * dt, axis=0)])
+    cum_abs = np.concatenate([[0.0], np.cumsum(s_ref * dt)])
+    for i0 in range(0, len(xy) - n, stride):
+        i1 = i0 + n
+        if cum_act[i1] - cum_act[i0] != n:
+            continue                       # stop tick inside window
+        d_cmd = cum_cmd[i1] - cum_cmd[i0]
+        d_cmd_n = float(np.hypot(*d_cmd))
+        cmd_dist = float(cum_abs[i1] - cum_abs[i0])
+        if cmd_dist <= 1e-9 or d_cmd_n < min_cmd_coherence * cmd_dist:
+            continue                       # command flipped mid-window
+        out["n_cmd_windows"] += 1
+        d_xy = xy[i1] - xy[i0]
+        d_n = float(np.hypot(*d_xy))
+        out["speed_ratio"].append(
+            float(d_xy @ d_cmd) / (d_cmd_n ** 2))
+        out["vec_err_m"].append(float(np.hypot(*(d_xy - d_cmd))))
+        if with_sway:
+            u = d_cmd / d_cmd_n
+            rel = xy[i0:i1 + 1] - xy[i0]
+            perp = rel[:, 0] * u[1] - rel[:, 1] * u[0]
+            out["sway_rms_m"].append(
+                float(np.sqrt(np.mean(perp ** 2))))
+        if d_n < motion_floor_m_s * (n * dt):
+            continue                       # direction undefined
+        out["n_motion_valid"] += 1
+        cosv = float(d_xy @ d_cmd) / (d_n * d_cmd_n)
+        err = math.degrees(math.acos(max(-1.0, min(1.0, cosv))))
+        out["err_deg"].append(err)
+        out["wrong"].append(1.0 if err > 90.0 else 0.0)
+    return out
+
+
+def _course_window_ep_keys(course_xy, course_cmd, dt: float) -> dict:
+    """ep-dict fields for the windowed course metrics (both windows)."""
+    keys: dict = {}
+    for wl, wtag in COURSE_WINDOWS:
+        st = windowed_course_stats(course_xy, course_cmd, dt, wl)
+        if st["n_cmd_windows"] == 0:
+            continue
+        keys[f"course_windows_{wtag}"] = st["n_cmd_windows"]
+        keys[f"course_motion_valid_frac_{wtag}"] = round(
+            st["n_motion_valid"] / st["n_cmd_windows"], 3)
+        if st["speed_ratio"]:
+            keys[f"course_speed_ratio_{wtag}_med"] = round(
+                float(np.median(st["speed_ratio"])), 3)
+        if st["err_deg"]:
+            keys[f"course_err_{wtag}_mean_deg"] = round(
+                float(np.mean(st["err_deg"])), 2)
+            keys[f"course_err_{wtag}_med_deg"] = round(
+                float(np.median(st["err_deg"])), 2)
+            keys[f"course_err_{wtag}_p90_deg"] = round(
+                float(np.percentile(st["err_deg"], 90)), 2)
+            keys[f"wrong_course_frac_{wtag}"] = round(
+                float(np.mean(st["wrong"])), 3)
+    return keys
+
+
 # NOTE: the predict/reset shim for GRU (RecurrentPPO) checkpoints
 # (_RecurrentPredictor) moved to gru_policy.RecurrentPredictor
 # (2026-08-28 runner-bug audit: manual_drive_session/drive_policy/view
@@ -253,6 +370,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     track_errs, vel_errs, speeds = [], [], []
     direction_errs, direction_valid, direction_wrong = [], [], []
     getup_s_hist = []        # (T,) supported-stand score S (getup only)
+    course_xy, course_cmd = [], []   # per-tick body XY + command (walk)
     cmd_dist_m, along_dist_m = 0.0, 0.0
     h_err = None
     chassis0 = env.data.xpos[env._chassis_bid, :2].copy()
@@ -310,6 +428,13 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             # WALK-DISTANCE-GATE): along-command body displacement vs
             # commanded displacement, integrated over commanded ticks.
             g = env._current_goal()
+            if mode in ("walk", "quadwalk"):
+                # windowed course metrics need the raw tick streams
+                bxy = env.data.xpos[env._chassis_bid, :2]
+                course_xy.append((float(bxy[0]), float(bxy[1])))
+                course_cmd.append(
+                    (float(g.vx_ref), float(g.vy_ref))
+                    if g is not None else (0.0, 0.0))
             if g is not None:
                 s_ref = math.hypot(g.vx_ref, g.vy_ref)
                 if s_ref > 1e-3:
@@ -457,6 +582,15 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     if direction_wrong:
         ep["wrong_direction_frac"] = round(
             float(np.mean(direction_wrong)), 3)
+    if course_xy:
+        # PRIMARY command-following read (fb_20260829T141858_9421cd):
+        # rolling 1 s / 2 s net-course windows; the tick-level
+        # direction_err_* keys above remain as the stride-oscillation
+        # diagnostic. course_speed_ratio + course_motion_valid_frac
+        # keep parking honest (a parked robot scores ratio ~0 and
+        # near-zero motion-valid windows, it cannot pass by hiding
+        # from the angle statistic).
+        ep.update(_course_window_ep_keys(course_xy, course_cmd, env.dt))
     if mode in ("walk", "quadwalk"):
         # Gait-validity gate (guardrails, external review §5b): a walking
         # checkpoint is INVALID if any leg is persistently sacrificed,
@@ -727,6 +861,28 @@ def _wandb_push(report: dict, out: Path, args) -> None:
                              "direction_valid_frac_med"),
                             ("wrong_direction_frac",
                              "wrong_direction_frac_med"),
+                            # windowed course metrics (primary
+                            # command-following read, fb_20260829T141858)
+                            ("course_err_1s_med_deg",
+                             "course_err_1s_med_deg"),
+                            ("course_err_1s_p90_deg",
+                             "course_err_1s_p90_med_deg"),
+                            ("wrong_course_frac_1s",
+                             "wrong_course_frac_1s_med"),
+                            ("course_speed_ratio_1s_med",
+                             "course_speed_ratio_1s_med"),
+                            ("course_motion_valid_frac_1s",
+                             "course_motion_valid_frac_1s_med"),
+                            ("course_err_2s_med_deg",
+                             "course_err_2s_med_deg"),
+                            ("course_err_2s_p90_deg",
+                             "course_err_2s_p90_med_deg"),
+                            ("wrong_course_frac_2s",
+                             "wrong_course_frac_2s_med"),
+                            ("course_speed_ratio_2s_med",
+                             "course_speed_ratio_2s_med"),
+                            ("course_motion_valid_frac_2s",
+                             "course_motion_valid_frac_2s_med"),
                             ("roll_peak_deg", "roll_peak_med"),
                             ("roll_tail_deg", "roll_tail_med"),
                             ("slip_m_total", "drag_m_med")):
@@ -1100,6 +1256,14 @@ def main() -> None:
                           if "direction_err_mean_deg" in e]
                     if de:
                         extra += f" dir_err {np.mean(de):.1f}deg"
+                    ce = [e["course_err_1s_med_deg"] for e in eps
+                          if "course_err_1s_med_deg" in e]
+                    if ce:
+                        sr = [e["course_speed_ratio_1s_med"] for e in eps
+                              if "course_speed_ratio_1s_med" in e]
+                        extra += f" course1s {np.mean(ce):.1f}deg"
+                        if sr:
+                            extra += f"/spd{np.mean(sr):.2f}"
                 if mode in ("walk", "quadwalk"):
                     n_valid = sum(bool(e.get("gait_valid")) for e in eps)
                     sac = sorted({f for e in eps
@@ -1266,6 +1430,8 @@ def main() -> None:
                                if e.get("slip_per_m") is not None]
                         de = [e["direction_err_mean_deg"] for e in eps
                               if "direction_err_mean_deg" in e]
+                        ce = [e["course_err_1s_med_deg"] for e in eps
+                              if "course_err_1s_med_deg" in e]
                         n_valid = sum(bool(e.get("gait_valid"))
                                       for e in eps)
                         line = (f"[{tag}] {label}: {n_ok}/{len(eps)}"
@@ -1277,6 +1443,8 @@ def main() -> None:
                                      f" slip/m {np.mean(spm):.2f}")
                         if de:
                             line += f" dir_err {np.mean(de):.1f}deg"
+                        if ce:
+                            line += f" course1s {np.mean(ce):.1f}deg"
                         line += f" | gait_valid {n_valid}/{len(eps)}"
                         print(line)
             finally:
