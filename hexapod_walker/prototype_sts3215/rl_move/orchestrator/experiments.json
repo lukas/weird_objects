@@ -215706,7 +215706,7 @@
       "goal.walk_cmd_resample_jitter=0.5"
     ],
     "created": "2026-08-28T13:54:04+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -215753,7 +215753,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-mix-long-s1-cont1 since 2026-08-28T14:43:52"
+    "triage": "done",
+    "verdict": "FAIL vs its own pre-registered continuation gate (paired against this seed's own 16M mixedsession baseline: dir_err 62.1deg, slip/m 14.0, 0 terminations, complete_frac 1.0, gait_valid_frac 1.0 sac=[]). Evidence (32M mixedsession, 90-episode dr0+owndr+dr0_long panel, session_verdict.json): slip/m materially improved (14.0->10.47, -25%, clears the >=15% bar) but dir_err did NOT improve (62.1->64.15deg, +3.3%, a plateau not a gain) and -- the gate's explicit disqualifier -- terminations REAPPEARED: 4/90 (all over_current, in walk(2)/rise(2) segments, previously 0/90) with gait_valid_frac dropping 1.0->0.967 and two legs newly sacrificed (sac=[0,2], previously []) -- exactly 'the seed's known leg-sacrifice failure mode' the gate named as the relapse risk for this ('previously catastrophe-prone rescued') seed. DR-0/own-DR isolated-mode gate+owncfg reports stay clean (walk gait_valid 6/6 sac=[] 0 terms both DR; only known-benign hold_min_load terms on hold, unchanged from baseline) -- the relapse is a SEQUENCED-SESSION-SPECIFIC finding (mode transitions/segment starts under mode_seq), invisible to the isolated per-mode DR-0 panel, which is exactly why the mixedsession instrument exists. Reward kept rising monotonically the whole 16M (quarters -44.2/534.8/1418.9/2278.7, no plateau) so this is not a stalled-optimizer story. Per the gate's own prescribed next step: this is a mechanism/reward-ceiling-or-seed-relapse signal, not a budget gap -- do not fund a further identical-recipe continuation on this seed; the open lever is a command-tracking reward audit (why slip improves while dir_err and segment-transition robustness do not, and why more budget reopened an over_current failure mode the 16M checkpoint had closed). Sibling long-s0-cont1 not yet read (own-DR mixedsession still computing) -- this is a self-contained verdict against this seed's own named gate, not a joint call."
   },
   {
     "run": "cw-standwalk-unified1-joyfix-hdg-c1",

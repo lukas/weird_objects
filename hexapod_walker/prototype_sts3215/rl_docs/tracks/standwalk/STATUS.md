@@ -1,6 +1,35 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-28 ~22:3x (**`cw-standwalk-unified1-joyfix-bundle-c1` VERDICTED
+Update, 2026-08-29 ~03:0x (**`cw-standwalk-unified1-mix-long-s1-cont1` (32M,
++16M continuation off the PASSed 16M `long-s1` checkpoint) VERDICTED FAIL
+vs its own pre-registered gate — first FAIL in the 08-21-ruling continuation
+batch.** Compared to this seed's own 16M mixedsession baseline (dir_err
+62.1deg, slip/m 14.0, 0 terminations, gait_valid_frac 1.0 sac=[]): slip/m
+improved materially (14.0->10.47, -25%, clears the >=15% bar) but dir_err
+plateaued (62.1->64.15deg) and — the gate's named disqualifier —
+terminations REAPPEARED (0->4/90, all `over_current`, in walk(2)/rise(2)
+segments) with two legs newly sacrificed (sac=[0,2], previously []),
+exactly the "seed's known leg-sacrifice failure mode" relapse the gate
+flagged as the risk for this specific ("previously catastrophe-prone
+rescued") seed. Isolated-mode DR-0/own-DR gate+owncfg panels stay fully
+clean (walk gait_valid 6/6 sac=[] 0 terms both DR) — the relapse is
+SEQUENCED-SESSION-SPECIFIC (mode-transition/segment-start stress under
+`mode_seq`), invisible to the per-mode panel alone, which is exactly why
+the mixedsession instrument exists and why it must keep running on every
+continuation, not just the cheaper isolated gate. Reward rose monotonically
+the whole 16M (quarters -44.2/534.8/1418.9/2278.7) — not a stalled
+optimizer, a genuine mechanism/ceiling-or-relapse signal per the gate's own
+text. **Consequence: more identical-recipe budget on this exact seed is
+CLOSED; the open lever is a command-tracking reward audit** (why slip keeps
+improving while dir_err and segment-transition robustness do not, and why
+extra budget reopened an over_current mode the 16M checkpoint had already
+closed). Sibling `long-s0-cont1`'s own-DR mixedsession is still computing
+(own gate is self-contained per seed, not a joint call) — read it on its
+own merits next, do not assume this same relapse. Evidence:
+`logs/ckpt_eval/cw_standwalk_unified1_mix_long_s1_cont1_mixedsession/
+session_verdict.json`, `..._{gate,owncfg}/report.json`.
+
+Previous update, 2026-08-28 ~22:3x (**`cw-standwalk-unified1-joyfix-bundle-c1` VERDICTED
 CANARY FAIL - MECHANISM — the bundle arm of the 4-arm joyfix grid closes,
 joint evidence with `hdg-c1`.** Combining `walk_obs_body_vel=3` (leg-
 odometry velocity obs) + `k_walk_cmd_track=2.0` with the full-circle
