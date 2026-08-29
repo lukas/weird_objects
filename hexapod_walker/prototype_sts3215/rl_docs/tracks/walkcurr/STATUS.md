@@ -46,6 +46,19 @@ validity, on video. Speed obedience is secondary throughout.
   WALKCURR_PF ranking bank (test_task_semantics.py): clean commanded
   walking > park/stall > sideways/reverse/wrong-way >
   high-slip/skate/fall, under the run's exact cfg.
+  **AMENDED by operator ruling fb_20260829T145710 (08-29):** the full
+  ranking gates rung PASSES **eval-side**; the DISCOVERY-phase
+  *training* reward may be far simpler (plain along-command velocity +
+  fall termination, no charge stack — the operator-registered
+  literature's discovery diet). A simple-diet launch proves its own
+  reduced bank instead (WALKCURR_SV in test_task_semantics.py: travel
+  > every stationary pose > wrong-way > dying; slip deliberately
+  unpriced at discovery, re-priced only after a gait exists).
+- **Rule (a) covers initialization (operator ruling
+  fb_20260829T145710, 08-29, closes q_20260824T0233Z):** BC-kickstart
+  — any imitation warm-start, however brief, including "solely to
+  escape the initial-state basin" — is OUT OF BOUNDS for this track.
+  No gait clock, no BC teacher, no motion prior, including init.
 - **Triage rule**: every triage logs reward trend AND walk-eval trend.
   Reward rising while walk eval is flat/down or walk terminates =
   MISALIGNED -> stop same-recipe seeds/continuations, audit
@@ -62,6 +75,105 @@ validity, on video. Speed obedience is secondary throughout.
 3. Full fixed headings.
 4. Irregular direction changes (mid-episode resampling).
 5. DR/push hardening (paper's friction 0.5-1.25 + periodic pushes).
+
+## Now (2026-08-29 — OPERATOR RULING: BC-kickstart OUT OF BOUNDS; track RESUMES with literature-informed non-BC arms; decleg-sv wave launched)
+
+Plain English: the operator answered the question that had this track
+parked since 08-24 — imitation warm-starts are forbidden, period, but
+the track is NOT closed: published work proves from-scratch hexapod
+PPO walking is achievable, and the operator registered that literature
+plus a priority-ordered list of untried rule-(a)-legal levers. The
+top two are built, bank-proven, and launched this cycle.
+
+- **Ruling (fb_20260829T145710_06f739):** BC-kickstart OUT OF BOUNDS,
+  incl. initialization (rulebook amended above; q_20260824T0233Z
+  CLOSED). Per the question's own path (2), the campaign finding is
+  recorded as: **a from-scratch CENTRALIZED-MLP PPO walk is not
+  reachable at the 2M-discovery budget under this recipe family — 15
+  independently-designed mechanism/architecture/reset/schedule classes
+  refuted, every one an aligned FAIL** (full tally in the closed
+  question + the Now entries below). That is a finding about THAT
+  architecture x budget, not a track scope limit.
+- **Operator-registered literature (read before pre-registering new
+  arms):** (1) Schilling et al., IROS 2020 (arXiv:2005.11164) —
+  decentralized per-leg PPO modules (6 x local 2x64 MLPs, 3-dim
+  action each) learn hexapod walking from scratch; their CENTRALIZED
+  baseline "got stuck in local minima" (our exact failure signature);
+  decentralized reached the centralized arm's final performance in
+  <half the training time and beat it at convergence (p=.011).
+  Discovery reward = plain mean velocity, long episodes, 15 seeds.
+  (2) Azayev & Zimmermann 2020 — 18-DoF hexapod, MuJoCo,
+  proprioception-only PPO from scratch walks flat+rough terrain: our
+  robot class/engine/obs diet IS learnable from scratch. (3) Heess et
+  al. 2017 — simple forward-progress reward + rich/varied terrain +
+  large-scale distributed PPO; environment diversity as the
+  exploration driver; budgets orders of magnitude beyond 2M.
+- **Wave launched this cycle (4 arms, 20M each, phase=acquisition —
+  evidence: the operator ruling explicitly orders a bigger-than-2M
+  one-shot probe; 2M was likely under the discovery threshold for
+  this task class):**
+  - `cw-walkcurr-pf-decleg-sv-s0/-s1/-s2` — decentralized per-leg
+    actor (NEW `--decleg`, `rl_move/sim/decleg_policy.py`: 6 x 64,64
+    tanh towers over leg-local q/qd/prev-action + shared
+    tilt/gyro/command dims, block-diagonal action head — cross-leg
+    coupling impossible by construction on the action path;
+    centralized 128/64/32 critic; 6 unit tests incl. strict-
+    decentralization and optimizer-coverage proofs) + the
+    simple-velocity discovery diet (freeprog income in its validated
+    stride-EMA form at the rscale50 optimizer-health scale +
+    term_penalty 24; ALL other reward terms explicitly zeroed) + the
+    actbias plant fix (a=0 -> stance). 3 seeds per the literature's
+    high-seed-variance warning.
+  - `cw-walkcurr-pf-central-sv-s0` — the architecture CONTROL:
+    identical diet/budget/seed, centralized 128/64/32 tanh MLP.
+    Separates "decentralization unlocked it" from "diet+budget alone
+    unlocked it".
+  - Gate (all arms): rung-1 C-env det fixed-forward panel at 20M
+    (zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg,
+    slip/m <= 3.0, gait_valid >= 4/6, real stepping on video).
+    Mid-run discovery litmus: `env/walk_freeprog_score` must leave
+    the [-0.10, -0.05] static-basin band and trend toward/past 0 —
+    every one of the 15 failed classes stayed pinned there; escape
+    with rising reward = continue per 08-21 even short of full gate.
+  - Recipe notes: NEW lineage on the mesh/100 Hz defaults (the 15
+    failed arms were primitive/25 Hz-era; from-scratch arms take the
+    08-24 defaults — recorded, not a continuity violation).
+    `--n-steps 96` (batch 98304) preserves the recipe's ~1 s rollout
+    window at 100 Hz. Actor activation tanh (paper-faithful, matched
+    across decleg and control so architecture is the only lever).
+- **New tools this cycle:** `--decleg`/`--decleg-hidden`
+  (train_ppo_mjx.py, refuses gru/transformer/asym/transplant/init-from
+  combos, single-frame joint-family obs only, index map resolved from
+  the live venv width), `decleg_policy.py`, WALKCURR_SV bank (5 tests
+  green: travel > stationary(pose-invariant common-mode) > wrong-way >
+  topple strict floor; monotone travel income). Bank measured: fast
+  231 > gait 220 > creep 210 > park/stall/belly_sit ~202 > sideways
+  183 > reverse 181 > topple 131 (dies 0.9 s).
+- **Known pre-existing breakage (not this cycle's):** 2 of the
+  legacy WALKCURR_PF bank tests (`stationary_beats_wrong_way`,
+  `slip_and_fall_are_the_floor`) FAIL on clean HEAD under the 08-24
+  mesh/100 Hz default flip (25 Hz-era margins). They gate only
+  legacy-diet launches (none planned); recalibrate if the v2e diet is
+  ever relaunched.
+
+## Next (after the decleg-sv wave reads)
+
+1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget
+   (3 seeds vs 1). Any arm escaping the static basin = the track's
+   first-ever discovery signal; continue per 08-21 and A/B the
+   architecture honestly.
+2. **If ALL FOUR stay pinned in the static basin at 20M with aligned
+   reward:** the operator-named fallback ladder, in order — (a)
+   off-policy SAC probe (Haarnoja 2018 Minitaur; Smith et al. 2022),
+   a trainer-side build; (b) Heess-style environment/terrain
+   diversity as the exploration driver (env-side build, bank-neutral).
+3. **On a rung-1 PASS:** heading rungs per the ladder, plus D6
+   symmetry pressure (operator request fb_20260829T144550: rotate
+   commands by 60 deg + permute per-leg obs/action indices — a
+   natural fit for the per-leg modules, rule-(a)-legal augmentation,
+   no motion prior). Then post-discovery RE-PRICING: reintroduce
+   slip/gait-quality charges only after a gait exists (operator
+   ruling's own sequencing).
 
 ## Now
 
@@ -569,7 +681,11 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## WAITING-ON
 
-- **[operator]** (08-24 ~03:4x): rung-1 discovery-from-scratch is
+- (none — the q_20260824T0233Z BC-kickstart ruling landed 08-29:
+  OUT OF BOUNDS, track resumed with non-BC literature-informed arms;
+  see the 08-29 Now section at top.)
+- **[operator, CLEARED 08-29]** (08-24 ~03:4x): rung-1
+  discovery-from-scratch was
   blocked pending a ruling on `OPERATOR_QUESTIONS.md` q_20260824T0233Z
   — is a brief BC-kickstart (imitation warm-start solely to escape the
   initial-state basin) in-bounds despite the track's own founding rule

@@ -8244,3 +8244,145 @@ def test_walkcurr_idle_term_dedicated_penalty_is_smaller_than_term_penalty(
     assert r["park"] > -400.0, (
         f"park's armed return looks like it paid the full term_penalty "
         f"rather than the dedicated walk_idle_terminate_penalty: {r}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR rung-1 SIMPLE-VELOCITY discovery diet (operator ruling
+# fb_20260829T145710, 2026-08-29: BC-kickstart is OUT OF BOUNDS; the
+# operator-registered literature — Schilling IROS 2020, Azayev &
+# Zimmermann 2020, Heess 2017 — all discover from-scratch legged
+# walking with a DISCOVERY reward far simpler than anything walkcurr
+# ran: plain along-command velocity + fall termination, no charge
+# stack).  This diet is that reward: the freeprog income term (its
+# validated stride-EMA form, at the rscale50 optimizer-health scale)
+# plus the termination penalty, with EVERY other term — the tracking
+# kernel quadratics, effort/current charges, park-duty/idle/loadslip/
+# step-event/heading — explicitly zeroed.
+#
+# WHAT THIS BANK PROMISES (and what it deliberately does NOT): under a
+# charge-free diet, real along-command travel must out-earn standing
+# in any form, wrong-way travel must sit below standing (freeprog's
+# signed along/cross charge), and dying must be the strict floor.  It
+# does NOT price slip: a dragging/skating gait that genuinely travels
+# EARNS like walking at discovery time.  That is the operator ruling's
+# explicit design: slip/gait-quality pricing returns POST-discovery,
+# and the rung-1 PASS gate (eval-side: gait validity, slip/m, video)
+# keeps rejecting skate regardless of what training income it farmed.
+WALKCURR_SV_OVERRIDES = {
+    # income: plain along-command velocity (stride-EMA form), capped
+    # slightly above the command band so overspeed still pays
+    ("reward", "k_walk_freeprog"): 0.06,
+    ("reward", "walk_freeprog_cap_m_s"): 0.08,
+    ("reward", "walk_kernel_vel_ema"): 1.0,
+    ("reward", "walk_kernel_vel_tau_s"): 0.75,
+    # fall termination (rscale50 optimizer-health scale)
+    ("reward", "term_penalty"): 24.0,
+    # everything else OFF — this dict IS the whole training reward
+    ("reward", "k_track"): 0.0,
+    ("reward", "k_roll"): 0.0,
+    ("reward", "k_pitch"): 0.0,
+    ("reward", "k_height"): 0.0,
+    ("reward", "k_gyro"): 0.0,
+    ("reward", "k_action"): 0.0,
+    ("reward", "k_action_delta"): 0.0,
+    ("reward", "k_current"): 0.0,
+    ("reward", "k_walk_heading"): 0.0,
+    ("reward", "k_step_event"): 0.0,
+    ("reward", "k_park_duty"): 0.0,
+    ("reward", "k_walk_idle_charge"): 0.0,
+    ("reward", "k_loadslip_excess"): 0.0,
+    ("goal", "walk_speed_min_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_speed_max_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_heading_max_rad"): 0.0,
+}
+
+
+@pytest.fixture(scope="module")
+def walkcurr_sv_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the simple-velocity
+    discovery diet (fixed forward command, 15 s episodes, 3 seeds)."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_SV_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_travel_beats_every_stationary_form(
+        walkcurr_sv_returns):
+    """Real along-command travel must out-earn refusal in every shape
+    the campaign has seen it (park, march-in-place, belly-sit)."""
+    gait = walkcurr_sv_returns["gait"]
+    for still in ("park", "stall", "belly_sit"):
+        assert gait > walkcurr_sv_returns[still] + 3.0, (
+            f"stationary '{still}' is competitive with real walking "
+            f"under the simple-velocity diet: {walkcurr_sv_returns}")
+    assert walkcurr_sv_returns["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_walkcurr_sv_stationary_income_is_pose_invariant(
+        walkcurr_sv_returns):
+    """Under this diet the ONLY stationary income is the zero-command
+    settle segment (the walk trajectory's 1 s hold + ramp, where the
+    K_WALK velocity kernel correctly pays 'v=0 when commanded v=0';
+    freeprog replaces it the moment s_ref > 0).  That income is
+    common-mode: no stationary POSE may earn or dodge anything the
+    others don't (the campaign's park / march-in-place / belly-sit
+    variants must be indistinguishable to the reward), or a statue
+    shape is being priced by a stray term."""
+    vals = [walkcurr_sv_returns[k]
+            for k in ("park", "stall", "belly_sit")]
+    assert max(vals) - min(vals) < 3.0, (
+        f"stationary income differs by pose under a charge-free diet: "
+        f"{walkcurr_sv_returns} — a stray default-on term is leaking "
+        "in.")
+
+
+def test_walkcurr_sv_wrong_way_below_standing(walkcurr_sv_returns):
+    """freeprog's signed along/cross charge must keep honest wrong-way
+    travel below standing still, or the policy can farm motion income
+    while ignoring the command."""
+    floor = min(walkcurr_sv_returns["park"], walkcurr_sv_returns["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > walkcurr_sv_returns[wrong] + 1.0, (
+            f"wrong-way '{wrong}' out-earns (or ties) standing still "
+            f"under the simple-velocity diet: {walkcurr_sv_returns}")
+
+
+def test_walkcurr_sv_dying_is_the_strict_floor(walkcurr_sv_returns):
+    """Fall termination is the diet's only charge; it must make dying
+    strictly worse than every behavior including wrong-way travel."""
+    floor = min(walkcurr_sv_returns[k]
+                for k in ("gait", "creep", "park", "stall", "belly_sit",
+                          "reverse", "sideways"))
+    assert walkcurr_sv_returns["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor: {walkcurr_sv_returns}")
+    # 150 ticks = 1.5 s at the mesh-family default 100 Hz (the PF
+    # bank's 75 was written for the 25 Hz era; the topple twin dies at
+    # ~0.9 s here without the k_roll/k_pitch quadratics' assist).
+    assert walkcurr_sv_returns["topple_steps"] < 150, (
+        "the topple twin did not die fast; bank probe is broken")
+
+
+def test_walkcurr_sv_more_travel_earns_more(walkcurr_sv_returns):
+    """Monotone travel income: the gradient out of a partial gait
+    points forward, and overspeed is never punished."""
+    assert (walkcurr_sv_returns["fast"] >= walkcurr_sv_returns["gait"]
+            > walkcurr_sv_returns["creep"]), (
+        f"travel income is not monotone: {walkcurr_sv_returns}")
